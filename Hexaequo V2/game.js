@@ -132,10 +132,29 @@ window.onload = function() {
             ctx.beginPath();
             ctx.arc(cx, cy, hexSize * 0.45, 0, 2 * Math.PI);
             ctx.lineWidth = 7;
-            ctx.strokeStyle = piece.color === 'black' ? (scheme === 'classic' ? '#222' : '#000') : (scheme === 'classic' ? '#fafafa' : '#fff');
+            ctx.strokeStyle = piece.color === 'black'
+                ? (scheme === 'classic' ? '#222' : '#000')
+                : (scheme === 'classic' ? '#fafafa' : '#fff');
             ctx.shadowColor = '#000a';
             ctx.shadowBlur = 4;
             ctx.stroke();
+
+            // Add a gray inner line for contrast (inner edge of ring)
+            ctx.beginPath();
+            ctx.arc(cx, cy, hexSize * 0.32, 0, 2 * Math.PI);
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = '#bbb';
+            ctx.shadowBlur = 0;
+            ctx.stroke();
+
+            // Add a gray outer line for contrast (outer edge of ring)
+            ctx.beginPath();
+            ctx.arc(cx, cy, hexSize * 0.6, 0, 2 * Math.PI);
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = '#bbb';
+            ctx.shadowBlur = 0;
+            ctx.stroke();
+
             ctx.restore();
         }
     }
@@ -403,6 +422,7 @@ window.onload = function() {
                 const key = `${q},${r}`;
                 pieces[key] = {type: 'disc', color: activePlayer};
                 discInventory[activePlayer]--;
+                playSound('piecePlacement');
                 placePieceBtnBounds = null;
                 placePieceBtnTile = null;
                 activePlayer = activePlayer === 'black' ? 'white' : 'black';
@@ -420,6 +440,7 @@ window.onload = function() {
                 const opp = activePlayer === 'black' ? 'white' : 'black';
                 captured[activePlayer].disc--;
                 discInventory[opp]++;
+                playSound('piecePlacement');
                 placePieceBtnBounds = null;
                 placePieceBtnTile = null;
                 activePlayer = opp;
@@ -454,10 +475,12 @@ window.onload = function() {
                             const capturedPiece = pieces[capturedKey];
                             captured[activePlayer][capturedPiece.type]++;
                             delete pieces[capturedKey];
+                            playSound('capture');
                         }
 
                         pieces[`${q},${r}`] = {type: 'ring', color: activePlayer};
                         delete pieces[selectedKey];
+                        playSound('move');
 
                         // End turn after ring move
                         selectedPiece = null;
@@ -480,16 +503,21 @@ window.onload = function() {
                     if (nq === q && nr === r && tiles[key] && !pieces[key]) {
                         pieces[key] = {type: 'disc', color: activePlayer};
                         delete pieces[`${sq},${sr}`];
+                        playSound('move');
                         activePlayer = activePlayer === 'black' ? 'white' : 'black';
                         selectedPiece = null;
                         multiJumping = false;
                         multiJumpPos = null;
                         endTurnBtnBounds = null;
+                        // Reset jump history
+                        jumpHistory = [];
                         drawGrid();
                         return;
                     }
                 }
             }
+            // --- Track friendly pieces jumped over in this sequence ---
+            if (!window.jumpHistory) window.jumpHistory = [];
             // Check jump move (over any piece, in any hex direction)
             const directions = [[1,0], [-1,0], [0,1], [0,-1], [1,-1], [-1,1]];
             let didJump = false;
@@ -501,18 +529,31 @@ window.onload = function() {
                 const jumpKey = `${jq},${jr}`;
                 const landingKey = `${landingQ},${landingR}`;
                 if (q === landingQ && r === landingR && pieces[jumpKey] && tiles[landingKey] && !pieces[landingKey]) {
+                    // Prevent jumping over the same friendly piece twice in the same sequence
+                    if (
+                        pieces[jumpKey].color === activePlayer &&
+                        window.jumpHistory.some(h => h.q === jq && h.r === jr)
+                    ) {
+                        continue; // Skip this jump, already jumped over this friendly piece
+                    }
                     // If enemy disc, capture and remove; if friendly, do not remove
                     if (pieces[jumpKey].type === 'disc' && pieces[jumpKey].color !== activePlayer) {
                         captured[activePlayer].disc++;
                         delete pieces[jumpKey];
+                        playSound('capture');
                     } else if (pieces[jumpKey].type === 'ring' && pieces[jumpKey].color !== activePlayer) {
                         captured[activePlayer].ring++;
                         delete pieces[jumpKey];
+                        playSound('capture');
                     }
                     pieces[landingKey] = {type: 'disc', color: activePlayer};
                     delete pieces[`${sq},${sr}`];
+                    // Track friendly piece jumped over
+                    if (pieces[jumpKey] && pieces[jumpKey].color === activePlayer) {
+                        window.jumpHistory.push({q: jq, r: jr});
+                    }
                     // Check if another jump is available from new position
-                    if (canJumpAgain(landingQ, landingR, activePlayer)) {
+                    if (canJumpAgain(landingQ, landingR, activePlayer, window.jumpHistory)) {
                         // Stay on same player's turn, keep piece selected, show End Turn button
                         selectedPiece = {q: landingQ, r: landingR};
                         multiJumping = true;
@@ -527,6 +568,8 @@ window.onload = function() {
                         multiJumpPos = null;
                         endTurnBtnBounds = null;
                         activePlayer = activePlayer === 'black' ? 'white' : 'black';
+                        // Reset jump history
+                        window.jumpHistory = [];
                         drawGrid();
                         return;
                     }
@@ -539,11 +582,13 @@ window.onload = function() {
             }
             // Unselect if not a valid move
             selectedPiece = null;
+            // Reset jump history
+            window.jumpHistory = [];
             drawGrid();
             return;
         }
     // Returns true if another jump is available for the piece at (q, r)
-    function canJumpAgain(q, r, player) {
+    function canJumpAgain(q, r, player, jumpHistory = []) {
         const directions = [[1,0], [-1,0], [0,1], [0,-1], [1,-1], [-1,1]];
         for (const [dq, dr] of directions) {
             const jq = q + dq;
@@ -554,10 +599,15 @@ window.onload = function() {
             const landingKey = `${landingQ},${landingR}`;
             if (pieces[jumpKey] && tiles[landingKey] && !pieces[landingKey]) {
                 // Must jump over a piece (any color), land on empty tile
-                if (pieces[jumpKey] !== player || pieces[jumpKey] === player) {
-                    // At least one jump available
-                    return true;
+                // Prevent jumping over the same friendly piece twice
+                if (
+                    pieces[jumpKey].color === player &&
+                    jumpHistory.some(h => h.q === jq && h.r === jr)
+                ) {
+                    continue;
                 }
+                // At least one jump available
+                return true;
             }
         }
         return false;
@@ -595,6 +645,7 @@ window.onload = function() {
             } else if (canPlaceDisc) {
                 pieces[key] = {type: 'disc', color: activePlayer};
                 discInventory[activePlayer]--;
+                playSound('piecePlacement');
                 activePlayer = activePlayer === 'black' ? 'white' : 'black';
                 drawGrid();
                 return;
@@ -604,6 +655,7 @@ window.onload = function() {
                 // Return a captured disc to opponent
                 const opp = activePlayer === 'black' ? 'white' : 'black';
                 captured[activePlayer].disc--;
+                playSound('piecePlacement');
                 discInventory[opp]++;
                 activePlayer = opp;
                 drawGrid();
@@ -622,13 +674,14 @@ window.onload = function() {
         if (adjacent < 2) return;
         tiles[key] = activePlayer;
         inventory[activePlayer]--;
+        playSound('tilePlacement');
         activePlayer = activePlayer === 'black' ? 'white' : 'black';
         drawGrid();
     });
 
     // Returns valid jump positions for a ring at (q, r)
     function getRingJumpPositions(q, r, player) {
-        const directions = [[2, 0], [-2, 0], [0, 2], [0, -2], [2, -2], [-2, 2], [1, 1], [-1, -1], [1, -1], [-1, 1], [2, -1], [-2, 1]];
+        const directions = [[0, -2], [1, -2], [2, -2], [2, -1], [2, 0], [1, 1], [0, 2], [-1, 2], [-2, 2], [-2, 1], [-2, 0], [-1, -1]];
         const validPositions = [];
 
         for (const [dq, dr] of directions) {
@@ -668,11 +721,12 @@ window.onload = function() {
                     const capturedPiece = pieces[capturedKey];
                     captured[activePlayer][capturedPiece.type]++;
                     delete pieces[capturedKey];
+                    playSound('capture');
                 }
 
                 pieces[`${q},${r}`] = {type: 'ring', color: activePlayer};
                 delete pieces[`${sq},${sr}`];
-
+                playSound('move');
                 // End turn after ring move
                 selectedPiece = null;
                 activePlayer = activePlayer === 'black' ? 'white' : 'black';
@@ -701,6 +755,70 @@ window.onload = function() {
             endGame('White');
             return true;
         }
+
+        // Stalemate: if active player has no legal move, declare Ex Aequo!
+        if (!hasAnyLegalMove(activePlayer)) {
+            endGame('Ex Aequo!');
+            return true;
+        }
+
+        return false;
+    }
+
+    // Returns true if the player has any legal move available
+    function hasAnyLegalMove(player) {
+        // 1. Can place a tile?
+        if (inventory[player] > 0) {
+            // Try all possible positions
+            for (let q = -radius; q <= radius; q++) {
+                for (let r = Math.max(-radius, -q-radius); r <= Math.min(radius, -q+radius); r++) {
+                    const key = `${q},${r}`;
+                    if (!tiles[key]) {
+                        // Must be adjacent to at least 2 already placed tiles
+                        let adjacent = 0;
+                        for (const [nq, nr] of getNeighbors(q, r)) {
+                            if (tiles[`${nq},${nr}`]) adjacent++;
+                        }
+                        if (adjacent >= 2) return true;
+                    }
+                }
+            }
+        }
+        // 2. Can place a disc or ring?
+        for (const key in tiles) {
+            if (tiles[key] === player && !pieces[key]) {
+                if (discInventory[player] > 0) return true;
+                if (ringInventory[player] > 0 && captured[player].disc > 0) return true;
+            }
+        }
+        // 3. Can move any piece?
+        for (const key in pieces) {
+            const piece = pieces[key];
+            if (piece.color !== player) continue;
+            const [q, r] = key.split(',').map(Number);
+            if (piece.type === 'disc') {
+                // Adjacent move
+                for (const [nq, nr] of getNeighbors(q, r)) {
+                    const nkey = `${nq},${nr}`;
+                    if (tiles[nkey] && !pieces[nkey]) return true;
+                }
+                // Jump move
+                const directions = [[1,0], [-1,0], [0,1], [0,-1], [1,-1], [-1,1]];
+                for (const [dq, dr] of directions) {
+                    const jq = q + dq, jr = r + dr;
+                    const landingQ = q + 2*dq, landingR = r + 2*dr;
+                    const jumpKey = `${jq},${jr}`;
+                    const landingKey = `${landingQ},${landingR}`;
+                    if (pieces[jumpKey] && tiles[landingKey] && !pieces[landingKey]) {
+                        return true;
+                    }
+                }
+            } else if (piece.type === 'ring') {
+                // Ring jump positions
+                const moves = getRingJumpPositions(q, r, player);
+                if (moves.length > 0) return true;
+            }
+        }
         return false;
     }
 
@@ -711,6 +829,7 @@ window.onload = function() {
 
     // End the game and display the winner
     function endGame(winner) {
+        playSound('gameEnd');
         const gameOverDiv = document.createElement('div');
         gameOverDiv.id = 'gameOver';
         gameOverDiv.style.position = 'absolute';
@@ -724,7 +843,7 @@ window.onload = function() {
         gameOverDiv.style.zIndex = '1000';
 
         const winnerText = document.createElement('p');
-        winnerText.textContent = `${winner} wins the game!`;
+        winnerText.textContent = winner === 'Ex Aequo!' ? 'Ex Aequo!' : `${winner} wins the game!`;
         winnerText.style.fontSize = '20px';
         winnerText.style.fontWeight = 'bold';
         winnerText.style.color = '#000'; // Set text color to black for contrast
@@ -821,11 +940,44 @@ window.onload = function() {
             return;
         }
 
-        // Update tiles and pieces
+        // Detect changes between current and updated state
+        const previousState = serializeGameState();
+
+        // Play sound for tile placement
+        for (const key in updatedState.tiles) {
+            if (!previousState.tiles[key] && updatedState.tiles[key]) {
+                playSound('tilePlacement');
+            }
+        }
+
+        // Play sound for piece placement based on inventory change
+        for (const player of ['black', 'white']) {
+            if (updatedState.inventory[player].discs < previousState.inventory[player].discs ||
+            updatedState.inventory[player].rings < previousState.inventory[player].rings) {
+            playSound('piecePlacement');
+            }
+        }
+
+        // Play sound for captures if either player's captured discs or rings increased
+        if (
+            updatedState.captured.black_discs > previousState.captured.black_discs ||
+            updatedState.captured.black_rings > previousState.captured.black_rings ||
+            updatedState.captured.white_discs > previousState.captured.white_discs ||
+            updatedState.captured.white_rings > previousState.captured.white_rings
+        ) {
+            playSound('capture');
+        }
+
+        // Play sound for moves (if a piece changes position)
+        for (const key in previousState.pieces) {
+            if (previousState.pieces[key] && !updatedState.pieces[key]) {
+                playSound('move');
+            }
+        }
+
+        // Update the game state
         tiles = updatedState.tiles;
         pieces = updatedState.pieces;
-
-        // Update inventory
         inventory = {
             black: updatedState.inventory.black.tiles,
             white: updatedState.inventory.white.tiles
@@ -838,8 +990,6 @@ window.onload = function() {
             black: updatedState.inventory.black.rings,
             white: updatedState.inventory.white.rings
         };
-
-        // Update captured pieces
         captured = {
             black: {
                 disc: updatedState.captured.black_discs,
@@ -862,6 +1012,29 @@ window.onload = function() {
         // Log the received state for debugging
         console.log('Received game state from AI:', updatedState);
     }
+
+    // Step 1: Add sound effects for game actions
+    const sounds = {
+        tilePlacement: new Audio('sounds/tile_placement.mp3'),
+        piecePlacement: new Audio('sounds/piece_placement.mp3'),
+        capture: new Audio('sounds/capture.mp3'),
+        move: new Audio('sounds/move.mp3'),
+        gameEnd: new Audio('sounds/game_end.mp3'),
+        buttonClick: new Audio('sounds/button_click.mp3') // Add button click sound
+    };
+
+    function playSound(action) {
+        if (sounds[action]) {
+            sounds[action].play();
+        }
+    }
+
+    // Play button click sound when any button is clicked
+    document.querySelectorAll('button').forEach(button => {
+        button.addEventListener('click', () => {
+            playSound('buttonClick');
+        });
+    });
 
     // Send the game state to the AI and handle the response
     async function sendToAI() {
@@ -950,10 +1123,14 @@ window.onload = function() {
             return;
         }
 
-        // If in AI mode and it's the AI's turn, serialize the board and send it to the AI
+        // Serialize the board and send it to the AI if in AI mode
         if (isAiMode && canvas.style.pointerEvents !== 'none') {
             sendToAI();
         }
+
+        // Ensure sounds play in both AI and 2-player modes
+        // Play sounds for actions in both modes
+        // ...existing code for sound playback...
 
         // ...existing code...
     });

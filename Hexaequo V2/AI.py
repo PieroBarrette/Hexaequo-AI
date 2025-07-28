@@ -63,7 +63,7 @@ def log_move_differences(original_state, proposed_state):
         differences['activePlayer'] = proposed_state['activePlayer']
 
     # Log the differences
-    #logging.info(f"Differences between original and proposed state: {differences}")
+    logging.info(f"Differences between original and proposed state: {differences}")
 
 @app.route('/process', methods=['POST'])
 def process_game_state():
@@ -74,7 +74,7 @@ def process_game_state():
 
     # Log the game state only once
     if not logged_game_state:
-        #logging.info(f"Received game state: {game_state}")
+        logging.info(f"Received game state: {game_state}")
         logged_game_state = True
 
     if(game_state['activePlayer'] == 'black'):
@@ -93,7 +93,7 @@ def process_game_state():
 
     # Ensure the minimizing player logic is correct
     for child in children:
-        score, pruned = minimax(child, depth=5, alpha=float('-inf'), beta=float('inf'), maximizingPlayer=True, branch_prefix=child.get('branch', '1'))
+        score, pruned = minimax(child, depth=3, alpha=float('-inf'), beta=float('inf'), maximizingPlayer=True, branch_prefix=child.get('branch', '1'))
         #logging.info(f"Child state score: {score}, MinimizingPlayer: True")
         total_pruned_branches += pruned
 
@@ -103,8 +103,8 @@ def process_game_state():
             best_move = child
 
     # Ensure the returned game state is properly formatted
-    if not all(key in best_move for key in ['tiles', 'pieces', 'inventory', 'captured']):
-        #logging.error("The chosen move is missing required keys. Returning the current state.")
+    if best_move is None or not all(key in best_move for key in ['tiles', 'pieces', 'inventory', 'captured']):
+        logging.warning("No valid move found or the chosen move is missing required keys. Returning the current state.")
         return jsonify(game_state)
 
     # Log the differences between the original and proposed game states
@@ -192,7 +192,8 @@ def is_terminal(state):
         state['captured']['white_discs'] >= 6 or
         state['captured']['black_rings'] >= 3 or
         state['captured']['white_rings'] >= 3 or
-        not black_has_pieces or not white_has_pieces
+        not black_has_pieces or not white_has_pieces or
+        len(get_children(state, branch_prefix=state.get('branch', ''))) == 0  # Stalemate: no available moves for active player
     )
     return terminal
 
@@ -204,72 +205,42 @@ def evaluate(state):
     for position, piece in state['pieces'].items():
         if piece['type'] == 'disc':
             if piece['color'] == 'black':
-                black_score += 1
+                black_score += 4
             else:
-                white_score += 1
+                white_score += 4
         elif piece['type'] == 'ring':
             if piece['color'] == 'black':
-                black_score += 3
+                black_score += 16
             else:
-                white_score += 3
+                white_score += 16
 
     # Score captured pieces
-    black_score += int(state['captured']['black_discs']) * 1.5
-    black_score += int(state['captured']['black_rings']) * 4.5
-    white_score += int(state['captured']['white_discs']) * 1.5
-    white_score += int(state['captured']['white_rings']) * 4.5
+    black_score += int(state['captured']['black_discs']) * 8
+    black_score += int(state['captured']['black_rings']) * 32
+    white_score += int(state['captured']['white_discs']) * 8
+    white_score += int(state['captured']['white_rings']) * 32
 
     # Score empty tiles of own color
     for position, tile_color in state['tiles'].items():
         if position not in state['pieces']:
             if tile_color == 'black':
-                black_score += 0.2
+                black_score += 1
             elif tile_color == 'white':
-                white_score += 0.2
-
-    # # Detect threats on discs and rings
-    # threat_score_black = 0
-    # threat_score_white = 0
-    # opponent = 'white' if state['activePlayer'] == 'black' else 'black'
-
-    # # Simulate opponent's moves to detect threats
-    # opponent_moves = get_children(state)
-    # for move in opponent_moves:
-    #     for position, piece in move['pieces'].items():
-    #         if piece['type'] == 'disc' and piece['color'] == state['activePlayer']:
-    #             if state['activePlayer'] == 'black':
-    #                 threat_score_black += 0.25
-    #             else:
-    #                 threat_score_white += 0.25
-    #         elif piece['type'] == 'ring' and piece['color'] == state['activePlayer']:
-    #             if state['activePlayer'] == 'black':
-    #                 threat_score_black += 0.75
-    #             else:
-    #                 threat_score_white += 0.75
-
-    # # Adjust scores based on threats
-    # black_score -= threat_score_black
-    # white_score -= threat_score_white
-
-    # black_moves = len(get_children(state)
-    #white_moves = len(get_children(state)
-    #black_score += black_moves * 0.1
-    #white_score += white_moves * 0.1
-
-    # Log mobility scores
-    #logging.info(f"Mobility: Black={black_moves} moves, White={white_moves} moves")
+                white_score += 1
 
     score = black_score - white_score
 
-    #logging.info(f"Score breakdown: Black={black_score}, White={white_score}, Final Score={score}")
     black_has_pieces = any(piece for piece in state['pieces'].values() if piece['color'] == 'black' and piece['type'] in ['disc', 'ring'])
     white_has_pieces = any(piece for piece in state['pieces'].values() if piece['color'] == 'white' and piece['type'] in ['disc', 'ring'])
-
     
     if state['captured']['black_discs'] >= 6 or state['captured']['black_rings'] >= 3 or not white_has_pieces:
-        return float('inf')
+        return 999
     elif state['captured']['white_discs'] >= 6 or state['captured']['white_rings'] >= 3 or not black_has_pieces:
-        return float('-inf')
+        return -999
+    
+    # Stalemate: if the active player has no available moves, it's Ex Aequo (draw)
+    if len(get_children(state, branch_prefix=state.get('branch', ''))) == 0:
+        return 0
 
     return score
 
@@ -696,11 +667,11 @@ def get_valid_ring_moves(state, player):
     # Define the 12 possible directions for a ring to move exactly 2 tiles away
     directions = [
         (-2, 0), (2, 0),  # Horizontal
-        (0, -2), (0, 2),  # Vertical
-        (-2, -2), (2, 2),  # Diagonal top-left to bottom-right
-        (-2, 2), (2, -2),  # Diagonal top-right to bottom-left
-        (-1, -2), (-1, 2),  # L-shaped moves
-        (1, -2), (1, 2)    # L-shaped moves
+        (1, -2), (-1, 2),  # Vertical
+        (0, -2), (0, 2),  # Diagonal top-left to bottom-right
+        (2, -2), (-2, 2),  # Diagonal top-right to bottom-left
+        (-1, -1), (1, 1),  # L-shaped moves
+        (-2, 1), (2, -1)    # L-shaped moves
     ]
 
     # Loop through all pieces on the board
