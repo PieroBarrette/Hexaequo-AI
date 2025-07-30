@@ -234,13 +234,13 @@ def evaluate(state):
     white_has_pieces = any(piece for piece in state['pieces'].values() if piece['color'] == 'white' and piece['type'] in ['disc', 'ring'])
     
     if state['captured']['black_discs'] >= 6 or state['captured']['black_rings'] >= 3 or not white_has_pieces:
-        return 999
+        score = 999
     elif state['captured']['white_discs'] >= 6 or state['captured']['white_rings'] >= 3 or not black_has_pieces:
-        return -999
-    
+        score = -999
+
     # Stalemate: if the active player has no available moves, it's Ex Aequo (draw)
     if len(get_children(state, branch_prefix=state.get('branch', ''))) == 0:
-        return 0
+        score = 0
 
     return score
 
