@@ -93,7 +93,7 @@ def process_game_state():
 
     # Ensure the minimizing player logic is correct
     for child in children:
-        score, pruned = minimax(child, depth=3, alpha=float('-inf'), beta=float('inf'), maximizingPlayer=True, branch_prefix=child.get('branch', '1'))
+        score, pruned = minimax(child, depth=2, alpha=float('-inf'), beta=float('inf'), maximizingPlayer=True, branch_prefix=child.get('branch', '1'))
         #logging.info(f"Child state score: {score}, MinimizingPlayer: True")
         total_pruned_branches += pruned
 
@@ -124,6 +124,10 @@ def process_game_state():
     # Log the total number of branches pruned during the Minimax execution
     logging.info(f"Total branches pruned during Minimax execution: {total_pruned_branches}")
 
+    # Log the evaluation score of the chosen move
+    eval_score = evaluate(best_move)
+    logging.info(f"Evaluation score of chosen move: {eval_score}")
+    
     # Return the updated game state with the chosen move
     return jsonify(best_move)
 
@@ -205,28 +209,28 @@ def evaluate(state):
     for position, piece in state['pieces'].items():
         if piece['type'] == 'disc':
             if piece['color'] == 'black':
-                black_score += 4
+                black_score += 1
             else:
-                white_score += 4
+                white_score += 1
         elif piece['type'] == 'ring':
             if piece['color'] == 'black':
-                black_score += 16
+                black_score += 3
             else:
-                white_score += 16
+                white_score += 3
 
-    # Score captured pieces
-    black_score += int(state['captured']['black_discs']) * 8
-    black_score += int(state['captured']['black_rings']) * 32
-    white_score += int(state['captured']['white_discs']) * 8
-    white_score += int(state['captured']['white_rings']) * 32
+    # Simple scoring for captured pieces
+    black_score += int(state['captured']['black_discs']) * 1.5
+    black_score += int(state['captured']['black_rings']) * 4.5
+    white_score += int(state['captured']['white_discs']) * 1.5
+    white_score += int(state['captured']['white_rings']) * 4.5
 
     # Score empty tiles of own color
     for position, tile_color in state['tiles'].items():
         if position not in state['pieces']:
             if tile_color == 'black':
-                black_score += 1
+                black_score += 0.2
             elif tile_color == 'white':
-                white_score += 1
+                white_score += 0.2
 
     score = black_score - white_score
 
@@ -495,9 +499,9 @@ def simulate_ring_move(state, from_position, to_position):
         # Capture the opponent's piece
         captured_piece = state['pieces'].pop(to_position)
         if captured_piece['type'] == 'disc':
-            state['captured'][f"{captured_piece['color']}_discs"] += 1
+            state['captured'][f"{state['pieces'][from_position]['color']}_discs"] += 1
         elif captured_piece['type'] == 'ring':
-            state['captured'][f"{captured_piece['color']}_rings"] += 1
+            state['captured'][f"{state['pieces'][from_position]['color']}_rings"] += 1
 
     # Move the ring to the new position
     state['pieces'][to_position] = state['pieces'].pop(from_position)

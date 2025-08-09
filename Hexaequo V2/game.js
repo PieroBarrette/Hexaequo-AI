@@ -67,7 +67,7 @@ window.onload = function() {
             border: '#fff',
         },
         classic: {
-            bg: '#e0c68a',
+            bg: '#d0c09bff',
             black: '#7a5230', // dark brown
             white: '#f5e2b6', // light brown
             border: '#7a5230',
@@ -334,41 +334,175 @@ window.onload = function() {
             playerStatus.style.textShadow = colorScheme === 'modern' ? '0 0 4px #fff, 0 0 2px #000' : '0 0 2px #b08b4f';
         }
 
-        // Update inventories (show Black and White only once at the top)
-        const blackInv = document.getElementById('blackInventory');
-        const whiteInv = document.getElementById('whiteInventory');
-        const blackDiscInv = document.getElementById('blackDiscInventory');
-        const whiteDiscInv = document.getElementById('whiteDiscInventory');
-        const blackRingInv = document.getElementById('blackRingInventory');
-        const whiteRingInv = document.getElementById('whiteRingInventory');
-        const blackCaptured = document.getElementById('blackCaptured');
-        const whiteCaptured = document.getElementById('whiteCaptured');
+        function drawInventory() {
+            const boxWidth = 175;
+            const padding = 10;
 
-        if (blackInv && blackDiscInv && blackRingInv && blackCaptured) {
-            blackInv.innerHTML =
-                `<span style="color:${schemes[colorScheme].black};font-weight:bold;">Black</span><br>` +
-                `Tiles: ${inventory.black}<br>` +
-                `Discs: ${discInventory.black}<br>` +
-                `Rings: ${ringInventory.black}<br>` +
-                `Captured Discs: ${captured.black.disc}<br>` +
-                `Captured Rings: ${captured.black.ring}`;
-            // Clear the other black sections
-            blackDiscInv.innerHTML = '';
-            blackRingInv.innerHTML = '';
-            blackCaptured.innerHTML = '';
+            // Black player inventory box (top-left)
+            const blackBoxX = padding;
+            const blackBoxY = padding;
+
+            // White player inventory box (top-right)
+            const whiteBoxX = canvas.width - boxWidth - padding;
+            const whiteBoxY = padding;
+
+            // Draw black player's inventory items
+            drawInventoryItems(blackBoxX, blackBoxY, 'black');
+
+            // Draw white player's inventory items
+            drawInventoryItems(whiteBoxX, whiteBoxY, 'white');
+
+            ctx.restore();
         }
-        if (whiteInv && whiteDiscInv && whiteRingInv && whiteCaptured) {
-            whiteInv.innerHTML =
-                `<span style="color:${schemes[colorScheme].white};font-weight:bold;">White</span><br>` +
-                `Tiles: ${inventory.white}<br>` +
-                `Discs: ${discInventory.white}<br>` +
-                `Rings: ${ringInventory.white}<br>` +
-                `Captured Discs: ${captured.white.disc}<br>` +
-                `Captured Rings: ${captured.white.ring}`;
-            // Clear the other white sections
-            whiteDiscInv.innerHTML = '';
-            whiteRingInv.innerHTML = '';
-            whiteCaptured.innerHTML = '';
+
+        function drawInventoryItems(boxX, boxY, player) {
+            const itemSize = 25;
+            const gap = 30;
+            const startX = boxX + 30;
+            const startY = boxY + 30;
+
+            // Draw tiles
+            for (let i = 0; i < inventory[player]; i++) {
+                const cx = startX + (i % 3) * (itemSize + gap);
+                const cy = startY + Math.floor(i / 3) * (itemSize + gap * 1.25);
+                ctx.save();
+                ctx.beginPath();
+                for (let j = 0; j < 6; j++) {
+                    const angle = Math.PI / 3 * j + Math.PI / 6;
+                    const x = cx + itemSize * Math.cos(angle);
+                    const y = cy + itemSize * Math.sin(angle);
+                    if (j === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                ctx.fillStyle = colorScheme === 'classic' ? schemes.classic[player] : schemes.modern[player];
+                ctx.shadowColor = '#000a';
+                ctx.shadowBlur = 3;
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = colorScheme === 'classic' ? '#b08b4f' : '#888';
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // Draw discs
+            discRadius = itemSize;
+            for (let i = 0; i < discInventory[player]; i++) {
+                const x = startX + (i % 3) * (itemSize + gap);
+                const y = startY + itemSize * 7 + Math.floor(i / 3) * (itemSize + gap);
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(x, y, discRadius * 0.45, 0, 2 * Math.PI);
+                ctx.fillStyle = player === 'black'
+                    ? (colorScheme === 'classic' ? '#222' : '#000')
+                    : (colorScheme === 'classic' ? '#fafafa' : '#fff');
+                ctx.shadowColor = '#000a';
+                ctx.shadowBlur = 2;
+                ctx.fill();
+                ctx.lineWidth = 1.5;
+                ctx.strokeStyle = player === 'black' ? '#888' : '#bbb';
+                ctx.stroke();
+                ctx.restore();
+            }
+
+        // Draw rings
+        ringRadius = itemSize;
+        for (let i = 0; i < ringInventory[player]; i++) {
+            const x = startX + (i % 3) * (itemSize + gap);
+            const y = startY + itemSize * 11 + Math.floor(i / 3) * (itemSize + gap);
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(x, y, ringRadius * 0.45, 0, 2 * Math.PI);
+            ctx.lineWidth = 7;
+            ctx.strokeStyle = player === 'black'
+                ? (colorScheme === 'classic' ? '#222' : '#000')
+                : (colorScheme === 'classic' ? '#fafafa' : '#fff');
+            ctx.shadowColor = '#000a';
+            ctx.shadowBlur = 2;
+            ctx.stroke();
+
+            // Add a gray inner line for contrast (inner edge of ring)
+            ctx.beginPath();
+            ctx.arc(x, y, ringRadius * 0.32, 0, 2 * Math.PI);
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = '#bbb';
+            ctx.shadowBlur = 0;
+            ctx.stroke();
+
+            // Add a gray outer line for contrast (outer edge of ring)
+            ctx.beginPath();
+            ctx.arc(x, y, ringRadius * 0.6, 0, 2 * Math.PI);
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = '#bbb';
+            ctx.shadowBlur = 0;
+            ctx.stroke();
+            ctx.restore();
+        }
+
+            // Draw captured pieces
+            discRadius = itemSize;
+            ringRadius = itemSize;
+            const opponent = player === 'black' ? 'white' : 'black';
+            for (let i = 0; i < captured[player].disc; i++) {
+                const x = startX + (i % 3) * (itemSize + gap);
+                const y = startY + itemSize * 13 + Math.floor(i / 3) * (itemSize + gap);
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(x, y, discRadius * 0.45, 0, 2 * Math.PI);
+                ctx.fillStyle = opponent === 'black'
+                    ? (colorScheme === 'classic' ? '#222' : '#000')
+                    : (colorScheme === 'classic' ? '#fafafa' : '#fff');
+                ctx.shadowColor = '#000a';
+                ctx.shadowBlur = 2;
+                ctx.fill();
+                ctx.lineWidth = 1.5;
+                ctx.strokeStyle = player === 'black' ? '#888' : '#bbb';
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            for (let i = 0; i < captured[player].ring; i++) {
+                const x = startX + (i % 3) * (itemSize + gap);
+                const y = startY + itemSize * 15 + Math.floor(i / 3) * (itemSize + gap);
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(x, y, ringRadius * 0.45, 0, 2 * Math.PI);
+                ctx.lineWidth = 7;
+                ctx.strokeStyle = opponent === 'black'
+                    ? (colorScheme === 'classic' ? '#222' : '#000')
+                    : (colorScheme === 'classic' ? '#fafafa' : '#fff');
+                ctx.shadowColor = '#000a';
+                ctx.shadowBlur = 2;
+                ctx.stroke();
+
+                // Add a gray inner line for contrast (inner edge of ring)
+                ctx.beginPath();
+                ctx.arc(x, y, ringRadius * 0.32, 0, 2 * Math.PI);
+                ctx.lineWidth = 1.5;
+                ctx.strokeStyle = '#bbb';
+                ctx.shadowBlur = 0;
+                ctx.stroke();
+
+                // Add a gray outer line for contrast (outer edge of ring)
+                ctx.beginPath();
+                ctx.arc(x, y, ringRadius * 0.6, 0, 2 * Math.PI);
+                ctx.lineWidth = 1.5;
+                ctx.strokeStyle = '#bbb';
+                ctx.shadowBlur = 0;
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        drawInventory();
+
+        // Update player status
+        if (playerStatus) {
+            playerStatus.textContent = `Active player: ${activePlayer.charAt(0).toUpperCase() + activePlayer.slice(1)}`;
+            playerStatus.style.color = colorScheme === 'modern'
+                ? (activePlayer === 'black' ? schemes.modern.black : schemes.modern.white)
+                : (activePlayer === 'black' ? schemes.classic.black : schemes.classic.white);
+            playerStatus.style.textShadow = colorScheme === 'modern' ? '0 0 4px #fff, 0 0 2px #000' : '0 0 2px #b08b4f';
         }
     }
 
@@ -403,12 +537,14 @@ window.onload = function() {
             const bx = endTurnBtnBounds.x, by = endTurnBtnBounds.y, bw = endTurnBtnBounds.w, bh = endTurnBtnBounds.h;
             if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
                 // End turn and switch active player immediately
+                gameState = serializeGameState();
                 multiJumping = false;
                 multiJumpPos = null;
                 selectedPiece = null;
                 endTurnBtnBounds = null;
                 activePlayer = activePlayer === 'black' ? 'white' : 'black';
-                drawGrid();
+                updatedState = serializeGameState();
+                applyGameState(updatedState, gameState);
                 return;
             }
         }
@@ -418,20 +554,22 @@ window.onload = function() {
             // Disc button
             if (mx >= discBtn.x && mx <= discBtn.x + discBtn.w && my >= discBtn.y && my <= discBtn.y + discBtn.h) {
                 // Place disc
+                gameState = serializeGameState();
                 const q = placePieceBtnTile.q, r = placePieceBtnTile.r;
                 const key = `${q},${r}`;
                 pieces[key] = {type: 'disc', color: activePlayer};
                 discInventory[activePlayer]--;
-                playSound('piecePlacement');
                 placePieceBtnBounds = null;
                 placePieceBtnTile = null;
                 activePlayer = activePlayer === 'black' ? 'white' : 'black';
-                drawGrid();
+                updatedState = serializeGameState();
+                applyGameState(updatedState, gameState);
                 return;
             }
             // Ring button
             if (mx >= ringBtn.x && mx <= ringBtn.x + ringBtn.w && my >= ringBtn.y && my <= ringBtn.y + ringBtn.h) {
                 // Place ring: must return a captured disc to opponent
+                gameState = serializeGameState();
                 const q = placePieceBtnTile.q, r = placePieceBtnTile.r;
                 const key = `${q},${r}`;
                 pieces[key] = {type: 'ring', color: activePlayer};
@@ -440,11 +578,11 @@ window.onload = function() {
                 const opp = activePlayer === 'black' ? 'white' : 'black';
                 captured[activePlayer].disc--;
                 discInventory[opp]++;
-                playSound('piecePlacement');
                 placePieceBtnBounds = null;
                 placePieceBtnTile = null;
                 activePlayer = opp;
-                drawGrid();
+                updatedState = serializeGameState();
+                applyGameState(updatedState, gameState);
                 return;
             }
             // Clicked elsewhere: cancel buttons
@@ -470,22 +608,22 @@ window.onload = function() {
                 for (const move of validMoves) {
                     if (move.q === q && move.r === r) {
                         // Perform the move
+                        gameState = serializeGameState();
                         if (move.capture) {
                             const capturedKey = `${q},${r}`;
                             const capturedPiece = pieces[capturedKey];
                             captured[activePlayer][capturedPiece.type]++;
                             delete pieces[capturedKey];
-                            playSound('capture');
                         }
 
                         pieces[`${q},${r}`] = {type: 'ring', color: activePlayer};
                         delete pieces[selectedKey];
-                        playSound('move');
 
                         // End turn after ring move
                         selectedPiece = null;
                         activePlayer = activePlayer === 'black' ? 'white' : 'black';
-                        drawGrid();
+                        updatedState = serializeGameState();
+                        applyGameState(updatedState, gameState);
                         return;
                     }
                 }
@@ -501,9 +639,9 @@ window.onload = function() {
                 // Check adjacent move
                 for (const [nq, nr] of getNeighbors(sq, sr)) {
                     if (nq === q && nr === r && tiles[key] && !pieces[key]) {
+                        gameState = serializeGameState();
                         pieces[key] = {type: 'disc', color: activePlayer};
                         delete pieces[`${sq},${sr}`];
-                        playSound('move');
                         activePlayer = activePlayer === 'black' ? 'white' : 'black';
                         selectedPiece = null;
                         multiJumping = false;
@@ -511,7 +649,8 @@ window.onload = function() {
                         endTurnBtnBounds = null;
                         // Reset jump history
                         jumpHistory = [];
-                        drawGrid();
+                        updatedState = serializeGameState();
+                        applyGameState(updatedState, gameState);
                         return;
                     }
                 }
@@ -529,6 +668,7 @@ window.onload = function() {
                 const jumpKey = `${jq},${jr}`;
                 const landingKey = `${landingQ},${landingR}`;
                 if (q === landingQ && r === landingR && pieces[jumpKey] && tiles[landingKey] && !pieces[landingKey]) {
+                    gameState = serializeGameState();
                     // Prevent jumping over the same friendly piece twice in the same sequence
                     if (
                         pieces[jumpKey].color === activePlayer &&
@@ -540,11 +680,9 @@ window.onload = function() {
                     if (pieces[jumpKey].type === 'disc' && pieces[jumpKey].color !== activePlayer) {
                         captured[activePlayer].disc++;
                         delete pieces[jumpKey];
-                        playSound('capture');
                     } else if (pieces[jumpKey].type === 'ring' && pieces[jumpKey].color !== activePlayer) {
                         captured[activePlayer].ring++;
                         delete pieces[jumpKey];
-                        playSound('capture');
                     }
                     pieces[landingKey] = {type: 'disc', color: activePlayer};
                     delete pieces[`${sq},${sr}`];
@@ -570,7 +708,8 @@ window.onload = function() {
                         activePlayer = activePlayer === 'black' ? 'white' : 'black';
                         // Reset jump history
                         window.jumpHistory = [];
-                        drawGrid();
+                        updatedState = serializeGameState();
+                        applyGameState(updatedState, gameState);
                         return;
                     }
                 }
@@ -643,22 +782,24 @@ window.onload = function() {
                 drawGrid();
                 return;
             } else if (canPlaceDisc) {
+                gameState = serializeGameState();
                 pieces[key] = {type: 'disc', color: activePlayer};
                 discInventory[activePlayer]--;
-                playSound('piecePlacement');
                 activePlayer = activePlayer === 'black' ? 'white' : 'black';
-                drawGrid();
+                updatedState = serializeGameState();
+                applyGameState(updatedState, gameState);
                 return;
             } else if (canPlaceRing) {
+                gameState = serializeGameState();
                 pieces[key] = {type: 'ring', color: activePlayer};
                 ringInventory[activePlayer]--;
                 // Return a captured disc to opponent
                 const opp = activePlayer === 'black' ? 'white' : 'black';
                 captured[activePlayer].disc--;
-                playSound('piecePlacement');
                 discInventory[opp]++;
                 activePlayer = opp;
-                drawGrid();
+                updatedState = serializeGameState();
+                applyGameState(updatedState, gameState);
                 return;
             }
         }
@@ -672,11 +813,12 @@ window.onload = function() {
             if (tiles[`${nq},${nr}`]) adjacent++;
         }
         if (adjacent < 2) return;
+        gameState = serializeGameState();
         tiles[key] = activePlayer;
         inventory[activePlayer]--;
-        playSound('tilePlacement');
         activePlayer = activePlayer === 'black' ? 'white' : 'black';
-        drawGrid();
+        updatedState = serializeGameState();
+        applyGameState(updatedState, gameState);
     });
 
     // Returns valid jump positions for a ring at (q, r)
@@ -716,21 +858,21 @@ window.onload = function() {
         for (const move of validMoves) {
             if (move.q === q && move.r === r) {
                 // Perform the move
+                gameState = serializeGameState();
                 if (move.capture) {
                     const capturedKey = `${q},${r}`;
                     const capturedPiece = pieces[capturedKey];
                     captured[activePlayer][capturedPiece.type]++;
                     delete pieces[capturedKey];
-                    playSound('capture');
                 }
 
                 pieces[`${q},${r}`] = {type: 'ring', color: activePlayer};
                 delete pieces[`${sq},${sr}`];
-                playSound('move');
                 // End turn after ring move
                 selectedPiece = null;
                 activePlayer = activePlayer === 'black' ? 'white' : 'black';
-                drawGrid();
+                updatedState = serializeGameState();
+                applyGameState(updatedState, gameState);
                 return;
             }
         }
@@ -934,14 +1076,7 @@ window.onload = function() {
     }
 
     // Apply the updated game state received from the AI
-    function applyGameState(updatedState) {
-        if (!updatedState || !updatedState.tiles || !updatedState.pieces || !updatedState.inventory || !updatedState.captured || !updatedState.activePlayer) {
-            console.error('Invalid game state received from AI:', updatedState);
-            return;
-        }
-
-        // Detect changes between current and updated state
-        const previousState = serializeGameState();
+    function applyGameState(updatedState, previousState) {
 
         // Play sound for tile placement
         for (const key in updatedState.tiles) {
@@ -1007,10 +1142,118 @@ window.onload = function() {
         // Redraw the grid
         drawGrid();
 
-        checkGameEnd(); // Check if the game has ended after applying AI's move
+        // Highlight the last move and tile placement
+        highlightLastMove(gameState, updatedState);
 
-        // Log the received state for debugging
-        console.log('Received game state from AI:', updatedState);
+
+        checkGameEnd(); // Check if the game has ended after applying AI's move
+    }
+
+    // Function to highlight the last move made
+    function highlightLastMove(previousState, updatedState) {
+        const activePlayer = updatedState.activePlayer;
+        const opponent = activePlayer === 'black' ? 'white' : 'black';
+
+        // Detect tile placement
+        const newTiles = Object.keys(updatedState.tiles).filter(
+            key => !previousState.tiles[key]
+        );
+        if (newTiles.length === 1) {
+            const [q, r] = newTiles[0].split(',').map(Number);
+            const [x, y] = hexToPixel(q, r, hexSize);
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
+            ctx.strokeStyle = 'green';
+            ctx.lineWidth = 4;
+            ctx.setLineDash([4, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.restore();
+            return;
+        }
+
+        // Detect piece placement (must also be a change in the inventory)
+        const newPieces = Object.keys(updatedState.pieces).filter(
+            key => !previousState.pieces[key]
+        );
+        if (newPieces.length === 1) {
+            const [q, r] = newPieces[0].split(',').map(Number);
+            const [x, y] = hexToPixel(q, r, hexSize);
+
+            // Check if inventory for the active player decreased (disc or ring placed)
+            const prevInv = previousState.inventory[opponent];
+            const currInv = updatedState.inventory[opponent];
+            const discPlaced = currInv.discs < prevInv.discs;
+            const ringPlaced = currInv.rings < prevInv.rings;
+
+            if (discPlaced || ringPlaced) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
+            ctx.strokeStyle = 'blue';
+            ctx.lineWidth = 4;
+            ctx.setLineDash([4, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.restore();
+            return;
+            }
+        }
+
+        // Detect piece movement with captures
+        const movedFrom = Object.keys(previousState.pieces).find(
+            key => !updatedState.pieces[key] && previousState.pieces[key].color === opponent
+        );
+        const movedTo = Object.keys(updatedState.pieces).find(
+            key => !previousState.pieces[key] && updatedState.pieces[key].color === opponent
+        );
+        const captured = Object.keys(previousState.pieces).filter(
+            key => !updatedState.pieces[key] && previousState.pieces[key].color === activePlayer
+        );
+
+        if (movedFrom && movedTo) {
+            const [fromQ, fromR] = movedFrom.split(',').map(Number);
+            const [toQ, toR] = movedTo.split(',').map(Number);
+            const [fromX, fromY] = hexToPixel(fromQ, fromR, hexSize);
+            const [toX, toY] = hexToPixel(toQ, toR, hexSize);
+
+            // Highlight the move
+            ctx.save();
+            ctx.strokeStyle = 'orange';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(fromX, fromY);
+            ctx.lineTo(toX, toY);
+            ctx.stroke();
+
+            // Highlight the destination hex
+            ctx.beginPath();
+            ctx.arc(toX, toY, hexSize * 0.45, 0, 2 * Math.PI);
+            ctx.strokeStyle = 'orange';
+            ctx.lineWidth = 4;
+            ctx.setLineDash([4, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.restore();
+
+            // Highlight captured pieces
+            captured.forEach(key => {
+                const [q, r] = key.split(',').map(Number);
+                const [x, y] = hexToPixel(q, r, hexSize);
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
+                ctx.strokeStyle = 'red';
+                ctx.lineWidth = 4;
+                ctx.setLineDash([4, 4]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.restore();
+            });
+        }
     }
 
     // Step 1: Add sound effects for game actions
@@ -1054,7 +1297,7 @@ window.onload = function() {
             });
             if (response.ok) {
                 const updatedState = await response.json();
-                applyGameState(updatedState);
+                applyGameState(updatedState, gameState); // Apply the updated state from AI
             } else {
                 console.error('Failed to communicate with AI:', response.statusText);
             }
@@ -1102,18 +1345,6 @@ window.onload = function() {
         loader.style.display = 'none';
     }
 
-    // Example usage: Show loader before sending request to AI
-    function requestAiMove() {
-        showLoader();
-
-        // Simulate AI request (replace with actual AI request logic)
-        setTimeout(() => {
-            // Simulate AI response
-            hideLoader();
-            drawGrid(); // Update the board after AI move
-        }, 2000); // Simulate 2 seconds delay for AI thinking
-    }
-
     // Call checkGameEnd after every move
     canvas.addEventListener('click', function(e) {
         // ...existing code...
@@ -1130,7 +1361,7 @@ window.onload = function() {
 
         // Ensure sounds play in both AI and 2-player modes
         // Play sounds for actions in both modes
-        // ...existing code for sound playback...
+        // ...existing code...
 
         // ...existing code...
     });
