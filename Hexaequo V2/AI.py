@@ -12,6 +12,52 @@ logging.basicConfig(level=logging.INFO, format='%(message)s')
 # Log the received game state only once
 logged_game_state = False
 
+# Transposition table and hashing utilities
+TT = {}
+MASK64 = (1 << 64) - 1
+
+def _mix64(x: int) -> int:
+    x ^= (x >> 33) & MASK64
+    x = (x * 0xff51afd7ed558ccd) & MASK64
+    x ^= (x >> 33) & MASK64
+    x = (x * 0xc4ceb9fe1a85ec53) & MASK64
+    x ^= (x >> 33) & MASK64
+    return x & MASK64
+
+def _encode_pos_key(position):
+    if isinstance(position, tuple):
+        q, r = position
+    else:
+        q, r = map(int, position.split(','))
+    q &= 0xffff; r &= 0xffff
+    return (q << 16) | r
+
+def compute_hash(state) -> int:
+    h = 1469598103934665603  # FNV offset basis
+    # Active player
+    h ^= _mix64(1 if state.get('activePlayer') == 'black' else 2)
+    # Tiles
+    for position in sorted(state['tiles'].keys()):
+        color = state['tiles'][position]
+        key = _encode_pos_key(position)
+        cval = 1 if color == 'black' else 2
+        h ^= _mix64((3 << 32) | (key << 2) | cval)
+    # Pieces
+    for position in sorted(state['pieces'].keys()):
+        piece = state['pieces'][position]
+        key = _encode_pos_key(position)
+        tval = 1 if piece['type'] == 'disc' else 2
+        cval = 1 if piece['color'] == 'black' else 2
+        h ^= _mix64((4 << 32) | (key << 4) | (tval << 2) | cval)
+    # Inventory
+    for player in ['black', 'white']:
+        inv = state['inventory'][player]
+        h ^= _mix64((5 << 32) | (1 if player == 'black' else 2) | (int(inv['tiles']) << 8) | (int(inv['discs']) << 16) | (int(inv['rings']) << 24))
+    # Captured
+    cap = state['captured']
+    h ^= _mix64((6 << 32) | int(cap['black_discs']) | (int(cap['black_rings']) << 8) | (int(cap['white_discs']) << 16) | (int(cap['white_rings']) << 24))
+    return h & MASK64
+
 def log_move_differences(original_state, proposed_state):
     """
     Log the differences between the original game state and the proposed game state.
@@ -77,13 +123,22 @@ def process_game_state():
         logging.info(f"Received game state: {game_state}")
         logged_game_state = True
 
-    if(game_state['activePlayer'] == 'black'):
-        #logging.info("Active player is black. AI will not make a move.")
+    # Respect requested AI side (defaults to white) and dynamic depth (1..5)
+    ai_side = game_state.get('aiSide', 'white')
+    requested_depth = game_state.get('aiDepth', 2)
+    try:
+        requested_depth = int(requested_depth)
+    except Exception:
+        requested_depth = 2
+    depth_limit = max(1, min(5, requested_depth))
+    if game_state['activePlayer'] != ai_side:
         return jsonify(game_state)
 
     # Determine the best move using Minimax
     best_move = None
-    best_score = float('inf')  # Minimizing for white
+    # For evaluation: positive favors black. So black maximizes, white minimizes
+    is_ai_maximizing = (ai_side == 'black')
+    best_score = float('-inf') if is_ai_maximizing else float('inf')
 
     # Total pruned branches counter
     total_pruned_branches = 0
@@ -93,14 +148,21 @@ def process_game_state():
 
     # Ensure the minimizing player logic is correct
     for child in children:
-        score, pruned = minimax(child, depth=2, alpha=float('-inf'), beta=float('inf'), maximizingPlayer=True, branch_prefix=child.get('branch', '1'))
+        # After AI plays, it's opponent's turn. Opponent is maximizing if AI is minimizing, and vice versa
+        next_maximizing = not is_ai_maximizing
+        score, pruned = minimax(child, depth=depth_limit, alpha=float('-inf'), beta=float('inf'), maximizingPlayer=next_maximizing, branch_prefix=child.get('branch', '1'))
         #logging.info(f"Child state score: {score}, MinimizingPlayer: True")
         total_pruned_branches += pruned
 
-        # Update best_move and best_score for white
-        if score < best_score:
-            best_score = score
-            best_move = child
+        # Update best_move and best_score depending on AI side
+        if is_ai_maximizing:
+            if score > best_score:
+                best_score = score
+                best_move = child
+        else:
+            if score < best_score:
+                best_score = score
+                best_move = child
 
     # Ensure the returned game state is properly formatted
     if best_move is None or not all(key in best_move for key in ['tiles', 'pieces', 'inventory', 'captured']):
@@ -119,7 +181,10 @@ def process_game_state():
         best_move['captured'][f'{player}_rings'] = int(best_move['captured'][f'{player}_rings']) if isinstance(best_move['captured'][f'{player}_rings'], (int, float)) else sum(best_move['captured'][f'{player}_rings'].values())
 
     # Switch the active player to the opponent after the AI's move
-    best_move['activePlayer'] = 'black'
+    best_move['activePlayer'] = 'white' if ai_side == 'black' else 'black'
+
+    # Preserve aiSide in the response so front can continue alternating correctly
+    best_move['aiSide'] = ai_side
 
     # Log the total number of branches pruned during the Minimax execution
     logging.info(f"Total branches pruned during Minimax execution: {total_pruned_branches}")
@@ -154,6 +219,21 @@ def minimax(state, depth, alpha, beta, maximizingPlayer, branch_prefix):
 
     pruned_branches = 0
 
+    # Transposition table lookup
+    h = compute_hash(state)
+    tt_entry = TT.get(h)
+    if tt_entry is not None and tt_entry['depth'] >= depth:
+        flag = tt_entry['flag']
+        val = tt_entry['value']
+        if flag == 'EXACT':
+            return val, 0
+        elif flag == 'LOWER' and val > alpha:
+            alpha = val
+        elif flag == 'UPPER' and val < beta:
+            beta = val
+        if alpha >= beta:
+            return val, 0
+
     if maximizingPlayer:
         maxEval = float('-inf')
         for child in get_children(state, branch_prefix):
@@ -165,7 +245,13 @@ def minimax(state, depth, alpha, beta, maximizingPlayer, branch_prefix):
                 #logging.info(f"Branch: {branch_prefix}, Depth: {depth}, Pruned (Maximizing): Alpha={alpha}, Beta={beta}")
                 break
             alpha = max(alpha, maxEval)
-        #logging.info(f"Branch: {branch_prefix}, Depth: {depth}, Maximizing Eval: {maxEval}, Alpha={alpha}, Beta={beta}")
+        # Store TT entry
+        entry = {'depth': depth, 'value': maxEval, 'flag': 'EXACT'}
+        if maxEval <= alpha:
+            entry['flag'] = 'UPPER'
+        elif maxEval >= beta:
+            entry['flag'] = 'LOWER'
+        TT[h] = entry
         return maxEval, pruned_branches
     else:
         minEval = float('inf')
@@ -178,7 +264,13 @@ def minimax(state, depth, alpha, beta, maximizingPlayer, branch_prefix):
                 #logging.info(f"Branch: {branch_prefix}, Depth: {depth}, Pruned (Minimizing): Alpha={alpha}, Beta={beta}")
                 break
             beta = min(beta, minEval)
-        #logging.info(f"Branch: {branch_prefix}, Depth: {depth}, Minimizing Eval: {minEval}, Alpha={alpha}, Beta={beta}")
+        # Store TT entry
+        entry = {'depth': depth, 'value': minEval, 'flag': 'EXACT'}
+        if minEval <= alpha:
+            entry['flag'] = 'UPPER'
+        elif minEval >= beta:
+            entry['flag'] = 'LOWER'
+        TT[h] = entry
         return minEval, pruned_branches
 
 def is_terminal(state):
@@ -197,7 +289,7 @@ def is_terminal(state):
         state['captured']['black_rings'] >= 3 or
         state['captured']['white_rings'] >= 3 or
         not black_has_pieces or not white_has_pieces or
-        len(get_children(state, branch_prefix=state.get('branch', ''))) == 0  # Stalemate: no available moves for active player
+        not has_any_legal_move(state)  # Stalemate: no available moves for active player
     )
     return terminal
 
@@ -243,10 +335,70 @@ def evaluate(state):
         score = -999
 
     # Stalemate: if the active player has no available moves, it's Ex Aequo (draw)
-    if len(get_children(state, branch_prefix=state.get('branch', ''))) == 0:
+    if not has_any_legal_move(state):
         score = 0
 
     return score
+
+def has_any_legal_move(state):
+    player = state['activePlayer']
+    # 1) Tile placement exists?
+    tiles_left = state['inventory'][player]['tiles']
+    if isinstance(tiles_left, dict):
+        tiles_left = tiles_left.get('tiles', 0)
+    if tiles_left > 0:
+        # Early exit: find one valid tile placement quickly
+        empty_neighbors = set()
+        for position in state['tiles']:
+            pos_str = position if isinstance(position, str) else f"{position[0]},{position[1]}"
+            for n in get_neighbors(pos_str):
+                if n not in state['tiles']:
+                    empty_neighbors.add(n)
+        for pos in empty_neighbors:
+            adjacent = 0
+            for n in get_neighbors(pos):
+                if n in state['tiles']:
+                    adjacent += 1
+                    if adjacent >= 2:
+                        return True
+    # 2) Piece placement exists?
+    # Disc
+    if state['inventory'][player]['discs'] > 0:
+        for pos, tile_color in state['tiles'].items():
+            if tile_color == player and pos not in state['pieces']:
+                return True
+    # Ring
+    if state['inventory'][player]['rings'] > 0 and state['captured'][f'{player}_discs'] > 0:
+        for pos, tile_color in state['tiles'].items():
+            if tile_color == player and pos not in state['pieces']:
+                return True
+    # 3) Moves exist?
+    for pos, piece in state['pieces'].items():
+        if piece['color'] != player:
+            continue
+        pos_str = pos if isinstance(pos, str) else f"{pos[0]},{pos[1]}"
+        if piece['type'] == 'disc':
+            for n in get_neighbors(pos_str):
+                if n in state['tiles'] and n not in state['pieces']:
+                    return True
+            # Any jump available?
+            q, r = map(int, pos_str.split(','))
+            for dq, dr in [(1,0), (-1,0), (0,1), (0,-1), (1,-1), (-1,1)]:
+                jq, jr = q + dq, r + dr
+                lq, lr = q + 2*dq, r + 2*dr
+                jkey = f"{jq},{jr}"
+                lkey = f"{lq},{lr}"
+                if jkey in state['pieces'] and lkey in state['tiles'] and lkey not in state['pieces']:
+                    return True
+        else:  # ring
+            # At least one 12-direction jump landing on tile (empty or capture)
+            for dq, dr in [(0,-2), (1,-2), (2,-2), (2,-1), (2,0), (1,1), (0,2), (-1,2), (-2,2), (-2,1), (-2,0), (-1,-1)]:
+                q, r = map(int, pos_str.split(','))
+                lq, lr = q + dq, r + dr
+                lkey = f"{lq},{lr}"
+                if lkey in state['tiles'] and (lkey not in state['pieces'] or state['pieces'][lkey]['color'] != player):
+                    return True
+    return False
 
 def get_children(state, branch_prefix):
     children = []
@@ -265,18 +417,31 @@ def get_children(state, branch_prefix):
 
     # Simulate each move and add the resulting state to children
     move_index = 1
-    for from_position, to_position in ring_moves:
+    # Order: prefer captures or aggressive ring moves first
+    ring_moves_sorted = sorted(ring_moves, key=lambda mv: 1 if mv[1] in state['pieces'] and state['pieces'][mv[1]]['color'] != player else 0, reverse=True)
+    for from_position, to_position in ring_moves_sorted:
         new_state = copy.deepcopy(state)
         simulate_ring_move(new_state, from_position, to_position)
+        # ensure we don't leak a previous jump path
+        if 'last_jump_path' in new_state:
+            del new_state['last_jump_path']
+        # attach highlight path for UI
+        fp = f"{from_position[0]},{from_position[1]}" if isinstance(from_position, tuple) else str(from_position)
+        tp = f"{to_position[0]},{to_position[1]}" if isinstance(to_position, tuple) else str(to_position)
+        new_state['highlight_path'] = [fp, tp]
         new_state['activePlayer'] = 'white' if player == 'black' else 'black'
         new_state['branch'] = f"{branch_prefix}.{move_index}"
         #logging.info(f"Branch: {new_state['branch']}, {player} moves ring: {from_position}->{to_position}, Score: {evaluate(new_state)}")
         children.append(new_state)
         move_index += 1
 
+    # Jumps first (captures more forcing)
     for jump_sequence in disc_jumps:
         new_state = copy.deepcopy(state)
         simulate_disc_jump_sequence(new_state, jump_sequence)
+        # Attach the jump path for UI highlighting on the client
+        new_state['last_jump_path'] = jump_sequence
+        new_state['highlight_path'] = jump_sequence
         new_state['activePlayer'] = 'white' if player == 'black' else 'black'
         new_state['branch'] = f"{branch_prefix}.{move_index}"
         #logging.info(f"Branch: {new_state['branch']}, {player} jumps: {jump_sequence}, Score: {evaluate(new_state)}")
@@ -289,6 +454,11 @@ def get_children(state, branch_prefix):
             continue
         new_state = copy.deepcopy(state)
         simulate_disc_move(new_state, from_position, to_position)
+        if 'last_jump_path' in new_state:
+            del new_state['last_jump_path']
+        fp = f"{from_position[0]},{from_position[1]}" if isinstance(from_position, tuple) else str(from_position)
+        tp = f"{to_position[0]},{to_position[1]}" if isinstance(to_position, tuple) else str(to_position)
+        new_state['highlight_path'] = [fp, tp]
         new_state['activePlayer'] = 'white' if player == 'black' else 'black'
         new_state['branch'] = f"{branch_prefix}.{move_index}"
         #logging.info(f"Branch: {new_state['branch']}, {player} moves disc: {from_position}->{to_position}, Score: {evaluate(new_state)}")
@@ -298,6 +468,10 @@ def get_children(state, branch_prefix):
     for position in ring_placements:
         new_state = copy.deepcopy(state)
         simulate_ring_placement(new_state, position, player)
+        if 'last_jump_path' in new_state:
+            del new_state['last_jump_path']
+        pp = f"{position[0]},{position[1]}" if isinstance(position, tuple) else str(position)
+        new_state['highlight_path'] = [pp]
         new_state['activePlayer'] = 'white' if player == 'black' else 'black'
         new_state['branch'] = f"{branch_prefix}.{move_index}"
         #logging.info(f"Branch: {new_state['branch']}, {player} places ring at: {position}, Score: {evaluate(new_state)}")
@@ -307,6 +481,10 @@ def get_children(state, branch_prefix):
     for position in disc_placements:
         new_state = copy.deepcopy(state)
         simulate_disc_placement(new_state, position, player)
+        if 'last_jump_path' in new_state:
+            del new_state['last_jump_path']
+        pp = f"{position[0]},{position[1]}" if isinstance(position, tuple) else str(position)
+        new_state['highlight_path'] = [pp]
         new_state['activePlayer'] = 'white' if player == 'black' else 'black'
         new_state['branch'] = f"{branch_prefix}.{move_index}"
         #logging.info(f"Branch: {new_state['branch']}, {player} places disc at: {position}, Score: {evaluate(new_state)}")
@@ -316,6 +494,10 @@ def get_children(state, branch_prefix):
     for position in tile_placements:
         new_state = copy.deepcopy(state)
         simulate_tile_placement(new_state, position, player)
+        if 'last_jump_path' in new_state:
+            del new_state['last_jump_path']
+        pp = f"{position[0]},{position[1]}" if isinstance(position, tuple) else str(position)
+        new_state['highlight_path'] = [pp]
         new_state['activePlayer'] = 'white' if player == 'black' else 'black'
         new_state['branch'] = f"{branch_prefix}.{move_index}"
         #logging.info(f"Branch: {new_state['branch']}, {player} places tile at: {position}, Score: {evaluate(new_state)}")

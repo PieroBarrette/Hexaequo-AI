@@ -15,6 +15,18 @@
     <button id="toggleColorSchemeBtn" style="display: none;">Color</button>
     <button id="toggleGridBtn" style="display: none;">Grid</button>
     <button id="toggleModeBtn">Switch to AI Mode</button>
+    <select id="aiSideSelect" aria-label="AI side" style="margin-left:8px;">
+        <option value="white" selected>AI plays White</option>
+        <option value="black">AI plays Black</option>
+    </select>
+    <label for="aiDepthSelect" style="margin-left:12px;">Difficulty:</label>
+    <select id="aiDepthSelect" aria-label="AI difficulty" style="margin-left:6px;">
+        <option value="1">1</option>
+        <option value="2" selected>2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+    </select>
     <!-- <div style="height: 20px;"></div>
     <div id="inventories" style="display: flex; justify-content: center; gap: 40px; margin-bottom: 5px;">
         <div id="blackInventory" style="min-width: 120px; text-align: center;"></div>
@@ -37,12 +49,27 @@
     <script src="game.js"></script>
     <script>
         let isAiMode = false;
+        window.aiSide = 'white';
+        window.aiDepth = 2;
 
         document.getElementById('toggleModeBtn').addEventListener('click', () => {
             isAiMode = !isAiMode;
             document.getElementById('toggleModeBtn').innerText = isAiMode ? 'Switch to 2 Player Mode' : 'Switch to AI Mode';
             // Notify game.js about the mode change
             toggleGameMode(isAiMode);
+        });
+
+        document.getElementById('aiSideSelect').addEventListener('change', (e) => {
+            window.aiSide = e.target.value;
+            // If in AI mode and it's AI's turn now, request AI move
+            if (isAiMode) {
+                window.requestAiMove && window.requestAiMove();
+            }
+        });
+
+        document.getElementById('aiDepthSelect').addEventListener('change', (e) => {
+            const v = parseInt(e.target.value, 10);
+            if (!Number.isNaN(v)) window.aiDepth = v;
         });
     </script>
 </body>
