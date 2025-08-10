@@ -335,7 +335,7 @@ window.onload = function() {
         }
 
         function drawInventory() {
-            const boxWidth = 175;
+            const boxWidth = 130;
             const padding = 10;
 
             // Black player inventory box (top-left)
@@ -356,142 +356,94 @@ window.onload = function() {
         }
 
         function drawInventoryItems(boxX, boxY, player) {
-            const itemSize = 25;
-            const gap = 30;
-            const startX = boxX + 30;
-            const startY = boxY + 30;
+            const itemSize = 20;
+            const gap = 25;
+            const columns = 3;
+            const startX = boxX + 20;
+            const startY = boxY + 20;
 
-            // Draw tiles
+            const items = [];
+
+            // Add tiles, discs, rings, captured discs, and captured rings to the items array
             for (let i = 0; i < inventory[player]; i++) {
-                const cx = startX + (i % 3) * (itemSize + gap);
-                const cy = startY + Math.floor(i / 3) * (itemSize + gap * 1.25);
-                ctx.save();
-                ctx.beginPath();
-                for (let j = 0; j < 6; j++) {
-                    const angle = Math.PI / 3 * j + Math.PI / 6;
-                    const x = cx + itemSize * Math.cos(angle);
-                    const y = cy + itemSize * Math.sin(angle);
-                    if (j === 0) ctx.moveTo(x, y);
-                    else ctx.lineTo(x, y);
-                }
-                ctx.closePath();
-                ctx.fillStyle = colorScheme === 'classic' ? schemes.classic[player] : schemes.modern[player];
-                ctx.shadowColor = '#000a';
-                ctx.shadowBlur = 3;
-                ctx.fill();
-                ctx.lineWidth = 2;
-                ctx.strokeStyle = colorScheme === 'classic' ? '#b08b4f' : '#888';
-                ctx.stroke();
-                ctx.restore();
+                items.push({ type: 'tile', color: player });
             }
-
-            // Draw discs
-            discRadius = itemSize;
             for (let i = 0; i < discInventory[player]; i++) {
-                const x = startX + (i % 3) * (itemSize + gap);
-                const y = startY + itemSize * 7 + Math.floor(i / 3) * (itemSize + gap);
-                ctx.save();
-                ctx.beginPath();
-                ctx.arc(x, y, discRadius * 0.45, 0, 2 * Math.PI);
-                ctx.fillStyle = player === 'black'
-                    ? (colorScheme === 'classic' ? '#222' : '#000')
-                    : (colorScheme === 'classic' ? '#fafafa' : '#fff');
-                ctx.shadowColor = '#000a';
-                ctx.shadowBlur = 2;
-                ctx.fill();
-                ctx.lineWidth = 1.5;
-                ctx.strokeStyle = player === 'black' ? '#888' : '#bbb';
-                ctx.stroke();
-                ctx.restore();
+                items.push({ type: 'disc', color: player });
             }
-
-        // Draw rings
-        ringRadius = itemSize;
-        for (let i = 0; i < ringInventory[player]; i++) {
-            const x = startX + (i % 3) * (itemSize + gap);
-            const y = startY + itemSize * 11 + Math.floor(i / 3) * (itemSize + gap);
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(x, y, ringRadius * 0.45, 0, 2 * Math.PI);
-            ctx.lineWidth = 7;
-            ctx.strokeStyle = player === 'black'
-                ? (colorScheme === 'classic' ? '#222' : '#000')
-                : (colorScheme === 'classic' ? '#fafafa' : '#fff');
-            ctx.shadowColor = '#000a';
-            ctx.shadowBlur = 2;
-            ctx.stroke();
-
-            // Add a gray inner line for contrast (inner edge of ring)
-            ctx.beginPath();
-            ctx.arc(x, y, ringRadius * 0.32, 0, 2 * Math.PI);
-            ctx.lineWidth = 1.5;
-            ctx.strokeStyle = '#bbb';
-            ctx.shadowBlur = 0;
-            ctx.stroke();
-
-            // Add a gray outer line for contrast (outer edge of ring)
-            ctx.beginPath();
-            ctx.arc(x, y, ringRadius * 0.6, 0, 2 * Math.PI);
-            ctx.lineWidth = 1.5;
-            ctx.strokeStyle = '#bbb';
-            ctx.shadowBlur = 0;
-            ctx.stroke();
-            ctx.restore();
-        }
-
-            // Draw captured pieces
-            discRadius = itemSize;
-            ringRadius = itemSize;
-            const opponent = player === 'black' ? 'white' : 'black';
+            for (let i = 0; i < ringInventory[player]; i++) {
+                items.push({ type: 'ring', color: player });
+            }
             for (let i = 0; i < captured[player].disc; i++) {
-                const x = startX + (i % 3) * (itemSize + gap);
-                const y = startY + itemSize * 13 + Math.floor(i / 3) * (itemSize + gap);
-                ctx.save();
-                ctx.beginPath();
-                ctx.arc(x, y, discRadius * 0.45, 0, 2 * Math.PI);
-                ctx.fillStyle = opponent === 'black'
-                    ? (colorScheme === 'classic' ? '#222' : '#000')
-                    : (colorScheme === 'classic' ? '#fafafa' : '#fff');
-                ctx.shadowColor = '#000a';
-                ctx.shadowBlur = 2;
-                ctx.fill();
-                ctx.lineWidth = 1.5;
-                ctx.strokeStyle = player === 'black' ? '#888' : '#bbb';
-                ctx.stroke();
-                ctx.restore();
+                items.push({ type: 'disc', color: player === 'black' ? 'white' : 'black' });
             }
-
             for (let i = 0; i < captured[player].ring; i++) {
-                const x = startX + (i % 3) * (itemSize + gap);
-                const y = startY + itemSize * 15 + Math.floor(i / 3) * (itemSize + gap);
-                ctx.save();
-                ctx.beginPath();
-                ctx.arc(x, y, ringRadius * 0.45, 0, 2 * Math.PI);
-                ctx.lineWidth = 7;
-                ctx.strokeStyle = opponent === 'black'
-                    ? (colorScheme === 'classic' ? '#222' : '#000')
-                    : (colorScheme === 'classic' ? '#fafafa' : '#fff');
-                ctx.shadowColor = '#000a';
-                ctx.shadowBlur = 2;
-                ctx.stroke();
-
-                // Add a gray inner line for contrast (inner edge of ring)
-                ctx.beginPath();
-                ctx.arc(x, y, ringRadius * 0.32, 0, 2 * Math.PI);
-                ctx.lineWidth = 1.5;
-                ctx.strokeStyle = '#bbb';
-                ctx.shadowBlur = 0;
-                ctx.stroke();
-
-                // Add a gray outer line for contrast (outer edge of ring)
-                ctx.beginPath();
-                ctx.arc(x, y, ringRadius * 0.6, 0, 2 * Math.PI);
-                ctx.lineWidth = 1.5;
-                ctx.strokeStyle = '#bbb';
-                ctx.shadowBlur = 0;
-                ctx.stroke();
-                ctx.restore();
+                items.push({ type: 'ring', color: player === 'black' ? 'white' : 'black' });
             }
+
+            // Draw items in a 3-column grid
+            items.forEach((item, index) => {
+                const col = index % columns;
+                const row = Math.floor(index / columns);
+                const x = startX + col * (itemSize + gap);
+                const y = startY + row * (itemSize + gap);
+
+                ctx.save();
+                if (item.type === 'tile') {
+                    // Draw a small hex tile for inventory
+                    ctx.save();
+                    ctx.beginPath();
+                    for (let i = 0; i < 6; i++) {
+                        const angle = Math.PI / 3 * i + Math.PI / 6;
+                        const hx = x + (itemSize) * Math.cos(angle);
+                        const hy = y + (itemSize) * Math.sin(angle);
+                        if (i === 0) ctx.moveTo(hx, hy);
+                        else ctx.lineTo(hx, hy);
+                    }
+                    ctx.closePath();
+                    ctx.fillStyle = item.color === 'black' ? '#7a5230' : '#f5e2b6';
+                    ctx.shadowColor = '#000a';
+                    ctx.shadowBlur = 2;
+                    ctx.fill();
+                    ctx.lineWidth = 1.5;
+                    ctx.strokeStyle = '#b08b4f';
+                    ctx.stroke();
+                    ctx.restore();
+                } else if (item.type === 'disc') {
+                    // Draw a disc with a border and subtle shadow for inventory
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(x, y, itemSize * 0.45, 0, 2 * Math.PI);
+                    ctx.fillStyle = item.color === 'black' ? '#222' : '#fafafa';
+                    ctx.shadowColor = '#000a';
+                    ctx.shadowBlur = 2;
+                    ctx.fill();
+                    ctx.lineWidth = 1.5;
+                    ctx.strokeStyle = item.color === 'black' ? '#888' : '#bbb';
+                    ctx.stroke();
+                    ctx.restore();
+                } else if (item.type === 'ring') {
+                    // Draw a ring for inventory: thick outer circle, thin inner circle for the hole
+                    ctx.save();
+                    // Outer ring
+                    ctx.strokeStyle = item.color === 'black' ? '#222' : '#fafafa';
+                    ctx.lineWidth = 5;
+                    ctx.beginPath();
+                    ctx.arc(x, y, itemSize * 0.48, 0, 2 * Math.PI);
+                    ctx.shadowColor = '#000a';
+                    ctx.shadowBlur = 2;
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                    // Inner hole (just a thin border for contrast)
+                    ctx.beginPath();
+                    ctx.arc(x, y, itemSize * 0.28, 0, 2 * Math.PI);
+                    ctx.lineWidth = 1.5;
+                    ctx.strokeStyle = '#bbb';
+                    ctx.stroke();
+                    ctx.restore();
+                }
+                ctx.restore();
+            });
         }
 
         drawInventory();
@@ -1165,7 +1117,7 @@ window.onload = function() {
             ctx.save();
             ctx.beginPath();
             ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
-            ctx.strokeStyle = 'green';
+            ctx.strokeStyle = 'gray';
             ctx.lineWidth = 4;
             ctx.setLineDash([4, 4]);
             ctx.stroke();
@@ -1192,7 +1144,7 @@ window.onload = function() {
             ctx.save();
             ctx.beginPath();
             ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
-            ctx.strokeStyle = 'blue';
+            ctx.strokeStyle = 'gray';
             ctx.lineWidth = 4;
             ctx.setLineDash([4, 4]);
             ctx.stroke();
@@ -1221,7 +1173,7 @@ window.onload = function() {
 
             // Highlight the move
             ctx.save();
-            ctx.strokeStyle = 'orange';
+            ctx.strokeStyle = 'gray';
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.moveTo(fromX, fromY);
@@ -1231,7 +1183,7 @@ window.onload = function() {
             // Highlight the destination hex
             ctx.beginPath();
             ctx.arc(toX, toY, hexSize * 0.45, 0, 2 * Math.PI);
-            ctx.strokeStyle = 'orange';
+            ctx.strokeStyle = 'gray';
             ctx.lineWidth = 4;
             ctx.setLineDash([4, 4]);
             ctx.stroke();
@@ -1246,7 +1198,7 @@ window.onload = function() {
                 ctx.save();
                 ctx.beginPath();
                 ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
-                ctx.strokeStyle = 'red';
+                ctx.strokeStyle = 'gray';
                 ctx.lineWidth = 4;
                 ctx.setLineDash([4, 4]);
                 ctx.stroke();
