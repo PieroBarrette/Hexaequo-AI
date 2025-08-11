@@ -14,6 +14,7 @@ window.onload = function() {
     let showCoords = false;
     let colorScheme = 'classic'; // 'modern' or 'classic'
     let activePlayer = 'black'; // 'black' starts
+    let gameState, updatedState; // explicit state holders to avoid implicit globals
     let selectedPiece = null; // {q, r} or null
     let captured = {
         black: {disc: 0, ring: 0},
@@ -26,6 +27,73 @@ window.onload = function() {
     let showGrid = false;
     let multiJumping = false; // true if in a multi-jump sequence
     let multiJumpPos = null; // {q, r} of the piece in multi-jump
+    // Track jump paths for highlighting
+    window.currentJumpPath = null; // ["q,r", ...] during the sequence
+    window.lastJumpPath = null;    // saved after the turn to highlight
+    // Simple animation state for piece translation (no lines)
+    let animHidePieceKey = null; // key of destination tile to hide while animating
+    const anim = {
+        active: false,
+        path: null,
+        segmentIndex: 0,
+        segmentStart: 0,
+        durationPerSegmentMs: 400,
+        piece: null
+    };
+
+    function startPieceAnimation(path, piece) {
+        if (!path || path.length < 2 || !piece) return;
+        anim.active = true;
+        anim.path = path.map(p => typeof p === 'string' ? p : `${p[0]},${p[1]}`);
+        anim.segmentIndex = 0;
+        anim.segmentStart = 0;
+        anim.piece = piece;
+        animHidePieceKey = anim.path[anim.path.length - 1];
+        requestAnimationFrame(stepPieceAnimation);
+    }
+
+    function stepPieceAnimation(timestamp) {
+        if (!anim.active || !anim.path || anim.path.length < 2) {
+            anim.active = false;
+            animHidePieceKey = null;
+            anim.piece = null;
+            return;
+        }
+        if (!anim.segmentStart) anim.segmentStart = timestamp;
+        const fromKey = anim.path[anim.segmentIndex];
+        const toKey = anim.path[anim.segmentIndex + 1];
+        const [fq, fr] = fromKey.split(',').map(Number);
+        const [tq, tr] = toKey.split(',').map(Number);
+        const [fx, fy] = hexToPixel(fq, fr, hexSize);
+        const [tx, ty] = hexToPixel(tq, tr, hexSize);
+
+        const elapsed = timestamp - anim.segmentStart;
+        const progress = Math.max(0, Math.min(1, elapsed / anim.durationPerSegmentMs));
+
+        // Redraw board without the destination piece
+        drawGrid();
+        // Draw moving piece at interpolated coordinates
+        const cx = fx + (tx - fx) * progress;
+        const cy = fy + (ty - fy) * progress;
+        drawPiece(cx, cy, anim.piece, colorScheme);
+
+        if (progress >= 1) {
+            // Next segment
+            anim.segmentIndex += 1;
+            anim.segmentStart = timestamp;
+            if (anim.segmentIndex >= anim.path.length - 1) {
+                // Finished
+                anim.active = false;
+                animHidePieceKey = null;
+                anim.piece = null;
+                drawGrid();
+                window.lastJumpPath = null;
+                window.lastGenericPath = null;
+                return;
+            }
+        }
+        requestAnimationFrame(stepPieceAnimation);
+    }
 
     // Each player starts with 9 tiles, 2 are already placed
     let inventory = {
@@ -184,6 +252,88 @@ window.onload = function() {
         return [rq, rr];
     }
 
+    // Draws contextual place disc/ring buttons centered at the top of the canvas
+    function drawPlacePieceButtons(x, y, btns) {
+        const btnW = 80, btnH = 28, gap = 10;
+        const centerX = canvas.width / 2;
+        const topY = 30;
+
+        // Disc button
+        ctx.save();
+        ctx.globalAlpha = 1.0;
+        ctx.beginPath();
+        ctx.rect(centerX - btnW - gap / 2, topY, btnW, btnH);
+        ctx.fillStyle = '#fff';
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#000a';
+        ctx.shadowBlur = 8;
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#222';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Place Disc', centerX - btnW / 2 - gap / 2, topY + btnH / 2);
+        ctx.restore();
+
+        // Ring button
+        ctx.save();
+        ctx.globalAlpha = 1.0;
+        ctx.beginPath();
+        ctx.rect(centerX + gap / 2, topY, btnW, btnH);
+        ctx.fillStyle = '#fff';
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#000a';
+        ctx.shadowBlur = 8;
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#222';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Place Ring', centerX + btnW / 2 + gap / 2, topY + btnH / 2);
+        ctx.restore();
+
+        // Update btns for click detection
+        btns.discBtn = { x: centerX - btnW - gap / 2, y: topY, w: btnW, h: btnH };
+        btns.ringBtn = { x: centerX + gap / 2, y: topY, w: btnW, h: btnH };
+    }
+
+    // Draws a contextual End Turn button centered at the top of the canvas
+    function drawEndTurnButton(x, y, q, r) {
+        const btnW = 100, btnH = 32;
+        const centerX = canvas.width / 2;
+        const topY = 30;
+        const btnX = centerX - btnW / 2;
+        const btnY = topY;
+
+        ctx.save();
+        ctx.globalAlpha = 1.0;
+        ctx.beginPath();
+        ctx.rect(btnX, btnY, btnW, btnH);
+        ctx.fillStyle = '#fff';
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#000a';
+        ctx.shadowBlur = 8;
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#222';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('End Turn', btnX + btnW / 2, btnY + btnH / 2);
+        ctx.restore();
+
+        // Store button bounds for click detection
+        endTurnBtnBounds = { q, r, x: btnX, y: btnY, w: btnW, h: btnH };
+    }
+
     // Draw all hexes in a hexagonal grid of given radius
     function drawGrid() {
         ctx.fillStyle = schemes[colorScheme].bg;
@@ -201,7 +351,9 @@ window.onload = function() {
                     drawTile(x, y, tiles[key], colorScheme);
                     // Draw piece if present
                     if (pieces[key]) {
-                        drawPiece(x, y, pieces[key], colorScheme);
+                        if (`${q},${r}` !== animHidePieceKey) {
+                            drawPiece(x, y, pieces[key], colorScheme);
+                        }
                         // Draw selection highlight if selected
                         if (selectedPiece && selectedPiece.q === q && selectedPiece.r === r) {
                             ctx.save();
@@ -235,95 +387,7 @@ window.onload = function() {
                 }
             }
         }
-        // Draws contextual buttons for placing disc or ring centered at the top of the canvas
-        function drawPlacePieceButtons(x, y, btns) {
-            const btnW = 80, btnH = 28, gap = 10;
-            // Center horizontally at the top of the canvas
-            const canvasRect = canvas.getBoundingClientRect();
-            const centerX = canvas.width / 2;
-            const topY = 30; // 30px from the top
-
-            // Disc button
-            ctx.save();
-            ctx.globalAlpha = 1.0;
-            ctx.beginPath();
-            ctx.rect(centerX - btnW - gap / 2, topY, btnW, btnH);
-            ctx.fillStyle = '#fff';
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 2;
-            ctx.shadowColor = '#000a';
-            ctx.shadowBlur = 8;
-            ctx.fill();
-            ctx.stroke();
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#222';
-            ctx.font = 'bold 14px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('Place Disc', centerX - btnW / 2 - gap / 2, topY + btnH / 2);
-            ctx.restore();
-
-            // Ring button
-            ctx.save();
-            ctx.globalAlpha = 1.0;
-            ctx.beginPath();
-            ctx.rect(centerX + gap / 2, topY, btnW, btnH);
-            ctx.fillStyle = '#fff';
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 2;
-            ctx.shadowColor = '#000a';
-            ctx.shadowBlur = 8;
-            ctx.fill();
-            ctx.stroke();
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#222';
-            ctx.font = 'bold 14px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('Place Ring', centerX + btnW / 2 + gap / 2, topY + btnH / 2);
-            ctx.restore();
-
-            // Update btns for click detection
-            btns.discBtn = { x: centerX - btnW - gap / 2, y: topY, w: btnW, h: btnH };
-            btns.ringBtn = { x: centerX + gap / 2, y: topY, w: btnW, h: btnH };
-        }
-
-        // Draws a contextual End Turn button centered at the top of the canvas
-        function drawEndTurnButton(x, y, q, r) {
-            const btnW = 100, btnH = 32;
-            const centerX = canvas.width / 2;
-            const topY = 30; // 30px from the top
-            const btnX = centerX - btnW / 2;
-            const btnY = topY;
-
-            ctx.save();
-            ctx.globalAlpha = 1.0;
-            ctx.beginPath();
-            ctx.rect(btnX, btnY, btnW, btnH);
-            ctx.fillStyle = '#fff';
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 2;
-            ctx.shadowColor = '#000a';
-            ctx.shadowBlur = 8;
-            ctx.fill();
-            ctx.stroke();
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#222';
-            ctx.font = 'bold 16px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('End Turn', btnX + btnW / 2, btnY + btnH / 2);
-            ctx.restore();
-
-            // Store button bounds for click detection
-            endTurnBtnBounds = { q, r, x: btnX, y: btnY, w: btnW, h: btnH };
-        }
-
-        const btnGrid = document.getElementById('toggleGridBtn');
-        btnGrid.addEventListener('click', function() {
-            showGrid = !showGrid;
-            drawGrid();
-        });
+        // removed per-frame listener attachment for Grid toggle; attached once during setup
 
         // Update player status
         if (playerStatus) {
@@ -352,7 +416,6 @@ window.onload = function() {
             // Draw white player's inventory items
             drawInventoryItems(whiteBoxX, whiteBoxY, 'white');
 
-            ctx.restore();
         }
 
         function drawInventoryItems(boxX, boxY, player) {
@@ -470,6 +533,15 @@ window.onload = function() {
         drawGrid();
     });
 
+    // Attach grid toggle once (avoid re-attaching inside drawGrid)
+    const btnGrid = document.getElementById('toggleGridBtn');
+    if (btnGrid) {
+        btnGrid.addEventListener('click', function() {
+            showGrid = !showGrid;
+            drawGrid();
+        });
+    }
+
     // Handle placing tiles on click
     // Returns array of [q, r] for neighbors
     function getNeighbors(q, r) {
@@ -490,6 +562,11 @@ window.onload = function() {
             if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
                 // End turn and switch active player immediately
                 gameState = serializeGameState();
+                // save the current jump path (if any) for highlighting
+                if (window.currentJumpPath && window.currentJumpPath.length > 1) {
+                    window.lastJumpPath = [...window.currentJumpPath];
+                }
+                window.currentJumpPath = null;
                 multiJumping = false;
                 multiJumpPos = null;
                 selectedPiece = null;
@@ -513,6 +590,7 @@ window.onload = function() {
                 discInventory[activePlayer]--;
                 placePieceBtnBounds = null;
                 placePieceBtnTile = null;
+                window.lastGenericPath = [key];
                 activePlayer = activePlayer === 'black' ? 'white' : 'black';
                 updatedState = serializeGameState();
                 applyGameState(updatedState, gameState);
@@ -532,7 +610,7 @@ window.onload = function() {
                 discInventory[opp]++;
                 placePieceBtnBounds = null;
                 placePieceBtnTile = null;
-                activePlayer = opp;
+                window.lastJumpPath = null; window.lastGenericPath = [key]; activePlayer = opp;
                 updatedState = serializeGameState();
                 applyGameState(updatedState, gameState);
                 return;
@@ -573,6 +651,8 @@ window.onload = function() {
 
                         // End turn after ring move
                         selectedPiece = null;
+                        // highlight path for 2-player ring move
+                        window.lastGenericPath = [selectedKey, `${q},${r}`];
                         activePlayer = activePlayer === 'black' ? 'white' : 'black';
                         updatedState = serializeGameState();
                         applyGameState(updatedState, gameState);
@@ -594,13 +674,15 @@ window.onload = function() {
                         gameState = serializeGameState();
                         pieces[key] = {type: 'disc', color: activePlayer};
                         delete pieces[`${sq},${sr}`];
+                        // highlight adjacent disc move
+                        window.lastGenericPath = [`${sq},${sr}`, key];
                         activePlayer = activePlayer === 'black' ? 'white' : 'black';
                         selectedPiece = null;
                         multiJumping = false;
                         multiJumpPos = null;
                         endTurnBtnBounds = null;
                         // Reset jump history
-                        jumpHistory = [];
+                        window.jumpHistory = [];
                         updatedState = serializeGameState();
                         applyGameState(updatedState, gameState);
                         return;
@@ -621,6 +703,10 @@ window.onload = function() {
                 const landingKey = `${landingQ},${landingR}`;
                 if (q === landingQ && r === landingR && pieces[jumpKey] && tiles[landingKey] && !pieces[landingKey]) {
                     gameState = serializeGameState();
+                    // initialize jump path if first jump in sequence
+                    if (!window.currentJumpPath) {
+                        window.currentJumpPath = [selectedKey];
+                    }
                     // Prevent jumping over the same friendly piece twice in the same sequence
                     if (
                         pieces[jumpKey].color === activePlayer &&
@@ -638,6 +724,8 @@ window.onload = function() {
                     }
                     pieces[landingKey] = {type: 'disc', color: activePlayer};
                     delete pieces[`${sq},${sr}`];
+                    // extend the jump path
+                    window.currentJumpPath.push(landingKey);
                     // Track friendly piece jumped over
                     if (pieces[jumpKey] && pieces[jumpKey].color === activePlayer) {
                         window.jumpHistory.push({q: jq, r: jr});
@@ -657,6 +745,11 @@ window.onload = function() {
                         multiJumping = false;
                         multiJumpPos = null;
                         endTurnBtnBounds = null;
+                        // finalize jump path for highlight
+                        if (window.currentJumpPath && window.currentJumpPath.length > 1) {
+                            window.lastJumpPath = [...window.currentJumpPath];
+                        }
+                        window.currentJumpPath = null;
                         activePlayer = activePlayer === 'black' ? 'white' : 'black';
                         // Reset jump history
                         window.jumpHistory = [];
@@ -737,6 +830,8 @@ window.onload = function() {
                 gameState = serializeGameState();
                 pieces[key] = {type: 'disc', color: activePlayer};
                 discInventory[activePlayer]--;
+                window.lastJumpPath = null;
+                window.lastGenericPath = [key];
                 activePlayer = activePlayer === 'black' ? 'white' : 'black';
                 updatedState = serializeGameState();
                 applyGameState(updatedState, gameState);
@@ -749,7 +844,7 @@ window.onload = function() {
                 const opp = activePlayer === 'black' ? 'white' : 'black';
                 captured[activePlayer].disc--;
                 discInventory[opp]++;
-                activePlayer = opp;
+                window.lastJumpPath = null; window.lastGenericPath = [key]; activePlayer = opp;
                 updatedState = serializeGameState();
                 applyGameState(updatedState, gameState);
                 return;
@@ -768,6 +863,7 @@ window.onload = function() {
         gameState = serializeGameState();
         tiles[key] = activePlayer;
         inventory[activePlayer]--;
+        window.lastJumpPath = null; window.lastGenericPath = [key];
         activePlayer = activePlayer === 'black' ? 'white' : 'black';
         updatedState = serializeGameState();
         applyGameState(updatedState, gameState);
@@ -802,38 +898,7 @@ window.onload = function() {
         return validPositions;
     }
 
-    // Update ring movement logic in canvas click handler
-    if (selectedPiece && pieces[`${selectedPiece.q},${selectedPiece.r}`].type === 'ring') {
-        const {q: sq, r: sr} = selectedPiece;
-        const validMoves = getRingJumpPositions(sq, sr, activePlayer);
-
-        for (const move of validMoves) {
-            if (move.q === q && move.r === r) {
-                // Perform the move
-                gameState = serializeGameState();
-                if (move.capture) {
-                    const capturedKey = `${q},${r}`;
-                    const capturedPiece = pieces[capturedKey];
-                    captured[activePlayer][capturedPiece.type]++;
-                    delete pieces[capturedKey];
-                }
-
-                pieces[`${q},${r}`] = {type: 'ring', color: activePlayer};
-                delete pieces[`${sq},${sr}`];
-                // End turn after ring move
-                selectedPiece = null;
-                activePlayer = activePlayer === 'black' ? 'white' : 'black';
-                updatedState = serializeGameState();
-                applyGameState(updatedState, gameState);
-                return;
-            }
-        }
-
-        // If no valid move, unselect the piece
-        selectedPiece = null;
-        drawGrid();
-        return;
-    }
+    // Removed duplicate ring movement logic (handled inside main click handler above)
 
     // Check if the game has ended
     function checkGameEnd() {
@@ -1000,11 +1065,17 @@ window.onload = function() {
         drawGrid();
     }
 
-    // Serialize the game state to send to the AI
+    // Serialize the game state to send to the AI (deep copy snapshot)
     function serializeGameState() {
+        const piecesCopy = {};
+        for (const k in pieces) {
+            const p = pieces[k];
+            piecesCopy[k] = { type: p.type, color: p.color };
+        }
+        const tilesCopy = { ...tiles };
         return {
-            tiles: tiles,
-            pieces: pieces,
+            tiles: tilesCopy,
+            pieces: piecesCopy,
             inventory: {
                 black: {
                     tiles: inventory.black,
@@ -1091,11 +1162,19 @@ window.onload = function() {
         // Update active player
         activePlayer = updatedState.activePlayer;
 
-        // Redraw the grid
-        drawGrid();
+        // If the server provides a jump path (AI multi-jump), store it for highlight
+        if (updatedState.last_jump_path && Array.isArray(updatedState.last_jump_path) && updatedState.last_jump_path.length > 1) {
+            window.lastJumpPath = [...updatedState.last_jump_path];
+        }
+        // If server provides a generic highlight_path (any move), capture it too
+        // IMPORTANT: do not clear local lastGenericPath in 2-player mode when server provides none
+        if (updatedState.highlight_path && Array.isArray(updatedState.highlight_path) && updatedState.highlight_path.length > 0) {
+            window.lastGenericPath = [...updatedState.highlight_path];
+        }
 
-        // Highlight the last move and tile placement
-        highlightLastMove(gameState, updatedState);
+        // Redraw the grid with highlights
+        drawGrid();
+        highlightLastMove(previousState, updatedState);
 
 
         checkGameEnd(); // Check if the game has ended after applying AI's move
@@ -1105,6 +1184,49 @@ window.onload = function() {
     function highlightLastMove(previousState, updatedState) {
         const activePlayer = updatedState.activePlayer;
         const opponent = activePlayer === 'black' ? 'white' : 'black';
+
+        // If there was a multi-jump path, animate it as a translation
+        if (window.lastJumpPath && window.lastJumpPath.length > 1) {
+            // Start piece animation using the moved piece appearance
+            const path = window.lastJumpPath;
+            const startKey = path[0];
+            // Prefer piece from previousState, else from updatedState start or end
+            const movedPiece = previousState.pieces[startKey]
+                || updatedState.pieces[startKey]
+                || updatedState.pieces[path[path.length - 1]]
+                || {type: 'disc', color: 'white'};
+            startPieceAnimation(path, movedPiece);
+            return;
+        }
+
+        // Otherwise, render/animate generic path if provided (placements: 1 point, moves: 2+ points)
+        if (window.lastGenericPath && window.lastGenericPath.length > 0) {
+            const path = window.lastGenericPath;
+            if (path.length >= 2) {
+                const startKey = path[0];
+                const endKey = path[path.length - 1];
+                const movedPiece = previousState.pieces[startKey]
+                    || updatedState.pieces[startKey]
+                    || updatedState.pieces[endKey]
+                    || {type: 'disc', color: 'white'};
+                startPieceAnimation(path, movedPiece);
+                return;
+            } else {
+                // single-point highlight (placement)
+                const [q, r] = path[0].split(',').map(Number);
+                const [x, y] = hexToPixel(q, r, hexSize);
+                ctx.beginPath();
+                ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
+                ctx.strokeStyle = 'gray';
+                ctx.lineWidth = 4;
+                ctx.setLineDash([4, 4]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                // clear after single highlight
+                window.lastGenericPath = null;
+                return;
+            }
+        }
 
         // Detect tile placement
         const newTiles = Object.keys(updatedState.tiles).filter(
@@ -1219,8 +1341,14 @@ window.onload = function() {
     };
 
     function playSound(action) {
-        if (sounds[action]) {
-            sounds[action].play();
+        const audio = sounds[action];
+        if (!audio) return;
+        try {
+            audio.currentTime = 0;
+            const p = audio.play();
+            if (p && typeof p.catch === 'function') p.catch(() => {});
+        } catch (e) {
+            // ignore
         }
     }
 
@@ -1245,7 +1373,11 @@ window.onload = function() {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(gameState)
+                body: JSON.stringify({
+                    ...gameState,
+                    aiSide: (window.aiSide || 'white'),
+                    aiDepth: Math.max(1, Math.min(5, parseInt(window.aiDepth || 2, 10)))
+                })
             });
             if (response.ok) {
                 const updatedState = await response.json();
@@ -1297,25 +1429,12 @@ window.onload = function() {
         loader.style.display = 'none';
     }
 
-    // Call checkGameEnd after every move
+    // Call checkGameEnd after every click; if AI mode and it's AI turn, trigger AI once
     canvas.addEventListener('click', function(e) {
-        // ...existing code...
-
-        // Check if the game has ended
-        if (checkGameEnd()) {
-            return;
-        }
-
-        // Serialize the board and send it to the AI if in AI mode
-        if (isAiMode && canvas.style.pointerEvents !== 'none') {
+        if (checkGameEnd()) return;
+        if (isAiMode && (window.aiSide || 'white') === activePlayer && canvas.style.pointerEvents !== 'none') {
             sendToAI();
         }
-
-        // Ensure sounds play in both AI and 2-player modes
-        // Play sounds for actions in both modes
-        // ...existing code...
-
-        // ...existing code...
     });
 
     // Toggle between AI and 2-player modes
@@ -1323,12 +1442,21 @@ window.onload = function() {
         if (isAiMode) {
             console.log('Switched to AI Mode');
             // Additional setup for AI mode if needed
+            if ((window.aiSide || 'white') === activePlayer && canvas.style.pointerEvents !== 'none') {
+                // Trigger AI immediately if it's AI's turn
+                sendToAI();
+            }
         } else {
             console.log('Switched to 2 Player Mode');
             // Additional setup for 2-player mode if needed
         }
     }
 
-    // Expose toggleGameMode to the global scope
+    // Expose helpers to the global scope
     window.toggleGameMode = toggleGameMode;
+    window.requestAiMove = function() {
+        if ((window.aiSide || 'white') === activePlayer && canvas.style.pointerEvents !== 'none') {
+            sendToAI();
+        }
+    };
 };
