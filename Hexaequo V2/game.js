@@ -14,6 +14,7 @@ window.onload = function() {
     let showCoords = false;
     let colorScheme = 'classic'; // 'modern' or 'classic'
     let activePlayer = 'black'; // 'black' starts
+    let gameState, updatedState; // explicit state holders to avoid implicit globals
     let selectedPiece = null; // {q, r} or null
     let captured = {
         black: {disc: 0, ring: 0},
@@ -26,6 +27,230 @@ window.onload = function() {
     let showGrid = false;
     let multiJumping = false; // true if in a multi-jump sequence
     let multiJumpPos = null; // {q, r} of the piece in multi-jump
+    // Track jump paths for highlighting
+    window.currentJumpPath = null; // ["q,r", ...] during the sequence
+    window.lastJumpPath = null;    // saved after the turn to highlight
+    window.jumpMovesAnimated = false; // true if human multi-jump segments already animated inline
+    // Simple animation state for piece translation (no lines)
+    let animHidePieceKey = null; // key of destination tile to hide while animating a piece
+    let animHideTileKey = null;  // key of destination tile to hide while animating a tile
+    const boardGhosts = {}; // key: 'q,r' -> { type, color } shown until capture animation starts
+        const anim = {
+        active: false,
+        mode: 'board', // 'board' | 'screen'
+        pathBoard: null, // array of 'q,r'
+        pathScreen: null, // array of {x,y}
+        segmentIndex: 0,
+        segmentStart: 0,
+            durationPerSegmentMs: 250,
+        render: null, // function(x, y)
+        onComplete: null
+    };
+
+    // Simple animation queue for sequencing multiple animations (moves, placements, captures)
+    const animationQueue = [];
+    let animationInProgress = false;
+    const hiddenInventorySlots = []; // { player: 'black'|'white', absIndex: number }
+    
+    // Utility: remove ghosts that are not in the provided key set
+    function clearGhostsNotIn(keysSet) {
+        for (const k in boardGhosts) {
+            if (!keysSet.has(k)) delete boardGhosts[k];
+        }
+    }
+
+    function enqueueAnimation(spec) {
+        animationQueue.push(spec);
+        if (!animationInProgress) {
+            animationInProgress = true;
+            runNextAnimation();
+        }
+    }
+
+    function runNextAnimation() {
+        const next = animationQueue.shift();
+        if (!next) {
+            animationInProgress = false;
+            return;
+        }
+        const starter = () => {
+            if (typeof next.onBefore === 'function') {
+                try { next.onBefore(); } catch (e) {}
+            }
+            if (next.type === 'board') {
+                if (typeof next.durationMs === 'number') {
+                    anim.durationPerSegmentMs = next.durationMs;
+                } else {
+                    // Default board movement duration
+                    anim.durationPerSegmentMs = 300;
+                }
+                startBoardAnimation(next.pathKeys, next.render, next.hidePieceKey || null, function() {
+                    if (typeof next.onAfter === 'function') next.onAfter();
+                    runNextAnimation();
+                });
+            } else if (next.type === 'screen') {
+                if (typeof next.durationMs === 'number') {
+                    anim.durationPerSegmentMs = next.durationMs;
+                } else {
+                    // Default inventory transition duration
+                    anim.durationPerSegmentMs = 400;
+                }
+                startScreenAnimation(next.points, next.render, next.hideOptions || {}, function() {
+                    if (typeof next.onAfter === 'function') next.onAfter();
+                    runNextAnimation();
+                });
+            } else {
+                runNextAnimation();
+            }
+        };
+        if (next.delayMs && next.delayMs > 0) {
+            setTimeout(starter, next.delayMs);
+        } else {
+            starter();
+        }
+    }
+
+        // AI scheduling helpers to coordinate with animations
+        let aiScheduled = false;
+
+        function waitForAnimationEnd() {
+            return new Promise((resolve) => {
+                if (!anim.active && !animationInProgress && animationQueue.length === 0) {
+                    resolve();
+                    return;
+                }
+                function tick() {
+                    if (!anim.active && !animationInProgress && animationQueue.length === 0) {
+                        resolve();
+                        return;
+                    }
+                    requestAnimationFrame(tick);
+                }
+                requestAnimationFrame(tick);
+            });
+        }
+
+        function scheduleAiMoveIfNeeded() {
+            // Only schedule if AI mode and it's AI's turn
+            if (!isAiMode) return;
+            if ((window.aiSide || 'white') !== activePlayer) return;
+            if (aiScheduled) return;
+            aiScheduled = true;
+            waitForAnimationEnd().then(() => {
+                aiScheduled = false;
+                // Re-check it's still AI's turn and interactions aren't already disabled
+                if ((window.aiSide || 'white') === activePlayer && canvas.style.pointerEvents !== 'none') {
+                    sendToAI();
+                }
+            });
+        }
+
+    function startPieceAnimation(path, piece) {
+        // Backward-compatible wrapper for board-based piece animation
+        startBoardAnimation(
+            path.map(p => (typeof p === 'string' ? p : `${p[0]},${p[1]}`)),
+            (x, y) => drawPiece(x, y, piece, colorScheme),
+            path[path.length - 1]
+        );
+    }
+
+    function startBoardAnimation(pathKeys, render, hidePieceKey = null, onComplete = null) {
+        if (!pathKeys || pathKeys.length < 2 || !render) return;
+        anim.active = true;
+        anim.mode = 'board';
+        anim.pathBoard = pathKeys;
+        anim.pathScreen = null;
+        anim.segmentIndex = 0;
+        anim.segmentStart = 0;
+        anim.render = render;
+        anim.onComplete = onComplete;
+        animHidePieceKey = hidePieceKey;
+        requestAnimationFrame(stepPieceAnimation);
+    }
+
+    function startScreenAnimation(points, render, hideOptions = {}, onComplete = null) {
+        if (!points || points.length < 2 || !render) return;
+        anim.active = true;
+        anim.mode = 'screen';
+        anim.pathBoard = null;
+        anim.pathScreen = points.map(p => ({ x: p.x, y: p.y }));
+        anim.segmentIndex = 0;
+        anim.segmentStart = 0;
+        anim.render = render;
+        anim.onComplete = onComplete;
+        animHidePieceKey = hideOptions.hidePieceKey || null;
+        animHideTileKey = hideOptions.hideTileKey || null;
+        requestAnimationFrame(stepPieceAnimation);
+    }
+
+    function stepPieceAnimation(timestamp) {
+        if (!anim.active || !anim.path || anim.path.length < 2) {
+            // Backward compatibility guard; new code uses pathBoard/pathScreen
+        }
+        // Resolve current path according to mode
+        const isBoardMode = anim.mode === 'board';
+        const pathKeys = anim.pathBoard;
+        const pathPoints = anim.pathScreen;
+
+        const tooShort = (isBoardMode && (!pathKeys || pathKeys.length < 2)) || (!isBoardMode && (!pathPoints || pathPoints.length < 2));
+        if (tooShort) {
+            anim.active = false;
+            animHidePieceKey = null;
+            animHideTileKey = null;
+            anim.render = null;
+            const done = anim.onComplete; anim.onComplete = null;
+            if (typeof done === 'function') done();
+            return;
+        }
+        if (!anim.segmentStart) anim.segmentStart = timestamp;
+        let fx, fy, tx, ty;
+        if (isBoardMode) {
+            const fromKey = pathKeys[anim.segmentIndex];
+            const toKey = pathKeys[anim.segmentIndex + 1];
+            const [fq, fr] = fromKey.split(',').map(Number);
+            const [tq, tr] = toKey.split(',').map(Number);
+            [fx, fy] = hexToPixel(fq, fr, hexSize);
+            [tx, ty] = hexToPixel(tq, tr, hexSize);
+        } else {
+            const fromPt = pathPoints[anim.segmentIndex];
+            const toPt = pathPoints[anim.segmentIndex + 1];
+            fx = fromPt.x; fy = fromPt.y; tx = toPt.x; ty = toPt.y;
+        }
+
+        const elapsed = timestamp - anim.segmentStart;
+        const linear = Math.max(0, Math.min(1, elapsed / anim.durationPerSegmentMs));
+        // ease-in-out (cubic)
+        const progress = (linear < 0.5)
+            ? 4 * linear * linear * linear
+            : 1 - Math.pow(-2 * linear + 2, 3) / 2;
+
+        // Redraw board without the destination piece
+        drawGrid();
+        // Draw moving sprite at interpolated coordinates
+        const cx = fx + (tx - fx) * progress;
+        const cy = fy + (ty - fy) * progress;
+        if (typeof anim.render === 'function') anim.render(cx, cy);
+
+        if (progress >= 1) {
+            // Next segment
+            anim.segmentIndex += 1;
+            anim.segmentStart = timestamp;
+            if (anim.segmentIndex >= ((isBoardMode ? pathKeys.length : pathPoints.length) - 1)) {
+                // Finished
+                anim.active = false;
+                animHidePieceKey = null;
+                animHideTileKey = null;
+                anim.render = null;
+                drawGrid();
+                window.lastJumpPath = null;
+                window.lastGenericPath = null;
+                const done = anim.onComplete; anim.onComplete = null;
+                if (typeof done === 'function') done();
+                return;
+            }
+        }
+        requestAnimationFrame(stepPieceAnimation);
+    }
 
     // Each player starts with 9 tiles, 2 are already placed
     let inventory = {
@@ -184,6 +409,88 @@ window.onload = function() {
         return [rq, rr];
     }
 
+    // Draws contextual place disc/ring buttons centered at the top of the canvas
+    function drawPlacePieceButtons(x, y, btns) {
+        const btnW = 80, btnH = 28, gap = 10;
+        const centerX = canvas.width / 2;
+        const topY = 30;
+
+        // Disc button
+        ctx.save();
+        ctx.globalAlpha = 1.0;
+        ctx.beginPath();
+        ctx.rect(centerX - btnW - gap / 2, topY, btnW, btnH);
+        ctx.fillStyle = '#fff';
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#000a';
+        ctx.shadowBlur = 8;
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#222';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Place Disc', centerX - btnW / 2 - gap / 2, topY + btnH / 2);
+        ctx.restore();
+
+        // Ring button
+        ctx.save();
+        ctx.globalAlpha = 1.0;
+        ctx.beginPath();
+        ctx.rect(centerX + gap / 2, topY, btnW, btnH);
+        ctx.fillStyle = '#fff';
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#000a';
+        ctx.shadowBlur = 8;
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#222';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Place Ring', centerX + btnW / 2 + gap / 2, topY + btnH / 2);
+        ctx.restore();
+
+        // Update btns for click detection
+        btns.discBtn = { x: centerX - btnW - gap / 2, y: topY, w: btnW, h: btnH };
+        btns.ringBtn = { x: centerX + gap / 2, y: topY, w: btnW, h: btnH };
+    }
+
+    // Draws a contextual End Turn button centered at the top of the canvas
+    function drawEndTurnButton(x, y, q, r) {
+        const btnW = 100, btnH = 32;
+        const centerX = canvas.width / 2;
+        const topY = 30;
+        const btnX = centerX - btnW / 2;
+        const btnY = topY;
+
+        ctx.save();
+        ctx.globalAlpha = 1.0;
+        ctx.beginPath();
+        ctx.rect(btnX, btnY, btnW, btnH);
+        ctx.fillStyle = '#fff';
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#000a';
+        ctx.shadowBlur = 8;
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#222';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('End Turn', btnX + btnW / 2, btnY + btnH / 2);
+        ctx.restore();
+
+        // Store button bounds for click detection
+        endTurnBtnBounds = { q, r, x: btnX, y: btnY, w: btnW, h: btnH };
+    }
+
     // Draw all hexes in a hexagonal grid of given radius
     function drawGrid() {
         ctx.fillStyle = schemes[colorScheme].bg;
@@ -198,26 +505,36 @@ window.onload = function() {
                 // Draw tile if present
                 const key = `${q},${r}`;
                 if (tiles[key]) {
-                    drawTile(x, y, tiles[key], colorScheme);
+                    if (`${q},${r}` !== animHideTileKey) {
+                        drawTile(x, y, tiles[key], colorScheme);
+                    }
                     // Draw piece if present
                     if (pieces[key]) {
-                        drawPiece(x, y, pieces[key], colorScheme);
-                        // Draw selection highlight if selected
-                        if (selectedPiece && selectedPiece.q === q && selectedPiece.r === r) {
-                            ctx.save();
-                            ctx.beginPath();
-                            ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
-                            ctx.strokeStyle = 'orange';
-                            ctx.lineWidth = 4;
-                            ctx.setLineDash([4, 4]);
-                            ctx.stroke();
-                            ctx.setLineDash([]);
-                            ctx.restore();
+                        if (`${q},${r}` !== animHidePieceKey) {
+                            drawPiece(x, y, pieces[key], colorScheme);
+                        } else if (boardGhosts[key]) {
+                            // If the destination piece is hidden for animation, draw its ghost instead
+                            drawPiece(x, y, boardGhosts[key], colorScheme);
                         }
-                        // Draw contextual End Turn button if in multi-jump and this is the jumping piece
-                        if (multiJumping && multiJumpPos && multiJumpPos.q === q && multiJumpPos.r === r) {
-                            drawEndTurnButton(x, y, q, r);
-                        }
+                    } else if (boardGhosts[key]) {
+                        // Draw ghost on empty tile until its translation starts
+                        drawPiece(x, y, boardGhosts[key], colorScheme);
+                    }
+                    // Draw selection highlight if selected
+                    if (selectedPiece && selectedPiece.q === q && selectedPiece.r === r) {
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
+                        ctx.strokeStyle = 'orange';
+                        ctx.lineWidth = 4;
+                        ctx.setLineDash([4, 4]);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                        ctx.restore();
+                    }
+                    // Draw contextual End Turn button if in multi-jump and this is the jumping piece
+                    if (multiJumping && multiJumpPos && multiJumpPos.q === q && multiJumpPos.r === r) {
+                        drawEndTurnButton(x, y, q, r);
                     }
                     // Draw contextual place disc/ring buttons if needed
                     if (placePieceBtnTile && placePieceBtnTile.q === q && placePieceBtnTile.r === r && placePieceBtnBounds) {
@@ -235,95 +552,7 @@ window.onload = function() {
                 }
             }
         }
-        // Draws contextual buttons for placing disc or ring centered at the top of the canvas
-        function drawPlacePieceButtons(x, y, btns) {
-            const btnW = 80, btnH = 28, gap = 10;
-            // Center horizontally at the top of the canvas
-            const canvasRect = canvas.getBoundingClientRect();
-            const centerX = canvas.width / 2;
-            const topY = 30; // 30px from the top
-
-            // Disc button
-            ctx.save();
-            ctx.globalAlpha = 1.0;
-            ctx.beginPath();
-            ctx.rect(centerX - btnW - gap / 2, topY, btnW, btnH);
-            ctx.fillStyle = '#fff';
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 2;
-            ctx.shadowColor = '#000a';
-            ctx.shadowBlur = 8;
-            ctx.fill();
-            ctx.stroke();
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#222';
-            ctx.font = 'bold 14px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('Place Disc', centerX - btnW / 2 - gap / 2, topY + btnH / 2);
-            ctx.restore();
-
-            // Ring button
-            ctx.save();
-            ctx.globalAlpha = 1.0;
-            ctx.beginPath();
-            ctx.rect(centerX + gap / 2, topY, btnW, btnH);
-            ctx.fillStyle = '#fff';
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 2;
-            ctx.shadowColor = '#000a';
-            ctx.shadowBlur = 8;
-            ctx.fill();
-            ctx.stroke();
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#222';
-            ctx.font = 'bold 14px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('Place Ring', centerX + btnW / 2 + gap / 2, topY + btnH / 2);
-            ctx.restore();
-
-            // Update btns for click detection
-            btns.discBtn = { x: centerX - btnW - gap / 2, y: topY, w: btnW, h: btnH };
-            btns.ringBtn = { x: centerX + gap / 2, y: topY, w: btnW, h: btnH };
-        }
-
-        // Draws a contextual End Turn button centered at the top of the canvas
-        function drawEndTurnButton(x, y, q, r) {
-            const btnW = 100, btnH = 32;
-            const centerX = canvas.width / 2;
-            const topY = 30; // 30px from the top
-            const btnX = centerX - btnW / 2;
-            const btnY = topY;
-
-            ctx.save();
-            ctx.globalAlpha = 1.0;
-            ctx.beginPath();
-            ctx.rect(btnX, btnY, btnW, btnH);
-            ctx.fillStyle = '#fff';
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 2;
-            ctx.shadowColor = '#000a';
-            ctx.shadowBlur = 8;
-            ctx.fill();
-            ctx.stroke();
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#222';
-            ctx.font = 'bold 16px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('End Turn', btnX + btnW / 2, btnY + btnH / 2);
-            ctx.restore();
-
-            // Store button bounds for click detection
-            endTurnBtnBounds = { q, r, x: btnX, y: btnY, w: btnW, h: btnH };
-        }
-
-        const btnGrid = document.getElementById('toggleGridBtn');
-        btnGrid.addEventListener('click', function() {
-            showGrid = !showGrid;
-            drawGrid();
-        });
+        // removed per-frame listener attachment for Grid toggle; attached once during setup
 
         // Update player status
         if (playerStatus) {
@@ -352,7 +581,6 @@ window.onload = function() {
             // Draw white player's inventory items
             drawInventoryItems(whiteBoxX, whiteBoxY, 'white');
 
-            ctx.restore();
         }
 
         function drawInventoryItems(boxX, boxY, player) {
@@ -364,6 +592,21 @@ window.onload = function() {
 
             const items = [];
 
+            // Pending captures during human multi-jump should not be shown yet
+            function getPendingCaptureCountsForPlayer(p) {
+                if (!multiJumping) return { disc: 0, ring: 0 };
+                if (p !== activePlayer) return { disc: 0, ring: 0 };
+                const list = Array.isArray(window.currentJumpCaptures) ? window.currentJumpCaptures : [];
+                let d = 0, r = 0;
+                for (const c of list) {
+                    if (!c || !c.type) continue;
+                    if (c.type === 'disc') d += 1;
+                    else if (c.type === 'ring') r += 1;
+                }
+                return { disc: d, ring: r };
+            }
+            const pending = getPendingCaptureCountsForPlayer(player);
+
             // Add tiles, discs, rings, captured discs, and captured rings to the items array
             for (let i = 0; i < inventory[player]; i++) {
                 items.push({ type: 'tile', color: player });
@@ -374,15 +617,23 @@ window.onload = function() {
             for (let i = 0; i < ringInventory[player]; i++) {
                 items.push({ type: 'ring', color: player });
             }
-            for (let i = 0; i < captured[player].disc; i++) {
+            // Hide pending captured discs until end of turn animations
+            const visibleCapturedDiscs = Math.max(0, captured[player].disc - pending.disc);
+            for (let i = 0; i < visibleCapturedDiscs; i++) {
                 items.push({ type: 'disc', color: player === 'black' ? 'white' : 'black' });
             }
-            for (let i = 0; i < captured[player].ring; i++) {
+            // Hide pending captured rings until end of turn animations
+            const visibleCapturedRings = Math.max(0, captured[player].ring - pending.ring);
+            for (let i = 0; i < visibleCapturedRings; i++) {
                 items.push({ type: 'ring', color: player === 'black' ? 'white' : 'black' });
             }
 
             // Draw items in a 3-column grid
             items.forEach((item, index) => {
+                // Skip if this absolute slot is temporarily hidden
+                if (hiddenInventorySlots.some(s => s.player === player && s.absIndex === index)) {
+                    return;
+                }
                 const col = index % columns;
                 const row = Math.floor(index / columns);
                 const x = startX + col * (itemSize + gap);
@@ -470,6 +721,15 @@ window.onload = function() {
         drawGrid();
     });
 
+    // Attach grid toggle once (avoid re-attaching inside drawGrid)
+    const btnGrid = document.getElementById('toggleGridBtn');
+    if (btnGrid) {
+        btnGrid.addEventListener('click', function() {
+            showGrid = !showGrid;
+            drawGrid();
+        });
+    }
+
     // Handle placing tiles on click
     // Returns array of [q, r] for neighbors
     function getNeighbors(q, r) {
@@ -490,11 +750,24 @@ window.onload = function() {
             if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
                 // End turn and switch active player immediately
                 gameState = serializeGameState();
+                // Save the current jump path and captures (if any) for animation
+                if (window.currentJumpPath && window.currentJumpPath.length > 1) {
+                    window.lastJumpPath = [...window.currentJumpPath];
+                    if (Array.isArray(window.currentJumpCaptures)) {
+                        window.lastJumpCaptures = [...window.currentJumpCaptures];
+                    } else {
+                        window.lastJumpCaptures = [];
+                    }
+                }
+                window.currentJumpPath = null;
+                window.currentJumpCaptures = null;
                 multiJumping = false;
                 multiJumpPos = null;
                 selectedPiece = null;
                 endTurnBtnBounds = null;
                 activePlayer = activePlayer === 'black' ? 'white' : 'black';
+                // Ensure we don't re-animate move segments after turn end
+                window.jumpMovesAnimated = true;
                 updatedState = serializeGameState();
                 applyGameState(updatedState, gameState);
                 return;
@@ -513,6 +786,7 @@ window.onload = function() {
                 discInventory[activePlayer]--;
                 placePieceBtnBounds = null;
                 placePieceBtnTile = null;
+                window.lastGenericPath = [key];
                 activePlayer = activePlayer === 'black' ? 'white' : 'black';
                 updatedState = serializeGameState();
                 applyGameState(updatedState, gameState);
@@ -532,7 +806,7 @@ window.onload = function() {
                 discInventory[opp]++;
                 placePieceBtnBounds = null;
                 placePieceBtnTile = null;
-                activePlayer = opp;
+                window.lastJumpPath = null; window.lastGenericPath = [key]; activePlayer = opp;
                 updatedState = serializeGameState();
                 applyGameState(updatedState, gameState);
                 return;
@@ -561,11 +835,18 @@ window.onload = function() {
                     if (move.q === q && move.r === r) {
                         // Perform the move
                         gameState = serializeGameState();
-                        if (move.capture) {
+                    if (move.capture) {
                             const capturedKey = `${q},${r}`;
                             const capturedPiece = pieces[capturedKey];
+                            // Track capture for animation sequencing
+                            if (!window.currentJumpCaptures) window.currentJumpCaptures = [];
+                            window.currentJumpCaptures.push({ key: capturedKey, type: capturedPiece.type, color: capturedPiece.color });
+                        // Leave a ghost on board until translation starts
+                        boardGhosts[capturedKey] = { type: capturedPiece.type, color: capturedPiece.color };
                             captured[activePlayer][capturedPiece.type]++;
                             delete pieces[capturedKey];
+                        // Provide a generic-capture list for highlight/animation pipeline
+                        window.lastGenericCaptures = [{ key: capturedKey, type: capturedPiece.type, color: capturedPiece.color }];
                         }
 
                         pieces[`${q},${r}`] = {type: 'ring', color: activePlayer};
@@ -573,6 +854,8 @@ window.onload = function() {
 
                         // End turn after ring move
                         selectedPiece = null;
+                        // highlight path for 2-player ring move
+                        window.lastGenericPath = [selectedKey, `${q},${r}`];
                         activePlayer = activePlayer === 'black' ? 'white' : 'black';
                         updatedState = serializeGameState();
                         applyGameState(updatedState, gameState);
@@ -594,13 +877,15 @@ window.onload = function() {
                         gameState = serializeGameState();
                         pieces[key] = {type: 'disc', color: activePlayer};
                         delete pieces[`${sq},${sr}`];
+                        // highlight adjacent disc move
+                        window.lastGenericPath = [`${sq},${sr}`, key];
                         activePlayer = activePlayer === 'black' ? 'white' : 'black';
                         selectedPiece = null;
                         multiJumping = false;
                         multiJumpPos = null;
                         endTurnBtnBounds = null;
                         // Reset jump history
-                        jumpHistory = [];
+                        window.jumpHistory = [];
                         updatedState = serializeGameState();
                         applyGameState(updatedState, gameState);
                         return;
@@ -621,6 +906,11 @@ window.onload = function() {
                 const landingKey = `${landingQ},${landingR}`;
                 if (q === landingQ && r === landingR && pieces[jumpKey] && tiles[landingKey] && !pieces[landingKey]) {
                     gameState = serializeGameState();
+                    // initialize jump path if first jump in sequence
+                    if (!window.currentJumpPath) {
+                        window.currentJumpPath = [selectedKey];
+                        window.currentJumpCaptures = [];
+                    }
                     // Prevent jumping over the same friendly piece twice in the same sequence
                     if (
                         pieces[jumpKey].color === activePlayer &&
@@ -628,22 +918,42 @@ window.onload = function() {
                     ) {
                         continue; // Skip this jump, already jumped over this friendly piece
                     }
-                    // If enemy disc, capture and remove; if friendly, do not remove
-                    if (pieces[jumpKey].type === 'disc' && pieces[jumpKey].color !== activePlayer) {
-                        captured[activePlayer].disc++;
-                        delete pieces[jumpKey];
-                    } else if (pieces[jumpKey].type === 'ring' && pieces[jumpKey].color !== activePlayer) {
-                        captured[activePlayer].ring++;
+                    // If enemy piece, capture and remove; leave a ghost for animation
+                    if (pieces[jumpKey].color !== activePlayer) {
+                        const capPiece = pieces[jumpKey];
+                        if (!window.currentJumpCaptures) window.currentJumpCaptures = [];
+                        window.currentJumpCaptures.push({ key: jumpKey, type: capPiece.type, color: capPiece.color });
+                        boardGhosts[jumpKey] = { type: capPiece.type, color: capPiece.color };
+                        if (capPiece.type === 'disc') {
+                            captured[activePlayer].disc++;
+                        } else if (capPiece.type === 'ring') {
+                            captured[activePlayer].ring++;
+                        }
                         delete pieces[jumpKey];
                     }
                     pieces[landingKey] = {type: 'disc', color: activePlayer};
                     delete pieces[`${sq},${sr}`];
+                    // extend the jump path
+                    window.currentJumpPath.push(landingKey);
                     // Track friendly piece jumped over
                     if (pieces[jumpKey] && pieces[jumpKey].color === activePlayer) {
                         window.jumpHistory.push({q: jq, r: jr});
                     }
                     // Check if another jump is available from new position
                     if (canJumpAgain(landingQ, landingR, activePlayer, window.jumpHistory)) {
+                        // Human multi-jump partial animation: animate just this jump segment now
+                        const movedPiece = { type: 'disc', color: activePlayer };
+                        const fromKeyLocal = selectedKey;
+                        const toKeyLocal = landingKey;
+                        enqueueAnimation({
+                            type: 'board',
+                            pathKeys: [fromKeyLocal, toKeyLocal],
+                            render: (x, y) => drawPiece(x, y, movedPiece, colorScheme),
+                            hidePieceKey: toKeyLocal,
+                            durationMs: 300,
+                            onAfter: () => { drawGrid(); }
+                        });
+                        window.jumpMovesAnimated = true;
                         // Stay on same player's turn, keep piece selected, show End Turn button
                         selectedPiece = {q: landingQ, r: landingR};
                         multiJumping = true;
@@ -652,16 +962,38 @@ window.onload = function() {
                         drawGrid();
                         return;
                     } else {
-                        // No more jumps, end turn
-                        selectedPiece = null;
-                        multiJumping = false;
-                        multiJumpPos = null;
-                        endTurnBtnBounds = null;
-                        activePlayer = activePlayer === 'black' ? 'white' : 'black';
-                        // Reset jump history
-                        window.jumpHistory = [];
-                        updatedState = serializeGameState();
-                        applyGameState(updatedState, gameState);
+                        // Animate the final jump segment inline before ending the turn
+                        const movedPiece = { type: 'disc', color: activePlayer };
+                        const fromKeyFinal = selectedKey;
+                        const toKeyFinal = landingKey;
+                        enqueueAnimation({
+                            type: 'board',
+                            pathKeys: [fromKeyFinal, toKeyFinal],
+                            render: (x, y) => drawPiece(x, y, movedPiece, colorScheme),
+                            hidePieceKey: toKeyFinal,
+                            durationMs: 300,
+                            onAfter: () => {
+                                // End turn right after animating the last segment
+                                selectedPiece = null;
+                                multiJumping = false;
+                                multiJumpPos = null;
+                                endTurnBtnBounds = null;
+                                // finalize jump path for highlight (for capture animations only)
+                                if (window.currentJumpPath && window.currentJumpPath.length > 1) {
+                                    window.lastJumpPath = [...window.currentJumpPath];
+                                    window.lastJumpCaptures = Array.isArray(window.currentJumpCaptures) ? [...window.currentJumpCaptures] : [];
+                                }
+                                window.currentJumpPath = null;
+                                window.currentJumpCaptures = null;
+                                activePlayer = activePlayer === 'black' ? 'white' : 'black';
+                                // Reset jump history
+                                window.jumpHistory = [];
+                                // We already animated the human multi-jump segments inline; skip re-animation after turn
+                                window.jumpMovesAnimated = true;
+                                updatedState = serializeGameState();
+                                applyGameState(updatedState, gameState);
+                            }
+                        });
                         return;
                     }
                 }
@@ -737,6 +1069,8 @@ window.onload = function() {
                 gameState = serializeGameState();
                 pieces[key] = {type: 'disc', color: activePlayer};
                 discInventory[activePlayer]--;
+                window.lastJumpPath = null;
+                window.lastGenericPath = [key];
                 activePlayer = activePlayer === 'black' ? 'white' : 'black';
                 updatedState = serializeGameState();
                 applyGameState(updatedState, gameState);
@@ -749,7 +1083,7 @@ window.onload = function() {
                 const opp = activePlayer === 'black' ? 'white' : 'black';
                 captured[activePlayer].disc--;
                 discInventory[opp]++;
-                activePlayer = opp;
+                window.lastJumpPath = null; window.lastGenericPath = [key]; activePlayer = opp;
                 updatedState = serializeGameState();
                 applyGameState(updatedState, gameState);
                 return;
@@ -768,6 +1102,7 @@ window.onload = function() {
         gameState = serializeGameState();
         tiles[key] = activePlayer;
         inventory[activePlayer]--;
+        window.lastJumpPath = null; window.lastGenericPath = [key];
         activePlayer = activePlayer === 'black' ? 'white' : 'black';
         updatedState = serializeGameState();
         applyGameState(updatedState, gameState);
@@ -802,38 +1137,7 @@ window.onload = function() {
         return validPositions;
     }
 
-    // Update ring movement logic in canvas click handler
-    if (selectedPiece && pieces[`${selectedPiece.q},${selectedPiece.r}`].type === 'ring') {
-        const {q: sq, r: sr} = selectedPiece;
-        const validMoves = getRingJumpPositions(sq, sr, activePlayer);
-
-        for (const move of validMoves) {
-            if (move.q === q && move.r === r) {
-                // Perform the move
-                gameState = serializeGameState();
-                if (move.capture) {
-                    const capturedKey = `${q},${r}`;
-                    const capturedPiece = pieces[capturedKey];
-                    captured[activePlayer][capturedPiece.type]++;
-                    delete pieces[capturedKey];
-                }
-
-                pieces[`${q},${r}`] = {type: 'ring', color: activePlayer};
-                delete pieces[`${sq},${sr}`];
-                // End turn after ring move
-                selectedPiece = null;
-                activePlayer = activePlayer === 'black' ? 'white' : 'black';
-                updatedState = serializeGameState();
-                applyGameState(updatedState, gameState);
-                return;
-            }
-        }
-
-        // If no valid move, unselect the piece
-        selectedPiece = null;
-        drawGrid();
-        return;
-    }
+    // Removed duplicate ring movement logic (handled inside main click handler above)
 
     // Check if the game has ended
     function checkGameEnd() {
@@ -1000,11 +1304,17 @@ window.onload = function() {
         drawGrid();
     }
 
-    // Serialize the game state to send to the AI
+    // Serialize the game state to send to the AI (deep copy snapshot)
     function serializeGameState() {
+        const piecesCopy = {};
+        for (const k in pieces) {
+            const p = pieces[k];
+            piecesCopy[k] = { type: p.type, color: p.color };
+        }
+        const tilesCopy = { ...tiles };
         return {
-            tiles: tiles,
-            pieces: pieces,
+            tiles: tilesCopy,
+            pieces: piecesCopy,
             inventory: {
                 black: {
                     tiles: inventory.black,
@@ -1091,119 +1401,436 @@ window.onload = function() {
         // Update active player
         activePlayer = updatedState.activePlayer;
 
-        // Redraw the grid
-        drawGrid();
+        // If the server provides a jump path (AI multi-jump), store it for highlight
+        if (updatedState.last_jump_path && Array.isArray(updatedState.last_jump_path) && updatedState.last_jump_path.length > 1) {
+            window.lastJumpPath = [...updatedState.last_jump_path];
+        }
+        // If server provides a generic highlight_path (any move), capture it too
+        // IMPORTANT: do not clear local lastGenericPath in 2-player mode when server provides none
+        if (updatedState.highlight_path && Array.isArray(updatedState.highlight_path) && updatedState.highlight_path.length > 0) {
+            window.lastGenericPath = [...updatedState.highlight_path];
+        }
 
-        // Highlight the last move and tile placement
-        highlightLastMove(gameState, updatedState);
+        // Redraw the grid with highlights
+        drawGrid();
+        highlightLastMove(previousState, updatedState);
 
 
         checkGameEnd(); // Check if the game has ended after applying AI's move
     }
 
-    // Function to highlight the last move made
+        // Function to highlight the last move made
     function highlightLastMove(previousState, updatedState) {
-        const activePlayer = updatedState.activePlayer;
-        const opponent = activePlayer === 'black' ? 'white' : 'black';
+        const nextPlayer = updatedState.activePlayer;
+        const mover = nextPlayer === 'black' ? 'white' : 'black';
+        let ringRefundAlreadyQueued = false; // ensure disc refund anim runs before ring placement and only once
 
-        // Detect tile placement
-        const newTiles = Object.keys(updatedState.tiles).filter(
-            key => !previousState.tiles[key]
-        );
+        // Helpers to compute inventory slot centers consistent with drawInventoryItems
+        function getInventoryStart(player) {
+            const boxWidth = 130;
+            const padding = 10;
+            const startX = (player === 'black') ? (padding + 20) : (canvas.width - boxWidth - padding + 20);
+            const startY = padding + 20;
+            return { startX, startY };
+        }
+        function getInventoryCounts(state, player) {
+            return {
+                tiles: state.inventory[player].tiles,
+                discs: state.inventory[player].discs,
+                rings: state.inventory[player].rings,
+                captured_discs: player === 'black' ? state.captured.black_discs : state.captured.white_discs,
+                captured_rings: player === 'black' ? state.captured.black_rings : state.captured.white_rings
+            };
+        }
+        function absoluteIndexForCategory(counts, category, idxWithinCategory) {
+            const columns = 3;
+            const baseTiles = 0;
+            const baseDiscs = baseTiles + counts.tiles;
+            const baseRings = baseDiscs + counts.discs;
+            const baseCapturedDiscs = baseRings + counts.rings;
+            const baseCapturedRings = baseCapturedDiscs + counts.captured_discs;
+            let base = 0;
+            switch (category) {
+                case 'tiles': base = baseTiles; break;
+                case 'discs': base = baseDiscs; break;
+                case 'rings': base = baseRings; break;
+                case 'captured_discs': base = baseCapturedDiscs; break;
+                case 'captured_rings': base = baseCapturedRings; break;
+            }
+            return base + idxWithinCategory;
+        }
+        function getInventorySlotCenterForState(state, player, category, idxWithinCategory) {
+            const { startX, startY } = getInventoryStart(player);
+            const itemSize = 20;
+            const gap = 25;
+            const columns = 3;
+            const counts = getInventoryCounts(state, player);
+            const absIdx = absoluteIndexForCategory(counts, category, idxWithinCategory);
+            const col = absIdx % columns;
+            const row = Math.floor(absIdx / columns);
+            const x = startX + col * (itemSize + gap);
+            const y = startY + row * (itemSize + gap);
+            return { x, y };
+        }
+
+            // If there was a multi-jump path, animate per segment with capture between segments
+            if (window.lastJumpPath && window.lastJumpPath.length > 1) {
+            const path = window.lastJumpPath;
+            const startKey = path[0];
+            const movedPiece = previousState.pieces[startKey]
+                || updatedState.pieces[startKey]
+                || updatedState.pieces[path[path.length - 1]]
+                || {type: 'disc', color: mover};
+
+            // Build per-segment capture info from captured list stored during the move
+            const segments = [];
+            for (let i = 0; i < path.length - 1; i++) {
+                const fromKey = path[i];
+                const toKey = path[i + 1];
+                let capture = null;
+                if (Array.isArray(window.lastJumpCaptures) && window.lastJumpCaptures[i]) {
+                    const c = window.lastJumpCaptures[i];
+                    capture = { key: c.key, type: c.type, color: c.color };
+                }
+                segments.push({ fromKey, toKey, capture });
+            }
+
+            // Compute destination indices for captured items (from end of updated inventory)
+            let destDiscPtr = mover === 'black' ? updatedState.captured.black_discs - 1 : updatedState.captured.white_discs - 1;
+            let destRingPtr = mover === 'black' ? updatedState.captured.black_rings - 1 : updatedState.captured.white_rings - 1;
+
+            // First: enqueue all board move segments with 300ms duration
+            const finalEndKey = path[path.length - 1];
+            if (!window.jumpMovesAnimated) {
+                // Only animate moves after turn if not already animated inline during human multi-jump
+                segments.forEach(seg => {
+                    enqueueAnimation({
+                        type: 'board',
+                        pathKeys: [seg.fromKey, seg.toKey],
+                        render: (x, y) => drawPiece(x, y, movedPiece, colorScheme),
+                        // Always hide the final destination piece so it doesn't appear under the moving sprite
+                        hidePieceKey: finalEndKey,
+                        durationMs: 300
+                    });
+                });
+            }
+
+            // Then: enqueue capture translations, removing ghosts at start
+            const allCaps = segments.map(s => s.capture).filter(Boolean);
+            const removedKeysSet = new Set(allCaps.map(c => c.key));
+            allCaps.forEach(c => {
+                if (c) {
+                    const [cq, cr] = c.key.split(',').map(Number);
+                    const [sx, sy] = hexToPixel(cq, cr, hexSize);
+                    const fromPos = { x: sx, y: sy };
+                    if (!boardGhosts[c.key]) boardGhosts[c.key] = { type: c.type, color: c.color };
+                    drawGrid();
+                    if (c.type === 'disc') {
+                        const targetIdxWithin = destDiscPtr--;
+                        const toPos = getInventorySlotCenterForState(updatedState, mover, 'captured_discs', targetIdxWithin);
+                        const counts = getInventoryCounts(updatedState, mover);
+                        const absIndex = absoluteIndexForCategory(counts, 'captured_discs', targetIdxWithin);
+                        hiddenInventorySlots.push({ player: mover, absIndex });
+                        drawGrid();
+                        enqueueAnimation({
+                            type: 'screen',
+                            points: [fromPos, toPos],
+                            render: (x, y) => drawPiece(x, y, { type: 'disc', color: c.color }, colorScheme),
+                            durationMs: 400,
+                            onBefore: () => { delete boardGhosts[c.key]; drawGrid(); },
+                            onAfter: () => {
+                                const i = hiddenInventorySlots.findIndex(s => s.player === mover && s.absIndex === absIndex);
+                                if (i >= 0) hiddenInventorySlots.splice(i, 1);
+                                drawGrid();
+                            }
+                        });
+                    } else if (c.type === 'ring') {
+                        const targetIdxWithin = destRingPtr--;
+                        const toPos = getInventorySlotCenterForState(updatedState, mover, 'captured_rings', targetIdxWithin);
+                        const counts = getInventoryCounts(updatedState, mover);
+                        const absIndex = absoluteIndexForCategory(counts, 'captured_rings', targetIdxWithin);
+                        hiddenInventorySlots.push({ player: mover, absIndex });
+                        drawGrid();
+                        enqueueAnimation({
+                            type: 'screen',
+                            points: [fromPos, toPos],
+                            render: (x, y) => drawPiece(x, y, { type: 'ring', color: c.color }, colorScheme),
+                            durationMs: 400,
+                            onBefore: () => { delete boardGhosts[c.key]; drawGrid(); },
+                            onAfter: () => {
+                                const i = hiddenInventorySlots.findIndex(s => s.player === mover && s.absIndex === absIndex);
+                                if (i >= 0) hiddenInventorySlots.splice(i, 1);
+                                drawGrid();
+                            }
+                        });
+                    }
+                }
+            });
+            // Prevent duplicate move animation if a highlight_path was also provided
+            window.lastGenericPath = null;
+            // Clear any stray ghosts from previous turns that are not part of this capture set
+            clearGhostsNotIn(removedKeysSet);
+        }
+
+        // Otherwise, render/animate generic path if provided (placements: 1 point, moves: 2+ points)
+        if (window.lastGenericPath && window.lastGenericPath.length > 0) {
+            const path = window.lastGenericPath;
+            if (path.length >= 2) {
+                const startKey = path[0];
+                const endKey = path[path.length - 1];
+                const movedPiece = previousState.pieces[startKey]
+                    || updatedState.pieces[startKey]
+                    || updatedState.pieces[endKey]
+                    || {type: 'disc', color: mover};
+                enqueueAnimation({
+                    type: 'board',
+                    pathKeys: path,
+                    render: (x, y) => drawPiece(x, y, movedPiece, colorScheme),
+                    hidePieceKey: endKey
+                });
+                // continue to enqueue inventory animations
+            } else {
+                // single-point highlight (placement) now replaced by inventory animation below
+                // leave window.lastGenericPath intact; we'll clear after enqueuing animations
+            }
+        }
+
+            // Detect tile placement
+        const newTiles = Object.keys(updatedState.tiles).filter(key => !previousState.tiles[key]);
         if (newTiles.length === 1) {
-            const [q, r] = newTiles[0].split(',').map(Number);
-            const [x, y] = hexToPixel(q, r, hexSize);
-
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
-            ctx.strokeStyle = 'gray';
-            ctx.lineWidth = 4;
-            ctx.setLineDash([4, 4]);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            ctx.restore();
-            return;
+            // If mover's tile inventory decreased, animate from mover's inventory to board
+            const moverPrevTiles = previousState.inventory[mover].tiles;
+            const moverNowTiles = updatedState.inventory[mover].tiles;
+            if (moverNowTiles < moverPrevTiles) {
+                const destKey = newTiles[0];
+                const [q, r] = destKey.split(',').map(Number);
+                const [destX, destY] = hexToPixel(q, r, hexSize);
+                const fromPos = getInventorySlotCenterForState(previousState, mover, 'tiles', moverPrevTiles - 1);
+                enqueueAnimation({
+                    type: 'screen',
+                    points: [fromPos, { x: destX, y: destY }],
+                    render: (x, y) => drawTile(x, y, mover, colorScheme),
+                    hideOptions: { hideTileKey: destKey },
+                    onAfter: () => { window.lastGenericPath = null; }
+                });
+            }
         }
 
         // Detect piece placement (must also be a change in the inventory)
-        const newPieces = Object.keys(updatedState.pieces).filter(
-            key => !previousState.pieces[key]
-        );
+        const newPieces = Object.keys(updatedState.pieces).filter(key => !previousState.pieces[key]);
         if (newPieces.length === 1) {
-            const [q, r] = newPieces[0].split(',').map(Number);
-            const [x, y] = hexToPixel(q, r, hexSize);
-
-            // Check if inventory for the active player decreased (disc or ring placed)
-            const prevInv = previousState.inventory[opponent];
-            const currInv = updatedState.inventory[opponent];
+            const destKey = newPieces[0];
+            const [q, r] = destKey.split(',').map(Number);
+            const [destX, destY] = hexToPixel(q, r, hexSize);
+            const prevInv = previousState.inventory[mover];
+            const currInv = updatedState.inventory[mover];
             const discPlaced = currInv.discs < prevInv.discs;
             const ringPlaced = currInv.rings < prevInv.rings;
+            if (discPlaced) {
+                const fromPos = getInventorySlotCenterForState(previousState, mover, 'discs', prevInv.discs - 1);
+                enqueueAnimation({
+                    type: 'screen',
+                    points: [fromPos, { x: destX, y: destY }],
+                    render: (x, y) => drawPiece(x, y, { type: 'disc', color: mover }, colorScheme),
+                    hideOptions: { hidePieceKey: destKey },
+                    onAfter: () => { window.lastGenericPath = null; }
+                });
+            } else if (ringPlaced) {
+                // 1) Queue disc refund animation FIRST (from mover's captured to opponent's discs) if refund occurred
+                const moverPrevCapturedDiscs = mover === 'black' ? previousState.captured.black_discs : previousState.captured.white_discs;
+                const moverNowCapturedDiscs = mover === 'black' ? updatedState.captured.black_discs : updatedState.captured.white_discs;
+                const oppPrevDiscs = previousState.inventory[nextPlayer].discs;
+                const oppNowDiscs = updatedState.inventory[nextPlayer].discs;
+                if (moverNowCapturedDiscs < moverPrevCapturedDiscs && oppNowDiscs > oppPrevDiscs) {
+                    const fromPosRefund = getInventorySlotCenterForState(previousState, mover, 'captured_discs', moverPrevCapturedDiscs - 1);
+                    const targetIdxWithinRefund = oppNowDiscs - 1;
+                    const toPosRefund = getInventorySlotCenterForState(updatedState, nextPlayer, 'discs', targetIdxWithinRefund);
+                    const countsOpp = getInventoryCounts(updatedState, nextPlayer);
+                    const absIndexOpp = absoluteIndexForCategory(countsOpp, 'discs', targetIdxWithinRefund);
+                    hiddenInventorySlots.push({ player: nextPlayer, absIndex: absIndexOpp });
+                    drawGrid();
+                    enqueueAnimation({
+                        type: 'screen',
+                        points: [fromPosRefund, toPosRefund],
+                        render: (x, y) => drawPiece(x, y, { type: 'disc', color: nextPlayer }, colorScheme),
+                        onAfter: () => {
+                            const i = hiddenInventorySlots.findIndex(s => s.player === nextPlayer && s.absIndex === absIndexOpp);
+                            if (i >= 0) hiddenInventorySlots.splice(i, 1);
+                            drawGrid();
+                        }
+                    });
+                    ringRefundAlreadyQueued = true;
+                }
 
-            if (discPlaced || ringPlaced) {
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
-            ctx.strokeStyle = 'gray';
-            ctx.lineWidth = 4;
-            ctx.setLineDash([4, 4]);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            ctx.restore();
-            return;
+                // 2) Then queue ring placement to board
+                const fromPos = getInventorySlotCenterForState(previousState, mover, 'rings', prevInv.rings - 1);
+                enqueueAnimation({
+                    type: 'screen',
+                    points: [fromPos, { x: destX, y: destY }],
+                    render: (x, y) => drawPiece(x, y, { type: 'ring', color: mover }, colorScheme),
+                    hideOptions: { hidePieceKey: destKey },
+                    onAfter: () => { window.lastGenericPath = null; }
+                });
             }
         }
 
         // Detect piece movement with captures
         const movedFrom = Object.keys(previousState.pieces).find(
-            key => !updatedState.pieces[key] && previousState.pieces[key].color === opponent
+            key => !updatedState.pieces[key] && previousState.pieces[key].color === mover
         );
         const movedTo = Object.keys(updatedState.pieces).find(
-            key => !previousState.pieces[key] && updatedState.pieces[key].color === opponent
+            key => !previousState.pieces[key] && updatedState.pieces[key].color === mover
         );
-        const captured = Object.keys(previousState.pieces).filter(
-            key => !updatedState.pieces[key] && previousState.pieces[key].color === activePlayer
-        );
+        const capturedKeys = Object.keys(previousState.pieces).filter(key => {
+            // A piece is considered captured if it's present previously for nextPlayer and not present now
+            // Exclude the origin of mover's piece to avoid misclassifying ring-origin as ghost capture
+            if (previousState.pieces[key].color !== nextPlayer) return false;
+            if (key === movedFrom) return false;
+            return !updatedState.pieces[key];
+        });
 
-        if (movedFrom && movedTo) {
-            const [fromQ, fromR] = movedFrom.split(',').map(Number);
-            const [toQ, toR] = movedTo.split(',').map(Number);
-            const [fromX, fromY] = hexToPixel(fromQ, fromR, hexSize);
-            const [toX, toY] = hexToPixel(toQ, toR, hexSize);
+        // Animate captured pieces moving to mover's captured inventory
+        // Skip this block if we already handled captures per segment via lastJumpPath above
+        if ((!window.lastJumpPath || window.lastJumpPath.length <= 1) && (capturedKeys.length > 0 || (Array.isArray(window.lastGenericCaptures) && window.lastGenericCaptures.length > 0))) {
+            let capturedDiscsToAnimate = capturedKeys.filter(k => previousState.pieces[k].type === 'disc');
+            let capturedRingsToAnimate = capturedKeys.filter(k => previousState.pieces[k].type === 'ring');
 
-            // Highlight the move
-            ctx.save();
-            ctx.strokeStyle = 'gray';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(fromX, fromY);
-            ctx.lineTo(toX, toY);
-            ctx.stroke();
+            // If explicit generic captures are provided (e.g., ring captures on landing), prefer them
+            if (Array.isArray(window.lastGenericCaptures) && window.lastGenericCaptures.length > 0) {
+                const genCaps = window.lastGenericCaptures.slice();
+                const removedKeysSet = new Set(genCaps.map(c => c.key));
+                genCaps.forEach(c => {
+                    if (!boardGhosts[c.key]) boardGhosts[c.key] = { type: c.type, color: c.color };
+                });
+                drawGrid();
 
-            // Highlight the destination hex
-            ctx.beginPath();
-            ctx.arc(toX, toY, hexSize * 0.45, 0, 2 * Math.PI);
-            ctx.strokeStyle = 'gray';
-            ctx.lineWidth = 4;
-            ctx.setLineDash([4, 4]);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            ctx.restore();
+                let destDiscCount = mover === 'black' ? updatedState.captured.black_discs : updatedState.captured.white_discs;
+                let destRingCount = mover === 'black' ? updatedState.captured.black_rings : updatedState.captured.white_rings;
 
-            // Highlight captured pieces
-            captured.forEach(key => {
+                genCaps.forEach(c => {
+                    const [cq, cr] = c.key.split(',').map(Number);
+                    const [sx, sy] = hexToPixel(cq, cr, hexSize);
+                    const fromPos = { x: sx, y: sy };
+                    if (c.type === 'disc') {
+                        const targetIdxWithin = --destDiscCount;
+                        const toPos = getInventorySlotCenterForState(updatedState, mover, 'captured_discs', targetIdxWithin);
+                        const counts = getInventoryCounts(updatedState, mover);
+                        const absIndex = absoluteIndexForCategory(counts, 'captured_discs', targetIdxWithin);
+                        hiddenInventorySlots.push({ player: mover, absIndex });
+                        enqueueAnimation({
+                            type: 'screen',
+                            points: [fromPos, toPos],
+                            render: (x, y) => drawPiece(x, y, { type: 'disc', color: c.color }, colorScheme),
+                            durationMs: 400,
+                            onBefore: () => { delete boardGhosts[c.key]; drawGrid(); },
+                            onAfter: () => {
+                                const i = hiddenInventorySlots.findIndex(s => s.player === mover && s.absIndex === absIndex);
+                                if (i >= 0) hiddenInventorySlots.splice(i, 1);
+                                drawGrid();
+                            }
+                        });
+                    } else if (c.type === 'ring') {
+                        const targetIdxWithin = --destRingCount;
+                        const toPos = getInventorySlotCenterForState(updatedState, mover, 'captured_rings', targetIdxWithin);
+                        const counts = getInventoryCounts(updatedState, mover);
+                        const absIndex = absoluteIndexForCategory(counts, 'captured_rings', targetIdxWithin);
+                        hiddenInventorySlots.push({ player: mover, absIndex });
+                        enqueueAnimation({
+                            type: 'screen',
+                            points: [fromPos, toPos],
+                            render: (x, y) => drawPiece(x, y, { type: 'ring', color: c.color }, colorScheme),
+                            durationMs: 400,
+                            onBefore: () => { delete boardGhosts[c.key]; drawGrid(); },
+                            onAfter: () => {
+                                const i = hiddenInventorySlots.findIndex(s => s.player === mover && s.absIndex === absIndex);
+                                if (i >= 0) hiddenInventorySlots.splice(i, 1);
+                                drawGrid();
+                            }
+                        });
+                    }
+                });
+                window.lastGenericCaptures = null;
+                clearGhostsNotIn(removedKeysSet);
+                return;
+            }
+
+            let destDiscCount = mover === 'black' ? updatedState.captured.black_discs : updatedState.captured.white_discs;
+            let destRingCount = mover === 'black' ? updatedState.captured.black_rings : updatedState.captured.white_rings;
+
+            capturedDiscsToAnimate.forEach((key, idx) => {
                 const [q, r] = key.split(',').map(Number);
-                const [x, y] = hexToPixel(q, r, hexSize);
+                const [sx, sy] = hexToPixel(q, r, hexSize);
+                const fromPos = { x: sx, y: sy };
+                const targetIdxWithin = destDiscCount - 1 - idx;
+                const toPos = getInventorySlotCenterForState(updatedState, mover, 'captured_discs', targetIdxWithin);
+                // Hide destination captured slot until animation completes
+                const counts = getInventoryCounts(updatedState, mover);
+                const absIndex = absoluteIndexForCategory(counts, 'captured_discs', targetIdxWithin);
+                hiddenInventorySlots.push({ player: mover, absIndex });
+                drawGrid();
+                enqueueAnimation({
+                    type: 'screen',
+                    points: [fromPos, toPos],
+                    render: (x, y) => drawPiece(x, y, { type: 'disc', color: nextPlayer }, colorScheme),
+                    durationMs: 400,
+                    onBefore: () => { delete boardGhosts[key]; drawGrid(); },
+                    onAfter: () => {
+                        // Unhide the destination slot
+                        const i = hiddenInventorySlots.findIndex(s => s.player === mover && s.absIndex === absIndex);
+                        if (i >= 0) hiddenInventorySlots.splice(i, 1);
+                        drawGrid();
+                    }
+                });
+            });
 
-                ctx.save();
-                ctx.beginPath();
-                ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
-                ctx.strokeStyle = 'gray';
-                ctx.lineWidth = 4;
-                ctx.setLineDash([4, 4]);
-                ctx.stroke();
-                ctx.setLineDash([]);
-                ctx.restore();
+            capturedRingsToAnimate.forEach((key, idx) => {
+                const [q, r] = key.split(',').map(Number);
+                const [sx, sy] = hexToPixel(q, r, hexSize);
+                const fromPos = { x: sx, y: sy };
+                const targetIdxWithin = destRingCount - 1 - idx;
+                const toPos = getInventorySlotCenterForState(updatedState, mover, 'captured_rings', targetIdxWithin);
+                const counts = getInventoryCounts(updatedState, mover);
+                const absIndex = absoluteIndexForCategory(counts, 'captured_rings', targetIdxWithin);
+                hiddenInventorySlots.push({ player: mover, absIndex });
+                drawGrid();
+                enqueueAnimation({
+                    type: 'screen',
+                    points: [fromPos, toPos],
+                    render: (x, y) => drawPiece(x, y, { type: 'ring', color: nextPlayer }, colorScheme),
+                    durationMs: 400,
+                    onBefore: () => { delete boardGhosts[key]; drawGrid(); },
+                    onAfter: () => {
+                        const i = hiddenInventorySlots.findIndex(s => s.player === mover && s.absIndex === absIndex);
+                        if (i >= 0) hiddenInventorySlots.splice(i, 1);
+                        drawGrid();
+                    }
+                });
+            });
+        }
+
+        // Animate transfer of a captured disc back to opponent on ring placement
+        const moverPrevCapturedDiscs = mover === 'black' ? previousState.captured.black_discs : previousState.captured.white_discs;
+        const moverNowCapturedDiscs = mover === 'black' ? updatedState.captured.black_discs : updatedState.captured.white_discs;
+        const oppPrevDiscs = updatedState.activePlayer === 'black' ? previousState.inventory.black.discs : previousState.inventory.white.discs; // nextPlayer discs before
+        const oppNowDiscs = updatedState.inventory[nextPlayer].discs;
+        if (!ringRefundAlreadyQueued && moverNowCapturedDiscs < moverPrevCapturedDiscs && oppNowDiscs > oppPrevDiscs) {
+            // From mover's captured (previous last) to opponent's discs (updated last)
+            const fromPos = getInventorySlotCenterForState(previousState, mover, 'captured_discs', moverPrevCapturedDiscs - 1);
+            const targetIdxWithin = oppNowDiscs - 1;
+            const toPos = getInventorySlotCenterForState(updatedState, nextPlayer, 'discs', targetIdxWithin);
+            const countsOpp = getInventoryCounts(updatedState, nextPlayer);
+            const absIndexOpp = absoluteIndexForCategory(countsOpp, 'discs', targetIdxWithin);
+            hiddenInventorySlots.push({ player: nextPlayer, absIndex: absIndexOpp });
+            drawGrid();
+            enqueueAnimation({
+                type: 'screen',
+                points: [fromPos, toPos],
+                render: (x, y) => drawPiece(x, y, { type: 'disc', color: nextPlayer }, colorScheme),
+                onAfter: () => {
+                    const i = hiddenInventorySlots.findIndex(s => s.player === nextPlayer && s.absIndex === absIndexOpp);
+                    if (i >= 0) hiddenInventorySlots.splice(i, 1);
+                    drawGrid();
+                }
             });
         }
     }
@@ -1219,8 +1846,14 @@ window.onload = function() {
     };
 
     function playSound(action) {
-        if (sounds[action]) {
-            sounds[action].play();
+        const audio = sounds[action];
+        if (!audio) return;
+        try {
+            audio.currentTime = 0;
+            const p = audio.play();
+            if (p && typeof p.catch === 'function') p.catch(() => {});
+        } catch (e) {
+            // ignore
         }
     }
 
@@ -1245,11 +1878,17 @@ window.onload = function() {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(gameState)
+                body: JSON.stringify({
+                    ...gameState,
+                    aiSide: (window.aiSide || 'white'),
+                    aiDepth: Math.max(1, Math.min(5, parseInt(window.aiDepth || 2, 10)))
+                })
             });
             if (response.ok) {
                 const updatedState = await response.json();
                 applyGameState(updatedState, gameState); // Apply the updated state from AI
+                // Wait for any AI move animation to complete before allowing interactions
+                await waitForAnimationEnd();
             } else {
                 console.error('Failed to communicate with AI:', response.statusText);
             }
@@ -1271,24 +1910,32 @@ window.onload = function() {
         canvas.style.pointerEvents = 'auto';
     }
 
-    // Add a loader element to the DOM
+    // Add a loader element to the DOM (positioned at top of canvas)
     const loader = document.createElement('div');
     loader.id = 'aiLoader';
     loader.style.position = 'absolute';
-    loader.style.top = '50%';
-    loader.style.left = '50%';
-    loader.style.transform = 'translate(-50%, -50%)';
-    loader.style.padding = '20px';
-    loader.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    // Position near top center of the canvas without covering the board
+    const canvasRect = canvas.getBoundingClientRect();
+    loader.style.top = (canvas.offsetTop + 8) + 'px';
+    loader.style.left = (canvas.offsetLeft + canvas.width / 2) + 'px';
+    loader.style.transform = 'translate(-50%, 0)';
+    loader.style.padding = '8px 12px';
+    loader.style.backgroundColor = 'rgba(0, 0, 0, 0.75)';
     loader.style.color = 'white';
-    loader.style.borderRadius = '10px';
+    loader.style.borderRadius = '8px';
     loader.style.textAlign = 'center';
+    loader.style.font = 'bold 14px sans-serif';
     loader.style.display = 'none';
+    loader.style.pointerEvents = 'none';
     loader.innerText = 'AI is thinking...';
-    document.body.appendChild(loader);
+    // Insert relative to the canvas's offset parent
+    (canvas.offsetParent || document.body).appendChild(loader);
 
     // Show the loader when waiting for AI
     function showLoader() {
+        // Keep it aligned with the canvas top center on show
+        loader.style.top = (canvas.offsetTop + 8) + 'px';
+        loader.style.left = (canvas.offsetLeft + canvas.width / 2) + 'px';
         loader.style.display = 'block';
     }
 
@@ -1297,25 +1944,13 @@ window.onload = function() {
         loader.style.display = 'none';
     }
 
-    // Call checkGameEnd after every move
+    // Call checkGameEnd after every click; if AI mode and it's AI turn, trigger AI once
     canvas.addEventListener('click', function(e) {
-        // ...existing code...
-
-        // Check if the game has ended
-        if (checkGameEnd()) {
-            return;
+        if (checkGameEnd()) return;
+        if (isAiMode && (window.aiSide || 'white') === activePlayer && canvas.style.pointerEvents !== 'none') {
+            // Delay AI request until any ongoing player animation finishes
+            scheduleAiMoveIfNeeded();
         }
-
-        // Serialize the board and send it to the AI if in AI mode
-        if (isAiMode && canvas.style.pointerEvents !== 'none') {
-            sendToAI();
-        }
-
-        // Ensure sounds play in both AI and 2-player modes
-        // Play sounds for actions in both modes
-        // ...existing code...
-
-        // ...existing code...
     });
 
     // Toggle between AI and 2-player modes
@@ -1323,12 +1958,21 @@ window.onload = function() {
         if (isAiMode) {
             console.log('Switched to AI Mode');
             // Additional setup for AI mode if needed
+            if ((window.aiSide || 'white') === activePlayer && canvas.style.pointerEvents !== 'none') {
+                // Trigger AI after any ongoing animation completes
+                scheduleAiMoveIfNeeded();
+            }
         } else {
             console.log('Switched to 2 Player Mode');
             // Additional setup for 2-player mode if needed
         }
     }
 
-    // Expose toggleGameMode to the global scope
+    // Expose helpers to the global scope
     window.toggleGameMode = toggleGameMode;
+    window.requestAiMove = function() {
+        if ((window.aiSide || 'white') === activePlayer && canvas.style.pointerEvents !== 'none') {
+            sendToAI();
+        }
+    };
 };
