@@ -1,4 +1,9 @@
 /* styles.css */
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
 body {
     background: #000000;
     color: #fafafa;
@@ -6,6 +11,9 @@ body {
     text-align: center;
     margin: 0;
     padding: 0;
+    overflow-x: hidden;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 h1 {
@@ -15,8 +23,155 @@ h1 {
 
 #gameCanvas {
     display: block;
-    margin: 40px auto;
+    margin: 20px auto;
     background: #222;
     border: 2px solid #444;
     box-shadow: 0 0 20px #000a;
+    max-width: 100%;
+    height: auto;
+    touch-action: none;
+}
+
+button {
+    padding: 12px 24px;
+    font-size: 16px;
+    margin: 8px;
+    cursor: pointer;
+    border: none;
+    border-radius: 6px;
+    background: #4CAF50;
+    color: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s;
+    min-height: 44px;
+}
+
+button:hover {
+    background: #45a049;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+button:active {
+    transform: scale(0.98);
+}
+
+.logo-container {
+    text-align: center;
+    margin: 20px 0;
+}
+
+.logo-container img {
+    max-width: 200px;
+    height: auto;
+}
+
+#playerStatus {
+    margin: 10px;
+    font-size: 1.2em;
+    font-weight: bold;
+    padding: 8px;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+    body {
+        padding: 0;
+    }
+
+    h1 {
+        font-size: 1.8em;
+        margin-top: 10px;
+    }
+
+    .logo-container img {
+        max-width: 150px;
+    }
+
+    #gameCanvas {
+        margin: 10px auto;
+        width: 95vw !important;
+        max-width: 600px;
+        height: auto !important;
+    }
+
+    button {
+        padding: 14px 28px;
+        font-size: 18px;
+        margin: 10px 5px;
+        min-height: 48px;
+        min-width: 120px;
+    }
+
+    #playerStatus {
+        font-size: 1.1em;
+        margin: 8px;
+        padding: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    h1 {
+        font-size: 1.5em;
+        margin-top: 5px;
+    }
+
+    .logo-container {
+        margin: 10px 0;
+    }
+
+    .logo-container img {
+        max-width: 120px;
+    }
+
+    #gameCanvas {
+        width: 98vw !important;
+        margin: 5px auto;
+    }
+
+    button {
+        padding: 16px 32px;
+        font-size: 16px;
+        margin: 8px 4px;
+        width: calc(50% - 16px);
+        max-width: 200px;
+    }
+
+    #playerStatus {
+        font-size: 1em;
+        margin: 5px;
+        padding: 8px;
+    }
+}
+
+/* Landscape mobile */
+@media (max-width: 896px) and (orientation: landscape) {
+    .logo-container {
+        margin: 5px 0;
+    }
+
+    .logo-container img {
+        max-width: 80px;
+    }
+
+    #gameCanvas {
+        margin: 5px auto;
+        max-height: 70vh;
+    }
+
+    h1 {
+        font-size: 1.3em;
+        margin-top: 5px;
+    }
+
+    #playerStatus {
+        font-size: 0.9em;
+        margin: 5px;
+        padding: 5px;
+    }
+
+    button {
+        padding: 10px 20px;
+        font-size: 14px;
+        margin: 5px 3px;
+    }
 }

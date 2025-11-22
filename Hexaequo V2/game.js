@@ -5,6 +5,23 @@ let endTurnBtnBounds = null; // Used to track the End Turn button position for c
 let placePieceBtnBounds = null; // Used to track contextual place disc/ring buttons
 let placePieceBtnTile = null; // {q, r} for which tile the buttons are shown
 
+// Global variables for game mode
+let isAiMode = false;
+
+// Toggle between AI and 2-player modes
+function toggleGameMode(aiMode) {
+    isAiMode = aiMode;
+    if (isAiMode) {
+        console.log('Switched to AI Mode');
+    } else {
+        console.log('Switched to 2 Player Mode');
+    }
+}
+
+// Expose to global scope
+window.toggleGameMode = toggleGameMode;
+window.isAiMode = isAiMode;
+
 window.onload = function() {
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
@@ -40,9 +57,36 @@ window.onload = function() {
 
     // Hex grid parameters
     const radius = 8; // grid radius in hexes
-    const hexSize = 25; // pixel size from center to corner
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
+    let hexSize = 25; // pixel size from center to corner (will be adjusted)
+    let centerX = canvas.width / 2;
+    let centerY = canvas.height / 2;
+
+    // Update hex size and center when canvas is resized
+    function updateHexParameters() {
+        hexSize = Math.min(canvas.width, canvas.height) / 24; // Adjust based on canvas size
+        centerX = canvas.width / 2;
+        centerY = canvas.height / 2;
+    }
+
+    // Responsive canvas sizing
+    function resizeCanvas() {
+        const isMobile = window.innerWidth <= 768;
+        const isSmallMobile = window.innerWidth <= 480;
+        const isLandscape = window.innerWidth > window.innerHeight;
+        
+        if (isSmallMobile) {
+            canvas.width = Math.min(window.innerWidth * 0.98, 600);
+            canvas.height = isLandscape ? window.innerHeight * 0.7 : canvas.width * 0.75;
+        } else if (isMobile) {
+            canvas.width = Math.min(window.innerWidth * 0.95, 600);
+            canvas.height = isLandscape ? window.innerHeight * 0.7 : canvas.width * 0.75;
+        } else {
+            canvas.width = 800;
+            canvas.height = 600;
+        }
+        
+        drawGrid();
+    }
 
     // Initial tile content: key = 'q,r', value = 'black' or 'white'
     let tiles = {
@@ -186,6 +230,7 @@ window.onload = function() {
 
     // Draw all hexes in a hexagonal grid of given radius
     function drawGrid() {
+        updateHexParameters(); // Update parameters when drawing
         ctx.fillStyle = schemes[colorScheme].bg;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         // Draw all hexes and contents (with selection highlight if any)
@@ -458,7 +503,10 @@ window.onload = function() {
         }
     }
 
-    drawGrid();
+    // Initialize canvas size and set up resize listener
+    // This must be called AFTER all variables (schemes, tiles, pieces) are defined
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
 
     btnCoords.addEventListener('click', function() {
         showCoords = !showCoords;
@@ -478,10 +526,26 @@ window.onload = function() {
         ];
     }
 
-    canvas.addEventListener('click', function(e) {
+    // Unified event handler for both click and touch
+    function handleCanvasInteraction(e) {
+        e.preventDefault(); // Prevent default touch behavior
+        
         const rect = canvas.getBoundingClientRect();
-        const mx = e.clientX - rect.left;
-        const my = e.clientY - rect.top;
+        let mx, my;
+        
+        if (e.type === 'touchstart' || e.type === 'touchend') {
+            const touch = e.changedTouches[0];
+            mx = touch.clientX - rect.left;
+            my = touch.clientY - rect.top;
+        } else {
+            mx = e.clientX - rect.left;
+            my = e.clientY - rect.top;
+        }
+        
+        // Scale coordinates for canvas resolution
+        mx = mx * (canvas.width / rect.width);
+        my = my * (canvas.height / rect.height);
+        
         const [q, r] = pixelToHex(mx, my);
 
         // If End Turn button is visible and clicked, end multi-jump
@@ -771,6 +835,34 @@ window.onload = function() {
         activePlayer = activePlayer === 'black' ? 'white' : 'black';
         updatedState = serializeGameState();
         applyGameState(updatedState, gameState);
+    }
+
+    // Add both click and touch event listeners
+    canvas.addEventListener('click', function(e) {
+        handleCanvasInteraction(e);
+        
+        // Check if the game has ended
+        if (checkGameEnd()) {
+            return;
+        }
+
+        // Serialize the board and send it to the AI if in AI mode
+        if (isAiMode && canvas.style.pointerEvents !== 'none') {
+            sendToAI();
+        }
+    });
+    canvas.addEventListener('touchend', function(e) {
+        handleCanvasInteraction(e);
+        
+        // Check if the game has ended
+        if (checkGameEnd()) {
+            return;
+        }
+
+        // Serialize the board and send it to the AI if in AI mode
+        if (isAiMode && canvas.style.pointerEvents !== 'none') {
+            sendToAI();
+        }
     });
 
     // Returns valid jump positions for a ring at (q, r)
@@ -1231,33 +1323,59 @@ window.onload = function() {
         });
     });
 
+    // Initialize the AI Web Worker
+    let aiWorker = null;
+    let pendingGameState = null; // Store the game state before AI processes it
+    
+    if (typeof(Worker) !== "undefined") {
+        aiWorker = new Worker('ai-worker.js');
+        
+        // Handle messages from the worker
+        aiWorker.addEventListener('message', function(e) {
+            const { type, updatedState, error } = e.data;
+            
+            if (type === 'moveComputed') {
+                if (pendingGameState) {
+                    applyGameState(updatedState, pendingGameState); // Apply the updated state from AI
+                    pendingGameState = null; // Clear the pending state
+                }
+                hideLoader(); // Hide loader
+                enableInteractions(); // Re-enable interactions after AI move
+            } else if (type === 'error') {
+                console.error('AI Worker Error:', error);
+                hideLoader();
+                enableInteractions();
+            }
+        });
+    }
+
     // Send the game state to the AI and handle the response
     async function sendToAI() {
         const gameState = serializeGameState();
+        pendingGameState = gameState; // Save for later comparison
         disableInteractions(); // Disable interactions while AI is thinking
         showLoader(); // Show loader
 
         console.log('Sending game state to AI:', gameState); // Log the move sent to the AI
 
-        try {
-            const response = await fetch('http://127.0.0.1:5000/process', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(gameState)
+        if (aiWorker) {
+            // Use Web Worker
+            aiWorker.postMessage({
+                type: 'computeMove',
+                gameState: gameState
             });
-            if (response.ok) {
-                const updatedState = await response.json();
-                applyGameState(updatedState, gameState); // Apply the updated state from AI
-            } else {
-                console.error('Failed to communicate with AI:', response.statusText);
+        } else {
+            // Fallback to direct computation if Web Workers not supported
+            try {
+                const updatedState = processGameState(gameState);
+                applyGameState(updatedState, gameState);
+                pendingGameState = null;
+            } catch (error) {
+                console.error('Error communicating with AI:', error);
+            } finally {
+                hideLoader();
+                enableInteractions();
             }
-        } catch (error) {
-            console.error('Error communicating with AI:', error);
-        } finally {
-            hideLoader(); // Hide loader
-            enableInteractions(); // Re-enable interactions after AI move
         }
     }
 
@@ -1297,38 +1415,4 @@ window.onload = function() {
         loader.style.display = 'none';
     }
 
-    // Call checkGameEnd after every move
-    canvas.addEventListener('click', function(e) {
-        // ...existing code...
-
-        // Check if the game has ended
-        if (checkGameEnd()) {
-            return;
-        }
-
-        // Serialize the board and send it to the AI if in AI mode
-        if (isAiMode && canvas.style.pointerEvents !== 'none') {
-            sendToAI();
-        }
-
-        // Ensure sounds play in both AI and 2-player modes
-        // Play sounds for actions in both modes
-        // ...existing code...
-
-        // ...existing code...
-    });
-
-    // Toggle between AI and 2-player modes
-    function toggleGameMode(isAiMode) {
-        if (isAiMode) {
-            console.log('Switched to AI Mode');
-            // Additional setup for AI mode if needed
-        } else {
-            console.log('Switched to 2 Player Mode');
-            // Additional setup for 2-player mode if needed
-        }
-    }
-
-    // Expose toggleGameMode to the global scope
-    window.toggleGameMode = toggleGameMode;
 };

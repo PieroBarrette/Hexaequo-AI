@@ -2,13 +2,20 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="description" content="HEXAEQUO - Strategic hexagonal board game. Play against AI or with a friend.">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="HEXAEQUO">
     <title>HEXAEQUO</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
 </head>
 <body>
-    <div style="text-align: center; margin: 20px 0;">
-        <img src="logo.png" alt="Hexaequo Logo" style="max-width: 200px; height: auto;">
+    <div class="logo-container">
+        <img src="logo.png" alt="Hexaequo Logo">
     </div>
     <h1 style="display: none;">HEXAEQUO</h1> <!-- Hidden for accessibility -->
     <button id="toggleCoordsBtn" style="display: none;">Coordinates</button>
@@ -34,16 +41,28 @@
     </div> -->
     <div id="playerStatus" style="margin: 10px; font-size: 1.2em; font-weight: bold;"></div>
     <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <script src="ai.js"></script>
     <script src="game.js"></script>
     <script>
-        let isAiMode = false;
-
         document.getElementById('toggleModeBtn').addEventListener('click', () => {
-            isAiMode = !isAiMode;
-            document.getElementById('toggleModeBtn').innerText = isAiMode ? 'Switch to 2 Player Mode' : 'Switch to AI Mode';
-            // Notify game.js about the mode change
-            toggleGameMode(isAiMode);
+            const newMode = !window.isAiMode;
+            window.isAiMode = newMode;
+            window.toggleGameMode(newMode);
+            document.getElementById('toggleModeBtn').innerText = newMode ? 'Switch to 2 Player Mode' : 'Switch to AI Mode';
         });
+
+        // Register service worker for PWA functionality
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./service-worker.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registered:', registration.scope);
+                    })
+                    .catch(err => {
+                        console.log('ServiceWorker registration failed:', err);
+                    });
+            });
+        }
     </script>
 </body>
 </html>
