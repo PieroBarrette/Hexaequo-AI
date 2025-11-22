@@ -1422,20 +1422,26 @@ window.onload = function() {
     const loader = document.createElement('div');
     loader.id = 'aiLoader';
     loader.style.position = 'absolute';
-    loader.style.top = '50%';
-    loader.style.left = '50%';
-    loader.style.transform = 'translate(-50%, -50%)';
-    loader.style.padding = '20px';
-    loader.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    loader.style.padding = '12px 24px';
+    loader.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
     loader.style.color = 'white';
-    loader.style.borderRadius = '10px';
+    loader.style.borderRadius = '8px';
     loader.style.textAlign = 'center';
     loader.style.display = 'none';
+    loader.style.zIndex = '1000';
+    loader.style.fontSize = '16px';
+    loader.style.fontWeight = 'bold';
+    loader.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.5)';
     loader.innerText = 'AI is thinking...';
     document.body.appendChild(loader);
 
     // Show the loader when waiting for AI
     function showLoader() {
+        // Position loader at top center of canvas
+        const canvasRect = canvas.getBoundingClientRect();
+        loader.style.top = (canvasRect.top + 20) + 'px';
+        loader.style.left = (canvasRect.left + canvasRect.width / 2) + 'px';
+        loader.style.transform = 'translateX(-50%)';
         loader.style.display = 'block';
     }
 
