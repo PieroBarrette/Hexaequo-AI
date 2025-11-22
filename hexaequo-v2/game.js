@@ -63,7 +63,18 @@ window.onload = function() {
 
     // Update hex size and center when canvas is resized
     function updateHexParameters() {
-        hexSize = Math.min(canvas.width, canvas.height) / 24; // Adjust based on canvas size
+        const isMobile = window.innerWidth <= 768;
+        const isSmallMobile = window.innerWidth <= 480;
+        
+        // Larger hexes on mobile for easier interaction
+        if (isSmallMobile) {
+            hexSize = Math.min(canvas.width, canvas.height) / 18; // Larger on small mobile
+        } else if (isMobile) {
+            hexSize = Math.min(canvas.width, canvas.height) / 20; // Larger on mobile
+        } else {
+            hexSize = Math.min(canvas.width, canvas.height) / 24; // Default for desktop
+        }
+        
         centerX = canvas.width / 2;
         centerY = canvas.height / 2;
     }
@@ -77,13 +88,13 @@ window.onload = function() {
         if (isSmallMobile) {
             canvas.width = Math.min(window.innerWidth * 0.98, 600);
             canvas.height = isLandscape ? window.innerHeight * 0.7 : canvas.width * 0.75;
-            inventoryItemSize = 12; // Smaller for very small screens
-            inventoryItemGap = 15;
+            inventoryItemSize = 10; // Much smaller for very small screens
+            inventoryItemGap = 12;
         } else if (isMobile) {
             canvas.width = Math.min(window.innerWidth * 0.95, 600);
             canvas.height = isLandscape ? window.innerHeight * 0.7 : canvas.width * 0.75;
-            inventoryItemSize = 15; // Smaller for mobile screens
-            inventoryItemGap = 20;
+            inventoryItemSize = 12; // Smaller for mobile screens
+            inventoryItemGap = 15;
         } else {
             canvas.width = 800;
             canvas.height = 600;
@@ -386,8 +397,12 @@ window.onload = function() {
         }
 
         function drawInventory() {
-            const boxWidth = 130;
-            const padding = 10;
+            const isMobile = window.innerWidth <= 768;
+            const isSmallMobile = window.innerWidth <= 480;
+            
+            // Smaller inventory box on mobile
+            const boxWidth = isSmallMobile ? 80 : (isMobile ? 100 : 130);
+            const padding = isSmallMobile ? 5 : (isMobile ? 8 : 10);
 
             // Black player inventory box (top-left)
             const blackBoxX = padding;
@@ -410,11 +425,14 @@ window.onload = function() {
     let inventoryItemGap = 25;
 
     function drawInventoryItems(boxX, boxY, player) {
+        const isMobile = window.innerWidth <= 768;
+        const isSmallMobile = window.innerWidth <= 480;
+        
         const itemSize = inventoryItemSize;
         const gap = inventoryItemGap;
-            const columns = 3;
-            const startX = boxX + 20;
-            const startY = boxY + 20;
+        const columns = isSmallMobile ? 4 : (isMobile ? 4 : 3); // More columns on mobile to save space
+        const startX = boxX + (isSmallMobile ? 8 : (isMobile ? 12 : 20));
+        const startY = boxY + (isSmallMobile ? 8 : (isMobile ? 12 : 20));
 
             const items = [];
 
