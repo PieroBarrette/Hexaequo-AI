@@ -77,12 +77,18 @@ window.onload = function() {
         if (isSmallMobile) {
             canvas.width = Math.min(window.innerWidth * 0.98, 600);
             canvas.height = isLandscape ? window.innerHeight * 0.7 : canvas.width * 0.75;
+            inventoryItemSize = 12; // Smaller for very small screens
+            inventoryItemGap = 15;
         } else if (isMobile) {
             canvas.width = Math.min(window.innerWidth * 0.95, 600);
             canvas.height = isLandscape ? window.innerHeight * 0.7 : canvas.width * 0.75;
+            inventoryItemSize = 15; // Smaller for mobile screens
+            inventoryItemGap = 20;
         } else {
             canvas.width = 800;
             canvas.height = 600;
+            inventoryItemSize = 20; // Default size for larger screens
+            inventoryItemGap = 25;
         }
         
         drawGrid();
@@ -400,9 +406,12 @@ window.onload = function() {
             ctx.restore();
         }
 
-        function drawInventoryItems(boxX, boxY, player) {
-            const itemSize = 20;
-            const gap = 25;
+    let inventoryItemSize = 20;
+    let inventoryItemGap = 25;
+
+    function drawInventoryItems(boxX, boxY, player) {
+        const itemSize = inventoryItemSize;
+        const gap = inventoryItemGap;
             const columns = 3;
             const startX = boxX + 20;
             const startY = boxY + 20;
@@ -491,7 +500,8 @@ window.onload = function() {
             });
         }
 
-        drawInventory();
+    // drawInventory(); // Moved to drawGrid() to ensure it's always redrawn with the grid
+
 
         // Update player status
         if (playerStatus) {
@@ -501,6 +511,7 @@ window.onload = function() {
                 : (activePlayer === 'black' ? schemes.classic.black : schemes.classic.white);
             playerStatus.style.textShadow = colorScheme === 'modern' ? '0 0 4px #fff, 0 0 2px #000' : '0 0 2px #b08b4f';
         }
+        drawInventory();
     }
 
     // Initialize canvas size and set up resize listener
