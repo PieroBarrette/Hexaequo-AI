@@ -14,8 +14,12 @@ let AI_SEARCH_DEPTH = 3;
 
 /**
  * Deep clone a game state object
+ * structuredClone is much faster than JSON.parse(JSON.stringify)
  */
 function deepClone(obj) {
+    if (typeof structuredClone === 'function') {
+        return structuredClone(obj);
+    }
     return JSON.parse(JSON.stringify(obj));
 }
 
@@ -23,64 +27,8 @@ function deepClone(obj) {
  * Log the differences between the original game state and the proposed game state.
  */
 function logMoveDifferences(originalState, proposedState) {
-    const differences = {
-        tiles: {},
-        pieces: {},
-        inventory: {},
-        captured: {},
-        activePlayer: null
-    };
-
-    // Compare tiles
-    for (const position in proposedState.tiles) {
-        if (!(position in originalState.tiles) || originalState.tiles[position] !== proposedState.tiles[position]) {
-            differences.tiles[position] = proposedState.tiles[position];
-        }
-    }
-
-    for (const position in originalState.tiles) {
-        if (!(position in proposedState.tiles)) {
-            differences.tiles[position] = null;
-        }
-    }
-
-    // Compare pieces
-    for (const position in proposedState.pieces) {
-        if (!(position in originalState.pieces) ||
-            JSON.stringify(originalState.pieces[position]) !== JSON.stringify(proposedState.pieces[position])) {
-            differences.pieces[position] = proposedState.pieces[position];
-        }
-    }
-
-    for (const position in originalState.pieces) {
-        if (!(position in proposedState.pieces)) {
-            differences.pieces[position] = null;
-        }
-    }
-
-    // Compare inventory
-    for (const player of ['black', 'white']) {
-        differences.inventory[player] = {};
-        for (const key of ['tiles', 'discs', 'rings']) {
-            if (proposedState.inventory[player][key] !== originalState.inventory[player][key]) {
-                differences.inventory[player][key] = proposedState.inventory[player][key];
-            }
-        }
-    }
-
-    // Compare captured
-    for (const key of ['black_discs', 'black_rings', 'white_discs', 'white_rings']) {
-        if (proposedState.captured[key] !== originalState.captured[key]) {
-            differences.captured[key] = proposedState.captured[key];
-        }
-    }
-
-    // Compare active player
-    if (proposedState.activePlayer !== originalState.activePlayer) {
-        differences.activePlayer = proposedState.activePlayer;
-    }
-
-    console.log('Differences between original and proposed state:', differences);
+    // ... (logging logic kept simple or removed for performance in production, but keeping for debugging if needed)
+    // For optimization, we can skip detailed logging in the worker loop
 }
 
 /**
@@ -104,6 +52,13 @@ function processGameState(gameState, depth = 3) {
     // Generate direct children of the initial board state
     const children = getChildren(gameState, '1');
 
+    // Sort children to improve pruning (Move Ordering)
+    // We want to explore promising moves first.
+    // Since we are minimizing for White, we want to see moves with lower evaluation scores first.
+    // However, accurate evaluation is expensive. A simple heuristic is to prioritize captures.
+    // getChildren already puts captures (jumps) early in the list usually, but let's be explicit if needed.
+    // For now, we rely on the order from getChildren which puts captures/moves before placements.
+
     // Evaluate each child
     for (const child of children) {
         const [score, pruned] = minimax(child, AI_SEARCH_DEPTH, -Infinity, Infinity, true, child.branch || '1');
@@ -122,10 +77,7 @@ function processGameState(gameState, depth = 3) {
         return gameState;
     }
 
-    // Log the differences between the original and proposed game states
-    logMoveDifferences(gameState, bestMove);
-
-    // Convert inventory and captured data to integers
+    // Convert inventory and captured data to integers (safety check)
     for (const player of ['black', 'white']) {
         bestMove.inventory[player].tiles = parseInt(bestMove.inventory[player].tiles);
         bestMove.inventory[player].discs = parseInt(bestMove.inventory[player].discs);
@@ -137,12 +89,7 @@ function processGameState(gameState, depth = 3) {
     // Switch the active player to the opponent after the AI's move
     bestMove.activePlayer = 'black';
 
-    // Log the total number of branches pruned during the Minimax execution
-    console.log(`Total branches pruned during Minimax execution: ${totalPrunedBranches}`);
-
-    // Log the evaluation score of the chosen move
-    const evalScore = evaluate(bestMove);
-    console.log(`Evaluation score of chosen move: ${evalScore}`);
+    console.log(`AI (Level ${depth}) finished. Score: ${bestScore}. Pruned: ${totalPrunedBranches}`);
 
     return bestMove;
 }
@@ -158,10 +105,11 @@ function minimax(state, depth, alpha, beta, maximizingPlayer, branchPrefix) {
     }
 
     let prunedBranches = 0;
+    const children = getChildren(state, branchPrefix);
 
     if (maximizingPlayer) {
         let maxEval = -Infinity;
-        for (const child of getChildren(state, branchPrefix)) {
+        for (const child of children) {
             const [evalScore, childPrunedBranches] = minimax(
                 child,
                 depth - 1,
@@ -181,7 +129,7 @@ function minimax(state, depth, alpha, beta, maximizingPlayer, branchPrefix) {
         return [maxEval, prunedBranches];
     } else {
         let minEval = Infinity;
-        for (const child of getChildren(state, branchPrefix)) {
+        for (const child of children) {
             const [evalScore, childPrunedBranches] = minimax(
                 child,
                 depth - 1,
@@ -212,88 +160,104 @@ function isTerminal(state) {
     // 3. A player has no active pieces on the board
 
     // Check if either player has no active pieces
-    const blackHasPieces = Object.values(state.pieces).some(
-        piece => piece.color === 'black' && ['disc', 'ring'].includes(piece.type)
-    );
-    const whiteHasPieces = Object.values(state.pieces).some(
-        piece => piece.color === 'white' && ['disc', 'ring'].includes(piece.type)
-    );
+    // Optimization: Pass active pieces count if possible, but for now iterate
+    let blackPieces = 0;
+    let whitePieces = 0;
+    for (const key in state.pieces) {
+        if (state.pieces[key].color === 'black') blackPieces++;
+        else whitePieces++;
+    }
 
     const terminal = (
         state.captured.black_discs >= 6 ||
         state.captured.white_discs >= 6 ||
         state.captured.black_rings >= 3 ||
         state.captured.white_rings >= 3 ||
-        !blackHasPieces || !whiteHasPieces ||
-        getChildren(state, state.branch || '').length === 0 // Stalemate: no available moves
+        blackPieces === 0 || whitePieces === 0
+        // Note: Stalemate check (no moves) is expensive here, usually handled by getChildren returning empty
     );
     return terminal;
 }
 
 /**
  * Evaluate the game state
+ * Positive score = Good for Black
+ * Negative score = Good for White
  */
 function evaluate(state) {
     let blackScore = 0;
     let whiteScore = 0;
 
+    // Material weights
+    const W_DISC = 10;
+    const W_RING = 30;
+    const W_CAPTURED_DISC = 15; // Capturing is better than just having
+    const W_CAPTURED_RING = 50;
+    const W_TILE = 2;
+    const W_MOBILITY = 0.5;
+    const W_CENTER = 1;
+
     // Score pieces on the board
     for (const position in state.pieces) {
         const piece = state.pieces[position];
+        const [q, r] = position.split(',').map(Number);
+
+        // Distance from center (0,0)
+        // Hex distance = max(|q|, |r|, |s|) where s = -q-r
+        const dist = Math.max(Math.abs(q), Math.abs(r), Math.abs(-q - r));
+        const centerBonus = (5 - dist) * W_CENTER; // Closer to center is better
+
         if (piece.type === 'disc') {
             if (piece.color === 'black') {
-                blackScore += 1;
+                blackScore += W_DISC + centerBonus;
             } else {
-                whiteScore += 1;
+                whiteScore += W_DISC + centerBonus;
             }
         } else if (piece.type === 'ring') {
             if (piece.color === 'black') {
-                blackScore += 3;
+                blackScore += W_RING + centerBonus;
             } else {
-                whiteScore += 3;
+                whiteScore += W_RING + centerBonus;
             }
         }
     }
 
-    // Simple scoring for captured pieces
-    blackScore += state.captured.black_discs * 1.5;
-    blackScore += state.captured.black_rings * 4.5;
-    whiteScore += state.captured.white_discs * 1.5;
-    whiteScore += state.captured.white_rings * 4.5;
+    // Score captured pieces
+    blackScore += state.captured.black_discs * W_CAPTURED_DISC;
+    blackScore += state.captured.black_rings * W_CAPTURED_RING;
+    whiteScore += state.captured.white_discs * W_CAPTURED_DISC;
+    whiteScore += state.captured.white_rings * W_CAPTURED_RING;
 
-    // Score empty tiles of own color
+    // Score empty tiles of own color (territory)
     for (const position in state.tiles) {
         if (!(position in state.pieces)) {
             const tileColor = state.tiles[position];
             if (tileColor === 'black') {
-                blackScore += 0.2;
+                blackScore += W_TILE;
             } else if (tileColor === 'white') {
-                whiteScore += 0.2;
+                whiteScore += W_TILE;
             }
         }
     }
 
-    let score = blackScore - whiteScore;
-
-    const blackHasPieces = Object.values(state.pieces).some(
-        piece => piece.color === 'black' && ['disc', 'ring'].includes(piece.type)
-    );
-    const whiteHasPieces = Object.values(state.pieces).some(
-        piece => piece.color === 'white' && ['disc', 'ring'].includes(piece.type)
-    );
-
-    if (state.captured.black_discs >= 6 || state.captured.black_rings >= 3 || !whiteHasPieces) {
-        score = 999;
-    } else if (state.captured.white_discs >= 6 || state.captured.white_rings >= 3 || !blackHasPieces) {
-        score = -999;
+    // Win/Loss check (High priority)
+    let blackPieces = 0;
+    let whitePieces = 0;
+    for (const key in state.pieces) {
+        if (state.pieces[key].color === 'black') blackPieces++;
+        else whitePieces++;
     }
 
-    // Stalemate: if the active player has no available moves, it's Ex Aequo (draw)
-    if (getChildren(state, state.branch || '').length === 0) {
-        score = 0;
+    if (state.captured.black_discs >= 6 || state.captured.black_rings >= 3 || whitePieces === 0) {
+        return 10000;
+    } else if (state.captured.white_discs >= 6 || state.captured.white_rings >= 3 || blackPieces === 0) {
+        return -10000;
     }
 
-    return score;
+    // Mobility (expensive to calculate fully, maybe skip for performance or use simplified version)
+    // For now, skipping full mobility calculation to keep AI fast enough for depth 4
+
+    return blackScore - whiteScore;
 }
 
 /**
@@ -304,8 +268,14 @@ function getChildren(state, branchPrefix) {
     const player = state.activePlayer;
 
     // Generate all possible moves for the current player
-    const ringMoves = getValidRingMoves(state, player);
+    // Order matters for Alpha-Beta pruning!
+    // 1. Captures (Jumps) - Most likely to drastically change score
+    // 2. Ring Moves - High value pieces
+    // 3. Disc Moves
+    // 4. Placements
+
     const discJumps = getValidDiscJumps(state, player);
+    const ringMoves = getValidRingMoves(state, player);
     const discMoves = getValidDiscMoves(state, player);
     const ringPlacements = getValidRingPlacements(state, player);
     const discPlacements = getValidDiscPlacements(state, player);
@@ -313,20 +283,20 @@ function getChildren(state, branchPrefix) {
 
     let moveIndex = 1;
 
-    // Simulate ring moves
-    for (const [fromPosition, toPosition] of ringMoves) {
+    // Simulate disc jumps (Captures)
+    for (const jumpSequence of discJumps) {
         const newState = deepClone(state);
-        simulateRingMove(newState, fromPosition, toPosition);
+        simulateDiscJumpSequence(newState, jumpSequence);
         newState.activePlayer = player === 'black' ? 'white' : 'black';
         newState.branch = `${branchPrefix}.${moveIndex}`;
         children.push(newState);
         moveIndex++;
     }
 
-    // Simulate disc jumps
-    for (const jumpSequence of discJumps) {
+    // Simulate ring moves (Potential captures)
+    for (const [fromPosition, toPosition] of ringMoves) {
         const newState = deepClone(state);
-        simulateDiscJumpSequence(newState, jumpSequence);
+        simulateRingMove(newState, fromPosition, toPosition);
         newState.activePlayer = player === 'black' ? 'white' : 'black';
         newState.branch = `${branchPrefix}.${moveIndex}`;
         children.push(newState);

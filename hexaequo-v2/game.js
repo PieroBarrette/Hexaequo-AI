@@ -815,6 +815,45 @@ window.onload = function () {
     function handleCanvasInteraction(e) {
         e.preventDefault(); // Prevent default touch behavior
 
+        const { mx, my } = getCanvasCoordinates(e);
+        const [q, r] = pixelToHex(mx, my);
+
+        // 1. Handle UI Buttons (End Turn, Place Piece)
+        if (handleUiButtons(mx, my)) return;
+
+        // 2. Check bounds
+        if (!isValidHex(q, r)) {
+            selectedPiece = null;
+            drawGrid();
+            return;
+        }
+
+        const key = `${q},${r}`;
+
+        // 3. Handle Piece Selection and Movement
+        if (selectedPiece) {
+            if (handlePieceMovement(q, r)) return;
+        }
+
+        // 4. Handle Selecting Own Piece
+        if (pieces[key] && pieces[key].color === activePlayer) {
+            selectedPiece = { q, r };
+            drawGrid();
+            return;
+        }
+
+        // 5. Handle Clicking Elsewhere (Unselect)
+        if (selectedPiece) {
+            selectedPiece = null;
+            drawGrid();
+            return;
+        }
+
+        // 6. Handle Placement (Disc, Ring, Tile)
+        handlePlacement(q, r);
+    }
+
+    function getCanvasCoordinates(e) {
         const rect = canvas.getBoundingClientRect();
         let mx, my;
 
@@ -830,250 +869,246 @@ window.onload = function () {
         // Scale coordinates for canvas resolution
         mx = mx * (canvas.width / rect.width);
         my = my * (canvas.height / rect.height);
+        return { mx, my };
+    }
 
-        const [q, r] = pixelToHex(mx, my);
+    function isValidHex(q, r) {
+        if (q < -radius || q > radius) return false;
+        if (r < Math.max(-radius, -q - radius) || r > Math.min(radius, -q + radius)) return false;
+        return true;
+    }
 
-        // If End Turn button is visible and clicked, end multi-jump
+    function handleUiButtons(mx, my) {
+        // If End Turn button is visible and clicked
         if (multiJumping && endTurnBtnBounds) {
             const bx = endTurnBtnBounds.x, by = endTurnBtnBounds.y, bw = endTurnBtnBounds.w, bh = endTurnBtnBounds.h;
             if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
-                // End turn and switch active player immediately
-                gameState = serializeGameState();
-                multiJumping = false;
-                multiJumpPos = null;
-                selectedPiece = null;
-                endTurnBtnBounds = null;
-                turnStartState = null;
-                turnStartPiecePos = null;
-                activePlayer = activePlayer === 'black' ? 'white' : 'black';
-                updatedState = serializeGameState();
-                applyGameState(updatedState, gameState);
-                return;
+                endTurn();
+                return true;
             }
         }
-        // If contextual place disc/ring buttons are visible, check if clicked
+        // If contextual place disc/ring buttons are visible
         if (placePieceBtnBounds && placePieceBtnTile) {
             const { discBtn, ringBtn } = placePieceBtnBounds;
             // Disc button
             if (mx >= discBtn.x && mx <= discBtn.x + discBtn.w && my >= discBtn.y && my <= discBtn.y + discBtn.h) {
-                // Place disc
-                gameState = serializeGameState();
-                const q = placePieceBtnTile.q, r = placePieceBtnTile.r;
-                const key = `${q},${r}`;
-                pieces[key] = { type: 'disc', color: activePlayer };
-                discInventory[activePlayer]--;
-                placePieceBtnBounds = null;
-                placePieceBtnTile = null;
-                activePlayer = activePlayer === 'black' ? 'white' : 'black';
-                updatedState = serializeGameState();
-                applyGameState(updatedState, gameState);
-                return;
+                placeDisc(placePieceBtnTile.q, placePieceBtnTile.r);
+                return true;
             }
             // Ring button
             if (mx >= ringBtn.x && mx <= ringBtn.x + ringBtn.w && my >= ringBtn.y && my <= ringBtn.y + ringBtn.h) {
-                // Place ring: must return a captured disc to opponent
-                gameState = serializeGameState();
-                const q = placePieceBtnTile.q, r = placePieceBtnTile.r;
-                const key = `${q},${r}`;
-                pieces[key] = { type: 'ring', color: activePlayer };
-                ringInventory[activePlayer]--;
-                // Return a captured disc to opponent
-                const opp = activePlayer === 'black' ? 'white' : 'black';
-                captured[activePlayer].disc--;
-                discInventory[opp]++;
-                placePieceBtnBounds = null;
-                placePieceBtnTile = null;
-                activePlayer = opp;
-                updatedState = serializeGameState();
-                applyGameState(updatedState, gameState);
-                return;
+                placeRing(placePieceBtnTile.q, placePieceBtnTile.r);
+                return true;
             }
             // Clicked elsewhere: cancel buttons
             placePieceBtnBounds = null;
             placePieceBtnTile = null;
             drawGrid();
-            return;
+            return true; // Consumed click
         }
-        // Check if in bounds
-        if (q < -radius || q > radius) { selectedPiece = null; drawGrid(); return; }
-        if (r < Math.max(-radius, -q - radius) || r > Math.min(radius, -q + radius)) { selectedPiece = null; drawGrid(); return; }
+        return false;
+    }
+
+    function endTurn() {
+        gameState = serializeGameState();
+        multiJumping = false;
+        multiJumpPos = null;
+        selectedPiece = null;
+        endTurnBtnBounds = null;
+        turnStartState = null;
+        turnStartPiecePos = null;
+        activePlayer = activePlayer === 'black' ? 'white' : 'black';
+        updatedState = serializeGameState();
+        applyGameState(updatedState, gameState);
+    }
+
+    function placeDisc(q, r) {
+        gameState = serializeGameState();
+        const key = `${q},${r}`;
+        pieces[key] = { type: 'disc', color: activePlayer };
+        discInventory[activePlayer]--;
+        placePieceBtnBounds = null;
+        placePieceBtnTile = null;
+        activePlayer = activePlayer === 'black' ? 'white' : 'black';
+        updatedState = serializeGameState();
+        applyGameState(updatedState, gameState);
+    }
+
+    function placeRing(q, r) {
+        gameState = serializeGameState();
+        const key = `${q},${r}`;
+        pieces[key] = { type: 'ring', color: activePlayer };
+        ringInventory[activePlayer]--;
+        // Return a captured disc to opponent
+        const opp = activePlayer === 'black' ? 'white' : 'black';
+        captured[activePlayer].disc--;
+        discInventory[opp]++;
+        placePieceBtnBounds = null;
+        placePieceBtnTile = null;
+        activePlayer = opp;
+        updatedState = serializeGameState();
+        applyGameState(updatedState, gameState);
+    }
+
+    function handlePieceMovement(q, r) {
+        const { q: sq, r: sr } = selectedPiece;
+        const selectedKey = `${sq},${sr}`;
+        const selectedType = pieces[selectedKey].type;
         const key = `${q},${r}`;
 
-        // If a piece is selected, try to move it (adjacent or jump)
-        if (selectedPiece) {
-            const { q: sq, r: sr } = selectedPiece;
-            const selectedKey = `${sq},${sr}`;
-            const selectedType = pieces[selectedKey].type;
-
-            if (selectedType === 'ring') {
-                const validMoves = getRingJumpPositions(sq, sr, activePlayer);
-
-                for (const move of validMoves) {
-                    if (move.q === q && move.r === r) {
-                        // Perform the move
-                        gameState = serializeGameState();
-                        if (move.capture) {
-                            const capturedKey = `${q},${r}`;
-                            const capturedPiece = pieces[capturedKey];
-                            captured[activePlayer][capturedPiece.type]++;
-                            delete pieces[capturedKey];
-                        }
-
-                        pieces[`${q},${r}`] = { type: 'ring', color: activePlayer };
-                        delete pieces[selectedKey];
-
-                        // End turn after ring move
-                        selectedPiece = null;
-                        activePlayer = activePlayer === 'black' ? 'white' : 'black';
-                        updatedState = serializeGameState();
-                        applyGameState(updatedState, gameState);
-                        return;
-                    }
-                }
-
-                // If no valid move, unselect the piece
-                selectedPiece = null;
-                drawGrid();
-                return;
-            }
-
-            // If in multi-jump, only allow further jumps (no adjacent move)
-            if (!multiJumping) {
-                // Check adjacent move
-                for (const [nq, nr] of getNeighbors(sq, sr)) {
-                    if (nq === q && nr === r && tiles[key] && !pieces[key]) {
-                        gameState = serializeGameState();
-                        pieces[key] = { type: 'disc', color: activePlayer };
-                        delete pieces[`${sq},${sr}`];
-                        activePlayer = activePlayer === 'black' ? 'white' : 'black';
-                        selectedPiece = null;
-                        multiJumping = false;
-                        multiJumpPos = null;
-                        endTurnBtnBounds = null;
-                        // Reset jump history
-                        jumpHistory = [];
-                        updatedState = serializeGameState();
-                        applyGameState(updatedState, gameState);
-                        return;
-                    }
+        if (selectedType === 'ring') {
+            const validMoves = getRingJumpPositions(sq, sr, activePlayer);
+            for (const move of validMoves) {
+                if (move.q === q && move.r === r) {
+                    performRingMove(sq, sr, q, r, move.capture);
+                    return true;
                 }
             }
-            // --- Track friendly pieces jumped over in this sequence ---
-            if (!window.jumpHistory) window.jumpHistory = [];
-            // Check jump move (over any piece, in any hex direction)
-            const directions = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
-            let didJump = false;
-            for (const [dq, dr] of directions) {
-                const jq = sq + dq;
-                const jr = sr + dr;
-                const landingQ = sq + 2 * dq;
-                const landingR = sr + 2 * dr;
-                const jumpKey = `${jq},${jr}`;
-                const landingKey = `${landingQ},${landingR}`;
-                if (q === landingQ && r === landingR && pieces[jumpKey] && tiles[landingKey] && !pieces[landingKey]) {
-                    gameState = serializeGameState();
+            // If no valid move, unselect (handled by caller)
+            return false;
+        }
 
-                    // If this is the first jump, save the start state
-                    if (!multiJumping) {
-                        turnStartState = JSON.parse(JSON.stringify(gameState)); // Deep copy
-                        turnStartPiecePos = { q: sq, r: sr };
-                    }
-
-                    // Prevent jumping over the same friendly piece twice in the same sequence
-                    if (
-                        pieces[jumpKey].color === activePlayer &&
-                        window.jumpHistory.some(h => h.q === jq && h.r === jr)
-                    ) {
-                        continue; // Skip this jump, already jumped over this friendly piece
-                    }
-                    // If enemy disc, capture and remove; if friendly, do not remove
-                    if (pieces[jumpKey].type === 'disc' && pieces[jumpKey].color !== activePlayer) {
-                        captured[activePlayer].disc++;
-                        delete pieces[jumpKey];
-                    } else if (pieces[jumpKey].type === 'ring' && pieces[jumpKey].color !== activePlayer) {
-                        captured[activePlayer].ring++;
-                        delete pieces[jumpKey];
-                    }
-                    pieces[landingKey] = { type: 'disc', color: activePlayer };
-                    delete pieces[`${sq},${sr}`];
-                    // Track friendly piece jumped over
-                    if (pieces[jumpKey] && pieces[jumpKey].color === activePlayer) {
-                        window.jumpHistory.push({ q: jq, r: jr });
-                    }
-                    // Check if another jump is available from new position
-                    if (canJumpAgain(landingQ, landingR, activePlayer, window.jumpHistory)) {
-                        // Stay on same player's turn, keep piece selected, show End Turn button
-                        selectedPiece = { q: landingQ, r: landingR };
-                        multiJumping = true;
-                        multiJumpPos = { q: landingQ, r: landingR };
-                        endTurnBtnBounds = null;
-                        drawGrid();
-                        return;
-                    } else {
-                        // No more jumps, end turn
-                        selectedPiece = null;
-                        multiJumping = false;
-                        multiJumpPos = null;
-                        endTurnBtnBounds = null;
-                        activePlayer = activePlayer === 'black' ? 'white' : 'black';
-                        // Reset jump history
-                        window.jumpHistory = [];
-                        updatedState = serializeGameState();
-                        applyGameState(updatedState, gameState);
-                        return;
-                    }
+        // Disc logic
+        // If in multi-jump, only allow further jumps
+        if (!multiJumping) {
+            // Check adjacent move
+            for (const [nq, nr] of getNeighbors(sq, sr)) {
+                if (nq === q && nr === r && tiles[key] && !pieces[key]) {
+                    performAdjacentMove(sq, sr, q, r);
+                    return true;
                 }
             }
-            // If in multi-jump and no valid jump, cancel the multi-jump sequence if clicking elsewhere
-            if (multiJumping) {
-                // If clicking on the piece itself, do nothing (just keep selected)
-                if (multiJumpPos && multiJumpPos.q === q && multiJumpPos.r === r) {
-                    return;
+        }
+
+        // Check jump move
+        return handleDiscJump(sq, sr, q, r);
+    }
+
+    function performRingMove(sq, sr, q, r, isCapture) {
+        gameState = serializeGameState();
+        if (isCapture) {
+            const capturedKey = `${q},${r}`;
+            const capturedPiece = pieces[capturedKey];
+            captured[activePlayer][capturedPiece.type]++;
+            delete pieces[capturedKey];
+        }
+        pieces[`${q},${r}`] = { type: 'ring', color: activePlayer };
+        delete pieces[`${sq},${sr}`];
+        selectedPiece = null;
+        activePlayer = activePlayer === 'black' ? 'white' : 'black';
+        updatedState = serializeGameState();
+        applyGameState(updatedState, gameState);
+    }
+
+    function performAdjacentMove(sq, sr, q, r) {
+        gameState = serializeGameState();
+        pieces[`${q},${r}`] = { type: 'disc', color: activePlayer };
+        delete pieces[`${sq},${sr}`];
+        activePlayer = activePlayer === 'black' ? 'white' : 'black';
+        selectedPiece = null;
+        multiJumping = false;
+        multiJumpPos = null;
+        endTurnBtnBounds = null;
+        window.jumpHistory = [];
+        updatedState = serializeGameState();
+        applyGameState(updatedState, gameState);
+    }
+
+    function handleDiscJump(sq, sr, q, r) {
+        if (!window.jumpHistory) window.jumpHistory = [];
+        const directions = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
+
+        for (const [dq, dr] of directions) {
+            const jq = sq + dq;
+            const jr = sr + dr;
+            const landingQ = sq + 2 * dq;
+            const landingR = sr + 2 * dr;
+            const jumpKey = `${jq},${jr}`;
+            const landingKey = `${landingQ},${landingR}`;
+
+            if (q === landingQ && r === landingR && pieces[jumpKey] && tiles[landingKey] && !pieces[landingKey]) {
+                // Prevent jumping over same friendly piece
+                if (pieces[jumpKey].color === activePlayer && window.jumpHistory.some(h => h.q === jq && h.r === jr)) {
+                    continue;
                 }
 
-                // If clicking elsewhere, reset to start of turn
-                if (turnStartState) {
-                    applyGameState(turnStartState, serializeGameState());
-                }
-
-                multiJumping = false;
-                multiJumpPos = null;
-                selectedPiece = null;
-                endTurnBtnBounds = null;
-                turnStartState = null;
-                turnStartPiecePos = null;
-                window.jumpHistory = [];
-                drawGrid();
-                return;
+                performDiscJump(sq, sr, jq, jr, landingQ, landingR, jumpKey, landingKey);
+                return true;
             }
-            // Unselect if not a valid move
+        }
+
+        // If in multi-jump and clicking elsewhere (invalid jump), cancel or reset
+        if (multiJumping) {
+            if (multiJumpPos && multiJumpPos.q === q && multiJumpPos.r === r) return true; // Clicked self
+
+            // Cancel multi-jump
+            if (turnStartState) {
+                applyGameState(turnStartState, serializeGameState());
+            }
+            multiJumping = false;
+            multiJumpPos = null;
             selectedPiece = null;
-            // Reset jump history
+            endTurnBtnBounds = null;
+            turnStartState = null;
+            turnStartPiecePos = null;
             window.jumpHistory = [];
             drawGrid();
-            return;
+            return true;
         }
 
-        // If clicking on own piece, select it
-        if (pieces[key] && pieces[key].color === activePlayer) {
-            selectedPiece = { q, r };
+        return false;
+    }
+
+    function performDiscJump(sq, sr, jq, jr, landingQ, landingR, jumpKey, landingKey) {
+        gameState = serializeGameState();
+
+        if (!multiJumping) {
+            turnStartState = JSON.parse(JSON.stringify(gameState));
+            turnStartPiecePos = { q: sq, r: sr };
+        }
+
+        if (pieces[jumpKey].type === 'disc' && pieces[jumpKey].color !== activePlayer) {
+            captured[activePlayer].disc++;
+            delete pieces[jumpKey];
+        } else if (pieces[jumpKey].type === 'ring' && pieces[jumpKey].color !== activePlayer) {
+            captured[activePlayer].ring++;
+            delete pieces[jumpKey];
+        }
+
+        pieces[landingKey] = { type: 'disc', color: activePlayer };
+        delete pieces[`${sq},${sr}`];
+
+        if (pieces[jumpKey] && pieces[jumpKey].color === activePlayer) {
+            window.jumpHistory.push({ q: jq, r: jr });
+        }
+
+        if (canJumpAgain(landingQ, landingR, activePlayer, window.jumpHistory)) {
+            selectedPiece = { q: landingQ, r: landingR };
+            multiJumping = true;
+            multiJumpPos = { q: landingQ, r: landingR };
+            endTurnBtnBounds = null;
             drawGrid();
-            return;
-        }
-
-        // If clicking elsewhere, unselect
-        if (selectedPiece) {
+        } else {
             selectedPiece = null;
-            drawGrid();
-            return;
+            multiJumping = false;
+            multiJumpPos = null;
+            endTurnBtnBounds = null;
+            activePlayer = activePlayer === 'black' ? 'white' : 'black';
+            window.jumpHistory = [];
+            updatedState = serializeGameState();
+            applyGameState(updatedState, gameState);
         }
+    }
 
-        // Place disc or ring if possible (contextual buttons if both are available)
+    function handlePlacement(q, r) {
+        const key = `${q},${r}`;
+
+        // Place disc or ring if possible
         if (tiles[key] === activePlayer && !pieces[key]) {
             const canPlaceDisc = discInventory[activePlayer] > 0;
             const canPlaceRing = ringInventory[activePlayer] > 0 && captured[activePlayer].disc > 0;
+
             if (canPlaceDisc && canPlaceRing) {
-                // Show contextual buttons
                 const [x, y] = hexToPixel(q, r, hexSize);
                 const btnW = 80, btnH = 28, gap = 10;
                 placePieceBtnBounds = {
@@ -1084,37 +1119,24 @@ window.onload = function () {
                 drawGrid();
                 return;
             } else if (canPlaceDisc) {
-                gameState = serializeGameState();
-                pieces[key] = { type: 'disc', color: activePlayer };
-                discInventory[activePlayer]--;
-                activePlayer = activePlayer === 'black' ? 'white' : 'black';
-                updatedState = serializeGameState();
-                applyGameState(updatedState, gameState);
+                placeDisc(q, r);
                 return;
             } else if (canPlaceRing) {
-                gameState = serializeGameState();
-                pieces[key] = { type: 'ring', color: activePlayer };
-                ringInventory[activePlayer]--;
-                // Return a captured disc to opponent
-                const opp = activePlayer === 'black' ? 'white' : 'black';
-                captured[activePlayer].disc--;
-                discInventory[opp]++;
-                activePlayer = opp;
-                updatedState = serializeGameState();
-                applyGameState(updatedState, gameState);
+                placeRing(q, r);
                 return;
             }
         }
 
-        // Place tile if possible (old logic)
-        if (tiles[key]) return; // already occupied
-        if (inventory[activePlayer] <= 0) return; // no tiles left
-        // Must be adjacent to at least 2 already placed tiles
+        // Place tile
+        if (tiles[key]) return; // Occupied
+        if (inventory[activePlayer] <= 0) return; // No tiles
+
         let adjacent = 0;
         for (const [nq, nr] of getNeighbors(q, r)) {
             if (tiles[`${nq},${nr}`]) adjacent++;
         }
         if (adjacent < 2) return;
+
         gameState = serializeGameState();
         tiles[key] = activePlayer;
         inventory[activePlayer]--;

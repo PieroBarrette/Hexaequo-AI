@@ -78,6 +78,18 @@
                 </select>
             </div>
 
+            <div class="menu-item">
+                <label>Theme</label>
+                <div class="toggle-container" style="display: flex; align-items: center; gap: 10px;">
+                    <span class="toggle-label" style="font-size: 0.9em; color: #ccc;">Dark</span>
+                    <label class="switch">
+                        <input type="checkbox" id="themeToggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                    <span class="toggle-label" style="font-size: 0.9em; color: #ccc;">Light</span>
+                </div>
+            </div>
+
             <button id="newGameBtn" class="menu-btn primary">New Game</button>
             <button id="closeMenuBtn" class="menu-btn">Close</button>
         </div>
@@ -94,6 +106,7 @@
         const difficultySelect = document.getElementById('difficultySelect');
         const gameModeSelect = document.getElementById('gameModeSelect');
         const newGameBtn = document.getElementById('newGameBtn');
+        const themeToggle = document.getElementById('themeToggle');
 
         function toggleMenu() {
             hamburgerBtn.classList.toggle('open');
@@ -128,6 +141,46 @@
             window.toggleGameMode(isAi);
         });
 
+        // Theme Toggle
+        // Checked = Light, Unchecked = Dark (default is checked in HTML, so default Light?)
+        // Wait, user asked for Dark Mode. Usually apps start in system preference or light.
+        // Let's make Checked = Light, Unchecked = Dark.
+        // Or better: Checked = Dark?
+        // The label says "Dark [Switch] Light". So Left is Dark, Right is Light.
+        // If switch is OFF (left), it's Dark. If ON (right), it's Light.
+        // HTML has `checked`.
+
+        function applyTheme(isLight) {
+            document.body.setAttribute('data-theme', isLight ? 'light' : 'dark');
+            // Update toggle state
+            themeToggle.checked = isLight;
+
+            // Update meta theme color
+            const themeColor = document.querySelector('meta[name="theme-color"]');
+            if (themeColor) {
+                themeColor.content = isLight ? '#ffffff' : '#000000';
+            }
+
+            // Update icons
+            const prefersDark = !isLight;
+            const favicon = document.querySelector('link[rel="icon"]');
+            if (favicon) {
+                favicon.href = prefersDark ? 'icons/icon-192x192-dark.png' : 'icons/icon-192x192.png';
+            }
+            const appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
+            if (appleIcon) {
+                appleIcon.href = prefersDark ? 'icons/icon-192x192-dark.png' : 'icons/icon-192x192.png';
+            }
+        }
+
+        themeToggle.addEventListener('change', (e) => {
+            applyTheme(e.target.checked);
+        });
+
+        // Initialize theme based on system preference
+        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        applyTheme(!systemPrefersDark); // If dark, isLight=false
+
         // New Game Button
         newGameBtn.addEventListener('click', () => {
             if (confirm('Are you sure you want to start a new game? Current progress will be lost.')) {
@@ -135,36 +188,6 @@
                 toggleMenu();
             }
         });
-
-        // Update icons based on color scheme preference
-        function updateIconsForTheme() {
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-
-            // Update favicon
-            const favicon = document.querySelector('link[rel="icon"]');
-            if (favicon) {
-                favicon.href = prefersDark ? 'icons/icon-192x192-dark.png' : 'icons/icon-192x192.png';
-            }
-
-            // Update Apple touch icon
-            const appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
-            if (appleIcon) {
-                appleIcon.href = prefersDark ? 'icons/icon-192x192-dark.png' : 'icons/icon-192x192.png';
-            }
-
-            // Update theme-color meta tag
-            const themeColor = document.querySelector('meta[name="theme-color"]');
-            if (themeColor) {
-                themeColor.content = prefersDark ? '#000000' : '#ffffff';
-            }
-        }
-
-        // Listen for theme changes
-        if (window.matchMedia) {
-            const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-            mediaQuery.addEventListener('change', updateIconsForTheme);
-            updateIconsForTheme(); // Initial update
-        }
 
         // Register service worker for PWA functionality
         if ('serviceWorker' in navigator) {

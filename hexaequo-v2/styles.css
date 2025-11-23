@@ -1,13 +1,48 @@
 /* styles.css */
+:root {
+    /* Dark Theme (Default) */
+    --bg-body: #000000;
+    --bg-container: #222222;
+    --text-primary: #fafafa;
+    --text-secondary: #cccccc;
+    --border-color: #444444;
+    --accent-color: #4CAF50;
+    --accent-hover: #45a049;
+    --menu-overlay-bg: rgba(0, 0, 0, 0.85);
+    --menu-content-bg: #222222;
+    --input-bg: #333333;
+    --input-border: #555555;
+    --shadow-color: rgba(0, 0, 0, 0.5);
+    --hamburger-bg: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] {
+    /* Light Theme */
+    --bg-body: #e0e0e0;
+    --bg-container: #ffffff;
+    --text-primary: #222222;
+    --text-secondary: #555555;
+    --border-color: #cccccc;
+    --accent-color: #4CAF50;
+    --accent-hover: #45a049;
+    --menu-overlay-bg: rgba(255, 255, 255, 0.85);
+    --menu-content-bg: #ffffff;
+    --input-bg: #f5f5f5;
+    --input-border: #dddddd;
+    --shadow-color: rgba(0, 0, 0, 0.2);
+    --hamburger-bg: rgba(255, 255, 255, 0.8);
+}
+
 * {
     box-sizing: border-box;
     -webkit-tap-highlight-color: transparent;
 }
 
 body {
-    background: #000000;
-    color: #fafafa;
-    font-family: Arial, sans-serif;
+    background: var(--bg-body);
+    color: var(--text-primary);
+    font-family: 'Inter', Arial, sans-serif;
+    /* Use Inter if available, fallback to Arial */
     text-align: center;
     margin: 0;
     padding: 0;
@@ -16,6 +51,7 @@ body {
     height: 100vh;
     user-select: none;
     -webkit-user-select: none;
+    transition: background 0.3s ease, color 0.3s ease;
 }
 
 h1 {
@@ -27,10 +63,11 @@ h1 {
     position: relative;
     display: block;
     margin: 0;
-    background: #222;
+    background: var(--bg-container);
     border: none;
     width: 100%;
     height: 100%;
+    transition: background 0.3s ease;
 }
 
 #uiLayer {
@@ -76,16 +113,16 @@ button {
     cursor: pointer;
     border: none;
     border-radius: 6px;
-    background: #4CAF50;
+    background: var(--accent-color);
     color: white;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 2px 4px var(--shadow-color);
     transition: all 0.3s;
     min-height: 44px;
 }
 
 button:hover {
-    background: #45a049;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+    background: var(--accent-hover);
+    box-shadow: 0 4px 8px var(--shadow-color);
 }
 
 button:active {
@@ -219,8 +256,8 @@ button:active {
     bottom: 20px;
     left: 20px;
     z-index: 2000;
-    background: rgba(0, 0, 0, 0.6);
-    border: 1px solid #444;
+    background: var(--hamburger-bg);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 10px;
     cursor: pointer;
@@ -230,11 +267,10 @@ button:active {
     width: 44px;
     height: 44px;
     transition: all 0.3s ease;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 2px 10px var(--shadow-color);
 }
 
 #hamburgerBtn:hover {
-    background: rgba(0, 0, 0, 0.8);
     transform: scale(1.05);
 }
 
@@ -242,7 +278,7 @@ button:active {
     display: block;
     width: 100%;
     height: 3px;
-    background-color: #fff;
+    background-color: var(--text-primary);
     border-radius: 2px;
     transition: all 0.3s ease;
 }
@@ -266,7 +302,7 @@ button:active {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.85);
+    background: var(--menu-overlay-bg);
     backdrop-filter: blur(5px);
     z-index: 2001;
     display: flex;
@@ -283,16 +319,16 @@ button:active {
 }
 
 .menu-content {
-    background: #222;
+    background: var(--menu-content-bg);
     padding: 30px;
     border-radius: 12px;
-    border: 1px solid #444;
+    border: 1px solid var(--border-color);
     width: 90%;
     max-width: 400px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 10px 25px var(--shadow-color);
     text-align: center;
     transform: translateY(20px);
-    transition: transform 0.3s ease;
+    transition: transform 0.3s ease, background 0.3s ease;
 }
 
 #menuOverlay.open .menu-content {
@@ -302,8 +338,8 @@ button:active {
 .menu-title {
     font-size: 1.5em;
     margin-bottom: 20px;
-    color: #fff;
-    border-bottom: 1px solid #444;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
     padding-bottom: 10px;
 }
 
@@ -316,7 +352,7 @@ button:active {
 
 .menu-item label {
     font-size: 1.1em;
-    color: #ccc;
+    color: var(--text-secondary);
 }
 
 /* Controls styling */
@@ -358,11 +394,11 @@ button:active {
 }
 
 input:checked+.slider {
-    background-color: #4CAF50;
+    background-color: var(--accent-color);
 }
 
 input:focus+.slider {
-    box-shadow: 0 0 1px #4CAF50;
+    box-shadow: 0 0 1px var(--accent-color);
 }
 
 input:checked+.slider:before {
@@ -372,30 +408,33 @@ input:checked+.slider:before {
 select {
     padding: 8px 12px;
     border-radius: 4px;
-    background: #333;
-    color: #fff;
-    border: 1px solid #555;
+    background: var(--input-bg);
+    color: var(--text-primary);
+    border: 1px solid var(--input-border);
     font-size: 1em;
     outline: none;
+    transition: background 0.3s ease, color 0.3s ease;
 }
 
 .menu-btn {
     width: 100%;
     margin: 10px 0;
-    background: #333;
-    border: 1px solid #555;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    color: var(--text-primary);
 }
 
 .menu-btn:hover {
-    background: #444;
+    background: var(--border-color);
 }
 
 .menu-btn.primary {
-    background: #4CAF50;
+    background: var(--accent-color);
     border: none;
     margin-top: 20px;
+    color: white;
 }
 
 .menu-btn.primary:hover {
-    background: #45a049;
+    background: var(--accent-hover);
 }
