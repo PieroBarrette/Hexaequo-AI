@@ -214,8 +214,16 @@ window.onload = function () {
         const isSmallMobile = window.innerWidth <= 480;
 
         // Set canvas to full window size
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        // Use clientWidth/Height to avoid scrollbar issues and match CSS pixels exactly
+        const width = document.documentElement.clientWidth;
+        const height = document.documentElement.clientHeight;
+
+        canvas.width = width;
+        canvas.height = height;
+
+        // Ensure CSS size matches internal size to prevent stretching
+        canvas.style.width = width + 'px';
+        canvas.style.height = height + 'px';
 
         if (isSmallMobile) {
             inventoryItemSize = 10; // Much smaller for very small screens
@@ -537,7 +545,9 @@ window.onload = function () {
             const btnW = 80, btnH = 28, gap = 10;
             // Center horizontally at the bottom of the canvas
             const centerX = canvas.width / 2;
-            const bottomY = canvas.height - 60; // 60px from the bottom
+            const isMobile = window.innerWidth <= 768;
+            const bottomOffset = isMobile ? 120 : 60; // Higher on mobile to avoid bottom bar
+            const bottomY = canvas.height - bottomOffset;
 
             // Disc button
             ctx.save();
@@ -588,7 +598,9 @@ window.onload = function () {
         function drawEndTurnButton(x, y, q, r) {
             const btnW = 100, btnH = 32;
             const centerX = canvas.width / 2;
-            const bottomY = canvas.height - 60; // 60px from the bottom
+            const isMobile = window.innerWidth <= 768;
+            const bottomOffset = isMobile ? 120 : 60; // Higher on mobile to avoid bottom bar
+            const bottomY = canvas.height - bottomOffset;
             const btnX = centerX - btnW / 2;
             const btnY = bottomY;
 
