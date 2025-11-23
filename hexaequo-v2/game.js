@@ -48,7 +48,7 @@ window.onload = function () {
     let turnStartState = null; // State at the beginning of a multi-jump sequence
     let turnStartPiecePos = null; // Position of the piece at the start of the sequence
     let inventoryItemSize = 20;
-    let inventoryItemGap = 25;
+    let inventoryItemGap = 42;
 
     // Each player starts with 9 tiles, 2 are already placed
     let inventory = {
@@ -221,13 +221,13 @@ window.onload = function () {
 
         if (isSmallMobile) {
             inventoryItemSize = 10; // Much smaller for very small screens
-            inventoryItemGap = 12;
+            inventoryItemGap = 18;
         } else if (isMobile) {
             inventoryItemSize = 12; // Smaller for mobile screens
-            inventoryItemGap = 15;
+            inventoryItemGap = 22;
         } else {
             inventoryItemSize = 20; // Default size for larger screens
-            inventoryItemGap = 25;
+            inventoryItemGap = 42;
         }
 
         inventoryCanvas.width = canvas.width;
@@ -406,7 +406,7 @@ window.onload = function () {
 
         const items = [];
 
-        // Add tiles, discs, rings, captured discs, and captured rings to the items array
+        // Add tiles, discs, rings (player's own pieces)
         for (let i = 0; i < inventory[player]; i++) {
             items.push({ type: 'tile', color: player });
         }
@@ -416,6 +416,11 @@ window.onload = function () {
         for (let i = 0; i < ringInventory[player]; i++) {
             items.push({ type: 'ring', color: player });
         }
+
+        // Count player's pieces (before captured pieces)
+        const playerPiecesCount = items.length;
+
+        // Add captured discs and rings (opponent's pieces)
         for (let i = 0; i < captured[player].disc; i++) {
             items.push({ type: 'disc', color: player === 'black' ? 'white' : 'black' });
         }
@@ -423,21 +428,23 @@ window.onload = function () {
             items.push({ type: 'ring', color: player === 'black' ? 'white' : 'black' });
         }
 
-        // Draw items in a 3-column grid
-        items.forEach((item, index) => {
+        // Draw player's pieces first
+        for (let index = 0; index < playerPiecesCount; index++) {
+            const item = items[index];
             const col = index % columns;
             const row = Math.floor(index / columns);
-            const x = startX + col * (itemSize + gap);
-            const y = startY + row * (itemSize + gap);
+            const x = startX + col * gap;
+            const y = startY + row * gap;
 
             inventoryCtx.save();
+
             if (item.type === 'tile') {
-                // Draw a small hex tile for inventory
+                // Draw a hexagonal tile
                 inventoryCtx.beginPath();
                 for (let i = 0; i < 6; i++) {
                     const angle = Math.PI / 3 * i + Math.PI / 6;
-                    const hx = x + (itemSize) * Math.cos(angle);
-                    const hy = y + (itemSize) * Math.sin(angle);
+                    const hx = x + itemSize * Math.cos(angle);
+                    const hy = y + itemSize * Math.sin(angle);
                     if (i === 0) inventoryCtx.moveTo(hx, hy);
                     else inventoryCtx.lineTo(hx, hy);
                 }
@@ -461,905 +468,1040 @@ window.onload = function () {
                 inventoryCtx.strokeStyle = item.color === 'black' ? '#888' : '#bbb';
                 inventoryCtx.stroke();
             } else if (item.type === 'ring') {
-                // Draw a ring for inventory: thick outer circle, thin inner circle for the hole
-                // Outer ring
-                inventoryCtx.strokeStyle = item.color === 'black' ? '#222' : '#fafafa';
-                inventoryCtx.lineWidth = 5;
+                // Draw a ring for inventory matching the board appearance
+                // Main ring (thick outer circle)
                 inventoryCtx.beginPath();
-                inventoryCtx.arc(x, y, itemSize * 0.48, 0, 2 * Math.PI);
+                inventoryCtx.arc(x, y, itemSize * 0.45, 0, 2 * Math.PI);
+                inventoryCtx.lineWidth = 7;
+                inventoryCtx.strokeStyle = item.color === 'black' ? '#222' : '#fafafa';
                 inventoryCtx.shadowColor = '#000a';
                 inventoryCtx.shadowBlur = 2;
                 inventoryCtx.stroke();
-                inventoryCtx.shadowBlur = 0;
-                // Inner hole (just a thin border for contrast)
+
+                // Inner gray line for contrast (inner edge of ring)
                 inventoryCtx.beginPath();
-                inventoryCtx.arc(x, y, itemSize * 0.28, 0, 2 * Math.PI);
+                inventoryCtx.arc(x, y, itemSize * 0.32, 0, 2 * Math.PI);
                 inventoryCtx.lineWidth = 1.5;
                 inventoryCtx.strokeStyle = '#bbb';
+                inventoryCtx.shadowBlur = 0;
+                inventoryCtx.stroke();
+
+                // Outer gray line for contrast (outer edge of ring)
+                inventoryCtx.beginPath();
+                inventoryCtx.arc(x, y, itemSize * 0.6, 0, 2 * Math.PI);
+                inventoryCtx.lineWidth = 1.5;
+                inventoryCtx.strokeStyle = '#bbb';
+                inventoryCtx.shadowBlur = 0;
                 inventoryCtx.stroke();
             }
             inventoryCtx.restore();
-        });
+        }
+
+        // Calculate the last row of player's pieces (0-indexed)
+        const lastPlayerRow = playerPiecesCount > 0 ? Math.floor((playerPiecesCount - 1) / columns) : -1;
+        const capturedPiecesCount = items.length - playerPiecesCount;
+        
+        // Draw separator line between player's pieces and captured pieces
+        if (playerPiecesCount > 0 && capturedPiecesCount > 0) {
+            // Calculate the Y position for the separator line
+            // It should be between the last row of player pieces and the first row of captured pieces
+            const separatorY = startY + (lastPlayerRow + 1) * gap - gap / 2;
+            const boxWidth = isSmallMobile ? 80 : (isMobile ? 100 : 130);
+            const lineStartX = boxX + (isSmallMobile ? 4 : (isMobile ? 6 : 10));
+            const lineEndX = boxX + boxWidth - (isSmallMobile ? 4 : (isMobile ? 6 : 10));
+
+            inventoryCtx.save();
+            inventoryCtx.strokeStyle = '#999';
+            inventoryCtx.lineWidth = 1;
+            inventoryCtx.setLineDash([3, 3]);
+            inventoryCtx.beginPath();
+            inventoryCtx.moveTo(lineStartX, separatorY);
+            inventoryCtx.lineTo(lineEndX, separatorY);
+            inventoryCtx.stroke();
+            inventoryCtx.setLineDash([]);
+            inventoryCtx.restore();
+        }
+
+        // Draw captured pieces starting on a new row
+        // Calculate the starting row for captured pieces (after player's pieces + separator)
+        // Always start on a new row, even if the last player row is incomplete
+        const capturedStartRow = lastPlayerRow + 1;
+        
+        for (let i = 0; i < capturedPiecesCount; i++) {
+            const index = playerPiecesCount + i;
+            const item = items[index];
+            const col = i % columns;
+            const row = capturedStartRow + Math.floor(i / columns);
+            const x = startX + col * gap;
+            const y = startY + row * gap;
+
+            inventoryCtx.save();
+
+            if (item.type === 'tile') {
+                // Draw a hexagonal tile
+                inventoryCtx.beginPath();
+                for (let i = 0; i < 6; i++) {
+                    const angle = Math.PI / 3 * i + Math.PI / 6;
+                    const hx = x + itemSize * Math.cos(angle);
+                    const hy = y + itemSize * Math.sin(angle);
+                    if (i === 0) inventoryCtx.moveTo(hx, hy);
+                    else inventoryCtx.lineTo(hx, hy);
+                }
+                inventoryCtx.closePath();
+                inventoryCtx.fillStyle = item.color === 'black' ? '#7a5230' : '#f5e2b6';
+                inventoryCtx.shadowColor = '#000a';
+                inventoryCtx.shadowBlur = 2;
+                inventoryCtx.fill();
+                inventoryCtx.lineWidth = 1.5;
+                inventoryCtx.strokeStyle = '#b08b4f';
+                inventoryCtx.stroke();
+            } else if (item.type === 'disc') {
+                // Draw a disc with a border and subtle shadow for inventory
+                inventoryCtx.beginPath();
+                inventoryCtx.arc(x, y, itemSize * 0.45, 0, 2 * Math.PI);
+                inventoryCtx.fillStyle = item.color === 'black' ? '#222' : '#fafafa';
+                inventoryCtx.shadowColor = '#000a';
+                inventoryCtx.shadowBlur = 2;
+                inventoryCtx.fill();
+                inventoryCtx.lineWidth = 1.5;
+                inventoryCtx.strokeStyle = item.color === 'black' ? '#888' : '#bbb';
+                inventoryCtx.stroke();
+            } else if (item.type === 'ring') {
+                // Draw a ring for inventory matching the board appearance
+                // Main ring (thick outer circle)
+                inventoryCtx.beginPath();
+                inventoryCtx.arc(x, y, itemSize * 0.45, 0, 2 * Math.PI);
+                inventoryCtx.lineWidth = 7;
+                inventoryCtx.strokeStyle = item.color === 'black' ? '#222' : '#fafafa';
+                inventoryCtx.shadowColor = '#000a';
+                inventoryCtx.shadowBlur = 2;
+                inventoryCtx.stroke();
+
+                // Inner gray line for contrast (inner edge of ring)
+                inventoryCtx.beginPath();
+                inventoryCtx.arc(x, y, itemSize * 0.32, 0, 2 * Math.PI);
+                inventoryCtx.lineWidth = 1.5;
+                inventoryCtx.strokeStyle = '#bbb';
+                inventoryCtx.shadowBlur = 0;
+                inventoryCtx.stroke();
+
+                // Outer gray line for contrast (outer edge of ring)
+                inventoryCtx.beginPath();
+                inventoryCtx.arc(x, y, itemSize * 0.6, 0, 2 * Math.PI);
+                inventoryCtx.lineWidth = 1.5;
+                inventoryCtx.strokeStyle = '#bbb';
+                inventoryCtx.shadowBlur = 0;
+                inventoryCtx.stroke();
+            }
+            inventoryCtx.restore();
+        }
     }
 
-    // Draw all hexes in a hexagonal grid of given radius
-    function drawGrid() {
-        // updateDynamicLayout() is now called only when state changes, not every frame
-        ctx.fillStyle = schemes[colorScheme].bg;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        // Draw all hexes and contents (with selection highlight if any)
-        for (let q = -radius; q <= radius; q++) {
-            for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
-                const [x, y] = hexToPixel(q, r, hexSize);
-                if (showGrid) {
-                    drawHex(x, y, hexSize, schemes[colorScheme].border);
-                }
-                // Draw tile if present
-                const key = `${q},${r}`;
-                if (tiles[key]) {
-                    drawTile(x, y, tiles[key], colorScheme);
-                    // Draw piece if present
-                    if (pieces[key]) {
-                        drawPiece(x, y, pieces[key], colorScheme);
-                        // Draw selection highlight if selected
-                        if (selectedPiece && selectedPiece.q === q && selectedPiece.r === r) {
-                            ctx.save();
-                            ctx.beginPath();
-                            ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
-                            ctx.strokeStyle = 'orange';
-                            ctx.lineWidth = 4;
-                            ctx.setLineDash([4, 4]);
-                            ctx.stroke();
-                            ctx.setLineDash([]);
-                            ctx.restore();
-                        }
-                        // Draw contextual End Turn button if in multi-jump and this is the jumping piece
-                        if (multiJumping && multiJumpPos && multiJumpPos.q === q && multiJumpPos.r === r) {
-                            if (isGameStateChanged()) {
-                                drawEndTurnButton(x, y, q, r);
-                            }
+// Draw all hexes in a hexagonal grid of given radius
+function drawGrid() {
+    // updateDynamicLayout() is now called only when state changes, not every frame
+    ctx.fillStyle = schemes[colorScheme].bg;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Draw all hexes and contents (with selection highlight if any)
+    for (let q = -radius; q <= radius; q++) {
+        for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
+            const [x, y] = hexToPixel(q, r, hexSize);
+            if (showGrid) {
+                drawHex(x, y, hexSize, schemes[colorScheme].border);
+            }
+            // Draw tile if present
+            const key = `${q},${r}`;
+            if (tiles[key]) {
+                drawTile(x, y, tiles[key], colorScheme);
+                // Draw piece if present
+                if (pieces[key]) {
+                    drawPiece(x, y, pieces[key], colorScheme);
+                    // Draw selection highlight if selected
+                    if (selectedPiece && selectedPiece.q === q && selectedPiece.r === r) {
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
+                        ctx.strokeStyle = 'orange';
+                        ctx.lineWidth = 4;
+                        ctx.setLineDash([4, 4]);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                        ctx.restore();
+                    }
+                    // Draw contextual End Turn button if in multi-jump and this is the jumping piece
+                    if (multiJumping && multiJumpPos && multiJumpPos.q === q && multiJumpPos.r === r) {
+                        if (isGameStateChanged()) {
+                            drawEndTurnButton(x, y, q, r);
                         }
                     }
-                    // Draw contextual place disc/ring buttons if needed
-                    if (placePieceBtnTile && placePieceBtnTile.q === q && placePieceBtnTile.r === r && placePieceBtnBounds) {
-                        drawPlacePieceButtons(x, y, placePieceBtnBounds);
-                    }
                 }
-                if (showCoords) {
-                    ctx.save();
-                    ctx.font = '11px monospace';
-                    ctx.fillStyle = '#ff0';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(`${q},${r}`, x, y);
-                    ctx.restore();
+                // Draw contextual place disc/ring buttons if needed
+                if (placePieceBtnTile && placePieceBtnTile.q === q && placePieceBtnTile.r === r && placePieceBtnBounds) {
+                    drawPlacePieceButtons(x, y, placePieceBtnBounds);
                 }
             }
+            if (showCoords) {
+                ctx.save();
+                ctx.font = '11px monospace';
+                ctx.fillStyle = '#ff0';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`${q},${r}`, x, y);
+                ctx.restore();
+            }
         }
-        // Draws contextual buttons for placing disc or ring centered at the bottom of the canvas
-        function drawPlacePieceButtons(x, y, btns) {
-            const btnW = 80, btnH = 28, gap = 10;
-            // Center horizontally at the bottom of the canvas
-            const centerX = canvas.width / 2;
-            const isMobile = window.innerWidth <= 768;
-            const bottomOffset = isMobile ? 120 : 60; // Higher on mobile to avoid bottom bar
-            const bottomY = canvas.height - bottomOffset;
+    }
+    // Draws contextual buttons for placing disc or ring centered at the bottom of the canvas
+    function drawPlacePieceButtons(x, y, btns) {
+        const btnW = 80, btnH = 28, gap = 10;
+        // Center horizontally at the bottom of the canvas
+        const centerX = canvas.width / 2;
+        const isMobile = window.innerWidth <= 768;
+        const bottomOffset = isMobile ? 120 : 60; // Higher on mobile to avoid bottom bar
+        const bottomY = canvas.height - bottomOffset;
 
-            // Disc button
-            ctx.save();
-            ctx.globalAlpha = 1.0;
-            ctx.beginPath();
-            ctx.rect(centerX - btnW - gap / 2, bottomY, btnW, btnH);
-            ctx.fillStyle = '#fff';
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 2;
-            ctx.shadowColor = '#000a';
-            ctx.shadowBlur = 8;
-            ctx.fill();
-            ctx.stroke();
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#222';
-            ctx.font = 'bold 14px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('Place Disc', centerX - btnW / 2 - gap / 2, bottomY + btnH / 2);
-            ctx.restore();
+        // Disc button
+        ctx.save();
+        ctx.globalAlpha = 1.0;
+        ctx.beginPath();
+        ctx.rect(centerX - btnW - gap / 2, bottomY, btnW, btnH);
+        ctx.fillStyle = '#fff';
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#000a';
+        ctx.shadowBlur = 8;
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#222';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Place Disc', centerX - btnW / 2 - gap / 2, bottomY + btnH / 2);
+        ctx.restore();
 
-            // Ring button
-            ctx.save();
-            ctx.globalAlpha = 1.0;
-            ctx.beginPath();
-            ctx.rect(centerX + gap / 2, bottomY, btnW, btnH);
-            ctx.fillStyle = '#fff';
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 2;
-            ctx.shadowColor = '#000a';
-            ctx.shadowBlur = 8;
-            ctx.fill();
-            ctx.stroke();
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#222';
-            ctx.font = 'bold 14px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('Place Ring', centerX + btnW / 2 + gap / 2, bottomY + btnH / 2);
-            ctx.restore();
+        // Ring button
+        ctx.save();
+        ctx.globalAlpha = 1.0;
+        ctx.beginPath();
+        ctx.rect(centerX + gap / 2, bottomY, btnW, btnH);
+        ctx.fillStyle = '#fff';
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#000a';
+        ctx.shadowBlur = 8;
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#222';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Place Ring', centerX + btnW / 2 + gap / 2, bottomY + btnH / 2);
+        ctx.restore();
 
-            // Update btns for click detection
-            btns.discBtn = { x: centerX - btnW - gap / 2, y: bottomY, w: btnW, h: btnH };
-            btns.ringBtn = { x: centerX + gap / 2, y: bottomY, w: btnW, h: btnH };
-        }
-
-        // Draws a contextual End Turn button centered at the bottom of the canvas
-        function drawEndTurnButton(x, y, q, r) {
-            const btnW = 100, btnH = 32;
-            const centerX = canvas.width / 2;
-            const isMobile = window.innerWidth <= 768;
-            const bottomOffset = isMobile ? 120 : 60; // Higher on mobile to avoid bottom bar
-            const bottomY = canvas.height - bottomOffset;
-            const btnX = centerX - btnW / 2;
-            const btnY = bottomY;
-
-            ctx.save();
-            ctx.globalAlpha = 1.0;
-            ctx.beginPath();
-            ctx.rect(btnX, btnY, btnW, btnH);
-            ctx.fillStyle = '#fff';
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 2;
-            ctx.shadowColor = '#000a';
-            ctx.shadowBlur = 8;
-            ctx.fill();
-            ctx.stroke();
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#222';
-            ctx.font = 'bold 16px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('End Turn', btnX + btnW / 2, btnY + btnH / 2);
-            ctx.restore();
-
-            // Store button bounds for click detection
-            endTurnBtnBounds = { q, r, x: btnX, y: btnY, w: btnW, h: btnH };
-        }
-
-        const btnGrid = document.getElementById('toggleGridBtn');
-        btnGrid.addEventListener('click', function () {
-            showGrid = !showGrid;
-            drawGrid();
-        });
-
-        // Update player status
-        if (playerStatus) {
-            playerStatus.textContent = `Active player: ${activePlayer.charAt(0).toUpperCase() + activePlayer.slice(1)}`;
-            playerStatus.style.color = colorScheme === 'modern'
-                ? (activePlayer === 'black' ? schemes.modern.black : schemes.modern.white)
-                : (activePlayer === 'black' ? schemes.classic.black : schemes.classic.white);
-            playerStatus.style.textShadow = colorScheme === 'modern' ? '0 0 4px #fff, 0 0 2px #000' : '0 0 2px #b08b4f';
-        }
-        drawInventory();
+        // Update btns for click detection
+        btns.discBtn = { x: centerX - btnW - gap / 2, y: bottomY, w: btnW, h: btnH };
+        btns.ringBtn = { x: centerX + gap / 2, y: bottomY, w: btnW, h: btnH };
     }
 
-    // Helper to check if game state changed during multi-jump
-    function isGameStateChanged() {
-        if (!turnStartState || !turnStartPiecePos || !multiJumpPos) return true; // Should not happen if multiJumping
+    // Draws a contextual End Turn button centered at the bottom of the canvas
+    function drawEndTurnButton(x, y, q, r) {
+        const btnW = 100, btnH = 32;
+        const centerX = canvas.width / 2;
+        const isMobile = window.innerWidth <= 768;
+        const bottomOffset = isMobile ? 120 : 60; // Higher on mobile to avoid bottom bar
+        const bottomY = canvas.height - bottomOffset;
+        const btnX = centerX - btnW / 2;
+        const btnY = bottomY;
 
-        const currentCaptured = captured[activePlayer];
-        const startCaptured = turnStartState.captured;
+        ctx.save();
+        ctx.globalAlpha = 1.0;
+        ctx.beginPath();
+        ctx.rect(btnX, btnY, btnW, btnH);
+        ctx.fillStyle = '#fff';
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#000a';
+        ctx.shadowBlur = 8;
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#222';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('End Turn', btnX + btnW / 2, btnY + btnH / 2);
+        ctx.restore();
 
-        // Note: turnStartState.captured structure from serializeGameState is { black_discs: ..., ... }
-        const startDiscs = activePlayer === 'black' ? startCaptured.black_discs : startCaptured.white_discs;
-        const startRings = activePlayer === 'black' ? startCaptured.black_rings : startCaptured.white_rings;
-        const currentDiscs = currentCaptured.disc;
-        const currentRings = currentCaptured.ring;
-
-        const capturesChanged = (currentDiscs !== startDiscs) || (currentRings !== startRings);
-        const positionChanged = (multiJumpPos.q !== turnStartPiecePos.q) || (multiJumpPos.r !== turnStartPiecePos.r);
-
-        return capturesChanged || positionChanged;
+        // Store button bounds for click detection
+        endTurnBtnBounds = { q, r, x: btnX, y: btnY, w: btnW, h: btnH };
     }
 
-    // Initialize canvas size and set up resize listener
-    // This must be called AFTER all variables (schemes, tiles, pieces) are defined
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
-
-    btnCoords.addEventListener('click', function () {
-        showCoords = !showCoords;
+    const btnGrid = document.getElementById('toggleGridBtn');
+    btnGrid.addEventListener('click', function () {
+        showGrid = !showGrid;
         drawGrid();
     });
 
-    btnScheme.addEventListener('click', function () {
-        colorScheme = colorScheme === 'modern' ? 'classic' : 'modern';
-        drawGrid();
-    });
+    // Update player status
+    if (playerStatus) {
+        playerStatus.textContent = `Active player: ${activePlayer.charAt(0).toUpperCase() + activePlayer.slice(1)}`;
+        playerStatus.style.color = colorScheme === 'modern'
+            ? (activePlayer === 'black' ? schemes.modern.black : schemes.modern.white)
+            : (activePlayer === 'black' ? schemes.classic.black : schemes.classic.white);
+        playerStatus.style.textShadow = colorScheme === 'modern' ? '0 0 4px #fff, 0 0 2px #000' : '0 0 2px #b08b4f';
+    }
+    drawInventory();
+}
 
-    // Handle placing tiles on click
-    // Returns array of [q, r] for neighbors
-    function getNeighbors(q, r) {
-        return [
-            [q + 1, r], [q - 1, r], [q, r + 1], [q, r - 1], [q + 1, r - 1], [q - 1, r + 1]
-        ];
+// Helper to check if game state changed during multi-jump
+function isGameStateChanged() {
+    if (!turnStartState || !turnStartPiecePos || !multiJumpPos) return true; // Should not happen if multiJumping
+
+    const currentCaptured = captured[activePlayer];
+    const startCaptured = turnStartState.captured;
+
+    // Note: turnStartState.captured structure from serializeGameState is { black_discs: ..., ... }
+    const startDiscs = activePlayer === 'black' ? startCaptured.black_discs : startCaptured.white_discs;
+    const startRings = activePlayer === 'black' ? startCaptured.black_rings : startCaptured.white_rings;
+    const currentDiscs = currentCaptured.disc;
+    const currentRings = currentCaptured.ring;
+
+    const capturesChanged = (currentDiscs !== startDiscs) || (currentRings !== startRings);
+    const positionChanged = (multiJumpPos.q !== turnStartPiecePos.q) || (multiJumpPos.r !== turnStartPiecePos.r);
+
+    return capturesChanged || positionChanged;
+}
+
+// Initialize canvas size and set up resize listener
+// This must be called AFTER all variables (schemes, tiles, pieces) are defined
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+btnCoords.addEventListener('click', function () {
+    showCoords = !showCoords;
+    drawGrid();
+});
+
+btnScheme.addEventListener('click', function () {
+    colorScheme = colorScheme === 'modern' ? 'classic' : 'modern';
+    drawGrid();
+});
+
+// Handle placing tiles on click
+// Returns array of [q, r] for neighbors
+function getNeighbors(q, r) {
+    return [
+        [q + 1, r], [q - 1, r], [q, r + 1], [q, r - 1], [q + 1, r - 1], [q - 1, r + 1]
+    ];
+}
+
+// Unified event handler for both click and touch
+function handleCanvasInteraction(e) {
+    e.preventDefault(); // Prevent default touch behavior
+
+    const rect = canvas.getBoundingClientRect();
+    let mx, my;
+
+    if (e.type === 'touchstart' || e.type === 'touchend') {
+        const touch = e.changedTouches[0];
+        mx = touch.clientX - rect.left;
+        my = touch.clientY - rect.top;
+    } else {
+        mx = e.clientX - rect.left;
+        my = e.clientY - rect.top;
     }
 
-    // Unified event handler for both click and touch
-    function handleCanvasInteraction(e) {
-        e.preventDefault(); // Prevent default touch behavior
+    // Scale coordinates for canvas resolution
+    mx = mx * (canvas.width / rect.width);
+    my = my * (canvas.height / rect.height);
 
-        const rect = canvas.getBoundingClientRect();
-        let mx, my;
+    const [q, r] = pixelToHex(mx, my);
 
-        if (e.type === 'touchstart' || e.type === 'touchend') {
-            const touch = e.changedTouches[0];
-            mx = touch.clientX - rect.left;
-            my = touch.clientY - rect.top;
-        } else {
-            mx = e.clientX - rect.left;
-            my = e.clientY - rect.top;
+    // If End Turn button is visible and clicked, end multi-jump
+    if (multiJumping && endTurnBtnBounds) {
+        const bx = endTurnBtnBounds.x, by = endTurnBtnBounds.y, bw = endTurnBtnBounds.w, bh = endTurnBtnBounds.h;
+        if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
+            // End turn and switch active player immediately
+            gameState = serializeGameState();
+            multiJumping = false;
+            multiJumpPos = null;
+            selectedPiece = null;
+            endTurnBtnBounds = null;
+            turnStartState = null;
+            turnStartPiecePos = null;
+            activePlayer = activePlayer === 'black' ? 'white' : 'black';
+            updatedState = serializeGameState();
+            applyGameState(updatedState, gameState);
+            return;
         }
-
-        // Scale coordinates for canvas resolution
-        mx = mx * (canvas.width / rect.width);
-        my = my * (canvas.height / rect.height);
-
-        const [q, r] = pixelToHex(mx, my);
-
-        // If End Turn button is visible and clicked, end multi-jump
-        if (multiJumping && endTurnBtnBounds) {
-            const bx = endTurnBtnBounds.x, by = endTurnBtnBounds.y, bw = endTurnBtnBounds.w, bh = endTurnBtnBounds.h;
-            if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
-                // End turn and switch active player immediately
-                gameState = serializeGameState();
-                multiJumping = false;
-                multiJumpPos = null;
-                selectedPiece = null;
-                endTurnBtnBounds = null;
-                turnStartState = null;
-                turnStartPiecePos = null;
-                activePlayer = activePlayer === 'black' ? 'white' : 'black';
-                updatedState = serializeGameState();
-                applyGameState(updatedState, gameState);
-                return;
-            }
-        }
-        // If contextual place disc/ring buttons are visible, check if clicked
-        if (placePieceBtnBounds && placePieceBtnTile) {
-            const { discBtn, ringBtn } = placePieceBtnBounds;
-            // Disc button
-            if (mx >= discBtn.x && mx <= discBtn.x + discBtn.w && my >= discBtn.y && my <= discBtn.y + discBtn.h) {
-                // Place disc
-                gameState = serializeGameState();
-                const q = placePieceBtnTile.q, r = placePieceBtnTile.r;
-                const key = `${q},${r}`;
-                pieces[key] = { type: 'disc', color: activePlayer };
-                discInventory[activePlayer]--;
-                placePieceBtnBounds = null;
-                placePieceBtnTile = null;
-                activePlayer = activePlayer === 'black' ? 'white' : 'black';
-                updatedState = serializeGameState();
-                applyGameState(updatedState, gameState);
-                return;
-            }
-            // Ring button
-            if (mx >= ringBtn.x && mx <= ringBtn.x + ringBtn.w && my >= ringBtn.y && my <= ringBtn.y + ringBtn.h) {
-                // Place ring: must return a captured disc to opponent
-                gameState = serializeGameState();
-                const q = placePieceBtnTile.q, r = placePieceBtnTile.r;
-                const key = `${q},${r}`;
-                pieces[key] = { type: 'ring', color: activePlayer };
-                ringInventory[activePlayer]--;
-                // Return a captured disc to opponent
-                const opp = activePlayer === 'black' ? 'white' : 'black';
-                captured[activePlayer].disc--;
-                discInventory[opp]++;
-                placePieceBtnBounds = null;
-                placePieceBtnTile = null;
-                activePlayer = opp;
-                updatedState = serializeGameState();
-                applyGameState(updatedState, gameState);
-                return;
-            }
-            // Clicked elsewhere: cancel buttons
+    }
+    // If contextual place disc/ring buttons are visible, check if clicked
+    if (placePieceBtnBounds && placePieceBtnTile) {
+        const { discBtn, ringBtn } = placePieceBtnBounds;
+        // Disc button
+        if (mx >= discBtn.x && mx <= discBtn.x + discBtn.w && my >= discBtn.y && my <= discBtn.y + discBtn.h) {
+            // Place disc
+            gameState = serializeGameState();
+            const q = placePieceBtnTile.q, r = placePieceBtnTile.r;
+            const key = `${q},${r}`;
+            pieces[key] = { type: 'disc', color: activePlayer };
+            discInventory[activePlayer]--;
             placePieceBtnBounds = null;
             placePieceBtnTile = null;
+            activePlayer = activePlayer === 'black' ? 'white' : 'black';
+            updatedState = serializeGameState();
+            applyGameState(updatedState, gameState);
+            return;
+        }
+        // Ring button
+        if (mx >= ringBtn.x && mx <= ringBtn.x + ringBtn.w && my >= ringBtn.y && my <= ringBtn.y + ringBtn.h) {
+            // Place ring: must return a captured disc to opponent
+            gameState = serializeGameState();
+            const q = placePieceBtnTile.q, r = placePieceBtnTile.r;
+            const key = `${q},${r}`;
+            pieces[key] = { type: 'ring', color: activePlayer };
+            ringInventory[activePlayer]--;
+            // Return a captured disc to opponent
+            const opp = activePlayer === 'black' ? 'white' : 'black';
+            captured[activePlayer].disc--;
+            discInventory[opp]++;
+            placePieceBtnBounds = null;
+            placePieceBtnTile = null;
+            activePlayer = opp;
+            updatedState = serializeGameState();
+            applyGameState(updatedState, gameState);
+            return;
+        }
+        // Clicked elsewhere: cancel buttons
+        placePieceBtnBounds = null;
+        placePieceBtnTile = null;
+        drawGrid();
+        return;
+    }
+    // Check if in bounds
+    if (q < -radius || q > radius) { selectedPiece = null; drawGrid(); return; }
+    if (r < Math.max(-radius, -q - radius) || r > Math.min(radius, -q + radius)) { selectedPiece = null; drawGrid(); return; }
+    const key = `${q},${r}`;
+
+    // If a piece is selected, try to move it (adjacent or jump)
+    if (selectedPiece) {
+        const { q: sq, r: sr } = selectedPiece;
+        const selectedKey = `${sq},${sr}`;
+        const selectedType = pieces[selectedKey].type;
+
+        if (selectedType === 'ring') {
+            const validMoves = getRingJumpPositions(sq, sr, activePlayer);
+
+            for (const move of validMoves) {
+                if (move.q === q && move.r === r) {
+                    // Perform the move
+                    gameState = serializeGameState();
+                    if (move.capture) {
+                        const capturedKey = `${q},${r}`;
+                        const capturedPiece = pieces[capturedKey];
+                        captured[activePlayer][capturedPiece.type]++;
+                        delete pieces[capturedKey];
+                    }
+
+                    pieces[`${q},${r}`] = { type: 'ring', color: activePlayer };
+                    delete pieces[selectedKey];
+
+                    // End turn after ring move
+                    selectedPiece = null;
+                    activePlayer = activePlayer === 'black' ? 'white' : 'black';
+                    updatedState = serializeGameState();
+                    applyGameState(updatedState, gameState);
+                    return;
+                }
+            }
+
+            // If no valid move, unselect the piece
+            selectedPiece = null;
             drawGrid();
             return;
         }
-        // Check if in bounds
-        if (q < -radius || q > radius) { selectedPiece = null; drawGrid(); return; }
-        if (r < Math.max(-radius, -q - radius) || r > Math.min(radius, -q + radius)) { selectedPiece = null; drawGrid(); return; }
-        const key = `${q},${r}`;
 
-        // If a piece is selected, try to move it (adjacent or jump)
-        if (selectedPiece) {
-            const { q: sq, r: sr } = selectedPiece;
-            const selectedKey = `${sq},${sr}`;
-            const selectedType = pieces[selectedKey].type;
-
-            if (selectedType === 'ring') {
-                const validMoves = getRingJumpPositions(sq, sr, activePlayer);
-
-                for (const move of validMoves) {
-                    if (move.q === q && move.r === r) {
-                        // Perform the move
-                        gameState = serializeGameState();
-                        if (move.capture) {
-                            const capturedKey = `${q},${r}`;
-                            const capturedPiece = pieces[capturedKey];
-                            captured[activePlayer][capturedPiece.type]++;
-                            delete pieces[capturedKey];
-                        }
-
-                        pieces[`${q},${r}`] = { type: 'ring', color: activePlayer };
-                        delete pieces[selectedKey];
-
-                        // End turn after ring move
-                        selectedPiece = null;
-                        activePlayer = activePlayer === 'black' ? 'white' : 'black';
-                        updatedState = serializeGameState();
-                        applyGameState(updatedState, gameState);
-                        return;
-                    }
-                }
-
-                // If no valid move, unselect the piece
-                selectedPiece = null;
-                drawGrid();
-                return;
-            }
-
-            // If in multi-jump, only allow further jumps (no adjacent move)
-            if (!multiJumping) {
-                // Check adjacent move
-                for (const [nq, nr] of getNeighbors(sq, sr)) {
-                    if (nq === q && nr === r && tiles[key] && !pieces[key]) {
-                        gameState = serializeGameState();
-                        pieces[key] = { type: 'disc', color: activePlayer };
-                        delete pieces[`${sq},${sr}`];
-                        activePlayer = activePlayer === 'black' ? 'white' : 'black';
-                        selectedPiece = null;
-                        multiJumping = false;
-                        multiJumpPos = null;
-                        endTurnBtnBounds = null;
-                        // Reset jump history
-                        jumpHistory = [];
-                        updatedState = serializeGameState();
-                        applyGameState(updatedState, gameState);
-                        return;
-                    }
-                }
-            }
-            // --- Track friendly pieces jumped over in this sequence ---
-            if (!window.jumpHistory) window.jumpHistory = [];
-            // Check jump move (over any piece, in any hex direction)
-            const directions = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
-            let didJump = false;
-            for (const [dq, dr] of directions) {
-                const jq = sq + dq;
-                const jr = sr + dr;
-                const landingQ = sq + 2 * dq;
-                const landingR = sr + 2 * dr;
-                const jumpKey = `${jq},${jr}`;
-                const landingKey = `${landingQ},${landingR}`;
-                if (q === landingQ && r === landingR && pieces[jumpKey] && tiles[landingKey] && !pieces[landingKey]) {
+        // If in multi-jump, only allow further jumps (no adjacent move)
+        if (!multiJumping) {
+            // Check adjacent move
+            for (const [nq, nr] of getNeighbors(sq, sr)) {
+                if (nq === q && nr === r && tiles[key] && !pieces[key]) {
                     gameState = serializeGameState();
-
-                    // If this is the first jump, save the start state
-                    if (!multiJumping) {
-                        turnStartState = JSON.parse(JSON.stringify(gameState)); // Deep copy
-                        turnStartPiecePos = { q: sq, r: sr };
-                    }
-
-                    // Prevent jumping over the same friendly piece twice in the same sequence
-                    if (
-                        pieces[jumpKey].color === activePlayer &&
-                        window.jumpHistory.some(h => h.q === jq && h.r === jr)
-                    ) {
-                        continue; // Skip this jump, already jumped over this friendly piece
-                    }
-                    // If enemy disc, capture and remove; if friendly, do not remove
-                    if (pieces[jumpKey].type === 'disc' && pieces[jumpKey].color !== activePlayer) {
-                        captured[activePlayer].disc++;
-                        delete pieces[jumpKey];
-                    } else if (pieces[jumpKey].type === 'ring' && pieces[jumpKey].color !== activePlayer) {
-                        captured[activePlayer].ring++;
-                        delete pieces[jumpKey];
-                    }
-                    pieces[landingKey] = { type: 'disc', color: activePlayer };
+                    pieces[key] = { type: 'disc', color: activePlayer };
                     delete pieces[`${sq},${sr}`];
-                    // Track friendly piece jumped over
-                    if (pieces[jumpKey] && pieces[jumpKey].color === activePlayer) {
-                        window.jumpHistory.push({ q: jq, r: jr });
-                    }
-                    // Check if another jump is available from new position
-                    if (canJumpAgain(landingQ, landingR, activePlayer, window.jumpHistory)) {
-                        // Stay on same player's turn, keep piece selected, show End Turn button
-                        selectedPiece = { q: landingQ, r: landingR };
-                        multiJumping = true;
-                        multiJumpPos = { q: landingQ, r: landingR };
-                        endTurnBtnBounds = null;
-                        drawGrid();
-                        return;
-                    } else {
-                        // No more jumps, end turn
-                        selectedPiece = null;
-                        multiJumping = false;
-                        multiJumpPos = null;
-                        endTurnBtnBounds = null;
-                        activePlayer = activePlayer === 'black' ? 'white' : 'black';
-                        // Reset jump history
-                        window.jumpHistory = [];
-                        updatedState = serializeGameState();
-                        applyGameState(updatedState, gameState);
-                        return;
-                    }
-                }
-            }
-            // If in multi-jump and no valid jump, cancel the multi-jump sequence if clicking elsewhere
-            if (multiJumping) {
-                // If clicking on the piece itself, do nothing (just keep selected)
-                if (multiJumpPos && multiJumpPos.q === q && multiJumpPos.r === r) {
+                    activePlayer = activePlayer === 'black' ? 'white' : 'black';
+                    selectedPiece = null;
+                    multiJumping = false;
+                    multiJumpPos = null;
+                    endTurnBtnBounds = null;
+                    // Reset jump history
+                    jumpHistory = [];
+                    updatedState = serializeGameState();
+                    applyGameState(updatedState, gameState);
                     return;
                 }
+            }
+        }
+        // --- Track friendly pieces jumped over in this sequence ---
+        if (!window.jumpHistory) window.jumpHistory = [];
+        // Check jump move (over any piece, in any hex direction)
+        const directions = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
+        let didJump = false;
+        for (const [dq, dr] of directions) {
+            const jq = sq + dq;
+            const jr = sr + dr;
+            const landingQ = sq + 2 * dq;
+            const landingR = sr + 2 * dr;
+            const jumpKey = `${jq},${jr}`;
+            const landingKey = `${landingQ},${landingR}`;
+            if (q === landingQ && r === landingR && pieces[jumpKey] && tiles[landingKey] && !pieces[landingKey]) {
+                gameState = serializeGameState();
 
-                // If clicking elsewhere, reset to start of turn
-                if (turnStartState) {
-                    applyGameState(turnStartState, serializeGameState());
+                // If this is the first jump, save the start state
+                if (!multiJumping) {
+                    turnStartState = JSON.parse(JSON.stringify(gameState)); // Deep copy
+                    turnStartPiecePos = { q: sq, r: sr };
                 }
 
-                multiJumping = false;
-                multiJumpPos = null;
-                selectedPiece = null;
-                endTurnBtnBounds = null;
-                turnStartState = null;
-                turnStartPiecePos = null;
-                window.jumpHistory = [];
-                drawGrid();
+                // Prevent jumping over the same friendly piece twice in the same sequence
+                if (
+                    pieces[jumpKey].color === activePlayer &&
+                    window.jumpHistory.some(h => h.q === jq && h.r === jr)
+                ) {
+                    continue; // Skip this jump, already jumped over this friendly piece
+                }
+                // If enemy disc, capture and remove; if friendly, do not remove
+                if (pieces[jumpKey].type === 'disc' && pieces[jumpKey].color !== activePlayer) {
+                    captured[activePlayer].disc++;
+                    delete pieces[jumpKey];
+                } else if (pieces[jumpKey].type === 'ring' && pieces[jumpKey].color !== activePlayer) {
+                    captured[activePlayer].ring++;
+                    delete pieces[jumpKey];
+                }
+                pieces[landingKey] = { type: 'disc', color: activePlayer };
+                delete pieces[`${sq},${sr}`];
+                // Track friendly piece jumped over
+                if (pieces[jumpKey] && pieces[jumpKey].color === activePlayer) {
+                    window.jumpHistory.push({ q: jq, r: jr });
+                }
+                // Check if another jump is available from new position
+                if (canJumpAgain(landingQ, landingR, activePlayer, window.jumpHistory)) {
+                    // Stay on same player's turn, keep piece selected, show End Turn button
+                    selectedPiece = { q: landingQ, r: landingR };
+                    multiJumping = true;
+                    multiJumpPos = { q: landingQ, r: landingR };
+                    endTurnBtnBounds = null;
+                    drawGrid();
+                    return;
+                } else {
+                    // No more jumps, end turn
+                    selectedPiece = null;
+                    multiJumping = false;
+                    multiJumpPos = null;
+                    endTurnBtnBounds = null;
+                    activePlayer = activePlayer === 'black' ? 'white' : 'black';
+                    // Reset jump history
+                    window.jumpHistory = [];
+                    updatedState = serializeGameState();
+                    applyGameState(updatedState, gameState);
+                    return;
+                }
+            }
+        }
+        // If in multi-jump and no valid jump, cancel the multi-jump sequence if clicking elsewhere
+        if (multiJumping) {
+            // If clicking on the piece itself, do nothing (just keep selected)
+            if (multiJumpPos && multiJumpPos.q === q && multiJumpPos.r === r) {
                 return;
             }
-            // Unselect if not a valid move
+
+            // If clicking elsewhere, reset to start of turn
+            if (turnStartState) {
+                applyGameState(turnStartState, serializeGameState());
+            }
+
+            multiJumping = false;
+            multiJumpPos = null;
             selectedPiece = null;
-            // Reset jump history
+            endTurnBtnBounds = null;
+            turnStartState = null;
+            turnStartPiecePos = null;
             window.jumpHistory = [];
             drawGrid();
             return;
         }
+        // Unselect if not a valid move
+        selectedPiece = null;
+        // Reset jump history
+        window.jumpHistory = [];
+        drawGrid();
+        return;
+    }
 
-        // If clicking on own piece, select it
-        if (pieces[key] && pieces[key].color === activePlayer) {
-            selectedPiece = { q, r };
+    // If clicking on own piece, select it
+    if (pieces[key] && pieces[key].color === activePlayer) {
+        selectedPiece = { q, r };
+        drawGrid();
+        return;
+    }
+
+    // If clicking elsewhere, unselect
+    if (selectedPiece) {
+        selectedPiece = null;
+        drawGrid();
+        return;
+    }
+
+    // Place disc or ring if possible (contextual buttons if both are available)
+    if (tiles[key] === activePlayer && !pieces[key]) {
+        const canPlaceDisc = discInventory[activePlayer] > 0;
+        const canPlaceRing = ringInventory[activePlayer] > 0 && captured[activePlayer].disc > 0;
+        if (canPlaceDisc && canPlaceRing) {
+            // Show contextual buttons
+            const [x, y] = hexToPixel(q, r, hexSize);
+            const btnW = 80, btnH = 28, gap = 10;
+            placePieceBtnBounds = {
+                discBtn: { x: x + hexSize + 10, y: y - btnH - gap, w: btnW, h: btnH },
+                ringBtn: { x: x + hexSize + 10, y: y + gap, w: btnW, h: btnH }
+            };
+            placePieceBtnTile = { q, r };
             drawGrid();
             return;
-        }
-
-        // If clicking elsewhere, unselect
-        if (selectedPiece) {
-            selectedPiece = null;
-            drawGrid();
+        } else if (canPlaceDisc) {
+            gameState = serializeGameState();
+            pieces[key] = { type: 'disc', color: activePlayer };
+            discInventory[activePlayer]--;
+            activePlayer = activePlayer === 'black' ? 'white' : 'black';
+            updatedState = serializeGameState();
+            applyGameState(updatedState, gameState);
+            return;
+        } else if (canPlaceRing) {
+            gameState = serializeGameState();
+            pieces[key] = { type: 'ring', color: activePlayer };
+            ringInventory[activePlayer]--;
+            // Return a captured disc to opponent
+            const opp = activePlayer === 'black' ? 'white' : 'black';
+            captured[activePlayer].disc--;
+            discInventory[opp]++;
+            activePlayer = opp;
+            updatedState = serializeGameState();
+            applyGameState(updatedState, gameState);
             return;
         }
-
-        // Place disc or ring if possible (contextual buttons if both are available)
-        if (tiles[key] === activePlayer && !pieces[key]) {
-            const canPlaceDisc = discInventory[activePlayer] > 0;
-            const canPlaceRing = ringInventory[activePlayer] > 0 && captured[activePlayer].disc > 0;
-            if (canPlaceDisc && canPlaceRing) {
-                // Show contextual buttons
-                const [x, y] = hexToPixel(q, r, hexSize);
-                const btnW = 80, btnH = 28, gap = 10;
-                placePieceBtnBounds = {
-                    discBtn: { x: x + hexSize + 10, y: y - btnH - gap, w: btnW, h: btnH },
-                    ringBtn: { x: x + hexSize + 10, y: y + gap, w: btnW, h: btnH }
-                };
-                placePieceBtnTile = { q, r };
-                drawGrid();
-                return;
-            } else if (canPlaceDisc) {
-                gameState = serializeGameState();
-                pieces[key] = { type: 'disc', color: activePlayer };
-                discInventory[activePlayer]--;
-                activePlayer = activePlayer === 'black' ? 'white' : 'black';
-                updatedState = serializeGameState();
-                applyGameState(updatedState, gameState);
-                return;
-            } else if (canPlaceRing) {
-                gameState = serializeGameState();
-                pieces[key] = { type: 'ring', color: activePlayer };
-                ringInventory[activePlayer]--;
-                // Return a captured disc to opponent
-                const opp = activePlayer === 'black' ? 'white' : 'black';
-                captured[activePlayer].disc--;
-                discInventory[opp]++;
-                activePlayer = opp;
-                updatedState = serializeGameState();
-                applyGameState(updatedState, gameState);
-                return;
-            }
-        }
-
-        // Place tile if possible (old logic)
-        if (tiles[key]) return; // already occupied
-        if (inventory[activePlayer] <= 0) return; // no tiles left
-        // Must be adjacent to at least 2 already placed tiles
-        let adjacent = 0;
-        for (const [nq, nr] of getNeighbors(q, r)) {
-            if (tiles[`${nq},${nr}`]) adjacent++;
-        }
-        if (adjacent < 2) return;
-        gameState = serializeGameState();
-        tiles[key] = activePlayer;
-        inventory[activePlayer]--;
-        activePlayer = activePlayer === 'black' ? 'white' : 'black';
-        updatedState = serializeGameState();
-        applyGameState(updatedState, gameState);
     }
 
-    // Returns true if another jump is available for the piece at (q, r)
-    function canJumpAgain(q, r, player, jumpHistory = []) {
-        const directions = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
-        for (const [dq, dr] of directions) {
-            const jq = q + dq;
-            const jr = r + dr;
-            const landingQ = q + 2 * dq;
-            const landingR = r + 2 * dr;
-            const jumpKey = `${jq},${jr}`;
-            const landingKey = `${landingQ},${landingR}`;
-            if (pieces[jumpKey] && tiles[landingKey] && !pieces[landingKey]) {
-                // Must jump over a piece (any color), land on empty tile
-                // Prevent jumping over the same friendly piece twice
-                if (
-                    pieces[jumpKey].color === player &&
-                    jumpHistory.some(h => h.q === jq && h.r === jr)
-                ) {
-                    continue;
-                }
-                // At least one jump available
-                return true;
-            }
-        }
-        return false;
+    // Place tile if possible (old logic)
+    if (tiles[key]) return; // already occupied
+    if (inventory[activePlayer] <= 0) return; // no tiles left
+    // Must be adjacent to at least 2 already placed tiles
+    let adjacent = 0;
+    for (const [nq, nr] of getNeighbors(q, r)) {
+        if (tiles[`${nq},${nr}`]) adjacent++;
     }
+    if (adjacent < 2) return;
+    gameState = serializeGameState();
+    tiles[key] = activePlayer;
+    inventory[activePlayer]--;
+    activePlayer = activePlayer === 'black' ? 'white' : 'black';
+    updatedState = serializeGameState();
+    applyGameState(updatedState, gameState);
+}
 
-    // Add both click and touch event listeners
-    canvas.addEventListener('click', function (e) {
-        handleCanvasInteraction(e);
-
-        // Check if the game has ended
-        if (checkGameEnd()) {
-            return;
-        }
-
-        // Serialize the board and send it to the AI if in AI mode
-        if (isAiMode && canvas.style.pointerEvents !== 'none') {
-            sendToAI();
-        }
-    });
-    canvas.addEventListener('touchend', function (e) {
-        handleCanvasInteraction(e);
-
-        // Check if the game has ended
-        if (checkGameEnd()) {
-            return;
-        }
-
-        // Serialize the board and send it to the AI if in AI mode
-        if (isAiMode && canvas.style.pointerEvents !== 'none') {
-            sendToAI();
-        }
-    });
-
-    // Returns valid jump positions for a ring at (q, r)
-    function getRingJumpPositions(q, r, player) {
-        const directions = [[0, -2], [1, -2], [2, -2], [2, -1], [2, 0], [1, 1], [0, 2], [-1, 2], [-2, 2], [-2, 1], [-2, 0], [-1, -1]];
-        const validPositions = [];
-
-        for (const [dq, dr] of directions) {
-            const landingQ = q + dq;
-            const landingR = r + dr;
-            const landingKey = `${landingQ},${landingR}`;
-
-            // Check if landing spot contains a tile
-            if (!tiles[landingKey]) continue;
-
-            // Check if landing spot contains a piece
-            if (pieces[landingKey]) {
-                const piece = pieces[landingKey];
-                // Allow capturing enemy pieces only
-                if (piece.color !== player) {
-                    validPositions.push({ q: landingQ, r: landingR, capture: true });
-                }
-            } else {
-                // Allow landing on empty tiles only
-                validPositions.push({ q: landingQ, r: landingR, capture: false });
+// Returns true if another jump is available for the piece at (q, r)
+function canJumpAgain(q, r, player, jumpHistory = []) {
+    const directions = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
+    for (const [dq, dr] of directions) {
+        const jq = q + dq;
+        const jr = r + dr;
+        const landingQ = q + 2 * dq;
+        const landingR = r + 2 * dr;
+        const jumpKey = `${jq},${jr}`;
+        const landingKey = `${landingQ},${landingR}`;
+        if (pieces[jumpKey] && tiles[landingKey] && !pieces[landingKey]) {
+            // Must jump over a piece (any color), land on empty tile
+            // Prevent jumping over the same friendly piece twice
+            if (
+                pieces[jumpKey].color === player &&
+                jumpHistory.some(h => h.q === jq && h.r === jr)
+            ) {
+                continue;
             }
+            // At least one jump available
+            return true;
         }
-
-        return validPositions;
     }
+    return false;
+}
 
-
+// Add both click and touch event listeners
+canvas.addEventListener('click', function (e) {
+    handleCanvasInteraction(e);
 
     // Check if the game has ended
-    function checkGameEnd() {
-        const blackCaptured = captured.black;
-        const whiteCaptured = captured.white;
-
-        // Check if a player has captured 6 opponent discs or 3 opponent rings
-        if (blackCaptured.disc >= 6 || blackCaptured.ring >= 3 || !hasActivePieces('white')) {
-            endGame('Black');
-            return true;
-        }
-        if (whiteCaptured.disc >= 6 || whiteCaptured.ring >= 3 || !hasActivePieces('black')) {
-            endGame('White');
-            return true;
-        }
-
-        // Stalemate: if active player has no legal move, declare Ex Aequo!
-        if (!hasAnyLegalMove(activePlayer)) {
-            endGame('Ex Aequo!');
-            return true;
-        }
-
-        return false;
+    if (checkGameEnd()) {
+        return;
     }
 
-    // Returns true if the player has any legal move available
-    function hasAnyLegalMove(player) {
-        // 1. Can place a tile?
-        if (inventory[player] > 0) {
-            // Try all possible positions
-            for (let q = -radius; q <= radius; q++) {
-                for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
-                    const key = `${q},${r}`;
-                    if (!tiles[key]) {
-                        // Must be adjacent to at least 2 already placed tiles
-                        let adjacent = 0;
-                        for (const [nq, nr] of getNeighbors(q, r)) {
-                            if (tiles[`${nq},${nr}`]) adjacent++;
-                        }
-                        if (adjacent >= 2) return true;
+    // Serialize the board and send it to the AI if in AI mode
+    if (isAiMode && canvas.style.pointerEvents !== 'none') {
+        sendToAI();
+    }
+});
+canvas.addEventListener('touchend', function (e) {
+    handleCanvasInteraction(e);
+
+    // Check if the game has ended
+    if (checkGameEnd()) {
+        return;
+    }
+
+    // Serialize the board and send it to the AI if in AI mode
+    if (isAiMode && canvas.style.pointerEvents !== 'none') {
+        sendToAI();
+    }
+});
+
+// Returns valid jump positions for a ring at (q, r)
+function getRingJumpPositions(q, r, player) {
+    const directions = [[0, -2], [1, -2], [2, -2], [2, -1], [2, 0], [1, 1], [0, 2], [-1, 2], [-2, 2], [-2, 1], [-2, 0], [-1, -1]];
+    const validPositions = [];
+
+    for (const [dq, dr] of directions) {
+        const landingQ = q + dq;
+        const landingR = r + dr;
+        const landingKey = `${landingQ},${landingR}`;
+
+        // Check if landing spot contains a tile
+        if (!tiles[landingKey]) continue;
+
+        // Check if landing spot contains a piece
+        if (pieces[landingKey]) {
+            const piece = pieces[landingKey];
+            // Allow capturing enemy pieces only
+            if (piece.color !== player) {
+                validPositions.push({ q: landingQ, r: landingR, capture: true });
+            }
+        } else {
+            // Allow landing on empty tiles only
+            validPositions.push({ q: landingQ, r: landingR, capture: false });
+        }
+    }
+
+    return validPositions;
+}
+
+
+
+// Check if the game has ended
+function checkGameEnd() {
+    const blackCaptured = captured.black;
+    const whiteCaptured = captured.white;
+
+    // Check if a player has captured 6 opponent discs or 3 opponent rings
+    if (blackCaptured.disc >= 6 || blackCaptured.ring >= 3 || !hasActivePieces('white')) {
+        endGame('Black');
+        return true;
+    }
+    if (whiteCaptured.disc >= 6 || whiteCaptured.ring >= 3 || !hasActivePieces('black')) {
+        endGame('White');
+        return true;
+    }
+
+    // Stalemate: if active player has no legal move, declare Ex Aequo!
+    if (!hasAnyLegalMove(activePlayer)) {
+        endGame('Ex Aequo!');
+        return true;
+    }
+
+    return false;
+}
+
+// Returns true if the player has any legal move available
+function hasAnyLegalMove(player) {
+    // 1. Can place a tile?
+    if (inventory[player] > 0) {
+        // Try all possible positions
+        for (let q = -radius; q <= radius; q++) {
+            for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
+                const key = `${q},${r}`;
+                if (!tiles[key]) {
+                    // Must be adjacent to at least 2 already placed tiles
+                    let adjacent = 0;
+                    for (const [nq, nr] of getNeighbors(q, r)) {
+                        if (tiles[`${nq},${nr}`]) adjacent++;
                     }
+                    if (adjacent >= 2) return true;
                 }
             }
         }
-        // 2. Can place a disc or ring?
-        for (const key in tiles) {
-            if (tiles[key] === player && !pieces[key]) {
-                if (discInventory[player] > 0) return true;
-                if (ringInventory[player] > 0 && captured[player].disc > 0) return true;
-            }
+    }
+    // 2. Can place a disc or ring?
+    for (const key in tiles) {
+        if (tiles[key] === player && !pieces[key]) {
+            if (discInventory[player] > 0) return true;
+            if (ringInventory[player] > 0 && captured[player].disc > 0) return true;
         }
-        // 3. Can move any piece?
-        for (const key in pieces) {
-            const piece = pieces[key];
-            if (piece.color !== player) continue;
-            const [q, r] = key.split(',').map(Number);
-            if (piece.type === 'disc') {
-                // Adjacent move
-                for (const [nq, nr] of getNeighbors(q, r)) {
-                    const nkey = `${nq},${nr}`;
-                    if (tiles[nkey] && !pieces[nkey]) return true;
+    }
+    // 3. Can move any piece?
+    for (const key in pieces) {
+        const piece = pieces[key];
+        if (piece.color !== player) continue;
+        const [q, r] = key.split(',').map(Number);
+        if (piece.type === 'disc') {
+            // Adjacent move
+            for (const [nq, nr] of getNeighbors(q, r)) {
+                const nkey = `${nq},${nr}`;
+                if (tiles[nkey] && !pieces[nkey]) return true;
+            }
+            // Jump move
+            const directions = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
+            for (const [dq, dr] of directions) {
+                const jq = q + dq, jr = r + dr;
+                const landingQ = q + 2 * dq, landingR = r + 2 * dr;
+                const jumpKey = `${jq},${jr}`;
+                const landingKey = `${landingQ},${landingR}`;
+                if (pieces[jumpKey] && tiles[landingKey] && !pieces[landingKey]) {
+                    return true;
                 }
-                // Jump move
-                const directions = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
-                for (const [dq, dr] of directions) {
-                    const jq = q + dq, jr = r + dr;
-                    const landingQ = q + 2 * dq, landingR = r + 2 * dr;
-                    const jumpKey = `${jq},${jr}`;
-                    const landingKey = `${landingQ},${landingR}`;
-                    if (pieces[jumpKey] && tiles[landingKey] && !pieces[landingKey]) {
-                        return true;
-                    }
-                }
-            } else if (piece.type === 'ring') {
-                // Ring jump positions
-                const moves = getRingJumpPositions(q, r, player);
-                if (moves.length > 0) return true;
             }
+        } else if (piece.type === 'ring') {
+            // Ring jump positions
+            const moves = getRingJumpPositions(q, r, player);
+            if (moves.length > 0) return true;
         }
-        return false;
+    }
+    return false;
+}
+
+// Check if a player has any active pieces on the board
+function hasActivePieces(player) {
+    return Object.values(pieces).some(piece => piece.color === player);
+}
+
+// End the game and display the winner
+function endGame(winner) {
+    playSound('gameEnd');
+    const gameOverDiv = document.createElement('div');
+    gameOverDiv.id = 'gameOver';
+    gameOverDiv.style.position = 'absolute';
+    gameOverDiv.style.top = '50%';
+    gameOverDiv.style.left = '50%';
+    gameOverDiv.style.transform = 'translate(-50%, -50%)';
+    gameOverDiv.style.backgroundColor = '#fff';
+    gameOverDiv.style.padding = '20px';
+    gameOverDiv.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.2)';
+    gameOverDiv.style.textAlign = 'center';
+    gameOverDiv.style.zIndex = '1000';
+
+    const winnerText = document.createElement('p');
+    winnerText.textContent = winner === 'Ex Aequo!' ? 'Ex Aequo!' : `${winner} wins the game!`;
+    winnerText.style.fontSize = '20px';
+    winnerText.style.fontWeight = 'bold';
+    winnerText.style.color = '#000'; // Set text color to black for contrast
+    gameOverDiv.appendChild(winnerText);
+
+    const resetButton = document.createElement('button');
+    resetButton.textContent = 'Reset Game';
+    resetButton.style.marginTop = '10px';
+    resetButton.style.padding = '10px 20px';
+    resetButton.style.fontSize = '16px';
+    resetButton.style.cursor = 'pointer';
+    resetButton.addEventListener('click', resetGame);
+    gameOverDiv.appendChild(resetButton);
+
+    document.body.appendChild(gameOverDiv);
+}
+
+// Reset the game
+function resetGame() {
+    // Clear all game state
+    Object.keys(pieces).forEach(key => delete pieces[key]);
+    Object.keys(tiles).forEach(key => delete tiles[key]);
+    captured = {
+        black: { disc: 0, ring: 0 },
+        white: { disc: 0, ring: 0 }
+    };
+    ringInventory = {
+        black: 3,
+        white: 3
+    };
+    inventory = {
+        black: 7,
+        white: 7
+    };
+    discInventory = {
+        black: 5,
+        white: 5
+    };
+    activePlayer = 'black';
+    selectedPiece = null;
+    multiJumping = false;
+    multiJumpPos = null;
+
+    // Set initial tiles and pieces
+    tiles['0,0'] = 'black';
+    tiles['1,0'] = 'black';
+    tiles['-1,1'] = 'white';
+    tiles['0,1'] = 'white';
+
+    pieces['1,0'] = { type: 'disc', color: 'black' };
+    pieces['-1,1'] = { type: 'disc', color: 'white' };
+
+    // Remove game over UI
+    const gameOverDiv = document.getElementById('gameOver');
+    if (gameOverDiv) {
+        document.body.removeChild(gameOverDiv);
     }
 
-    // Check if a player has any active pieces on the board
-    function hasActivePieces(player) {
-        return Object.values(pieces).some(piece => piece.color === player);
-    }
+    // Redraw the grid
+    updateDynamicLayout();
+    drawGrid();
+}
 
-    // End the game and display the winner
-    function endGame(winner) {
-        playSound('gameEnd');
-        const gameOverDiv = document.createElement('div');
-        gameOverDiv.id = 'gameOver';
-        gameOverDiv.style.position = 'absolute';
-        gameOverDiv.style.top = '50%';
-        gameOverDiv.style.left = '50%';
-        gameOverDiv.style.transform = 'translate(-50%, -50%)';
-        gameOverDiv.style.backgroundColor = '#fff';
-        gameOverDiv.style.padding = '20px';
-        gameOverDiv.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.2)';
-        gameOverDiv.style.textAlign = 'center';
-        gameOverDiv.style.zIndex = '1000';
-
-        const winnerText = document.createElement('p');
-        winnerText.textContent = winner === 'Ex Aequo!' ? 'Ex Aequo!' : `${winner} wins the game!`;
-        winnerText.style.fontSize = '20px';
-        winnerText.style.fontWeight = 'bold';
-        winnerText.style.color = '#000'; // Set text color to black for contrast
-        gameOverDiv.appendChild(winnerText);
-
-        const resetButton = document.createElement('button');
-        resetButton.textContent = 'Reset Game';
-        resetButton.style.marginTop = '10px';
-        resetButton.style.padding = '10px 20px';
-        resetButton.style.fontSize = '16px';
-        resetButton.style.cursor = 'pointer';
-        resetButton.addEventListener('click', resetGame);
-        gameOverDiv.appendChild(resetButton);
-
-        document.body.appendChild(gameOverDiv);
-    }
-
-    // Reset the game
-    function resetGame() {
-        // Clear all game state
-        Object.keys(pieces).forEach(key => delete pieces[key]);
-        Object.keys(tiles).forEach(key => delete tiles[key]);
-        captured = {
-            black: { disc: 0, ring: 0 },
-            white: { disc: 0, ring: 0 }
-        };
-        ringInventory = {
-            black: 3,
-            white: 3
-        };
-        inventory = {
-            black: 7,
-            white: 7
-        };
-        discInventory = {
-            black: 5,
-            white: 5
-        };
-        activePlayer = 'black';
-        selectedPiece = null;
-        multiJumping = false;
-        multiJumpPos = null;
-
-        // Set initial tiles and pieces
-        tiles['0,0'] = 'black';
-        tiles['1,0'] = 'black';
-        tiles['-1,1'] = 'white';
-        tiles['0,1'] = 'white';
-
-        pieces['1,0'] = { type: 'disc', color: 'black' };
-        pieces['-1,1'] = { type: 'disc', color: 'white' };
-
-        // Remove game over UI
-        const gameOverDiv = document.getElementById('gameOver');
-        if (gameOverDiv) {
-            document.body.removeChild(gameOverDiv);
-        }
-
-        // Redraw the grid
-        updateDynamicLayout();
-        drawGrid();
-    }
-
-    // Serialize the game state to send to the AI
-    function serializeGameState() {
-        return {
-            tiles: tiles,
-            pieces: pieces,
-            inventory: {
-                black: {
-                    tiles: inventory.black,
-                    discs: discInventory.black,
-                    rings: ringInventory.black
-                },
-                white: {
-                    tiles: inventory.white,
-                    discs: discInventory.white,
-                    rings: ringInventory.white
-                }
-            },
-            captured: {
-                black_discs: captured.black.disc,
-                black_rings: captured.black.ring,
-                white_discs: captured.white.disc,
-                white_rings: captured.white.ring
-            },
-            activePlayer: activePlayer
-        };
-    }
-
-    // Apply the updated game state received from the AI
-    function applyGameState(updatedState, previousState) {
-
-        // Play sound for tile placement
-        for (const key in updatedState.tiles) {
-            if (!previousState.tiles[key] && updatedState.tiles[key]) {
-                playSound('tilePlacement');
-            }
-        }
-
-        // Play sound for piece placement based on inventory change
-        for (const player of ['black', 'white']) {
-            if (updatedState.inventory[player].discs < previousState.inventory[player].discs ||
-                updatedState.inventory[player].rings < previousState.inventory[player].rings) {
-                playSound('piecePlacement');
-            }
-        }
-
-        // Play sound for captures if either player's captured discs or rings increased
-        if (
-            updatedState.captured.black_discs > previousState.captured.black_discs ||
-            updatedState.captured.black_rings > previousState.captured.black_rings ||
-            updatedState.captured.white_discs > previousState.captured.white_discs ||
-            updatedState.captured.white_rings > previousState.captured.white_rings
-        ) {
-            playSound('capture');
-        }
-
-        // Play sound for moves (if a piece changes position)
-        for (const key in previousState.pieces) {
-            if (previousState.pieces[key] && !updatedState.pieces[key]) {
-                playSound('move');
-            }
-        }
-
-        // Update the game state
-        tiles = updatedState.tiles;
-        pieces = updatedState.pieces;
-        inventory = {
-            black: updatedState.inventory.black.tiles,
-            white: updatedState.inventory.white.tiles
-        };
-        discInventory = {
-            black: updatedState.inventory.black.discs,
-            white: updatedState.inventory.white.discs
-        };
-        ringInventory = {
-            black: updatedState.inventory.black.rings,
-            white: updatedState.inventory.white.rings
-        };
-        captured = {
+// Serialize the game state to send to the AI
+function serializeGameState() {
+    return {
+        tiles: tiles,
+        pieces: pieces,
+        inventory: {
             black: {
-                disc: updatedState.captured.black_discs,
-                ring: updatedState.captured.black_rings
+                tiles: inventory.black,
+                discs: discInventory.black,
+                rings: ringInventory.black
             },
             white: {
-                disc: updatedState.captured.white_discs,
-                ring: updatedState.captured.white_rings
+                tiles: inventory.white,
+                discs: discInventory.white,
+                rings: ringInventory.white
             }
-        };
+        },
+        captured: {
+            black_discs: captured.black.disc,
+            black_rings: captured.black.ring,
+            white_discs: captured.white.disc,
+            white_rings: captured.white.ring
+        },
+        activePlayer: activePlayer
+    };
+}
 
-        // Update active player
-        activePlayer = updatedState.activePlayer;
+// Apply the updated game state received from the AI
+function applyGameState(updatedState, previousState) {
 
-        updateDynamicLayout(); // Update targets based on new state
-        // Redraw the grid
-        drawGrid();
-
-        // Highlight the last move and tile placement
-        highlightLastMove(previousState, updatedState);
-
-
-        checkGameEnd(); // Check if the game has ended after applying AI's move
+    // Play sound for tile placement
+    for (const key in updatedState.tiles) {
+        if (!previousState.tiles[key] && updatedState.tiles[key]) {
+            playSound('tilePlacement');
+        }
     }
 
-    // Function to highlight the last move made
-    function highlightLastMove(previousState, updatedState) {
-        const activePlayer = updatedState.activePlayer;
-        const opponent = activePlayer === 'black' ? 'white' : 'black';
+    // Play sound for piece placement based on inventory change
+    for (const player of ['black', 'white']) {
+        if (updatedState.inventory[player].discs < previousState.inventory[player].discs ||
+            updatedState.inventory[player].rings < previousState.inventory[player].rings) {
+            playSound('piecePlacement');
+        }
+    }
 
-        // Detect tile placement
-        const newTiles = Object.keys(updatedState.tiles).filter(
-            key => !previousState.tiles[key]
-        );
-        if (newTiles.length === 1) {
-            const [q, r] = newTiles[0].split(',').map(Number);
-            const [x, y] = hexToPixel(q, r, hexSize);
+    // Play sound for captures if either player's captured discs or rings increased
+    if (
+        updatedState.captured.black_discs > previousState.captured.black_discs ||
+        updatedState.captured.black_rings > previousState.captured.black_rings ||
+        updatedState.captured.white_discs > previousState.captured.white_discs ||
+        updatedState.captured.white_rings > previousState.captured.white_rings
+    ) {
+        playSound('capture');
+    }
 
+    // Play sound for moves (if a piece changes position)
+    for (const key in previousState.pieces) {
+        if (previousState.pieces[key] && !updatedState.pieces[key]) {
+            playSound('move');
+        }
+    }
+
+    // Update the game state
+    tiles = updatedState.tiles;
+    pieces = updatedState.pieces;
+    inventory = {
+        black: updatedState.inventory.black.tiles,
+        white: updatedState.inventory.white.tiles
+    };
+    discInventory = {
+        black: updatedState.inventory.black.discs,
+        white: updatedState.inventory.white.discs
+    };
+    ringInventory = {
+        black: updatedState.inventory.black.rings,
+        white: updatedState.inventory.white.rings
+    };
+    captured = {
+        black: {
+            disc: updatedState.captured.black_discs,
+            ring: updatedState.captured.black_rings
+        },
+        white: {
+            disc: updatedState.captured.white_discs,
+            ring: updatedState.captured.white_rings
+        }
+    };
+
+    // Update active player
+    activePlayer = updatedState.activePlayer;
+
+    updateDynamicLayout(); // Update targets based on new state
+    // Redraw the grid
+    drawGrid();
+
+    // Highlight the last move and tile placement
+    highlightLastMove(previousState, updatedState);
+
+
+    checkGameEnd(); // Check if the game has ended after applying AI's move
+}
+
+// Function to highlight the last move made
+function highlightLastMove(previousState, updatedState) {
+    const activePlayer = updatedState.activePlayer;
+    const opponent = activePlayer === 'black' ? 'white' : 'black';
+
+    // Detect tile placement
+    const newTiles = Object.keys(updatedState.tiles).filter(
+        key => !previousState.tiles[key]
+    );
+    if (newTiles.length === 1) {
+        const [q, r] = newTiles[0].split(',').map(Number);
+        const [x, y] = hexToPixel(q, r, hexSize);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
+        ctx.strokeStyle = 'gray';
+        ctx.lineWidth = 4;
+        ctx.setLineDash([4, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+        return;
+    }
+
+    // Detect piece placement (must also be a change in the inventory)
+    const newPieces = Object.keys(updatedState.pieces).filter(
+        key => !previousState.pieces[key]
+    );
+    if (newPieces.length === 1) {
+        const [q, r] = newPieces[0].split(',').map(Number);
+        const [x, y] = hexToPixel(q, r, hexSize);
+
+        // Check if inventory for the active player decreased (disc or ring placed)
+        const prevInv = previousState.inventory[opponent];
+        const currInv = updatedState.inventory[opponent];
+        const discPlaced = currInv.discs < prevInv.discs;
+        const ringPlaced = currInv.rings < prevInv.rings;
+
+        if (discPlaced || ringPlaced) {
             ctx.save();
             ctx.beginPath();
             ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
@@ -1371,208 +1513,181 @@ window.onload = function () {
             ctx.restore();
             return;
         }
+    }
 
-        // Detect piece placement (must also be a change in the inventory)
-        const newPieces = Object.keys(updatedState.pieces).filter(
-            key => !previousState.pieces[key]
-        );
-        if (newPieces.length === 1) {
-            const [q, r] = newPieces[0].split(',').map(Number);
+    // Detect piece movement with captures
+    const movedFrom = Object.keys(previousState.pieces).find(
+        key => !updatedState.pieces[key] && previousState.pieces[key].color === opponent
+    );
+    const movedTo = Object.keys(updatedState.pieces).find(
+        key => !previousState.pieces[key] && updatedState.pieces[key].color === opponent
+    );
+    const captured = Object.keys(previousState.pieces).filter(
+        key => !updatedState.pieces[key] && previousState.pieces[key].color === activePlayer
+    );
+
+    if (movedFrom && movedTo) {
+        const [fromQ, fromR] = movedFrom.split(',').map(Number);
+        const [toQ, toR] = movedTo.split(',').map(Number);
+        const [fromX, fromY] = hexToPixel(fromQ, fromR, hexSize);
+        const [toX, toY] = hexToPixel(toQ, toR, hexSize);
+
+        // Highlight the move
+        ctx.save();
+        ctx.strokeStyle = 'gray';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(fromX, fromY);
+        ctx.lineTo(toX, toY);
+        ctx.stroke();
+
+        // Highlight the destination hex
+        ctx.beginPath();
+        ctx.arc(toX, toY, hexSize * 0.45, 0, 2 * Math.PI);
+        ctx.strokeStyle = 'gray';
+        ctx.lineWidth = 4;
+        ctx.setLineDash([4, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+
+        // Highlight captured pieces
+        captured.forEach(key => {
+            const [q, r] = key.split(',').map(Number);
             const [x, y] = hexToPixel(q, r, hexSize);
 
-            // Check if inventory for the active player decreased (disc or ring placed)
-            const prevInv = previousState.inventory[opponent];
-            const currInv = updatedState.inventory[opponent];
-            const discPlaced = currInv.discs < prevInv.discs;
-            const ringPlaced = currInv.rings < prevInv.rings;
-
-            if (discPlaced || ringPlaced) {
-                ctx.save();
-                ctx.beginPath();
-                ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
-                ctx.strokeStyle = 'gray';
-                ctx.lineWidth = 4;
-                ctx.setLineDash([4, 4]);
-                ctx.stroke();
-                ctx.setLineDash([]);
-                ctx.restore();
-                return;
-            }
-        }
-
-        // Detect piece movement with captures
-        const movedFrom = Object.keys(previousState.pieces).find(
-            key => !updatedState.pieces[key] && previousState.pieces[key].color === opponent
-        );
-        const movedTo = Object.keys(updatedState.pieces).find(
-            key => !previousState.pieces[key] && updatedState.pieces[key].color === opponent
-        );
-        const captured = Object.keys(previousState.pieces).filter(
-            key => !updatedState.pieces[key] && previousState.pieces[key].color === activePlayer
-        );
-
-        if (movedFrom && movedTo) {
-            const [fromQ, fromR] = movedFrom.split(',').map(Number);
-            const [toQ, toR] = movedTo.split(',').map(Number);
-            const [fromX, fromY] = hexToPixel(fromQ, fromR, hexSize);
-            const [toX, toY] = hexToPixel(toQ, toR, hexSize);
-
-            // Highlight the move
             ctx.save();
-            ctx.strokeStyle = 'gray';
-            ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.moveTo(fromX, fromY);
-            ctx.lineTo(toX, toY);
-            ctx.stroke();
-
-            // Highlight the destination hex
-            ctx.beginPath();
-            ctx.arc(toX, toY, hexSize * 0.45, 0, 2 * Math.PI);
+            ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
             ctx.strokeStyle = 'gray';
             ctx.lineWidth = 4;
             ctx.setLineDash([4, 4]);
             ctx.stroke();
             ctx.setLineDash([]);
             ctx.restore();
-
-            // Highlight captured pieces
-            captured.forEach(key => {
-                const [q, r] = key.split(',').map(Number);
-                const [x, y] = hexToPixel(q, r, hexSize);
-
-                ctx.save();
-                ctx.beginPath();
-                ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
-                ctx.strokeStyle = 'gray';
-                ctx.lineWidth = 4;
-                ctx.setLineDash([4, 4]);
-                ctx.stroke();
-                ctx.setLineDash([]);
-                ctx.restore();
-            });
-        }
-    }
-
-    // Step 1: Add sound effects for game actions
-    const sounds = {
-        tilePlacement: new Audio('sounds/tile_placement.mp3'),
-        piecePlacement: new Audio('sounds/piece_placement.mp3'),
-        capture: new Audio('sounds/capture.mp3'),
-        move: new Audio('sounds/move.mp3'),
-        gameEnd: new Audio('sounds/game_end.mp3'),
-        buttonClick: new Audio('sounds/button_click.mp3') // Add button click sound
-    };
-
-    function playSound(action) {
-        if (sounds[action]) {
-            sounds[action].play();
-        }
-    }
-
-    // Play button click sound when any button is clicked
-    document.querySelectorAll('button').forEach(button => {
-        button.addEventListener('click', () => {
-            playSound('buttonClick');
         });
+    }
+}
+
+// Step 1: Add sound effects for game actions
+const sounds = {
+    tilePlacement: new Audio('sounds/tile_placement.mp3'),
+    piecePlacement: new Audio('sounds/piece_placement.mp3'),
+    capture: new Audio('sounds/capture.mp3'),
+    move: new Audio('sounds/move.mp3'),
+    gameEnd: new Audio('sounds/game_end.mp3'),
+    buttonClick: new Audio('sounds/button_click.mp3') // Add button click sound
+};
+
+function playSound(action) {
+    if (sounds[action]) {
+        sounds[action].play();
+    }
+}
+
+// Play button click sound when any button is clicked
+document.querySelectorAll('button').forEach(button => {
+    button.addEventListener('click', () => {
+        playSound('buttonClick');
     });
+});
 
-    // Initialize the AI Web Worker
-    let aiWorker = null;
-    let pendingGameState = null; // Store the game state before AI processes it
+// Initialize the AI Web Worker
+let aiWorker = null;
+let pendingGameState = null; // Store the game state before AI processes it
 
-    if (typeof (Worker) !== "undefined") {
-        aiWorker = new Worker('ai-worker.js');
+if (typeof (Worker) !== "undefined") {
+    aiWorker = new Worker('ai-worker.js');
 
-        // Handle messages from the worker
-        aiWorker.addEventListener('message', function (e) {
-            const { type, updatedState, error } = e.data;
+    // Handle messages from the worker
+    aiWorker.addEventListener('message', function (e) {
+        const { type, updatedState, error } = e.data;
 
-            if (type === 'moveComputed') {
-                if (pendingGameState) {
-                    applyGameState(updatedState, pendingGameState); // Apply the updated state from AI
-                    pendingGameState = null; // Clear the pending state
-                }
-                hideLoader(); // Hide loader
-                enableInteractions(); // Re-enable interactions after AI move
-            } else if (type === 'error') {
-                console.error('AI Worker Error:', error);
-                hideLoader();
-                enableInteractions();
+        if (type === 'moveComputed') {
+            if (pendingGameState) {
+                applyGameState(updatedState, pendingGameState); // Apply the updated state from AI
+                pendingGameState = null; // Clear the pending state
             }
+            hideLoader(); // Hide loader
+            enableInteractions(); // Re-enable interactions after AI move
+        } else if (type === 'error') {
+            console.error('AI Worker Error:', error);
+            hideLoader();
+            enableInteractions();
+        }
+    });
+}
+
+// Send the game state to the AI and handle the response
+async function sendToAI() {
+    const gameState = serializeGameState();
+    pendingGameState = gameState; // Save for later comparison
+    disableInteractions(); // Disable interactions while AI is thinking
+    showLoader(); // Show loader
+
+    console.log('Sending game state to AI:', gameState); // Log the move sent to the AI
+
+    if (aiWorker) {
+        // Use Web Worker
+        aiWorker.postMessage({
+            type: 'computeMove',
+            gameState: gameState
         });
-    }
-
-    // Send the game state to the AI and handle the response
-    async function sendToAI() {
-        const gameState = serializeGameState();
-        pendingGameState = gameState; // Save for later comparison
-        disableInteractions(); // Disable interactions while AI is thinking
-        showLoader(); // Show loader
-
-        console.log('Sending game state to AI:', gameState); // Log the move sent to the AI
-
-        if (aiWorker) {
-            // Use Web Worker
-            aiWorker.postMessage({
-                type: 'computeMove',
-                gameState: gameState
-            });
-        } else {
-            // Fallback to direct computation if Web Workers not supported
-            try {
-                const updatedState = processGameState(gameState);
-                applyGameState(updatedState, gameState);
-                pendingGameState = null;
-            } catch (error) {
-                console.error('Error communicating with AI:', error);
-            } finally {
-                hideLoader();
-                enableInteractions();
-            }
+    } else {
+        // Fallback to direct computation if Web Workers not supported
+        try {
+            const updatedState = processGameState(gameState);
+            applyGameState(updatedState, gameState);
+            pendingGameState = null;
+        } catch (error) {
+            console.error('Error communicating with AI:', error);
+        } finally {
+            hideLoader();
+            enableInteractions();
         }
     }
+}
 
-    // Function to disable event listeners
-    function disableInteractions() {
-        canvas.style.pointerEvents = 'none';
-    }
+// Function to disable event listeners
+function disableInteractions() {
+    canvas.style.pointerEvents = 'none';
+}
 
-    // Function to enable event listeners
-    function enableInteractions() {
-        canvas.style.pointerEvents = 'auto';
-    }
+// Function to enable event listeners
+function enableInteractions() {
+    canvas.style.pointerEvents = 'auto';
+}
 
-    // Add a loader element to the DOM
-    const loader = document.createElement('div');
-    loader.id = 'aiLoader';
-    loader.style.position = 'absolute';
-    loader.style.padding = '12px 24px';
-    loader.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
-    loader.style.color = 'white';
-    loader.style.borderRadius = '8px';
-    loader.style.textAlign = 'center';
+// Add a loader element to the DOM
+const loader = document.createElement('div');
+loader.id = 'aiLoader';
+loader.style.position = 'absolute';
+loader.style.padding = '12px 24px';
+loader.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
+loader.style.color = 'white';
+loader.style.borderRadius = '8px';
+loader.style.textAlign = 'center';
+loader.style.display = 'none';
+loader.style.zIndex = '1000';
+loader.style.fontSize = '16px';
+loader.style.fontWeight = 'bold';
+loader.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.5)';
+loader.innerText = 'AI is thinking...';
+document.body.appendChild(loader);
+
+// Show the loader when waiting for AI
+function showLoader() {
+    // Position loader at top center of canvas
+    const canvasRect = canvas.getBoundingClientRect();
+    loader.style.top = (canvasRect.top + 20) + 'px';
+    loader.style.left = (canvasRect.left + canvasRect.width / 2) + 'px';
+    loader.style.transform = 'translateX(-50%)';
+    loader.style.display = 'block';
+}
+
+// Hide the loader after AI move
+function hideLoader() {
     loader.style.display = 'none';
-    loader.style.zIndex = '1000';
-    loader.style.fontSize = '16px';
-    loader.style.fontWeight = 'bold';
-    loader.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.5)';
-    loader.innerText = 'AI is thinking...';
-    document.body.appendChild(loader);
-
-    // Show the loader when waiting for AI
-    function showLoader() {
-        // Position loader at top center of canvas
-        const canvasRect = canvas.getBoundingClientRect();
-        loader.style.top = (canvasRect.top + 20) + 'px';
-        loader.style.left = (canvasRect.left + canvasRect.width / 2) + 'px';
-        loader.style.transform = 'translateX(-50%)';
-        loader.style.display = 'block';
-    }
-
-    // Hide the loader after AI move
-    function hideLoader() {
-        loader.style.display = 'none';
-    }
+}
 
 };
