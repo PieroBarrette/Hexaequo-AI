@@ -260,10 +260,10 @@ window.onload = function () {
     // Color palettes
     const schemes = {
         modern: {
-            bg: '#222',
-            black: '#222',
-            white: '#fafafa',
-            border: '#fff',
+            bg: '#121212',
+            black: '#333333', // Dark gray tile
+            white: '#cccccc', // Light gray tile
+            border: '#666666', // Gray grid lines
         },
         classic: {
             bg: '#d0c09bff',
@@ -272,6 +272,19 @@ window.onload = function () {
             border: '#7a5230',
         }
     };
+
+    // Function to set the game theme
+    function setGameTheme(theme) {
+        if (theme === 'dark') {
+            colorScheme = 'modern';
+        } else {
+            colorScheme = 'classic';
+        }
+        drawGrid();
+        // Also redraw inventory
+        drawInventory();
+    }
+    window.setGameTheme = setGameTheme;
 
     // Draw a single hex at (cx, cy)
     function drawHex(cx, cy, size, color = '#fff') {
@@ -450,65 +463,7 @@ window.onload = function () {
             const x = startX + col * gap;
             const y = startY + row * gap;
 
-            inventoryCtx.save();
-
-            if (item.type === 'tile') {
-                // Draw a hexagonal tile
-                inventoryCtx.beginPath();
-                for (let i = 0; i < 6; i++) {
-                    const angle = Math.PI / 3 * i + Math.PI / 6;
-                    const hx = x + itemSize * Math.cos(angle);
-                    const hy = y + itemSize * Math.sin(angle);
-                    if (i === 0) inventoryCtx.moveTo(hx, hy);
-                    else inventoryCtx.lineTo(hx, hy);
-                }
-                inventoryCtx.closePath();
-                inventoryCtx.fillStyle = item.color === 'black' ? '#7a5230' : '#f5e2b6';
-                inventoryCtx.shadowColor = '#000a';
-                inventoryCtx.shadowBlur = 2;
-                inventoryCtx.fill();
-                inventoryCtx.lineWidth = 1.5;
-                inventoryCtx.strokeStyle = '#b08b4f';
-                inventoryCtx.stroke();
-            } else if (item.type === 'disc') {
-                // Draw a disc with a border and subtle shadow for inventory
-                inventoryCtx.beginPath();
-                inventoryCtx.arc(x, y, itemSize * 0.45, 0, 2 * Math.PI);
-                inventoryCtx.fillStyle = item.color === 'black' ? '#222' : '#fafafa';
-                inventoryCtx.shadowColor = '#000a';
-                inventoryCtx.shadowBlur = 2;
-                inventoryCtx.fill();
-                inventoryCtx.lineWidth = 1.5;
-                inventoryCtx.strokeStyle = item.color === 'black' ? '#888' : '#bbb';
-                inventoryCtx.stroke();
-            } else if (item.type === 'ring') {
-                // Draw a ring for inventory matching the board appearance
-                // Main ring (thick outer circle)
-                inventoryCtx.beginPath();
-                inventoryCtx.arc(x, y, itemSize * 0.45, 0, 2 * Math.PI);
-                inventoryCtx.lineWidth = 7;
-                inventoryCtx.strokeStyle = item.color === 'black' ? '#222' : '#fafafa';
-                inventoryCtx.shadowColor = '#000a';
-                inventoryCtx.shadowBlur = 2;
-                inventoryCtx.stroke();
-
-                // Inner gray line for contrast (inner edge of ring)
-                inventoryCtx.beginPath();
-                inventoryCtx.arc(x, y, itemSize * 0.32, 0, 2 * Math.PI);
-                inventoryCtx.lineWidth = 1.5;
-                inventoryCtx.strokeStyle = '#bbb';
-                inventoryCtx.shadowBlur = 0;
-                inventoryCtx.stroke();
-
-                // Outer gray line for contrast (outer edge of ring)
-                inventoryCtx.beginPath();
-                inventoryCtx.arc(x, y, itemSize * 0.6, 0, 2 * Math.PI);
-                inventoryCtx.lineWidth = 1.5;
-                inventoryCtx.strokeStyle = '#bbb';
-                inventoryCtx.shadowBlur = 0;
-                inventoryCtx.stroke();
-            }
-            inventoryCtx.restore();
+            drawSingleInventoryItem(inventoryCtx, x, y, item, itemSize);
         }
 
         // Calculate the last row of player's pieces (0-indexed)
@@ -549,66 +504,76 @@ window.onload = function () {
             const x = startX + col * gap;
             const y = startY + row * gap;
 
-            inventoryCtx.save();
-
-            if (item.type === 'tile') {
-                // Draw a hexagonal tile
-                inventoryCtx.beginPath();
-                for (let i = 0; i < 6; i++) {
-                    const angle = Math.PI / 3 * i + Math.PI / 6;
-                    const hx = x + itemSize * Math.cos(angle);
-                    const hy = y + itemSize * Math.sin(angle);
-                    if (i === 0) inventoryCtx.moveTo(hx, hy);
-                    else inventoryCtx.lineTo(hx, hy);
-                }
-                inventoryCtx.closePath();
-                inventoryCtx.fillStyle = item.color === 'black' ? '#7a5230' : '#f5e2b6';
-                inventoryCtx.shadowColor = '#000a';
-                inventoryCtx.shadowBlur = 2;
-                inventoryCtx.fill();
-                inventoryCtx.lineWidth = 1.5;
-                inventoryCtx.strokeStyle = '#b08b4f';
-                inventoryCtx.stroke();
-            } else if (item.type === 'disc') {
-                // Draw a disc with a border and subtle shadow for inventory
-                inventoryCtx.beginPath();
-                inventoryCtx.arc(x, y, itemSize * 0.45, 0, 2 * Math.PI);
-                inventoryCtx.fillStyle = item.color === 'black' ? '#222' : '#fafafa';
-                inventoryCtx.shadowColor = '#000a';
-                inventoryCtx.shadowBlur = 2;
-                inventoryCtx.fill();
-                inventoryCtx.lineWidth = 1.5;
-                inventoryCtx.strokeStyle = item.color === 'black' ? '#888' : '#bbb';
-                inventoryCtx.stroke();
-            } else if (item.type === 'ring') {
-                // Draw a ring for inventory matching the board appearance
-                // Main ring (thick outer circle)
-                inventoryCtx.beginPath();
-                inventoryCtx.arc(x, y, itemSize * 0.45, 0, 2 * Math.PI);
-                inventoryCtx.lineWidth = 7;
-                inventoryCtx.strokeStyle = item.color === 'black' ? '#222' : '#fafafa';
-                inventoryCtx.shadowColor = '#000a';
-                inventoryCtx.shadowBlur = 2;
-                inventoryCtx.stroke();
-
-                // Inner gray line for contrast (inner edge of ring)
-                inventoryCtx.beginPath();
-                inventoryCtx.arc(x, y, itemSize * 0.32, 0, 2 * Math.PI);
-                inventoryCtx.lineWidth = 1.5;
-                inventoryCtx.strokeStyle = '#bbb';
-                inventoryCtx.shadowBlur = 0;
-                inventoryCtx.stroke();
-
-                // Outer gray line for contrast (outer edge of ring)
-                inventoryCtx.beginPath();
-                inventoryCtx.arc(x, y, itemSize * 0.6, 0, 2 * Math.PI);
-                inventoryCtx.lineWidth = 1.5;
-                inventoryCtx.strokeStyle = '#bbb';
-                inventoryCtx.shadowBlur = 0;
-                inventoryCtx.stroke();
-            }
-            inventoryCtx.restore();
+            drawSingleInventoryItem(inventoryCtx, x, y, item, itemSize);
         }
+    }
+
+    function drawSingleInventoryItem(ctx, x, y, item, size) {
+        ctx.save();
+
+        if (item.type === 'tile') {
+            // Draw a hexagonal tile
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const angle = Math.PI / 3 * i + Math.PI / 6;
+                const hx = x + size * Math.cos(angle);
+                const hy = y + size * Math.sin(angle);
+                if (i === 0) ctx.moveTo(hx, hy);
+                else ctx.lineTo(hx, hy);
+            }
+            ctx.closePath();
+            // Use scheme colors for tiles
+            ctx.fillStyle = schemes[colorScheme][item.color];
+            ctx.shadowColor = '#000a';
+            ctx.shadowBlur = 2;
+            ctx.fill();
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = colorScheme === 'classic' ? '#b08b4f' : '#888';
+            ctx.stroke();
+        } else if (item.type === 'disc') {
+            // Draw a disc with a border and subtle shadow for inventory
+            ctx.beginPath();
+            ctx.arc(x, y, size * 0.45, 0, 2 * Math.PI);
+            // Use scheme-aware colors for pieces
+            ctx.fillStyle = item.color === 'black'
+                ? (colorScheme === 'classic' ? '#222' : '#000')
+                : (colorScheme === 'classic' ? '#fafafa' : '#fff');
+            ctx.shadowColor = '#000a';
+            ctx.shadowBlur = 2;
+            ctx.fill();
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = item.color === 'black' ? '#888' : '#bbb';
+            ctx.stroke();
+        } else if (item.type === 'ring') {
+            // Draw a ring for inventory matching the board appearance
+            // Main ring (thick outer circle)
+            ctx.beginPath();
+            ctx.arc(x, y, size * 0.45, 0, 2 * Math.PI);
+            ctx.lineWidth = 7;
+            ctx.strokeStyle = item.color === 'black'
+                ? (colorScheme === 'classic' ? '#222' : '#000')
+                : (colorScheme === 'classic' ? '#fafafa' : '#fff');
+            ctx.shadowColor = '#000a';
+            ctx.shadowBlur = 2;
+            ctx.stroke();
+
+            // Inner gray line for contrast (inner edge of ring)
+            ctx.beginPath();
+            ctx.arc(x, y, size * 0.32, 0, 2 * Math.PI);
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = '#bbb';
+            ctx.shadowBlur = 0;
+            ctx.stroke();
+
+            // Outer gray line for contrast (outer edge of ring)
+            ctx.beginPath();
+            ctx.arc(x, y, size * 0.6, 0, 2 * Math.PI);
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = '#bbb';
+            ctx.shadowBlur = 0;
+            ctx.stroke();
+        }
+        ctx.restore();
     }
 
     // Draw all hexes in a hexagonal grid of given radius

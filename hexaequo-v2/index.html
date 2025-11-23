@@ -123,33 +123,75 @@
             }
         });
 
-        // Sound Toggle
+        // Settings Management
+        const defaultSettings = {
+            sound: true,
+            difficulty: 3,
+            gameMode: '2player', // '2player' or 'ai'
+            theme: 'dark' // 'light' or 'dark'
+        };
+
+        function saveSettings() {
+            const settings = {
+                sound: soundToggle.checked,
+                difficulty: parseInt(difficultySelect.value),
+                gameMode: gameModeSelect.value,
+                theme: themeToggle.checked ? 'light' : 'dark'
+            };
+            localStorage.setItem('hexaequoSettings', JSON.stringify(settings));
+        }
+
+        function loadSettings() {
+            const saved = localStorage.getItem('hexaequoSettings');
+            let settings = defaultSettings;
+
+            if (saved) {
+                try {
+                    settings = { ...defaultSettings, ...JSON.parse(saved) };
+                } catch (e) {
+                    console.error('Error parsing settings:', e);
+                }
+            } else {
+                // First time load: respect system preference for theme
+                const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                settings.theme = systemPrefersDark ? 'dark' : 'light';
+            }
+
+            // Apply settings to UI
+            soundToggle.checked = settings.sound;
+            difficultySelect.value = settings.difficulty;
+            gameModeSelect.value = settings.gameMode;
+            themeToggle.checked = settings.theme === 'light';
+
+            // Apply settings to Game Logic
+            if (window.setSoundEnabled) window.setSoundEnabled(settings.sound);
+            if (window.setAiDifficulty) window.setAiDifficulty(settings.difficulty);
+            if (window.toggleGameMode) window.toggleGameMode(settings.gameMode === 'ai');
+
+            // Apply Theme
+            applyTheme(settings.theme === 'light');
+        }
+
+        // Update event listeners to save settings
         soundToggle.addEventListener('change', (e) => {
             window.setSoundEnabled(e.target.checked);
+            saveSettings();
         });
 
-        // Difficulty Select
         difficultySelect.addEventListener('change', (e) => {
             const level = parseInt(e.target.value);
             window.setAiDifficulty(level);
+            saveSettings();
         });
 
-        // Game Mode Select
         gameModeSelect.addEventListener('change', (e) => {
             const mode = e.target.value;
             const isAi = mode === 'ai';
             window.toggleGameMode(isAi);
+            saveSettings();
         });
 
         // Theme Toggle
-        // Checked = Light, Unchecked = Dark (default is checked in HTML, so default Light?)
-        // Wait, user asked for Dark Mode. Usually apps start in system preference or light.
-        // Let's make Checked = Light, Unchecked = Dark.
-        // Or better: Checked = Dark?
-        // The label says "Dark [Switch] Light". So Left is Dark, Right is Light.
-        // If switch is OFF (left), it's Dark. If ON (right), it's Light.
-        // HTML has `checked`.
-
         function applyTheme(isLight) {
             document.body.setAttribute('data-theme', isLight ? 'light' : 'dark');
             // Update toggle state
@@ -171,15 +213,17 @@
             if (appleIcon) {
                 appleIcon.href = prefersDark ? 'icons/icon-192x192-dark.png' : 'icons/icon-192x192.png';
             }
+
+            // Update game theme if the function exists
+            if (window.setGameTheme) {
+                window.setGameTheme(isLight ? 'light' : 'dark');
+            }
         }
 
         themeToggle.addEventListener('change', (e) => {
             applyTheme(e.target.checked);
+            saveSettings();
         });
-
-        // Initialize theme based on system preference
-        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        applyTheme(!systemPrefersDark); // If dark, isLight=false
 
         // New Game Button
         newGameBtn.addEventListener('click', () => {
@@ -187,6 +231,11 @@
                 window.resetGame();
                 toggleMenu();
             }
+        });
+
+        // Initialize settings on load
+        window.addEventListener('load', () => {
+            setTimeout(loadSettings, 0);
         });
 
         // Register service worker for PWA functionality
