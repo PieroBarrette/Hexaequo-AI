@@ -13,7 +13,14 @@
     <title>HEXAEQUO</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+    
+    <!-- Favicons with dark/light mode support -->
+    <link rel="icon" href="icons/icon-192x192.png" media="(prefers-color-scheme: no-preference), (prefers-color-scheme: light)">
+    <link rel="icon" href="icons/icon-192x192-dark.png" media="(prefers-color-scheme: dark)">
+    
+    <!-- Apple touch icons with dark/light mode support -->
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png" media="(prefers-color-scheme: no-preference), (prefers-color-scheme: light)">
+    <link rel="apple-touch-icon" href="icons/icon-192x192-dark.png" media="(prefers-color-scheme: dark)">
 </head>
 
 <body>
@@ -39,6 +46,36 @@
             window.toggleGameMode(newMode);
             document.getElementById('toggleModeBtn').innerText = newMode ? 'Switch to 2 Player Mode' : 'Switch to AI Mode';
         });
+
+        // Update icons based on color scheme preference
+        function updateIconsForTheme() {
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            
+            // Update favicon
+            const favicon = document.querySelector('link[rel="icon"]');
+            if (favicon) {
+                favicon.href = prefersDark ? 'icons/icon-192x192-dark.png' : 'icons/icon-192x192.png';
+            }
+            
+            // Update Apple touch icon
+            const appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
+            if (appleIcon) {
+                appleIcon.href = prefersDark ? 'icons/icon-192x192-dark.png' : 'icons/icon-192x192.png';
+            }
+            
+            // Update theme-color meta tag
+            const themeColor = document.querySelector('meta[name="theme-color"]');
+            if (themeColor) {
+                themeColor.content = prefersDark ? '#000000' : '#ffffff';
+            }
+        }
+        
+        // Listen for theme changes
+        if (window.matchMedia) {
+            const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+            mediaQuery.addEventListener('change', updateIconsForTheme);
+            updateIconsForTheme(); // Initial update
+        }
 
         // Register service worker for PWA functionality
         if ('serviceWorker' in navigator) {
