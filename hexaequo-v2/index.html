@@ -13,13 +13,15 @@
     <title>HEXAEQUO</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="manifest" href="manifest.json">
-    
+
     <!-- Favicons with dark/light mode support -->
-    <link rel="icon" href="icons/icon-192x192.png" media="(prefers-color-scheme: no-preference), (prefers-color-scheme: light)">
+    <link rel="icon" href="icons/icon-192x192.png"
+        media="(prefers-color-scheme: no-preference), (prefers-color-scheme: light)">
     <link rel="icon" href="icons/icon-192x192-dark.png" media="(prefers-color-scheme: dark)">
-    
+
     <!-- Apple touch icons with dark/light mode support -->
-    <link rel="apple-touch-icon" href="icons/icon-192x192.png" media="(prefers-color-scheme: no-preference), (prefers-color-scheme: light)">
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png"
+        media="(prefers-color-scheme: no-preference), (prefers-color-scheme: light)">
     <link rel="apple-touch-icon" href="icons/icon-192x192-dark.png" media="(prefers-color-scheme: dark)">
 </head>
 
@@ -29,47 +31,134 @@
     <button id="toggleCoordsBtn" style="display: none;">Coordinates</button>
     <button id="toggleColorSchemeBtn" style="display: none;">Color</button>
     <button id="toggleGridBtn" style="display: none;">Grid</button>
+
     <div id="gameContainer">
         <div id="uiLayer">
-            <button id="toggleModeBtn">Switch to AI Mode</button>
             <div id="playerStatus"></div>
         </div>
         <canvas id="gameCanvas" width="800" height="600"></canvas>
         <canvas id="inventoryCanvas" width="800" height="600"></canvas>
     </div>
+
+    <!-- Hamburger Menu Button -->
+    <div id="hamburgerBtn">
+        <span></span>
+        <span></span>
+        <span></span>
+    </div>
+
+    <!-- Menu Overlay -->
+    <div id="menuOverlay">
+        <div class="menu-content">
+            <div class="menu-title">Settings</div>
+
+            <div class="menu-item">
+                <label>Sound</label>
+                <label class="switch">
+                    <input type="checkbox" id="soundToggle" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div class="menu-item">
+                <label>Difficulty</label>
+                <select id="difficultySelect">
+                    <option value="1">Level 1 (Easy)</option>
+                    <option value="2">Level 2 (Normal)</option>
+                    <option value="3" selected>Level 3 (Hard)</option>
+                    <option value="4">Level 4 (Expert)</option>
+                </select>
+            </div>
+
+            <div class="menu-item">
+                <label>Game Mode</label>
+                <select id="gameModeSelect">
+                    <option value="2player">2 Players</option>
+                    <option value="ai">vs AI</option>
+                </select>
+            </div>
+
+            <button id="newGameBtn" class="menu-btn primary">New Game</button>
+            <button id="closeMenuBtn" class="menu-btn">Close</button>
+        </div>
+    </div>
+
     <script src="ai.js"></script>
     <script src="game.js"></script>
     <script>
-        document.getElementById('toggleModeBtn').addEventListener('click', () => {
-            const newMode = !window.isAiMode;
-            window.isAiMode = newMode;
-            window.toggleGameMode(newMode);
-            document.getElementById('toggleModeBtn').innerText = newMode ? 'Switch to 2 Player Mode' : 'Switch to AI Mode';
+        // Menu Logic
+        const hamburgerBtn = document.getElementById('hamburgerBtn');
+        const menuOverlay = document.getElementById('menuOverlay');
+        const closeMenuBtn = document.getElementById('closeMenuBtn');
+        const soundToggle = document.getElementById('soundToggle');
+        const difficultySelect = document.getElementById('difficultySelect');
+        const gameModeSelect = document.getElementById('gameModeSelect');
+        const newGameBtn = document.getElementById('newGameBtn');
+
+        function toggleMenu() {
+            hamburgerBtn.classList.toggle('open');
+            menuOverlay.classList.toggle('open');
+        }
+
+        hamburgerBtn.addEventListener('click', toggleMenu);
+        closeMenuBtn.addEventListener('click', toggleMenu);
+
+        // Close menu when clicking outside
+        menuOverlay.addEventListener('click', (e) => {
+            if (e.target === menuOverlay) {
+                toggleMenu();
+            }
+        });
+
+        // Sound Toggle
+        soundToggle.addEventListener('change', (e) => {
+            window.setSoundEnabled(e.target.checked);
+        });
+
+        // Difficulty Select
+        difficultySelect.addEventListener('change', (e) => {
+            const level = parseInt(e.target.value);
+            window.setAiDifficulty(level);
+        });
+
+        // Game Mode Select
+        gameModeSelect.addEventListener('change', (e) => {
+            const mode = e.target.value;
+            const isAi = mode === 'ai';
+            window.toggleGameMode(isAi);
+        });
+
+        // New Game Button
+        newGameBtn.addEventListener('click', () => {
+            if (confirm('Are you sure you want to start a new game? Current progress will be lost.')) {
+                window.resetGame();
+                toggleMenu();
+            }
         });
 
         // Update icons based on color scheme preference
         function updateIconsForTheme() {
             const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            
+
             // Update favicon
             const favicon = document.querySelector('link[rel="icon"]');
             if (favicon) {
                 favicon.href = prefersDark ? 'icons/icon-192x192-dark.png' : 'icons/icon-192x192.png';
             }
-            
+
             // Update Apple touch icon
             const appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
             if (appleIcon) {
                 appleIcon.href = prefersDark ? 'icons/icon-192x192-dark.png' : 'icons/icon-192x192.png';
             }
-            
+
             // Update theme-color meta tag
             const themeColor = document.querySelector('meta[name="theme-color"]');
             if (themeColor) {
                 themeColor.content = prefersDark ? '#000000' : '#ffffff';
             }
         }
-        
+
         // Listen for theme changes
         if (window.matchMedia) {
             const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');

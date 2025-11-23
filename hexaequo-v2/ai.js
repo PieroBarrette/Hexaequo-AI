@@ -8,7 +8,7 @@
 // Profondeur de recherche de l'algorithme Minimax
 // Plus la profondeur est élevée, plus l'IA est forte mais plus le calcul est long
 // Valeurs recommandées: 2 (rapide), 3 (moyen), 4 (fort mais lent)
-const AI_SEARCH_DEPTH = 3;
+let AI_SEARCH_DEPTH = 3;
 
 // ============================================
 
@@ -86,10 +86,13 @@ function logMoveDifferences(originalState, proposedState) {
 /**
  * Process game state and return the AI's move
  */
-function processGameState(gameState) {
+function processGameState(gameState, depth = 3) {
     if (gameState.activePlayer === 'black') {
         return gameState;
     }
+
+    // Update global depth if provided
+    AI_SEARCH_DEPTH = depth;
 
     // Determine the best move using Minimax
     let bestMove = null;
