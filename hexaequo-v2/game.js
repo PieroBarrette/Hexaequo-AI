@@ -45,6 +45,8 @@ window.onload = function () {
     let showGrid = false;
     let multiJumping = false; // true if in a multi-jump sequence
     let multiJumpPos = null; // {q, r} of the piece in multi-jump
+    let turnStartState = null; // State at the beginning of a multi-jump sequence
+    let turnStartPiecePos = null; // Position of the piece at the start of the sequence
     let inventoryItemSize = 20;
     let inventoryItemGap = 25;
 
@@ -214,16 +216,8 @@ window.onload = function () {
         const isSmallMobile = window.innerWidth <= 480;
 
         // Set canvas to full window size
-        // Use clientWidth/Height to avoid scrollbar issues and match CSS pixels exactly
-        const width = document.documentElement.clientWidth;
-        const height = document.documentElement.clientHeight;
-
-        canvas.width = width;
-        canvas.height = height;
-
-        // Ensure CSS size matches internal size to prevent stretching
-        canvas.style.width = width + 'px';
-        canvas.style.height = height + 'px';
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
 
         if (isSmallMobile) {
             inventoryItemSize = 10; // Much smaller for very small screens
@@ -521,7 +515,9 @@ window.onload = function () {
                         }
                         // Draw contextual End Turn button if in multi-jump and this is the jumping piece
                         if (multiJumping && multiJumpPos && multiJumpPos.q === q && multiJumpPos.r === r) {
-                            drawEndTurnButton(x, y, q, r);
+                            if (isGameStateChanged()) {
+                                drawEndTurnButton(x, y, q, r);
+                            }
                         }
                     }
                     // Draw contextual place disc/ring buttons if needed
@@ -644,6 +640,25 @@ window.onload = function () {
         drawInventory();
     }
 
+    // Helper to check if game state changed during multi-jump
+    function isGameStateChanged() {
+        if (!turnStartState || !turnStartPiecePos || !multiJumpPos) return true; // Should not happen if multiJumping
+
+        const currentCaptured = captured[activePlayer];
+        const startCaptured = turnStartState.captured;
+
+        // Note: turnStartState.captured structure from serializeGameState is { black_discs: ..., ... }
+        const startDiscs = activePlayer === 'black' ? startCaptured.black_discs : startCaptured.white_discs;
+        const startRings = activePlayer === 'black' ? startCaptured.black_rings : startCaptured.white_rings;
+        const currentDiscs = currentCaptured.disc;
+        const currentRings = currentCaptured.ring;
+
+        const capturesChanged = (currentDiscs !== startDiscs) || (currentRings !== startRings);
+        const positionChanged = (multiJumpPos.q !== turnStartPiecePos.q) || (multiJumpPos.r !== turnStartPiecePos.r);
+
+        return capturesChanged || positionChanged;
+    }
+
     // Initialize canvas size and set up resize listener
     // This must be called AFTER all variables (schemes, tiles, pieces) are defined
     resizeCanvas();
@@ -699,6 +714,8 @@ window.onload = function () {
                 multiJumpPos = null;
                 selectedPiece = null;
                 endTurnBtnBounds = null;
+                turnStartState = null;
+                turnStartPiecePos = null;
                 activePlayer = activePlayer === 'black' ? 'white' : 'black';
                 updatedState = serializeGameState();
                 applyGameState(updatedState, gameState);
@@ -826,6 +843,13 @@ window.onload = function () {
                 const landingKey = `${landingQ},${landingR}`;
                 if (q === landingQ && r === landingR && pieces[jumpKey] && tiles[landingKey] && !pieces[landingKey]) {
                     gameState = serializeGameState();
+
+                    // If this is the first jump, save the start state
+                    if (!multiJumping) {
+                        turnStartState = JSON.parse(JSON.stringify(gameState)); // Deep copy
+                        turnStartPiecePos = { q: sq, r: sr };
+                    }
+
                     // Prevent jumping over the same friendly piece twice in the same sequence
                     if (
                         pieces[jumpKey].color === activePlayer &&
@@ -871,9 +895,26 @@ window.onload = function () {
                     }
                 }
             }
-            // If in multi-jump and no valid jump, do nothing (must click End Turn)
+            // If in multi-jump and no valid jump, cancel the multi-jump sequence if clicking elsewhere
             if (multiJumping) {
-                // Only allow End Turn button
+                // If clicking on the piece itself, do nothing (just keep selected)
+                if (multiJumpPos && multiJumpPos.q === q && multiJumpPos.r === r) {
+                    return;
+                }
+
+                // If clicking elsewhere, reset to start of turn
+                if (turnStartState) {
+                    applyGameState(turnStartState, serializeGameState());
+                }
+
+                multiJumping = false;
+                multiJumpPos = null;
+                selectedPiece = null;
+                endTurnBtnBounds = null;
+                turnStartState = null;
+                turnStartPiecePos = null;
+                window.jumpHistory = [];
+                drawGrid();
                 return;
             }
             // Unselect if not a valid move
@@ -882,31 +923,6 @@ window.onload = function () {
             window.jumpHistory = [];
             drawGrid();
             return;
-        }
-        // Returns true if another jump is available for the piece at (q, r)
-        function canJumpAgain(q, r, player, jumpHistory = []) {
-            const directions = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
-            for (const [dq, dr] of directions) {
-                const jq = q + dq;
-                const jr = r + dr;
-                const landingQ = q + 2 * dq;
-                const landingR = r + 2 * dr;
-                const jumpKey = `${jq},${jr}`;
-                const landingKey = `${landingQ},${landingR}`;
-                if (pieces[jumpKey] && tiles[landingKey] && !pieces[landingKey]) {
-                    // Must jump over a piece (any color), land on empty tile
-                    // Prevent jumping over the same friendly piece twice
-                    if (
-                        pieces[jumpKey].color === player &&
-                        jumpHistory.some(h => h.q === jq && h.r === jr)
-                    ) {
-                        continue;
-                    }
-                    // At least one jump available
-                    return true;
-                }
-            }
-            return false;
         }
 
         // If clicking on own piece, select it
@@ -978,6 +994,32 @@ window.onload = function () {
         applyGameState(updatedState, gameState);
     }
 
+    // Returns true if another jump is available for the piece at (q, r)
+    function canJumpAgain(q, r, player, jumpHistory = []) {
+        const directions = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
+        for (const [dq, dr] of directions) {
+            const jq = q + dq;
+            const jr = r + dr;
+            const landingQ = q + 2 * dq;
+            const landingR = r + 2 * dr;
+            const jumpKey = `${jq},${jr}`;
+            const landingKey = `${landingQ},${landingR}`;
+            if (pieces[jumpKey] && tiles[landingKey] && !pieces[landingKey]) {
+                // Must jump over a piece (any color), land on empty tile
+                // Prevent jumping over the same friendly piece twice
+                if (
+                    pieces[jumpKey].color === player &&
+                    jumpHistory.some(h => h.q === jq && h.r === jr)
+                ) {
+                    continue;
+                }
+                // At least one jump available
+                return true;
+            }
+        }
+        return false;
+    }
+
     // Add both click and touch event listeners
     canvas.addEventListener('click', function (e) {
         handleCanvasInteraction(e);
@@ -1035,38 +1077,7 @@ window.onload = function () {
         return validPositions;
     }
 
-    // Update ring movement logic in canvas click handler
-    if (selectedPiece && pieces[`${selectedPiece.q},${selectedPiece.r}`].type === 'ring') {
-        const { q: sq, r: sr } = selectedPiece;
-        const validMoves = getRingJumpPositions(sq, sr, activePlayer);
 
-        for (const move of validMoves) {
-            if (move.q === q && move.r === r) {
-                // Perform the move
-                gameState = serializeGameState();
-                if (move.capture) {
-                    const capturedKey = `${q},${r}`;
-                    const capturedPiece = pieces[capturedKey];
-                    captured[activePlayer][capturedPiece.type]++;
-                    delete pieces[capturedKey];
-                }
-
-                pieces[`${q},${r}`] = { type: 'ring', color: activePlayer };
-                delete pieces[`${sq},${sr}`];
-                // End turn after ring move
-                selectedPiece = null;
-                activePlayer = activePlayer === 'black' ? 'white' : 'black';
-                updatedState = serializeGameState();
-                applyGameState(updatedState, gameState);
-                return;
-            }
-        }
-
-        // If no valid move, unselect the piece
-        selectedPiece = null;
-        drawGrid();
-        return;
-    }
 
     // Check if the game has ended
     function checkGameEnd() {

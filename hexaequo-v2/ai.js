@@ -46,7 +46,7 @@ function logMoveDifferences(originalState, proposedState) {
 
     // Compare pieces
     for (const position in proposedState.pieces) {
-        if (!(position in originalState.pieces) || 
+        if (!(position in originalState.pieces) ||
             JSON.stringify(originalState.pieces[position]) !== JSON.stringify(proposedState.pieces[position])) {
             differences.pieces[position] = proposedState.pieces[position];
         }
@@ -160,11 +160,11 @@ function minimax(state, depth, alpha, beta, maximizingPlayer, branchPrefix) {
         let maxEval = -Infinity;
         for (const child of getChildren(state, branchPrefix)) {
             const [evalScore, childPrunedBranches] = minimax(
-                child, 
-                depth - 1, 
-                alpha, 
-                beta, 
-                false, 
+                child,
+                depth - 1,
+                alpha,
+                beta,
+                false,
                 child.branch || branchPrefix
             );
             maxEval = Math.max(maxEval, evalScore);
@@ -180,11 +180,11 @@ function minimax(state, depth, alpha, beta, maximizingPlayer, branchPrefix) {
         let minEval = Infinity;
         for (const child of getChildren(state, branchPrefix)) {
             const [evalScore, childPrunedBranches] = minimax(
-                child, 
-                depth - 1, 
-                alpha, 
-                beta, 
-                true, 
+                child,
+                depth - 1,
+                alpha,
+                beta,
+                true,
                 child.branch || branchPrefix
             );
             minEval = Math.min(minEval, evalScore);
@@ -634,7 +634,7 @@ function getValidDiscJumps(state, player) {
     const validJumps = [];
 
     // Helper function to recursively find all jump sequences
-    function findJumps(currentState, currentPosition, jumpSequence, visited, jumpedPieces) {
+    function findJumps(currentState, currentPosition, jumpSequence, visited, jumpedPieces, captureCount) {
         let hasJump = false;
 
         // Ensure current_position is a string "q,r"
@@ -667,6 +667,14 @@ function getValidDiscJumps(state, player) {
                 ) {
                     hasJump = true;
 
+                    // Check for capture
+                    let newCaptureCount = captureCount;
+                    const overPiece = currentState.pieces[neighbor];
+                    const fromPiece = currentState.pieces[currentPosition];
+                    if (overPiece.color !== fromPiece.color) {
+                        newCaptureCount++;
+                    }
+
                     // Simulate the jump
                     const newState = deepClone(currentState);
                     simulateJump(newState, currentPosition, neighbor, landingPosition);
@@ -677,7 +685,8 @@ function getValidDiscJumps(state, player) {
                         landingPosition,
                         [...jumpSequence, landingPosition],
                         new Set([...visited, landingPosition]),
-                        newJumpedPieces
+                        newJumpedPieces,
+                        newCaptureCount
                     );
                 }
             }
@@ -685,6 +694,15 @@ function getValidDiscJumps(state, player) {
 
         // If no further jumps are possible, add the jump sequence to valid jumps
         if (!hasJump && jumpSequence.length > 1) {
+            // Check if the move is valid: must change state (position changed OR captured something)
+            const startPos = jumpSequence[0];
+            const endPos = jumpSequence[jumpSequence.length - 1];
+
+            if (startPos === endPos && captureCount === 0) {
+                // Invalid move: loop back with no capture
+                return;
+            }
+
             validJumps.push(jumpSequence);
         }
     }
@@ -693,7 +711,7 @@ function getValidDiscJumps(state, player) {
     for (const position in state.pieces) {
         const piece = state.pieces[position];
         if (piece.type === 'disc' && piece.color === player) {
-            findJumps(state, position, [position], new Set([position]), new Set());
+            findJumps(state, position, [position], new Set([position]), new Set(), 0);
         }
     }
 
