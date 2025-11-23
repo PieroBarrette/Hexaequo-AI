@@ -48,6 +48,7 @@ window.onload = function () {
     let colorScheme = 'classic'; // 'modern' or 'classic'
     let activePlayer = 'black'; // 'black' starts
     let selectedPiece = null; // {q, r} or null
+    let lastMove = null; // Stores the last move for highlighting
     let captured = {
         black: { disc: 0, ring: 0 },
         white: { disc: 0, ring: 0 }
@@ -631,6 +632,79 @@ window.onload = function () {
             }
         }
         // Draws contextual buttons for placing disc or ring centered at the bottom of the canvas
+        // Draw last move highlight
+        if (lastMove) {
+            if (lastMove.type === 'tile') {
+                const [x, y] = hexToPixel(lastMove.q, lastMove.r, hexSize);
+                ctx.save();
+                ctx.beginPath();
+                const highlightSize = hexSize * 0.75;
+                for (let i = 0; i < 6; i++) {
+                    const angle = Math.PI / 3 * i + Math.PI / 6;
+                    const hx = x + highlightSize * Math.cos(angle);
+                    const hy = y + highlightSize * Math.sin(angle);
+                    if (i === 0) ctx.moveTo(hx, hy);
+                    else ctx.lineTo(hx, hy);
+                }
+                ctx.closePath();
+                ctx.strokeStyle = 'gray';
+                ctx.lineWidth = 4;
+                ctx.setLineDash([4, 4]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.restore();
+            } else if (lastMove.type === 'piece') {
+                const [x, y] = hexToPixel(lastMove.q, lastMove.r, hexSize);
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
+                ctx.strokeStyle = 'gray';
+                ctx.lineWidth = 4;
+                ctx.setLineDash([4, 4]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.restore();
+            } else if (lastMove.type === 'move') {
+                const [fromX, fromY] = hexToPixel(lastMove.from.q, lastMove.from.r, hexSize);
+                const [toX, toY] = hexToPixel(lastMove.to.q, lastMove.to.r, hexSize);
+
+                // Highlight the move
+                ctx.save();
+                ctx.strokeStyle = 'gray';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(fromX, fromY);
+                ctx.lineTo(toX, toY);
+                ctx.stroke();
+
+                // Highlight the destination hex
+                ctx.beginPath();
+                ctx.arc(toX, toY, hexSize * 0.45, 0, 2 * Math.PI);
+                ctx.strokeStyle = 'gray';
+                ctx.lineWidth = 4;
+                ctx.setLineDash([4, 4]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.restore();
+
+                // Highlight captured pieces
+                if (lastMove.captured) {
+                    lastMove.captured.forEach(pos => {
+                        const [x, y] = hexToPixel(pos.q, pos.r, hexSize);
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
+                        ctx.strokeStyle = 'gray';
+                        ctx.lineWidth = 4;
+                        ctx.setLineDash([4, 4]);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                        ctx.restore();
+                    });
+                }
+            }
+        }
+
         function drawPlacePieceButtons(x, y, btns) {
             const btnW = 80, btnH = 28, gap = 10;
             // Center horizontally at the bottom of the canvas
@@ -1340,6 +1414,7 @@ window.onload = function () {
         selectedPiece = null;
         multiJumping = false;
         multiJumpPos = null;
+        lastMove = null;
 
         // Set initial tiles and pieces
         tiles['0,0'] = 'black';
@@ -1365,8 +1440,8 @@ window.onload = function () {
     // Serialize the game state to send to the AI
     function serializeGameState() {
         return {
-            tiles: tiles,
-            pieces: pieces,
+            tiles: { ...tiles },
+            pieces: JSON.parse(JSON.stringify(pieces)),
             inventory: {
                 black: {
                     tiles: inventory.black,
@@ -1464,8 +1539,9 @@ window.onload = function () {
         checkGameEnd(); // Check if the game has ended after applying AI's move
     }
 
-    // Function to highlight the last move made
+    // Function to calculate the last move made and store it in lastMove
     function highlightLastMove(previousState, updatedState) {
+        lastMove = null;
         const activePlayer = updatedState.activePlayer;
         const opponent = activePlayer === 'black' ? 'white' : 'black';
 
@@ -1475,17 +1551,7 @@ window.onload = function () {
         );
         if (newTiles.length === 1) {
             const [q, r] = newTiles[0].split(',').map(Number);
-            const [x, y] = hexToPixel(q, r, hexSize);
-
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
-            ctx.strokeStyle = 'gray';
-            ctx.lineWidth = 4;
-            ctx.setLineDash([4, 4]);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            ctx.restore();
+            lastMove = { type: 'tile', q, r };
             return;
         }
 
@@ -1495,7 +1561,6 @@ window.onload = function () {
         );
         if (newPieces.length === 1) {
             const [q, r] = newPieces[0].split(',').map(Number);
-            const [x, y] = hexToPixel(q, r, hexSize);
 
             // Check if inventory for the active player decreased (disc or ring placed)
             const prevInv = previousState.inventory[opponent];
@@ -1504,15 +1569,7 @@ window.onload = function () {
             const ringPlaced = currInv.rings < prevInv.rings;
 
             if (discPlaced || ringPlaced) {
-                ctx.save();
-                ctx.beginPath();
-                ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
-                ctx.strokeStyle = 'gray';
-                ctx.lineWidth = 4;
-                ctx.setLineDash([4, 4]);
-                ctx.stroke();
-                ctx.setLineDash([]);
-                ctx.restore();
+                lastMove = { type: 'piece', q, r };
                 return;
             }
         }
@@ -1531,43 +1588,11 @@ window.onload = function () {
         if (movedFrom && movedTo) {
             const [fromQ, fromR] = movedFrom.split(',').map(Number);
             const [toQ, toR] = movedTo.split(',').map(Number);
-            const [fromX, fromY] = hexToPixel(fromQ, fromR, hexSize);
-            const [toX, toY] = hexToPixel(toQ, toR, hexSize);
-
-            // Highlight the move
-            ctx.save();
-            ctx.strokeStyle = 'gray';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(fromX, fromY);
-            ctx.lineTo(toX, toY);
-            ctx.stroke();
-
-            // Highlight the destination hex
-            ctx.beginPath();
-            ctx.arc(toX, toY, hexSize * 0.45, 0, 2 * Math.PI);
-            ctx.strokeStyle = 'gray';
-            ctx.lineWidth = 4;
-            ctx.setLineDash([4, 4]);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            ctx.restore();
-
-            // Highlight captured pieces
-            captured.forEach(key => {
+            const capturedKeys = captured.map(key => {
                 const [q, r] = key.split(',').map(Number);
-                const [x, y] = hexToPixel(q, r, hexSize);
-
-                ctx.save();
-                ctx.beginPath();
-                ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
-                ctx.strokeStyle = 'gray';
-                ctx.lineWidth = 4;
-                ctx.setLineDash([4, 4]);
-                ctx.stroke();
-                ctx.setLineDash([]);
-                ctx.restore();
+                return { q, r };
             });
+            lastMove = { type: 'move', from: { q: fromQ, r: fromR }, to: { q: toQ, r: toR }, captured: capturedKeys };
         }
     }
 

@@ -53,21 +53,23 @@
             <div class="menu-title">Settings</div>
 
             <div class="menu-item">
+                <label>Theme</label>
+                <div class="toggle-container" style="display: flex; align-items: center; gap: 10px;">
+                    <span class="toggle-label" style="font-size: 0.9em; color: #ccc;">Dark</span>
+                    <label class="switch">
+                        <input type="checkbox" id="themeToggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                    <span class="toggle-label" style="font-size: 0.9em; color: #ccc;">Light</span>
+                </div>
+            </div>
+
+            <div class="menu-item">
                 <label>Sound</label>
                 <label class="switch">
                     <input type="checkbox" id="soundToggle" checked>
                     <span class="slider"></span>
                 </label>
-            </div>
-
-            <div class="menu-item">
-                <label>Difficulty</label>
-                <select id="difficultySelect">
-                    <option value="1">Level 1 (Easy)</option>
-                    <option value="2">Level 2 (Normal)</option>
-                    <option value="3" selected>Level 3 (Hard)</option>
-                    <option value="4">Level 4 (Expert)</option>
-                </select>
             </div>
 
             <div class="menu-item">
@@ -78,16 +80,14 @@
                 </select>
             </div>
 
-            <div class="menu-item">
-                <label>Theme</label>
-                <div class="toggle-container" style="display: flex; align-items: center; gap: 10px;">
-                    <span class="toggle-label" style="font-size: 0.9em; color: #ccc;">Dark</span>
-                    <label class="switch">
-                        <input type="checkbox" id="themeToggle" checked>
-                        <span class="slider"></span>
-                    </label>
-                    <span class="toggle-label" style="font-size: 0.9em; color: #ccc;">Light</span>
-                </div>
+            <div class="menu-item" id="difficultyContainer">
+                <label>Difficulty</label>
+                <select id="difficultySelect">
+                    <option value="1">Level 1 (Easy)</option>
+                    <option value="2">Level 2 (Normal)</option>
+                    <option value="3" selected>Level 3 (Hard)</option>
+                    <option value="4">Level 4 (Expert)</option>
+                </select>
             </div>
 
             <button id="newGameBtn" class="menu-btn primary">New Game</button>
@@ -107,6 +107,7 @@
         const gameModeSelect = document.getElementById('gameModeSelect');
         const newGameBtn = document.getElementById('newGameBtn');
         const themeToggle = document.getElementById('themeToggle');
+        const difficultyContainer = document.getElementById('difficultyContainer');
 
         function toggleMenu() {
             hamburgerBtn.classList.toggle('open');
@@ -170,6 +171,11 @@
 
             // Apply Theme
             applyTheme(settings.theme === 'light');
+
+            // Set initial visibility of difficulty container
+            if (difficultyContainer) {
+                difficultyContainer.style.display = settings.gameMode === 'ai' ? 'flex' : 'none';
+            }
         }
 
         // Update event listeners to save settings
@@ -188,6 +194,9 @@
             const mode = e.target.value;
             const isAi = mode === 'ai';
             window.toggleGameMode(isAi);
+            if (difficultyContainer) {
+                difficultyContainer.style.display = isAi ? 'flex' : 'none';
+            }
             saveSettings();
         });
 
