@@ -11,7 +11,9 @@ body {
     text-align: center;
     margin: 0;
     padding: 0;
-    overflow-x: hidden;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
     user-select: none;
     -webkit-user-select: none;
 }
@@ -24,18 +26,36 @@ h1 {
 #gameContainer {
     position: relative;
     display: block;
-    margin: 20px auto;
+    margin: 0;
     background: #222;
-    border: 2px solid #444;
-    box-shadow: 0 0 20px #000a;
-    max-width: 100%;
-    height: auto;
+    border: none;
+    width: 100%;
+    height: 100%;
+}
+
+#uiLayer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: none;
+    /* Let clicks pass through to canvas */
+    z-index: 10;
+}
+
+#uiLayer>* {
+    pointer-events: auto;
+    /* Re-enable clicks for buttons */
 }
 
 #gameCanvas {
     display: block;
     width: 100%;
-    height: auto;
+    height: 100%;
     touch-action: none;
 }
 
@@ -105,10 +125,10 @@ button:active {
     }
 
     #gameContainer {
-        margin: 10px auto;
-        width: 95vw !important;
-        max-width: 600px;
-        height: auto !important;
+        margin: 0;
+        width: 100% !important;
+        max-width: none;
+        height: 100% !important;
     }
 
     button {
@@ -141,8 +161,8 @@ button:active {
     }
 
     #gameContainer {
-        width: 98vw !important;
-        margin: 5px auto;
+        width: 100% !important;
+        margin: 0;
     }
 
     button {
@@ -171,8 +191,8 @@ button:active {
     }
 
     #gameContainer {
-        margin: 5px auto;
-        max-height: 70vh;
+        margin: 0;
+        max-height: none;
     }
 
     h1 {

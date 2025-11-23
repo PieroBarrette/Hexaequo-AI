@@ -65,52 +65,10 @@ window.onload = function () {
     let centerX = canvas.width / 2;
     let centerY = canvas.height / 2;
 
-    // Update hex size and center when canvas is resized
-    function updateHexParameters() {
-        const isMobile = window.innerWidth <= 768;
-        const isSmallMobile = window.innerWidth <= 480;
-
-        // Larger hexes on mobile for easier interaction
-        if (isSmallMobile) {
-            hexSize = Math.min(canvas.width, canvas.height) / 18; // Larger on small mobile
-        } else if (isMobile) {
-            hexSize = Math.min(canvas.width, canvas.height) / 20; // Larger on mobile
-        } else {
-            hexSize = Math.min(canvas.width, canvas.height) / 24; // Default for desktop
-        }
-
-        centerX = canvas.width / 2;
-        centerY = canvas.height / 2;
-    }
-
-    // Responsive canvas sizing
-    function resizeCanvas() {
-        const isMobile = window.innerWidth <= 768;
-        const isSmallMobile = window.innerWidth <= 480;
-        const isLandscape = window.innerWidth > window.innerHeight;
-
-        if (isSmallMobile) {
-            canvas.width = Math.min(window.innerWidth * 0.98, 600);
-            canvas.height = isLandscape ? window.innerHeight * 0.7 : canvas.width * 0.75;
-            inventoryItemSize = 10; // Much smaller for very small screens
-            inventoryItemGap = 12;
-        } else if (isMobile) {
-            canvas.width = Math.min(window.innerWidth * 0.95, 600);
-            canvas.height = isLandscape ? window.innerHeight * 0.7 : canvas.width * 0.75;
-            inventoryItemSize = 12; // Smaller for mobile screens
-            inventoryItemGap = 15;
-        } else {
-            canvas.width = 800;
-            canvas.height = 600;
-            inventoryItemSize = 20; // Default size for larger screens
-            inventoryItemGap = 25;
-        }
-
-        inventoryCanvas.width = canvas.width;
-        inventoryCanvas.height = canvas.height;
-
-        drawGrid();
-    }
+    // Target values for animation
+    let targetHexSize = hexSize;
+    let targetCenterX = centerX;
+    let targetCenterY = centerY;
 
     // Initial tile content: key = 'q,r', value = 'black' or 'white'
     let tiles = {
@@ -119,6 +77,163 @@ window.onload = function () {
         '-1,1': 'white',
         '0,1': 'white',
     };
+
+    // Update hex size and center dynamically based on placed tiles
+    function updateDynamicLayout() {
+        const tileKeys = Object.keys(tiles);
+        if (tileKeys.length === 0) {
+            // Default if no tiles (shouldn't happen in normal game)
+            targetCenterX = canvas.width / 2;
+            targetCenterY = canvas.height / 2;
+            targetHexSize = Math.min(canvas.width, canvas.height) / 10;
+            return;
+        }
+
+        // Calculate bounding box of all tiles in axial coordinates
+        let minQ = Infinity, maxQ = -Infinity;
+        let minR = Infinity, maxR = -Infinity;
+        let minS = Infinity, maxS = -Infinity; // s = -q-r
+
+        // We need to convert to pixel coordinates to get the true bounding box
+        // because hex grid is not a simple rectangle in q,r
+        let minX = Infinity, maxX = -Infinity;
+        let minY = Infinity, maxY = -Infinity;
+
+        // Use a temporary size of 1 to calculate relative positions
+        const tempSize = 1;
+
+        // Set of all hexes to include in the bounds (tiles + their neighbors)
+        const hexesToInclude = new Set(tileKeys);
+
+        tileKeys.forEach(key => {
+            const [q, r] = key.split(',').map(Number);
+            const neighbors = getNeighbors(q, r);
+            neighbors.forEach(([nq, nr]) => {
+                hexesToInclude.add(`${nq},${nr}`);
+            });
+        });
+
+        hexesToInclude.forEach(key => {
+            const [q, r] = key.split(',').map(Number);
+
+            // Calculate center of this hex
+            const x = tempSize * Math.sqrt(3) * (q + r / 2);
+            const y = tempSize * 3 / 2 * r;
+
+            // Add hex dimensions to bounds (width is sqrt(3)*size, height is 2*size)
+            // We use the corners to be precise
+            // Top/Bottom points are at y +/- size
+            // Side points are at x +/- sqrt(3)/2 * size
+
+            const hWidth = Math.sqrt(3) * tempSize;
+            const hHeight = 2 * tempSize;
+
+            minX = Math.min(minX, x - hWidth / 2);
+            maxX = Math.max(maxX, x + hWidth / 2);
+            minY = Math.min(minY, y - hHeight / 2);
+            maxY = Math.max(maxY, y + hHeight / 2);
+        });
+
+        // Add some padding (in relative units)
+        // We want to fit this bounding box into the canvas
+        const contentWidth = maxX - minX;
+        const contentHeight = maxY - minY;
+
+        // Available space in canvas (with padding)
+        const padding = 40; // pixels
+        const availWidth = canvas.width - padding * 2;
+        const availHeight = canvas.height - padding * 2;
+
+        // Calculate scale
+        // If content width is 0 (1 tile), avoid division by zero
+        const scaleX = contentWidth > 0 ? availWidth / contentWidth : availWidth / (Math.sqrt(3));
+        const scaleY = contentHeight > 0 ? availHeight / contentHeight : availHeight / 2;
+
+        // Choose the smaller scale to fit both dimensions
+        let newHexSize = Math.min(scaleX, scaleY);
+
+        // Clamp hex size to reasonable limits
+        const maxHexSize = Math.min(canvas.width, canvas.height) / 4; // Don't let one tile take up whole screen
+        const minHexSize = 15; // Don't let it get too small
+        newHexSize = Math.min(Math.max(newHexSize, minHexSize), maxHexSize);
+
+        targetHexSize = newHexSize;
+
+        // Calculate center offset
+        // The center of the content in pixel coords (relative to 0,0) is:
+        const contentCenterX = (minX + maxX) / 2 * targetHexSize; // Scale up
+        const contentCenterY = (minY + maxY) / 2 * targetHexSize;
+
+        // We want this content center to be at canvas center
+        // contentCenterX/Y are the pixel coordinates of the center of the bounding box relative to the grid origin (0,0)
+        targetCenterX = (canvas.width / 2) - contentCenterX;
+        targetCenterY = (canvas.height / 2) - contentCenterY;
+    }
+
+    // Animation loop for smooth transitions
+    function animateView() {
+        // Interpolation factor (0.1 for smooth, fast movement)
+        const ease = 0.1;
+        const epsilon = 0.1;
+
+        let changed = false;
+
+        if (Math.abs(targetHexSize - hexSize) > epsilon) {
+            hexSize += (targetHexSize - hexSize) * ease;
+            changed = true;
+        } else {
+            hexSize = targetHexSize;
+        }
+
+        if (Math.abs(targetCenterX - centerX) > epsilon) {
+            centerX += (targetCenterX - centerX) * ease;
+            changed = true;
+        } else {
+            centerX = targetCenterX;
+        }
+
+        if (Math.abs(targetCenterY - centerY) > epsilon) {
+            centerY += (targetCenterY - centerY) * ease;
+            changed = true;
+        } else {
+            centerY = targetCenterY;
+        }
+
+        if (changed) {
+            drawGrid();
+        }
+
+        requestAnimationFrame(animateView);
+    }
+    // Start animation loop
+    requestAnimationFrame(animateView);
+
+    // Responsive canvas sizing
+    function resizeCanvas() {
+        const isMobile = window.innerWidth <= 768;
+        const isSmallMobile = window.innerWidth <= 480;
+
+        // Set canvas to full window size
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        if (isSmallMobile) {
+            inventoryItemSize = 10; // Much smaller for very small screens
+            inventoryItemGap = 12;
+        } else if (isMobile) {
+            inventoryItemSize = 12; // Smaller for mobile screens
+            inventoryItemGap = 15;
+        } else {
+            inventoryItemSize = 20; // Default size for larger screens
+            inventoryItemGap = 25;
+        }
+
+        inventoryCanvas.width = canvas.width;
+        inventoryCanvas.height = canvas.height;
+
+        updateDynamicLayout(); // Recalculate targets on resize
+        drawGrid();
+    }
 
     // Pieces: key = 'q,r', value = {type: 'disc'|'ring', color: 'black'|'white'}
     let pieces = {
@@ -367,7 +482,7 @@ window.onload = function () {
 
     // Draw all hexes in a hexagonal grid of given radius
     function drawGrid() {
-        updateHexParameters(); // Update parameters when drawing
+        // updateDynamicLayout() is now called only when state changes, not every frame
         ctx.fillStyle = schemes[colorScheme].bg;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         // Draw all hexes and contents (with selection highlight if any)
@@ -417,19 +532,18 @@ window.onload = function () {
                 }
             }
         }
-        // Draws contextual buttons for placing disc or ring centered at the top of the canvas
+        // Draws contextual buttons for placing disc or ring centered at the bottom of the canvas
         function drawPlacePieceButtons(x, y, btns) {
             const btnW = 80, btnH = 28, gap = 10;
-            // Center horizontally at the top of the canvas
-            const canvasRect = canvas.getBoundingClientRect();
+            // Center horizontally at the bottom of the canvas
             const centerX = canvas.width / 2;
-            const topY = 30; // 30px from the top
+            const bottomY = canvas.height - 60; // 60px from the bottom
 
             // Disc button
             ctx.save();
             ctx.globalAlpha = 1.0;
             ctx.beginPath();
-            ctx.rect(centerX - btnW - gap / 2, topY, btnW, btnH);
+            ctx.rect(centerX - btnW - gap / 2, bottomY, btnW, btnH);
             ctx.fillStyle = '#fff';
             ctx.strokeStyle = '#333';
             ctx.lineWidth = 2;
@@ -442,14 +556,14 @@ window.onload = function () {
             ctx.font = 'bold 14px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('Place Disc', centerX - btnW / 2 - gap / 2, topY + btnH / 2);
+            ctx.fillText('Place Disc', centerX - btnW / 2 - gap / 2, bottomY + btnH / 2);
             ctx.restore();
 
             // Ring button
             ctx.save();
             ctx.globalAlpha = 1.0;
             ctx.beginPath();
-            ctx.rect(centerX + gap / 2, topY, btnW, btnH);
+            ctx.rect(centerX + gap / 2, bottomY, btnW, btnH);
             ctx.fillStyle = '#fff';
             ctx.strokeStyle = '#333';
             ctx.lineWidth = 2;
@@ -462,21 +576,21 @@ window.onload = function () {
             ctx.font = 'bold 14px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('Place Ring', centerX + btnW / 2 + gap / 2, topY + btnH / 2);
+            ctx.fillText('Place Ring', centerX + btnW / 2 + gap / 2, bottomY + btnH / 2);
             ctx.restore();
 
             // Update btns for click detection
-            btns.discBtn = { x: centerX - btnW - gap / 2, y: topY, w: btnW, h: btnH };
-            btns.ringBtn = { x: centerX + gap / 2, y: topY, w: btnW, h: btnH };
+            btns.discBtn = { x: centerX - btnW - gap / 2, y: bottomY, w: btnW, h: btnH };
+            btns.ringBtn = { x: centerX + gap / 2, y: bottomY, w: btnW, h: btnH };
         }
 
-        // Draws a contextual End Turn button centered at the top of the canvas
+        // Draws a contextual End Turn button centered at the bottom of the canvas
         function drawEndTurnButton(x, y, q, r) {
             const btnW = 100, btnH = 32;
             const centerX = canvas.width / 2;
-            const topY = 30; // 30px from the top
+            const bottomY = canvas.height - 60; // 60px from the bottom
             const btnX = centerX - btnW / 2;
-            const btnY = topY;
+            const btnY = bottomY;
 
             ctx.save();
             ctx.globalAlpha = 1.0;
@@ -506,18 +620,6 @@ window.onload = function () {
             showGrid = !showGrid;
             drawGrid();
         });
-
-        // Update player status
-        if (playerStatus) {
-            playerStatus.textContent = `Active player: ${activePlayer.charAt(0).toUpperCase() + activePlayer.slice(1)}`;
-            playerStatus.style.color = colorScheme === 'modern'
-                ? (activePlayer === 'black' ? schemes.modern.black : schemes.modern.white)
-                : (activePlayer === 'black' ? schemes.classic.black : schemes.classic.white);
-            playerStatus.style.textShadow = colorScheme === 'modern' ? '0 0 4px #fff, 0 0 2px #000' : '0 0 2px #b08b4f';
-        }
-
-
-
 
         // Update player status
         if (playerStatus) {
@@ -1116,6 +1218,7 @@ window.onload = function () {
         }
 
         // Redraw the grid
+        updateDynamicLayout();
         drawGrid();
     }
 
@@ -1210,6 +1313,7 @@ window.onload = function () {
         // Update active player
         activePlayer = updatedState.activePlayer;
 
+        updateDynamicLayout(); // Update targets based on new state
         // Redraw the grid
         drawGrid();
 

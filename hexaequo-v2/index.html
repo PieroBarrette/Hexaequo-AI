@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="description" content="HEXAEQUO - Strategic hexagonal board game. Play against AI or with a friend.">
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,32 +15,18 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icons/icon-192x192.png">
 </head>
+
 <body>
-   
+
     <h1 style="display: none;">HEXAEQUO</h1> <!-- Hidden for accessibility -->
     <button id="toggleCoordsBtn" style="display: none;">Coordinates</button>
     <button id="toggleColorSchemeBtn" style="display: none;">Color</button>
     <button id="toggleGridBtn" style="display: none;">Grid</button>
-    <button id="toggleModeBtn">Switch to AI Mode</button>
-    <!-- <div style="height: 20px;"></div>
-    <div id="inventories" style="display: flex; justify-content: center; gap: 40px; margin-bottom: 5px;">
-        <div id="blackInventory" style="min-width: 120px; text-align: center;"></div>
-        <div id="whiteInventory" style="min-width: 120px; text-align: center;"></div>
-    </div>
-    <div id="discInventories" style="display: flex; justify-content: center; gap: 40px; margin-bottom: 5px;">
-        <div id="blackDiscInventory" style="min-width: 120px; text-align: center;"></div>
-        <div id="whiteDiscInventory" style="min-width: 120px; text-align: center;"></div>
-    </div>
-    <div id="ringInventories" style="display: flex; justify-content: center; gap: 40px; margin-bottom: 5px;">
-        <div id="blackRingInventory" style="min-width: 120px; text-align: center;"></div>
-        <div id="whiteRingInventory" style="min-width: 120px; text-align: center;"></div>
-    </div>
-    <div id="capturedInventories" style="display: flex; justify-content: center; gap: 40px; margin-bottom: 5px;">
-        <div id="blackCaptured" style="min-width: 120px; text-align: center;"></div>
-        <div id="whiteCaptured" style="min-width: 120px; text-align: center;"></div>
-    </div> -->
-    <div id="playerStatus" style="margin: 10px; font-size: 1.2em; font-weight: bold;"></div>
     <div id="gameContainer">
+        <div id="uiLayer">
+            <button id="toggleModeBtn">Switch to AI Mode</button>
+            <div id="playerStatus"></div>
+        </div>
         <canvas id="gameCanvas" width="800" height="600"></canvas>
         <canvas id="inventoryCanvas" width="800" height="600"></canvas>
     </div>
@@ -66,4 +54,5 @@
         }
     </script>
 </body>
+
 </html>
