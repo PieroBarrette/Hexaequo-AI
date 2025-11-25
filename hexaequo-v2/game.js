@@ -615,10 +615,7 @@ window.onload = function () {
                             }
                         }
                     }
-                    // Draw contextual place disc/ring buttons if needed
-                    if (placePieceBtnTile && placePieceBtnTile.q === q && placePieceBtnTile.r === r && placePieceBtnBounds) {
-                        drawPlacePieceButtons(x, y, placePieceBtnBounds);
-                    }
+
                 }
                 if (showCoords) {
                     ctx.save();
@@ -631,6 +628,13 @@ window.onload = function () {
                 }
             }
         }
+
+        // Draw contextual place disc/ring buttons on top of everything
+        if (placePieceBtnTile && placePieceBtnBounds) {
+            const [px, py] = hexToPixel(placePieceBtnTile.q, placePieceBtnTile.r, hexSize);
+            drawPlacePieceButtons(px, py, placePieceBtnBounds);
+        }
+
         // Draws contextual buttons for placing disc or ring centered at the bottom of the canvas
         // Draw last move highlight
         if (lastMove) {
@@ -706,89 +710,60 @@ window.onload = function () {
         }
 
         function drawPlacePieceButtons(x, y, btns) {
-            const btnW = 80, btnH = 28, gap = 10;
-            // Center horizontally at the bottom of the canvas
-            const centerX = canvas.width / 2;
-            const isMobile = window.innerWidth <= 768;
-            const bottomOffset = isMobile ? 120 : 60; // Higher on mobile to avoid bottom bar
-            const bottomY = canvas.height - bottomOffset;
+            // Position buttons inside the tile, closer to center
+            const offset = hexSize * 0.5;
 
-            // Disc button
-            ctx.save();
-            ctx.globalAlpha = 1.0;
-            ctx.beginPath();
-            ctx.rect(centerX - btnW - gap / 2, bottomY, btnW, btnH);
-            ctx.fillStyle = '#fff';
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 2;
-            ctx.shadowColor = '#000a';
-            ctx.shadowBlur = 8;
-            ctx.fill();
-            ctx.stroke();
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#222';
-            ctx.font = 'bold 14px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('Place Disc', centerX - btnW / 2 - gap / 2, bottomY + btnH / 2);
-            ctx.restore();
+            const discX = x - offset;
+            const discY = y;
 
-            // Ring button
-            ctx.save();
-            ctx.globalAlpha = 1.0;
-            ctx.beginPath();
-            ctx.rect(centerX + gap / 2, bottomY, btnW, btnH);
-            ctx.fillStyle = '#fff';
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 2;
-            ctx.shadowColor = '#000a';
-            ctx.shadowBlur = 8;
-            ctx.fill();
-            ctx.stroke();
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#222';
-            ctx.font = 'bold 14px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('Place Ring', centerX + btnW / 2 + gap / 2, bottomY + btnH / 2);
-            ctx.restore();
+            const ringX = x + offset;
+            const ringY = y;
+
+            // Draw Disc symbol
+            drawSingleInventoryItem(ctx, discX, discY, { type: 'disc', color: activePlayer }, inventoryItemSize * 2);
+
+            // Draw Ring symbol
+            drawSingleInventoryItem(ctx, ringX, ringY, { type: 'ring', color: activePlayer }, inventoryItemSize * 2);
 
             // Update btns for click detection
-            btns.discBtn = { x: centerX - btnW - gap / 2, y: bottomY, w: btnW, h: btnH };
-            btns.ringBtn = { x: centerX + gap / 2, y: bottomY, w: btnW, h: btnH };
+            const hitRadius = inventoryItemSize * 2;
+
+            btns.discBtn = { x: discX, y: discY, r: hitRadius };
+            btns.ringBtn = { x: ringX, y: ringY, r: hitRadius };
         }
 
-        // Draws a contextual End Turn button centered at the bottom of the canvas
         function drawEndTurnButton(x, y, q, r) {
-            const btnW = 100, btnH = 32;
-            const centerX = canvas.width / 2;
-            const isMobile = window.innerWidth <= 768;
-            const bottomOffset = isMobile ? 120 : 60; // Higher on mobile to avoid bottom bar
-            const bottomY = canvas.height - bottomOffset;
-            const btnX = centerX - btnW / 2;
-            const btnY = bottomY;
+            // Draw a green checkmark on the tile to indicate end turn option
+            const checkSize = inventoryItemSize * 2;
 
             ctx.save();
-            ctx.globalAlpha = 1.0;
+            ctx.strokeStyle = '#00ff00'; // Green color
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            // Draw checkmark (✓)
+            // Start point (bottom-left of check)
+            const startX = x - checkSize * 0.4;
+            const startY = y;
+
+            // Middle point (bottom of check)
+            const midX = x - checkSize * 0.1;
+            const midY = y + checkSize * 0.4;
+
+            // End point (top-right of check)
+            const endX = x + checkSize * 0.5;
+            const endY = y - checkSize * 0.5;
+
             ctx.beginPath();
-            ctx.rect(btnX, btnY, btnW, btnH);
-            ctx.fillStyle = '#fff';
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 2;
-            ctx.shadowColor = '#000a';
-            ctx.shadowBlur = 8;
-            ctx.fill();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(midX, midY);
+            ctx.lineTo(endX, endY);
             ctx.stroke();
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#222';
-            ctx.font = 'bold 16px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('End Turn', btnX + btnW / 2, btnY + btnH / 2);
             ctx.restore();
 
-            // Store button bounds for click detection
-            endTurnBtnBounds = { q, r, x: btnX, y: btnY, w: btnW, h: btnH };
+            // Store the checkmark position for click detection
+            endTurnBtnBounds = { q, r, x, y, checkSize };
         }
 
         const btnGrid = document.getElementById('toggleGridBtn');
@@ -918,24 +893,27 @@ window.onload = function () {
     }
 
     function handleUiButtons(mx, my) {
-        // If End Turn button is visible and clicked
+        // If End Turn checkmark is visible and clicked
         if (multiJumping && endTurnBtnBounds) {
-            const bx = endTurnBtnBounds.x, by = endTurnBtnBounds.y, bw = endTurnBtnBounds.w, bh = endTurnBtnBounds.h;
-            if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
+            const { x, y, checkSize } = endTurnBtnBounds;
+            // Check if click is within the checkmark area (using a circular hit area)
+            const distance = Math.hypot(mx - x, my - y);
+            if (distance <= checkSize) {
                 endTurn();
                 return true;
             }
         }
         // If contextual place disc/ring buttons are visible
+        // If contextual place disc/ring buttons are visible
         if (placePieceBtnBounds && placePieceBtnTile) {
             const { discBtn, ringBtn } = placePieceBtnBounds;
-            // Disc button
-            if (mx >= discBtn.x && mx <= discBtn.x + discBtn.w && my >= discBtn.y && my <= discBtn.y + discBtn.h) {
+            // Disc button (check distance)
+            if (Math.hypot(mx - discBtn.x, my - discBtn.y) <= discBtn.r) {
                 placeDisc(placePieceBtnTile.q, placePieceBtnTile.r);
                 return true;
             }
-            // Ring button
-            if (mx >= ringBtn.x && mx <= ringBtn.x + ringBtn.w && my >= ringBtn.y && my <= ringBtn.y + ringBtn.h) {
+            // Ring button (check distance)
+            if (Math.hypot(mx - ringBtn.x, my - ringBtn.y) <= ringBtn.r) {
                 placeRing(placePieceBtnTile.q, placePieceBtnTile.r);
                 return true;
             }
@@ -1148,12 +1126,7 @@ window.onload = function () {
             const canPlaceRing = ringInventory[activePlayer] > 0 && captured[activePlayer].disc > 0;
 
             if (canPlaceDisc && canPlaceRing) {
-                const [x, y] = hexToPixel(q, r, hexSize);
-                const btnW = 80, btnH = 28, gap = 10;
-                placePieceBtnBounds = {
-                    discBtn: { x: x + hexSize + 10, y: y - btnH - gap, w: btnW, h: btnH },
-                    ringBtn: { x: x + hexSize + 10, y: y + gap, w: btnW, h: btnH }
-                };
+                placePieceBtnBounds = { discBtn: {}, ringBtn: {} };
                 placePieceBtnTile = { q, r };
                 drawGrid();
                 return;
