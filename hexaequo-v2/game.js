@@ -10,6 +10,24 @@ let isAiMode = false;
 let isSoundEnabled = true;
 let aiDifficulty = 3;
 
+// Animation system
+let animationState = {
+    active: false,
+    queue: [], // Queue of animations to play
+    current: null, // Current animation being played
+    startTime: 0,
+    interactionsBlocked: false
+};
+
+// Easing function for smooth animations
+function easeOutQuad(t) {
+    return t * (2 - t);
+}
+
+function easeInOutQuad(t) {
+    return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+}
+
 // Toggle between AI and 2-player modes
 function toggleGameMode(aiMode) {
     isAiMode = aiMode;
@@ -216,6 +234,40 @@ window.onload = function () {
             centerY = targetCenterY;
         }
 
+        // Process animation queue
+        if (animationState.active && animationState.current) {
+            const now = performance.now();
+            const elapsed = now - animationState.startTime;
+            const progress = Math.min(elapsed / animationState.current.duration, 1);
+
+            animationState.current.progress = progress;
+            changed = true;
+
+            // Animation complete
+            if (progress >= 1) {
+                if (animationState.current.onComplete) {
+                    animationState.current.onComplete();
+                }
+
+                // Move to next animation in queue
+                if (animationState.queue.length > 0) {
+                    animationState.current = animationState.queue.shift();
+                    animationState.startTime = performance.now();
+                } else {
+                    animationState.active = false;
+                    animationState.current = null;
+                    animationState.interactionsBlocked = false;
+                }
+            }
+        } else if (!animationState.active && animationState.queue.length > 0) {
+            // Start next animation
+            animationState.active = true;
+            animationState.current = animationState.queue.shift();
+            animationState.startTime = performance.now();
+            animationState.interactionsBlocked = true;
+            changed = true;
+        }
+
         if (changed) {
             drawGrid();
         }
@@ -224,6 +276,67 @@ window.onload = function () {
     }
     // Start animation loop
     requestAnimationFrame(animateView);
+
+    // Animation utility functions
+    function queueAnimation(animation) {
+        animationState.queue.push(animation);
+
+        // If no animation is currently active, start this one immediately
+        if (!animationState.active && animationState.queue.length === 1) {
+            animationState.active = true;
+            animationState.current = animationState.queue.shift();
+            animationState.startTime = performance.now();
+            animationState.interactionsBlocked = true;
+            drawGrid(); // Force immediate redraw
+        }
+    }
+
+    function createMoveAnimation(piece, from, to, duration = 250) {
+        return {
+            type: 'move',
+            piece: piece,
+            from: from,
+            to: to,
+            duration: duration,
+            progress: 0,
+            onComplete: null
+        };
+    }
+
+    function createCaptureAnimation(piece, position, duration = 200) {
+        return {
+            type: 'capture',
+            piece: piece,
+            position: position,
+            duration: duration,
+            progress: 0,
+            onComplete: null
+        };
+    }
+
+    function createPlacementAnimation(piece, position, fromInventory = false, duration = 200) {
+        return {
+            type: 'placement',
+            piece: piece,
+            position: position,
+            fromInventory: fromInventory,
+            duration: duration,
+            progress: 0,
+            onComplete: null
+        };
+    }
+
+    function createTilePlacementAnimation(color, position, duration = 200) {
+        return {
+            type: 'tile_placement',
+            color: color,
+            position: position,
+            duration: duration,
+            progress: 0,
+            onComplete: null
+        };
+    }
+
 
     // Responsive canvas sizing
     function resizeCanvas() {
@@ -592,26 +705,50 @@ window.onload = function () {
                 // Draw tile if present
                 const key = `${q},${r}`;
                 if (tiles[key]) {
-                    drawTile(x, y, tiles[key], colorScheme);
+                    // Skip drawing if this tile is being animated
+                    let skipTileDraw = false;
+                    if (animationState.current && animationState.current.type === 'tile_placement') {
+                        const anim = animationState.current;
+                        if (anim.position.q === q && anim.position.r === r) {
+                            skipTileDraw = true;
+                        }
+                    }
+
+                    if (!skipTileDraw) {
+                        drawTile(x, y, tiles[key], colorScheme);
+                    }
                     // Draw piece if present
                     if (pieces[key]) {
-                        drawPiece(x, y, pieces[key], colorScheme);
-                        // Draw selection highlight if selected
-                        if (selectedPiece && selectedPiece.q === q && selectedPiece.r === r) {
-                            ctx.save();
-                            ctx.beginPath();
-                            ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
-                            ctx.strokeStyle = 'orange';
-                            ctx.lineWidth = 4;
-                            ctx.setLineDash([4, 4]);
-                            ctx.stroke();
-                            ctx.setLineDash([]);
-                            ctx.restore();
+                        // Skip drawing if this piece is being animated
+                        let skipDraw = false;
+                        if (animationState.current) {
+                            const anim = animationState.current;
+                            if (anim.type === 'move' && anim.to.q === q && anim.to.r === r) {
+                                skipDraw = true;
+                            } else if (anim.type === 'placement' && anim.position.q === q && anim.position.r === r) {
+                                skipDraw = true;
+                            }
                         }
-                        // Draw contextual End Turn button if in multi-jump and this is the jumping piece
-                        if (multiJumping && multiJumpPos && multiJumpPos.q === q && multiJumpPos.r === r) {
-                            if (isGameStateChanged()) {
-                                drawEndTurnButton(x, y, q, r);
+
+                        if (!skipDraw) {
+                            drawPiece(x, y, pieces[key], colorScheme);
+                            // Draw selection highlight if selected
+                            if (selectedPiece && selectedPiece.q === q && selectedPiece.r === r) {
+                                ctx.save();
+                                ctx.beginPath();
+                                ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
+                                ctx.strokeStyle = 'orange';
+                                ctx.lineWidth = 4;
+                                ctx.setLineDash([4, 4]);
+                                ctx.stroke();
+                                ctx.setLineDash([]);
+                                ctx.restore();
+                            }
+                            // Draw contextual End Turn button if in multi-jump and this is the jumping piece
+                            if (multiJumping && multiJumpPos && multiJumpPos.q === q && multiJumpPos.r === r) {
+                                if (isGameStateChanged()) {
+                                    drawEndTurnButton(x, y, q, r);
+                                }
                             }
                         }
                     }
@@ -708,6 +845,92 @@ window.onload = function () {
                 }
             }
         }
+
+        // Draw animations on top
+        if (animationState.current) {
+            const anim = animationState.current;
+            const t = easeOutQuad(anim.progress);
+
+            if (anim.type === 'move') {
+                // Draw piece moving from source to destination
+                const [fromX, fromY] = hexToPixel(anim.from.q, anim.from.r, hexSize);
+                const [toX, toY] = hexToPixel(anim.to.q, anim.to.r, hexSize);
+
+                const currentX = fromX + (toX - fromX) * t;
+                const currentY = fromY + (toY - fromY) * t;
+
+                drawPiece(currentX, currentY, anim.piece, colorScheme);
+
+            } else if (anim.type === 'capture') {
+                // Fade out and shrink the captured piece
+                const [x, y] = hexToPixel(anim.position.q, anim.position.r, hexSize);
+                const alpha = 1 - t;
+                const scale = 1 - t * 0.5;
+
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.translate(x, y);
+                ctx.scale(scale, scale);
+                ctx.translate(-x, -y);
+                drawPiece(x, y, anim.piece, colorScheme);
+                ctx.restore();
+
+            } else if (anim.type === 'placement') {
+                // Fade in and scale up the placed piece
+                const [x, y] = hexToPixel(anim.position.q, anim.position.r, hexSize);
+                const alpha = t;
+                const scale = 0.5 + t * 0.5;
+
+                // If from inventory, animate from inventory position
+                if (anim.fromInventory) {
+                    // Get inventory position based on player color
+                    const isMobile = window.innerWidth <= 768;
+                    const isSmallMobile = window.innerWidth <= 480;
+                    const boxWidth = isSmallMobile ? 80 : (isMobile ? 100 : 130);
+                    const padding = isSmallMobile ? 5 : (isMobile ? 8 : 10);
+
+                    let invX, invY;
+                    if (anim.piece.color === 'black') {
+                        invX = padding + boxWidth / 2;
+                        invY = padding + 30;
+                    } else {
+                        invX = canvas.width - boxWidth / 2 - padding;
+                        invY = padding + 30;
+                    }
+
+                    const currentX = invX + (x - invX) * t;
+                    const currentY = invY + (y - invY) * t;
+
+                    ctx.save();
+                    ctx.globalAlpha = alpha;
+                    drawPiece(currentX, currentY, anim.piece, colorScheme);
+                    ctx.restore();
+                } else {
+                    ctx.save();
+                    ctx.globalAlpha = alpha;
+                    ctx.translate(x, y);
+                    ctx.scale(scale, scale);
+                    ctx.translate(-x, -y);
+                    drawPiece(x, y, anim.piece, colorScheme);
+                    ctx.restore();
+                }
+
+            } else if (anim.type === 'tile_placement') {
+                // Fade in and scale up the placed tile
+                const [x, y] = hexToPixel(anim.position.q, anim.position.r, hexSize);
+                const alpha = t;
+                const scale = 0.5 + t * 0.5;
+
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.translate(x, y);
+                ctx.scale(scale, scale);
+                ctx.translate(-x, -y);
+                drawTile(x, y, anim.color, colorScheme);
+                ctx.restore();
+            }
+        }
+
 
         function drawPlacePieceButtons(x, y, btns) {
             // Position buttons inside the tile, closer to center
@@ -829,6 +1052,9 @@ window.onload = function () {
     function handleCanvasInteraction(e) {
         e.preventDefault(); // Prevent default touch behavior
 
+        // Block interactions during animations
+        if (animationState.interactionsBlocked) return;
+
         const { mx, my } = getCanvasCoordinates(e);
         const [q, r] = pixelToHex(mx, my);
 
@@ -942,29 +1168,54 @@ window.onload = function () {
     function placeDisc(q, r) {
         gameState = serializeGameState();
         const key = `${q},${r}`;
-        pieces[key] = { type: 'disc', color: activePlayer };
+
+        const piece = { type: 'disc', color: activePlayer };
+        const placementAnim = createPlacementAnimation(piece, { q, r }, true, 250);
+
+        placementAnim.onComplete = () => {
+            pieces[key] = { type: 'disc', color: activePlayer };
+            discInventory[activePlayer]--;
+            placePieceBtnBounds = null;
+            placePieceBtnTile = null;
+            activePlayer = activePlayer === 'black' ? 'white' : 'black';
+            updatedState = serializeGameState();
+            applyGameState(updatedState, gameState);
+        };
+
         discInventory[activePlayer]--;
         placePieceBtnBounds = null;
         placePieceBtnTile = null;
-        activePlayer = activePlayer === 'black' ? 'white' : 'black';
-        updatedState = serializeGameState();
-        applyGameState(updatedState, gameState);
+
+        queueAnimation(placementAnim);
     }
 
     function placeRing(q, r) {
         gameState = serializeGameState();
         const key = `${q},${r}`;
-        pieces[key] = { type: 'ring', color: activePlayer };
-        ringInventory[activePlayer]--;
-        // Return a captured disc to opponent
+
+        const piece = { type: 'ring', color: activePlayer };
+        const placementAnim = createPlacementAnimation(piece, { q, r }, true, 250);
+
         const opp = activePlayer === 'black' ? 'white' : 'black';
-        captured[activePlayer].disc--;
-        discInventory[opp]++;
+
+        placementAnim.onComplete = () => {
+            pieces[key] = { type: 'ring', color: activePlayer };
+            ringInventory[activePlayer]--;
+            // Return a captured disc to opponent
+            captured[activePlayer].disc--;
+            discInventory[opp]++;
+            placePieceBtnBounds = null;
+            placePieceBtnTile = null;
+            activePlayer = opp;
+            updatedState = serializeGameState();
+            applyGameState(updatedState, gameState);
+        };
+
+        ringInventory[activePlayer]--;
         placePieceBtnBounds = null;
         placePieceBtnTile = null;
-        activePlayer = opp;
-        updatedState = serializeGameState();
-        applyGameState(updatedState, gameState);
+
+        queueAnimation(placementAnim);
     }
 
     function handlePieceMovement(q, r) {
@@ -1003,32 +1254,74 @@ window.onload = function () {
 
     function performRingMove(sq, sr, q, r, isCapture) {
         gameState = serializeGameState();
-        if (isCapture) {
-            const capturedKey = `${q},${r}`;
-            const capturedPiece = pieces[capturedKey];
-            captured[activePlayer][capturedPiece.type]++;
-            delete pieces[capturedKey];
+
+        const movingPiece = pieces[`${sq},${sr}`];
+        const capturedPiece = isCapture ? pieces[`${q},${r}`] : null;
+
+        // Create move animation
+        const moveAnim = createMoveAnimation(movingPiece, { q: sq, r: sr }, { q, r }, 250);
+
+        // Create capture animation if needed
+        let captureAnim = null;
+        if (isCapture && capturedPiece) {
+            captureAnim = createCaptureAnimation(capturedPiece, { q, r }, 200);
         }
-        pieces[`${q},${r}`] = { type: 'ring', color: activePlayer };
+
+        moveAnim.onComplete = () => {
+            if (isCapture) {
+                const capturedKey = `${q},${r}`;
+                const capturedPiece = pieces[capturedKey];
+                if (capturedPiece) {
+                    captured[activePlayer][capturedPiece.type]++;
+                    delete pieces[capturedKey];
+                }
+            }
+            pieces[`${q},${r}`] = { type: 'ring', color: activePlayer };
+            delete pieces[`${sq},${sr}`];
+            selectedPiece = null;
+            activePlayer = activePlayer === 'black' ? 'white' : 'black';
+            updatedState = serializeGameState();
+            applyGameState(updatedState, gameState);
+        };
+
+        // Hide pieces during animation
         delete pieces[`${sq},${sr}`];
+        if (isCapture) {
+            delete pieces[`${q},${r}`];
+        }
         selectedPiece = null;
-        activePlayer = activePlayer === 'black' ? 'white' : 'black';
-        updatedState = serializeGameState();
-        applyGameState(updatedState, gameState);
+
+        // Queue animations
+        queueAnimation(moveAnim);
+        if (captureAnim) {
+            queueAnimation(captureAnim);
+        }
     }
 
     function performAdjacentMove(sq, sr, q, r) {
         gameState = serializeGameState();
-        pieces[`${q},${r}`] = { type: 'disc', color: activePlayer };
+
+        const piece = pieces[`${sq},${sr}`];
+        const moveAnim = createMoveAnimation(piece, { q: sq, r: sr }, { q, r }, 250);
+
+        moveAnim.onComplete = () => {
+            pieces[`${q},${r}`] = { type: 'disc', color: activePlayer };
+            delete pieces[`${sq},${sr}`];
+            activePlayer = activePlayer === 'black' ? 'white' : 'black';
+            selectedPiece = null;
+            multiJumping = false;
+            multiJumpPos = null;
+            endTurnBtnBounds = null;
+            window.jumpHistory = [];
+            updatedState = serializeGameState();
+            applyGameState(updatedState, gameState);
+        };
+
+        // Hide piece at source during animation
         delete pieces[`${sq},${sr}`];
-        activePlayer = activePlayer === 'black' ? 'white' : 'black';
         selectedPiece = null;
-        multiJumping = false;
-        multiJumpPos = null;
-        endTurnBtnBounds = null;
-        window.jumpHistory = [];
-        updatedState = serializeGameState();
-        applyGameState(updatedState, gameState);
+
+        queueAnimation(moveAnim);
     }
 
     function handleDiscJump(sq, sr, q, r) {
@@ -1084,36 +1377,62 @@ window.onload = function () {
             turnStartPiecePos = { q: sq, r: sr };
         }
 
-        if (pieces[jumpKey].type === 'disc' && pieces[jumpKey].color !== activePlayer) {
-            captured[activePlayer].disc++;
-            delete pieces[jumpKey];
-        } else if (pieces[jumpKey].type === 'ring' && pieces[jumpKey].color !== activePlayer) {
-            captured[activePlayer].ring++;
-            delete pieces[jumpKey];
+        const jumpedPiece = pieces[jumpKey];
+        const movingPiece = pieces[`${sq},${sr}`];
+        const isCapture = jumpedPiece && jumpedPiece.color !== activePlayer;
+
+        // Create move animation
+        const moveAnim = createMoveAnimation(movingPiece, { q: sq, r: sr }, { q: landingQ, r: landingR }, 250);
+
+        // Create capture animation if needed
+        let captureAnim = null;
+        if (isCapture) {
+            captureAnim = createCaptureAnimation(jumpedPiece, { q: jq, r: jr }, 200);
         }
 
-        pieces[landingKey] = { type: 'disc', color: activePlayer };
+        moveAnim.onComplete = () => {
+            // Update game state after move
+            if (jumpedPiece && jumpedPiece.type === 'disc' && jumpedPiece.color !== activePlayer) {
+                captured[activePlayer].disc++;
+                delete pieces[jumpKey];
+            } else if (jumpedPiece && jumpedPiece.type === 'ring' && jumpedPiece.color !== activePlayer) {
+                captured[activePlayer].ring++;
+                delete pieces[jumpKey];
+            }
+
+            pieces[landingKey] = { type: 'disc', color: activePlayer };
+            delete pieces[`${sq},${sr}`];
+
+            if (jumpedPiece && jumpedPiece.color === activePlayer) {
+                window.jumpHistory.push({ q: jq, r: jr });
+            }
+
+            if (canJumpAgain(landingQ, landingR, activePlayer, window.jumpHistory)) {
+                selectedPiece = { q: landingQ, r: landingR };
+                multiJumping = true;
+                multiJumpPos = { q: landingQ, r: landingR };
+                endTurnBtnBounds = null;
+                drawGrid();
+            } else {
+                selectedPiece = null;
+                multiJumping = false;
+                multiJumpPos = null;
+                endTurnBtnBounds = null;
+                activePlayer = activePlayer === 'black' ? 'white' : 'black';
+                window.jumpHistory = [];
+                updatedState = serializeGameState();
+                applyGameState(updatedState, gameState);
+            }
+        };
+
+        // Hide pieces during animation
         delete pieces[`${sq},${sr}`];
+        selectedPiece = null;
 
-        if (pieces[jumpKey] && pieces[jumpKey].color === activePlayer) {
-            window.jumpHistory.push({ q: jq, r: jr });
-        }
-
-        if (canJumpAgain(landingQ, landingR, activePlayer, window.jumpHistory)) {
-            selectedPiece = { q: landingQ, r: landingR };
-            multiJumping = true;
-            multiJumpPos = { q: landingQ, r: landingR };
-            endTurnBtnBounds = null;
-            drawGrid();
-        } else {
-            selectedPiece = null;
-            multiJumping = false;
-            multiJumpPos = null;
-            endTurnBtnBounds = null;
-            activePlayer = activePlayer === 'black' ? 'white' : 'black';
-            window.jumpHistory = [];
-            updatedState = serializeGameState();
-            applyGameState(updatedState, gameState);
+        // Queue animations: move first, then capture
+        queueAnimation(moveAnim);
+        if (captureAnim) {
+            queueAnimation(captureAnim);
         }
     }
 
@@ -1150,11 +1469,20 @@ window.onload = function () {
         if (adjacent < 2) return;
 
         gameState = serializeGameState();
-        tiles[key] = activePlayer;
+
+        const tilePlacementAnim = createTilePlacementAnimation(activePlayer, { q, r }, 250);
+
+        tilePlacementAnim.onComplete = () => {
+            tiles[key] = activePlayer;
+            inventory[activePlayer]--;
+            activePlayer = activePlayer === 'black' ? 'white' : 'black';
+            updatedState = serializeGameState();
+            applyGameState(updatedState, gameState);
+        };
+
         inventory[activePlayer]--;
-        activePlayer = activePlayer === 'black' ? 'white' : 'black';
-        updatedState = serializeGameState();
-        applyGameState(updatedState, gameState);
+
+        queueAnimation(tilePlacementAnim);
     }
 
     // Returns true if another jump is available for the piece at (q, r)
@@ -1187,11 +1515,6 @@ window.onload = function () {
     canvas.addEventListener('click', function (e) {
         handleCanvasInteraction(e);
 
-        // Check if the game has ended
-        if (checkGameEnd()) {
-            return;
-        }
-
         // Serialize the board and send it to the AI if in AI mode
         if (isAiMode && canvas.style.pointerEvents !== 'none') {
             sendToAI();
@@ -1199,11 +1522,6 @@ window.onload = function () {
     });
     canvas.addEventListener('touchend', function (e) {
         handleCanvasInteraction(e);
-
-        // Check if the game has ended
-        if (checkGameEnd()) {
-            return;
-        }
 
         // Serialize the board and send it to the AI if in AI mode
         if (isAiMode && canvas.style.pointerEvents !== 'none') {
@@ -1437,6 +1755,128 @@ window.onload = function () {
         };
     }
 
+    // Apply AI move with animations
+    function applyAiMoveWithAnimation(updatedState, previousState) {
+        // Detect what type of move the AI made and create animations
+
+        // 1. Check for tile placement
+        for (const key in updatedState.tiles) {
+            if (!previousState.tiles[key] && updatedState.tiles[key]) {
+                const [q, r] = key.split(',').map(Number);
+                const tileAnim = createTilePlacementAnimation(updatedState.tiles[key], { q, r }, 250);
+                tileAnim.onComplete = () => {
+                    tiles[key] = updatedState.tiles[key];
+                };
+                inventory[updatedState.tiles[key]]--;
+                queueAnimation(tileAnim);
+
+                // After tile animation, apply full state
+                const finalAnim = createTilePlacementAnimation(updatedState.tiles[key], { q, r }, 0);
+                finalAnim.onComplete = () => {
+                    applyGameState(updatedState, previousState);
+                };
+                queueAnimation(finalAnim);
+                return;
+            }
+        }
+
+        // 2. Check for piece placement (disc or ring)
+        for (const key in updatedState.pieces) {
+            if (!previousState.pieces[key] && updatedState.pieces[key]) {
+                const piece = updatedState.pieces[key];
+                const [q, r] = key.split(',').map(Number);
+
+                // Check if it's a placement from inventory (inventory decreased)
+                const prevDiscs = previousState.inventory[piece.color].discs;
+                const newDiscs = updatedState.inventory[piece.color].discs;
+                const prevRings = previousState.inventory[piece.color].rings;
+                const newRings = updatedState.inventory[piece.color].rings;
+
+                if (newDiscs < prevDiscs || newRings < prevRings) {
+                    const placementAnim = createPlacementAnimation(piece, { q, r }, true, 250);
+                    if (newDiscs < prevDiscs) {
+                        discInventory[piece.color]--;
+                    } else {
+                        ringInventory[piece.color]--;
+                    }
+                    placementAnim.onComplete = () => {
+                        applyGameState(updatedState, previousState);
+                    };
+                    queueAnimation(placementAnim);
+                    return;
+                }
+            }
+        }
+
+        // 3. Check for piece movement (including jumps with captures)
+        // Find pieces that moved
+        let movedFrom = null;
+        let movedTo = null;
+        let capturedPositions = [];
+
+        for (const key in previousState.pieces) {
+            if (!updatedState.pieces[key]) {
+                // Piece disappeared from this position
+                const [q, r] = key.split(',').map(Number);
+
+                // Check if it moved or was captured
+                const piece = previousState.pieces[key];
+                let foundNewPosition = false;
+
+                for (const newKey in updatedState.pieces) {
+                    if (!previousState.pieces[newKey] &&
+                        updatedState.pieces[newKey].type === piece.type &&
+                        updatedState.pieces[newKey].color === piece.color) {
+                        // This is likely where it moved to
+                        const [nq, nr] = newKey.split(',').map(Number);
+                        movedFrom = { q, r, piece };
+                        movedTo = { q: nq, r: nr };
+                        foundNewPosition = true;
+                        break;
+                    }
+                }
+
+                if (!foundNewPosition) {
+                    // Piece was captured
+                    capturedPositions.push({ q, r, piece });
+                }
+            }
+        }
+
+        // Create animations for movement and captures
+        if (movedFrom && movedTo) {
+            const moveAnim = createMoveAnimation(movedFrom.piece,
+                { q: movedFrom.q, r: movedFrom.r },
+                { q: movedTo.q, r: movedTo.r }, 250);
+
+            delete pieces[`${movedFrom.q},${movedFrom.r}`];
+
+            moveAnim.onComplete = () => {
+                // After move, animate captures if any
+                if (capturedPositions.length > 0) {
+                    capturedPositions.forEach((cap, index) => {
+                        const captureAnim = createCaptureAnimation(cap.piece, { q: cap.q, r: cap.r }, 200);
+                        if (index === capturedPositions.length - 1) {
+                            // Last capture animation
+                            captureAnim.onComplete = () => {
+                                applyGameState(updatedState, previousState);
+                            };
+                        }
+                        queueAnimation(captureAnim);
+                    });
+                } else {
+                    applyGameState(updatedState, previousState);
+                }
+            };
+
+            queueAnimation(moveAnim);
+            return;
+        }
+
+        // If no animations detected, just apply state directly
+        applyGameState(updatedState, previousState);
+    }
+
     // Apply the updated game state received from the AI
     function applyGameState(updatedState, previousState) {
 
@@ -1499,6 +1939,7 @@ window.onload = function () {
         };
 
         // Update active player
+        const previousPlayer = activePlayer;
         activePlayer = updatedState.activePlayer;
 
         updateDynamicLayout(); // Update targets based on new state
@@ -1508,8 +1949,10 @@ window.onload = function () {
         // Highlight the last move and tile placement
         highlightLastMove(previousState, updatedState);
 
-
-        checkGameEnd(); // Check if the game has ended after applying AI's move
+        // Check if the game has ended ONLY when the turn changes (active player changes)
+        if (previousPlayer !== activePlayer) {
+            checkGameEnd();
+        }
     }
 
     // Function to calculate the last move made and store it in lastMove
@@ -1605,11 +2048,24 @@ window.onload = function () {
 
             if (type === 'moveComputed') {
                 if (pendingGameState) {
-                    applyGameState(updatedState, pendingGameState); // Apply the updated state from AI
+                    // Hide loader immediately but keep interactions disabled
+                    hideLoader();
+
+                    // Use animated version for AI moves
+                    // We'll re-enable interactions after the animation completes
+                    const originalApplyGameState = applyGameState;
+
+                    // Temporarily override applyGameState to re-enable interactions after it's called
+                    window.applyGameStateTemp = applyGameState;
+                    applyGameState = function (updatedState, previousState) {
+                        window.applyGameStateTemp(updatedState, previousState);
+                        enableInteractions(); // Re-enable after state is applied
+                        applyGameState = window.applyGameStateTemp; // Restore original
+                    };
+
+                    applyAiMoveWithAnimation(updatedState, pendingGameState);
                     pendingGameState = null; // Clear the pending state
                 }
-                hideLoader(); // Hide loader
-                enableInteractions(); // Re-enable interactions after AI move
             } else if (type === 'error') {
                 console.error('AI Worker Error:', error);
                 hideLoader();
@@ -1638,11 +2094,20 @@ window.onload = function () {
             // Fallback to direct computation if Web Workers not supported
             try {
                 const updatedState = processGameState(gameState, aiDifficulty);
-                applyGameState(updatedState, gameState);
+                hideLoader();
+
+                // Temporarily override applyGameState to re-enable interactions after it's called
+                window.applyGameStateTemp = applyGameState;
+                applyGameState = function (updatedState, previousState) {
+                    window.applyGameStateTemp(updatedState, previousState);
+                    enableInteractions(); // Re-enable after state is applied
+                    applyGameState = window.applyGameStateTemp; // Restore original
+                };
+
+                applyAiMoveWithAnimation(updatedState, gameState);
                 pendingGameState = null;
             } catch (error) {
                 console.error('Error communicating with AI:', error);
-            } finally {
                 hideLoader();
                 enableInteractions();
             }
