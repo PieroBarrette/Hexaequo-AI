@@ -1855,14 +1855,12 @@ window.onload = function () {
             return;
         }
 
-        // Detect piece placement (must also be a change in the inventory)
+        // Detect piece placement
         const newPieces = Object.keys(updatedState.pieces).filter(
             key => !previousState.pieces[key]
         );
         if (newPieces.length === 1) {
             const [q, r] = newPieces[0].split(',').map(Number);
-
-            // Check if inventory for the active player decreased (disc or ring placed)
             const prevInv = previousState.inventory[opponent];
             const currInv = updatedState.inventory[opponent];
             const discPlaced = currInv.discs < prevInv.discs;
@@ -1874,21 +1872,21 @@ window.onload = function () {
             }
         }
 
-        // Detect piece movement with captures
+        // Detect piece movement (check for pieces that moved from opponent player)
         const movedFrom = Object.keys(previousState.pieces).find(
             key => !updatedState.pieces[key] && previousState.pieces[key].color === opponent
         );
         const movedTo = Object.keys(updatedState.pieces).find(
-            key => !previousState.pieces[key] && updatedState.pieces[key].color === opponent
+            key => (!previousState.pieces[key] || previousState.pieces[key].color === activePlayer) && updatedState.pieces[key].color === opponent
         );
-        const captured = Object.keys(previousState.pieces).filter(
-            key => !updatedState.pieces[key] && previousState.pieces[key].color === activePlayer
+        const capturedPieces = Object.keys(previousState.pieces).filter(
+            key => (!updatedState.pieces[key] || updatedState.pieces[key].color === opponent) && previousState.pieces[key].color === activePlayer
         );
 
         if (movedFrom && movedTo) {
             const [fromQ, fromR] = movedFrom.split(',').map(Number);
             const [toQ, toR] = movedTo.split(',').map(Number);
-            const capturedKeys = captured.map(key => {
+            const capturedKeys = capturedPieces.map(key => {
                 const [q, r] = key.split(',').map(Number);
                 return { q, r };
             });
