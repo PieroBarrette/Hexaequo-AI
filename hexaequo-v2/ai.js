@@ -176,6 +176,13 @@ function isTerminal(state) {
         blackPieces === 0 || whitePieces === 0
         // Note: Stalemate check (no moves) is expensive here, usually handled by getChildren returning empty
     );
+//evaluate stalemate condition
+    if (!terminal) {
+        const children = getChildren(state, '1');
+        if (children.length === 0) {
+            return true; // Stalemate
+        }
+    }
     return terminal;
 }
 
@@ -194,8 +201,8 @@ function evaluate(state) {
     const W_CAPTURED_DISC = 15; // Capturing is better than just having
     const W_CAPTURED_RING = 50;
     const W_TILE = 2;
-    const W_MOBILITY = 0.5;
-    const W_CENTER = 1;
+    //const W_MOBILITY = 0.5;
+    //const W_CENTER = 1;
 
     // Score pieces on the board
     for (const position in state.pieces) {
@@ -204,20 +211,20 @@ function evaluate(state) {
 
         // Distance from center (0,0)
         // Hex distance = max(|q|, |r|, |s|) where s = -q-r
-        const dist = Math.max(Math.abs(q), Math.abs(r), Math.abs(-q - r));
-        const centerBonus = (5 - dist) * W_CENTER; // Closer to center is better
+        //const dist = Math.max(Math.abs(q), Math.abs(r), Math.abs(-q - r));
+        //const centerBonus = (5 - dist) * W_CENTER; // Closer to center is better
 
         if (piece.type === 'disc') {
             if (piece.color === 'black') {
-                blackScore += W_DISC + centerBonus;
+                blackScore += W_DISC /*+ centerBonus*/;
             } else {
-                whiteScore += W_DISC + centerBonus;
+                whiteScore += W_DISC /*+ centerBonus*/;
             }
         } else if (piece.type === 'ring') {
             if (piece.color === 'black') {
-                blackScore += W_RING + centerBonus;
+                blackScore += W_RING /*+ centerBonus*/;
             } else {
-                whiteScore += W_RING + centerBonus;
+                whiteScore += W_RING /*+ centerBonus*/;
             }
         }
     }
@@ -256,6 +263,12 @@ function evaluate(state) {
 
     // Mobility (expensive to calculate fully, maybe skip for performance or use simplified version)
     // For now, skipping full mobility calculation to keep AI fast enough for depth 4
+
+    //score = 0 if stalemate
+    const children = getChildren(state, '1');  
+    if (children.length === 0) {
+        return 0; // Stalemate
+    }
 
     return blackScore - whiteScore;
 }

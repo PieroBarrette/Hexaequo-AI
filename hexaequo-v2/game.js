@@ -8,7 +8,7 @@ let placePieceBtnTile = null; // {q, r} for which tile the buttons are shown
 // Global variables for game mode
 let isAiMode = false;
 let isSoundEnabled = true;
-let aiDifficulty = 3;
+let aiDifficulty = 2; // 1: Easy, 2: Medium, 3: Hard
 
 // Toggle between AI and 2-player modes
 function toggleGameMode(aiMode) {
