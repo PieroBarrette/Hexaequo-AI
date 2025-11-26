@@ -1802,9 +1802,10 @@ window.onload = function () {
         // Update active player
         activePlayer = updatedState.activePlayer;
 
-        //recordMove player's move
-        recordMove();
-
+        //recordMove player's move only when the game state changed
+        if (JSON.stringify(previousState) !== JSON.stringify(updatedState)) {
+            recordMove();
+        }
 
         updateDynamicLayout(); // Update targets based on new state
         // Redraw the grid
