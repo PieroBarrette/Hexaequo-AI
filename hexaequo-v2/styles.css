@@ -1,6 +1,6 @@
 /* styles.css */
 :root {
-    /* Dark Theme (Default) */
+    /* Dark Theme  */
     --bg-body: #000000;
     --bg-container: #222222;
     --text-primary: #fafafa;
@@ -17,7 +17,7 @@
 }
 
 [data-theme="light"] {
-    /* Light Theme */
+    /* Light Theme (Default) */
     --bg-body: #e0e0e0;
     --bg-container: #ffffff;
     --text-primary: #222222;
@@ -61,7 +61,8 @@ h1 {
 
 #gameContainer {
     position: relative;
-    display: block;
+    display: flex;
+    flex-direction: column;
     margin: 0;
     background: var(--bg-container);
     border: none;
@@ -72,7 +73,7 @@ h1 {
 
 #uiLayer {
     position: absolute;
-    top: 0;
+    top: 48px;
     left: 0;
     width: 100%;
     padding: 10px;
@@ -92,16 +93,17 @@ h1 {
 #gameCanvas {
     display: block;
     width: 100%;
-    height: 100%;
+    height: calc(100% - 48px);
+    flex: 1;
     touch-action: none;
 }
 
 #inventoryCanvas {
     position: absolute;
-    top: 0;
+    top: 48px;
     left: 0;
     width: 100%;
-    height: 100%;
+    height: calc(100% - 48px);
     pointer-events: none;
     touch-action: none;
 }
@@ -144,6 +146,90 @@ button:active {
     font-size: 1.2em;
     font-weight: bold;
     padding: 8px;
+}
+
+/* Undo/Redo Toolbar */
+#undoRedoToolbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    background: var(--bg-container);
+    border-bottom: 1px solid var(--border-color);
+    z-index: 5;
+    min-height: 48px;
+}
+
+.undo-redo-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    margin: 0;
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px var(--shadow-color);
+    min-height: auto;
+}
+
+.undo-redo-btn:hover:not(:disabled) {
+    background: var(--accent-hover);
+    transform: scale(1.05);
+    box-shadow: 0 4px 10px var(--shadow-color);
+}
+
+.undo-redo-btn:active:not(:disabled) {
+    transform: scale(0.95);
+}
+
+.undo-redo-btn:disabled {
+    background: var(--border-color);
+    color: var(--text-secondary);
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.undo-redo-btn svg {
+    width: 18px;
+    height: 18px;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.player-indicator {
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 4px;
+    color: white;
+    white-space: nowrap;
+    min-width: 120px;
+    text-align: center;
+    transition: background 0.2s ease;
+}
+
+.player-indicator.player-black {
+    background: #1a1a1a;
+    border: 2px solid #333333;
+}
+
+.player-indicator.player-white {
+    background: #e8e8e8;
+    color: #333333;
+    border: 2px solid #cccccc;
 }
 
 /* Mobile optimizations */

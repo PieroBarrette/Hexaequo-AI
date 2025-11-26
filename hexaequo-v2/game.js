@@ -65,6 +65,12 @@ window.onload = function () {
     let inventoryItemSize = 20;
     let inventoryItemGap = 42;
 
+    // Move history for undo/redo functionality
+    let moveHistory = []; // Array of {gameState, moveType}
+    let currentMoveIndex = 0; // Index of the current position in move history
+    let isRestoringState = false; // Flag to prevent recording moves during undo/redo restoration
+    let initialGameState = null; // Store the initial state for undo to game start
+
     // Each player starts with 9 tiles, 2 are already placed
     let inventory = {
         black: 7,
@@ -807,6 +813,18 @@ window.onload = function () {
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
+    // Set up undo/redo button listeners
+    const undoBtn = document.getElementById('undoBtn');
+    const redoBtn = document.getElementById('redoBtn');
+    
+    if (undoBtn) {
+        undoBtn.addEventListener('click', undoMove);
+    }
+    
+    if (redoBtn) {
+        redoBtn.addEventListener('click', redoMove);
+    }
+
     btnCoords.addEventListener('click', function () {
         showCoords = !showCoords;
         drawGrid();
@@ -934,6 +952,7 @@ window.onload = function () {
         endTurnBtnBounds = null;
         turnStartState = null;
         turnStartPiecePos = null;
+        //recordMove('turn');
         activePlayer = activePlayer === 'black' ? 'white' : 'black';
         updatedState = serializeGameState();
         applyGameState(updatedState, gameState);
@@ -946,6 +965,7 @@ window.onload = function () {
         discInventory[activePlayer]--;
         placePieceBtnBounds = null;
         placePieceBtnTile = null;
+        //recordMove('placeDisc');
         activePlayer = activePlayer === 'black' ? 'white' : 'black';
         updatedState = serializeGameState();
         applyGameState(updatedState, gameState);
@@ -962,6 +982,7 @@ window.onload = function () {
         discInventory[opp]++;
         placePieceBtnBounds = null;
         placePieceBtnTile = null;
+        //recordMove('placeRing');
         activePlayer = opp;
         updatedState = serializeGameState();
         applyGameState(updatedState, gameState);
@@ -1012,6 +1033,7 @@ window.onload = function () {
         pieces[`${q},${r}`] = { type: 'ring', color: activePlayer };
         delete pieces[`${sq},${sr}`];
         selectedPiece = null;
+        //recordMove('ringMove');
         activePlayer = activePlayer === 'black' ? 'white' : 'black';
         updatedState = serializeGameState();
         applyGameState(updatedState, gameState);
@@ -1021,12 +1043,13 @@ window.onload = function () {
         gameState = serializeGameState();
         pieces[`${q},${r}`] = { type: 'disc', color: activePlayer };
         delete pieces[`${sq},${sr}`];
-        activePlayer = activePlayer === 'black' ? 'white' : 'black';
         selectedPiece = null;
         multiJumping = false;
         multiJumpPos = null;
         endTurnBtnBounds = null;
         window.jumpHistory = [];
+        //recordMove('adjacentMove');
+        activePlayer = activePlayer === 'black' ? 'white' : 'black';
         updatedState = serializeGameState();
         applyGameState(updatedState, gameState);
     }
@@ -1110,8 +1133,9 @@ window.onload = function () {
             multiJumping = false;
             multiJumpPos = null;
             endTurnBtnBounds = null;
-            activePlayer = activePlayer === 'black' ? 'white' : 'black';
             window.jumpHistory = [];
+            //recordMove('jump');
+            activePlayer = activePlayer === 'black' ? 'white' : 'black';
             updatedState = serializeGameState();
             applyGameState(updatedState, gameState);
         }
@@ -1152,6 +1176,7 @@ window.onload = function () {
         gameState = serializeGameState();
         tiles[key] = activePlayer;
         inventory[activePlayer]--;
+        //recordMove('tile');
         activePlayer = activePlayer === 'black' ? 'white' : 'black';
         updatedState = serializeGameState();
         applyGameState(updatedState, gameState);
@@ -1362,8 +1387,281 @@ window.onload = function () {
         document.body.appendChild(gameOverDiv);
     }
 
+    // Record initial state when game starts or resets
+    function recordInitialState() {
+        isRestoringState = true; // Prevent any move recording
+        
+        const currentState = serializeGameState();
+        moveHistory = [{
+            gameState: JSON.parse(JSON.stringify(currentState)),
+            moveType: 'initial',
+            timestamp: Date.now()
+        }];
+        currentMoveIndex = 0;
+        initialGameState = JSON.parse(JSON.stringify(currentState));
+        
+        isRestoringState = false;
+        updateUndoRedoButtons();
+    }
+
+    // Record a move in the move history (called after each turn completes)
+    function recordMove(moveType) {
+        // Don't record moves while restoring from undo/redo
+        if (isRestoringState) return;
+        
+        const currentState = serializeGameState();
+        
+        // If we're not at the end of history, truncate future moves
+        if (currentMoveIndex < moveHistory.length - 1) {
+            moveHistory = moveHistory.slice(0, currentMoveIndex + 1);
+        }
+        
+        // Add the new move
+        moveHistory.push({
+            gameState: JSON.parse(JSON.stringify(currentState)),
+            moveType: moveType,
+            timestamp: Date.now()
+        });
+        currentMoveIndex++;
+        
+        // Save to IndexedDB
+        saveGameSession();
+        
+        // Update undo/redo button states
+        updateUndoRedoButtons();
+    }
+
+    // Record initial state at game start
+    recordInitialState();
+
+    // Undo the last move(s)
+    function undoMove() {
+        // In AI mode: undo 2 moves (back to player's turn), In 2-player mode: undo 1 move
+        const movesToUndo = 1;
+        
+        if (currentMoveIndex - movesToUndo < 0) {
+            console.log('Cannot undo: at the beginning of game');
+            return;
+        }
+        
+        currentMoveIndex -= movesToUndo;
+        const historyEntry = moveHistory[currentMoveIndex];
+        
+        if (!historyEntry) return;
+        
+        // Restore the game state from history
+        restoreGameState(historyEntry.gameState);
+        
+        // Save to IndexedDB
+        saveGameSession();
+        
+        // Update button states
+        updateUndoRedoButtons();
+    }
+
+    // Redo the last undone move(s)
+    function redoMove() {
+        // In AI mode: redo 2 moves, In 2-player mode: redo 1 move
+        const movesToRedo = 1;
+        
+        if (currentMoveIndex + movesToRedo >= moveHistory.length) {
+            console.log('Cannot redo: at the end of move history');
+            return;
+        }
+        
+        currentMoveIndex += movesToRedo;
+        const historyEntry = moveHistory[currentMoveIndex];
+        
+        if (!historyEntry) return;
+        
+        // Restore the game state from history
+        restoreGameState(historyEntry.gameState);
+        
+        // Save to IndexedDB
+        saveGameSession();
+        
+        // Update button states
+        updateUndoRedoButtons();
+    }
+
+    // Restore game state from a history entry
+    function restoreGameState(savedState) {
+        isRestoringState = true; // Prevent recording moves during restoration
+        
+        // Restore tiles
+        tiles = JSON.parse(JSON.stringify(savedState.tiles));
+        
+        // Restore pieces
+        pieces = JSON.parse(JSON.stringify(savedState.pieces));
+        
+        // Restore inventory
+        inventory = {
+            black: savedState.inventory.black.tiles,
+            white: savedState.inventory.white.tiles
+        };
+        discInventory = {
+            black: savedState.inventory.black.discs,
+            white: savedState.inventory.white.discs
+        };
+        ringInventory = {
+            black: savedState.inventory.black.rings,
+            white: savedState.inventory.white.rings
+        };
+        
+        // Restore captured
+        captured = {
+            black: {
+                disc: savedState.captured.black_discs,
+                ring: savedState.captured.black_rings
+            },
+            white: {
+                disc: savedState.captured.white_discs,
+                ring: savedState.captured.white_rings
+            }
+        };
+        
+        // Restore active player
+        activePlayer = savedState.activePlayer;
+        
+        // Clear any in-progress selections
+        selectedPiece = null;
+        multiJumping = false;
+        multiJumpPos = null;
+        turnStartState = null;
+        turnStartPiecePos = null;
+        
+        // Redraw
+        updateDynamicLayout();
+        drawGrid();
+        
+        isRestoringState = false; // Allow move recording again
+    }
+
+    // Initialize IndexedDB for game session persistence
+    function initIndexedDB() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open('HexaequoGameDB', 1);
+            
+            request.onerror = () => {
+                console.warn('IndexedDB initialization failed, game will not persist');
+                resolve(null);
+            };
+            
+            request.onsuccess = (event) => {
+                resolve(event.target.result);
+            };
+            
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                if (!db.objectStoreNames.contains('gameSession')) {
+                    db.createObjectStore('gameSession', { keyPath: 'id' });
+                }
+            };
+        });
+    }
+
+    // Save the current game session to IndexedDB
+    function saveGameSession() {
+        if (!window.hexaequoDb) return; // DB not initialized
+        
+        const transaction = window.hexaequoDb.transaction(['gameSession'], 'readwrite');
+        const objectStore = transaction.objectStore('gameSession');
+        
+        const sessionData = {
+            id: 'currentGame',
+            moveHistory: moveHistory,
+            currentMoveIndex: currentMoveIndex,
+            timestamp: Date.now()
+        };
+        
+        const request = objectStore.put(sessionData);
+        request.onerror = () => {
+            console.warn('Failed to save game session to IndexedDB');
+        };
+    }
+
+    // Load a saved game session from IndexedDB
+    function loadGameSession() {
+        return new Promise((resolve) => {
+            if (!window.hexaequoDb) {
+                resolve(false);
+                return;
+            }
+            
+            const transaction = window.hexaequoDb.transaction(['gameSession'], 'readonly');
+            const objectStore = transaction.objectStore('gameSession');
+            const request = objectStore.get('currentGame');
+            
+            request.onerror = () => {
+                console.warn('Failed to load game session from IndexedDB');
+                resolve(false);
+            };
+            
+            request.onsuccess = (event) => {
+                const sessionData = event.target.result;
+                if (sessionData) {
+                    moveHistory = sessionData.moveHistory || [];
+                    currentMoveIndex = sessionData.currentMoveIndex || 0;
+                    
+                    // Restore the last saved state if available
+                    if (currentMoveIndex >= 0 && moveHistory[currentMoveIndex]) {
+                        restoreGameState(moveHistory[currentMoveIndex].gameState);
+                        updateUndoRedoButtons();
+                        console.log('Game session restored from IndexedDB');
+                        resolve(true);
+                        return;
+                    }
+                }
+                resolve(false);
+            };
+        });
+    }
+
+    // Clear the saved game session from IndexedDB
+    function clearGameSession() {
+        if (!window.hexaequoDb) return;
+        
+        const transaction = window.hexaequoDb.transaction(['gameSession'], 'readwrite');
+        const objectStore = transaction.objectStore('gameSession');
+        const request = objectStore.delete('currentGame');
+        
+        request.onerror = () => {
+            console.warn('Failed to clear game session from IndexedDB');
+        };
+    }
+
+    // Update the state of undo/redo buttons
+    function updateUndoRedoButtons() {
+        const undoBtn = document.getElementById('undoBtn');
+        const redoBtn = document.getElementById('redoBtn');
+        const playerIndicator = document.getElementById('playerIndicator');
+        
+        // Determine how many moves we can undo
+        const movesToUndo = 1;
+        const canUndo = currentMoveIndex - movesToUndo >= 0;
+        const movesToRedo = 1;
+        const canRedo = currentMoveIndex + movesToRedo < moveHistory.length;
+        
+
+        if (!undoBtn || !redoBtn) return;
+        
+        // Update button states
+        undoBtn.disabled = !canUndo;
+        redoBtn.disabled = !canRedo;
+        
+        // Update player indicator
+        if (playerIndicator) {
+            playerIndicator.textContent = `Player: ${activePlayer.charAt(0).toUpperCase() + activePlayer.slice(1)}`;
+            playerIndicator.classList.toggle('player-black', activePlayer === 'black');
+            playerIndicator.classList.toggle('player-white', activePlayer === 'white');
+        }
+    }
+
     // Reset the game
     function resetGame() {
+        // Clear IndexedDB cache
+        clearGameSession();
+        
         // Clear all game state
         Object.keys(pieces).forEach(key => delete pieces[key]);
         Object.keys(tiles).forEach(key => delete tiles[key]);
@@ -1403,6 +1701,9 @@ window.onload = function () {
         if (gameOverDiv) {
             document.body.removeChild(gameOverDiv);
         }
+
+        // Record the initial state so undo can go to the start
+        recordInitialState();
 
         // Redraw the grid
         updateDynamicLayout();
@@ -1501,13 +1802,16 @@ window.onload = function () {
         // Update active player
         activePlayer = updatedState.activePlayer;
 
+        //recordMove player's move
+        recordMove();
+
+
         updateDynamicLayout(); // Update targets based on new state
         // Redraw the grid
         drawGrid();
 
         // Highlight the last move and tile placement
         highlightLastMove(previousState, updatedState);
-
 
         checkGameEnd(); // Check if the game has ended after applying AI's move
     }
@@ -1652,11 +1956,17 @@ window.onload = function () {
     // Function to disable event listeners
     function disableInteractions() {
         canvas.style.pointerEvents = 'none';
+        const undoBtn = document.getElementById('undoBtn');
+        const redoBtn = document.getElementById('redoBtn');
+        if (undoBtn) undoBtn.disabled = true;
+        if (redoBtn) redoBtn.disabled = true;
     }
 
     // Function to enable event listeners
     function enableInteractions() {
         canvas.style.pointerEvents = 'auto';
+        // Re-enable undo/redo buttons based on history state
+        updateUndoRedoButtons();
     }
 
     // Add a loader element to the DOM
@@ -1690,5 +2000,24 @@ window.onload = function () {
     function hideLoader() {
         loader.style.display = 'none';
     }
+
+    // Initialize IndexedDB and load saved game session
+    (async () => {
+        window.hexaequoDb = await initIndexedDB();
+        const sessionLoaded = await loadGameSession();
+        if (!sessionLoaded) {
+            // No saved session, record the initial game state only once
+            if (moveHistory.length === 0) {
+                moveHistory.push({
+                    gameState: serializeGameState(),
+                    moveType: 'initial',
+                    timestamp: Date.now()
+                });
+                currentMoveIndex++;
+            }
+            // Initialize button states
+            updateUndoRedoButtons();
+        }
+    })();
 
 };
