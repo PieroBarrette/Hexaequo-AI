@@ -641,7 +641,6 @@ window.onload = function () {
             drawPlacePieceButtons(px, py, placePieceBtnBounds);
         }
 
-        // Draws contextual buttons for placing disc or ring centered at the bottom of the canvas
         // Draw last move highlight
         if (lastMove) {
             if (lastMove.type === 'tile') {
@@ -1536,6 +1535,16 @@ window.onload = function () {
         
         // Redraw
         updateDynamicLayout();
+
+        //Use currentMoveIndex and moveHistory to call the highlightLastMove function
+        if (moveHistory[currentMoveIndex - 1]) {
+            const prevState = moveHistory[currentMoveIndex - 1].gameState;
+            highlightLastMove(prevState, savedState);
+        }
+
+        // Update button states
+        updateUndoRedoButtons();
+
         drawGrid();
         
         isRestoringState = false; // Allow move recording again
@@ -1647,7 +1656,7 @@ window.onload = function () {
         const canRedo = currentMoveIndex + movesToRedo < moveHistory.length;
         
 
-        if (!undoBtn || !redoBtn) return;
+        //if (!undoBtn || !redoBtn) return;
         
         // Update button states
         undoBtn.disabled = !canUndo;
@@ -1815,11 +1824,15 @@ window.onload = function () {
         }
 
         updateDynamicLayout(); // Update targets based on new state
+
+        //Use currentMoveIndex and moveHistory to call the highlightLastMove function
+        if (moveHistory[currentMoveIndex - 1]) {
+            const prevState = moveHistory[currentMoveIndex - 1].gameState;
+            highlightLastMove(prevState, updatedState);
+        }
+
         // Redraw the grid
         drawGrid();
-
-        // Highlight the last move and tile placement
-        highlightLastMove(previousState, updatedState);
 
         enableInteractions();
 
@@ -2020,11 +2033,11 @@ window.onload = function () {
                     moveType: 'initial',
                     timestamp: Date.now()
                 });
-                currentMoveIndex++;
+                currentMoveIndex = 0;
             }
-            // Initialize button states
-            updateUndoRedoButtons();
         }
+        // Initialize button states
+        updateUndoRedoButtons();
     })();
 
 };
