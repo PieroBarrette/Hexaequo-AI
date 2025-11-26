@@ -1358,15 +1358,16 @@ window.onload = function () {
         playSound('gameEnd');
         const gameOverDiv = document.createElement('div');
         gameOverDiv.id = 'gameOver';
-        gameOverDiv.style.position = 'absolute';
-        gameOverDiv.style.top = '50%';
+        gameOverDiv.style.position = 'fixed';
+        gameOverDiv.style.top = '20px';
         gameOverDiv.style.left = '50%';
-        gameOverDiv.style.transform = 'translate(-50%, -50%)';
+        gameOverDiv.style.transform = 'translateX(-50%)';
         gameOverDiv.style.backgroundColor = '#fff';
         gameOverDiv.style.padding = '20px';
         gameOverDiv.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.2)';
         gameOverDiv.style.textAlign = 'center';
         gameOverDiv.style.zIndex = '1000';
+        gameOverDiv.style.borderRadius = '8px';
 
         const winnerText = document.createElement('p');
         winnerText.textContent = winner === 'Ex Aequo!' ? 'Ex Aequo!' : `${winner} wins the game!`;
@@ -1385,6 +1386,9 @@ window.onload = function () {
         gameOverDiv.appendChild(resetButton);
 
         document.body.appendChild(gameOverDiv);
+        
+        // Disable interactions while game over popup is displayed
+        disableInteractions();
     }
 
     // Record initial state when game starts or resets
@@ -1702,6 +1706,9 @@ window.onload = function () {
             document.body.removeChild(gameOverDiv);
         }
 
+        // Re-enable interactions after game reset
+        enableInteractions();
+
         // Record the initial state so undo can go to the start
         recordInitialState();
 
@@ -1814,6 +1821,8 @@ window.onload = function () {
         // Highlight the last move and tile placement
         highlightLastMove(previousState, updatedState);
 
+        enableInteractions();
+
         checkGameEnd(); // Check if the game has ended after applying AI's move
     }
 
@@ -1914,11 +1923,9 @@ window.onload = function () {
                     pendingGameState = null; // Clear the pending state
                 }
                 hideLoader(); // Hide loader
-                enableInteractions(); // Re-enable interactions after AI move
             } else if (type === 'error') {
                 console.error('AI Worker Error:', error);
                 hideLoader();
-                enableInteractions();
             }
         });
     }
@@ -1949,7 +1956,6 @@ window.onload = function () {
                 console.error('Error communicating with AI:', error);
             } finally {
                 hideLoader();
-                enableInteractions();
             }
         }
     }
