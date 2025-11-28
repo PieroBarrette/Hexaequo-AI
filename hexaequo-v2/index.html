@@ -86,6 +86,14 @@
             </div>
 
             <div class="menu-item">
+                <label>Show Valid Moves</label>
+                <label class="switch">
+                    <input type="checkbox" id="validMovesToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div class="menu-item">
                 <label>Game Mode</label>
                 <select id="gameModeSelect">
                     <option value="2player">2 Players</option>
@@ -120,6 +128,7 @@
         const gameModeSelect = document.getElementById('gameModeSelect');
         const newGameBtn = document.getElementById('newGameBtn');
         const themeToggle = document.getElementById('themeToggle');
+        const validMovesToggle = document.getElementById('validMovesToggle');
         const difficultyContainer = document.getElementById('difficultyContainer');
 
         function toggleMenu() {
@@ -142,7 +151,8 @@
             sound: true,
             difficulty: 2,
             gameMode: 'ai', // '2player' or 'ai'
-            theme: 'light' // 'light' or 'dark'
+            theme: 'light', // 'light' or 'dark'
+            showValidMoves: false // Show valid moves indicator
         };
 
         function saveSettings() {
@@ -150,7 +160,8 @@
                 sound: soundToggle.checked,
                 difficulty: parseInt(difficultySelect.value),
                 gameMode: gameModeSelect.value,
-                theme: themeToggle.checked ? 'light' : 'dark'
+                theme: themeToggle.checked ? 'light' : 'dark',
+                showValidMoves: validMovesToggle.checked
             };
             localStorage.setItem('hexaequoSettings', JSON.stringify(settings));
         }
@@ -176,11 +187,13 @@
             difficultySelect.value = settings.difficulty;
             gameModeSelect.value = settings.gameMode;
             themeToggle.checked = settings.theme === 'light';
+            validMovesToggle.checked = settings.showValidMoves;
 
             // Apply settings to Game Logic
             if (window.setSoundEnabled) window.setSoundEnabled(settings.sound);
             if (window.setAiDifficulty) window.setAiDifficulty(settings.difficulty);
             if (window.toggleGameMode) window.toggleGameMode(settings.gameMode === 'ai');
+            if (window.setShowValidMoves) window.setShowValidMoves(settings.showValidMoves);
 
             // Apply Theme
             applyTheme(settings.theme === 'light');
@@ -194,6 +207,11 @@
         // Update event listeners to save settings
         soundToggle.addEventListener('change', (e) => {
             window.setSoundEnabled(e.target.checked);
+            saveSettings();
+        });
+
+        validMovesToggle.addEventListener('change', (e) => {
+            window.setShowValidMoves(e.target.checked);
             saveSettings();
         });
 

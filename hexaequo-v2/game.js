@@ -10,6 +10,11 @@ let isAiMode = false;
 let isSoundEnabled = true;
 let aiDifficulty = 2; // 1: Easy, 2: Medium, 3: Hard
 
+// Global variables for valid moves indicator
+let showValidMoves = false;
+let validMovesHighlights = []; // Array of { q, r, type: 'tile'|'piece'|'move' }
+let globalDrawGrid = null; // Reference to drawGrid function for redraw triggering
+
 // Toggle between AI and 2-player modes
 function toggleGameMode(aiMode) {
     isAiMode = aiMode;
@@ -30,11 +35,21 @@ function setAiDifficulty(level) {
     console.log('AI Difficulty set to:', aiDifficulty);
 }
 
+function setShowValidMoves(enabled) {
+    showValidMoves = enabled;
+    console.log('Show valid moves:', showValidMoves);
+    // Trigger redraw if drawGrid is available
+    if (globalDrawGrid) {
+        globalDrawGrid();
+    }
+}
+
 // Expose to global scope
 window.toggleGameMode = toggleGameMode;
 window.isAiMode = isAiMode;
 window.setSoundEnabled = setSoundEnabled;
 window.setAiDifficulty = setAiDifficulty;
+window.setShowValidMoves = setShowValidMoves;
 
 window.onload = function () {
     const canvas = document.getElementById('gameCanvas');
@@ -714,6 +729,41 @@ window.onload = function () {
             }
         }
 
+        // Draw valid moves indicator (translucent gray dots)
+        if (showValidMoves) {
+            // Show valid moves based on game mode:
+            // - AI mode: only show for Black (human player)
+            // - 2-player mode: show for both Black and White (both human)
+            const shouldShowValidMoves = isAiMode ? activePlayer === 'black' : true;
+            
+            if (shouldShowValidMoves) {
+                // Calculate valid moves based on selection state
+                let movesToDisplay = [];
+                
+                if (selectedPiece) {
+                    // Show only moves for the selected piece
+                    movesToDisplay = calculateValidMovesForPiece(selectedPiece.q, selectedPiece.r, activePlayer);
+                } else {
+                    // Show all valid moves for the active player
+                    movesToDisplay = calculateAllValidMoves(activePlayer);
+                }
+
+                // Draw translucent gray dots at each valid move location
+                movesToDisplay.forEach(move => {
+                    const [x, y] = hexToPixel(move.q, move.r, hexSize);
+                    ctx.save();
+                    
+                    // Draw translucent gray dot
+                    ctx.beginPath();
+                    ctx.arc(x, y, hexSize * 0.08, 0, 2 * Math.PI);
+                    ctx.fillStyle = 'rgba(128, 128, 128, 0.5)'; // Translucent gray
+                    ctx.fill();
+                    
+                    ctx.restore();
+                });
+            }
+        }
+
         function drawPlacePieceButtons(x, y, btns) {
             // Position buttons inside the tile, closer to center
             const offset = hexSize * 0.5;
@@ -812,6 +862,9 @@ window.onload = function () {
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
+    // Store reference to drawGrid for triggering redraws from global functions
+    globalDrawGrid = drawGrid;
+
     // Set up undo/redo button listeners
     const undoBtn = document.getElementById('undoBtn');
     const redoBtn = document.getElementById('redoBtn');
@@ -840,6 +893,169 @@ window.onload = function () {
         return [
             [q + 1, r], [q - 1, r], [q, r + 1], [q, r - 1], [q + 1, r - 1], [q - 1, r + 1]
         ];
+    }
+
+    // Calculate all valid moves for a player (returns pieces that can be moved, and placement locations)
+    function calculateAllValidMoves(player) {
+        const highlights = [];
+        const addedPieces = new Set(); // Track pieces already added to avoid duplicates
+
+        // 1. Pieces that can move (disc and ring pieces)
+        for (const key in pieces) {
+            const piece = pieces[key];
+            if (piece.color !== player) continue;
+            
+            const [q, r] = key.split(',').map(Number);
+            let canMove = false;
+
+            if (piece.type === 'disc') {
+                // Check adjacent moves (only if not already in multi-jump)
+                if (!multiJumping) {
+                    for (const [nq, nr] of getNeighbors(q, r)) {
+                        const nkey = `${nq},${nr}`;
+                        if (tiles[nkey] && !pieces[nkey]) {
+                            canMove = true;
+                            break;
+                        }
+                    }
+                }
+
+                // Check jump moves
+                if (!canMove) {
+                    const directions = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
+                    for (const [dq, dr] of directions) {
+                        const jq = q + dq;
+                        const jr = r + dr;
+                        const landingQ = q + 2 * dq;
+                        const landingR = r + 2 * dr;
+                        const jumpKey = `${jq},${jr}`;
+                        const landingKey = `${landingQ},${landingR}`;
+
+                        if (pieces[jumpKey] && tiles[landingKey] && !pieces[landingKey]) {
+                            // Prevent jumping over same friendly piece twice during multi-jump
+                            if (!(pieces[jumpKey].color === player && window.jumpHistory && window.jumpHistory.some(h => h.q === jq && h.r === jr))) {
+                                canMove = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            } else if (piece.type === 'ring') {
+                // Check ring moves
+                const ringDirections = [[0, -2], [1, -2], [2, -2], [2, -1], [2, 0], [1, 1], [0, 2], [-1, 2], [-2, 2], [-2, 1], [-2, 0], [-1, -1]];
+                for (const [dq, dr] of ringDirections) {
+                    const landingQ = q + dq;
+                    const landingR = r + dr;
+                    const landingKey = `${landingQ},${landingR}`;
+
+                    if (tiles[landingKey]) {
+                        const targetPiece = pieces[landingKey];
+                        if (!targetPiece || targetPiece.color !== player) {
+                            canMove = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Add piece location if it can move
+            if (canMove) {
+                const pieceKey = `${q},${r}`;
+                if (!addedPieces.has(pieceKey)) {
+                    highlights.push({ q, r, type: 'piece' });
+                    addedPieces.add(pieceKey);
+                }
+            }
+        }
+
+        // 2. Valid tile placement locations
+        if (inventory[player] > 0) {
+            for (let q = -radius; q <= radius; q++) {
+                for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
+                    const key = `${q},${r}`;
+                    if (tiles[key]) continue; // Occupied
+                    
+                    let adjacent = 0;
+                    for (const [nq, nr] of getNeighbors(q, r)) {
+                        if (tiles[`${nq},${nr}`]) adjacent++;
+                    }
+                    if (adjacent >= 2) {
+                        highlights.push({ q, r, type: 'tile' });
+                    }
+                }
+            }
+        }
+
+        // 3. Valid piece placement locations (disc/ring on player's own tiles)
+        for (const key in tiles) {
+            if (tiles[key] === player && !pieces[key]) {
+                const [q, r] = key.split(',').map(Number);
+                
+                if (discInventory[player] > 0 || (ringInventory[player] > 0 && captured[player].disc > 0)) {
+                    highlights.push({ q, r, type: 'placement' });
+                }
+            }
+        }
+
+        return highlights;
+    }
+
+    // Calculate valid moves for a specific piece
+    function calculateValidMovesForPiece(q, r, player) {
+        const moves = [];
+        const piece = pieces[`${q},${r}`];
+        if (!piece || piece.color !== player) return moves;
+
+        if (piece.type === 'disc') {
+            // Adjacent moves (only if not already in multi-jump)
+            if (!multiJumping) {
+                for (const [nq, nr] of getNeighbors(q, r)) {
+                    const nkey = `${nq},${nr}`;
+                    if (tiles[nkey] && !pieces[nkey]) {
+                        moves.push({ q: nq, r: nr, type: 'adjacent' });
+                    }
+                }
+            }
+
+            // Jump moves
+            const directions = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
+            for (const [dq, dr] of directions) {
+                const jq = q + dq;
+                const jr = r + dr;
+                const landingQ = q + 2 * dq;
+                const landingR = r + 2 * dr;
+                const jumpKey = `${jq},${jr}`;
+                const landingKey = `${landingQ},${landingR}`;
+
+                if (pieces[jumpKey] && tiles[landingKey] && !pieces[landingKey]) {
+                    // Prevent jumping over same friendly piece twice during multi-jump
+                    if (!(pieces[jumpKey].color === player && window.jumpHistory && window.jumpHistory.some(h => h.q === jq && h.r === jr))) {
+                        moves.push({ q: landingQ, r: landingR, type: 'jump' });
+                    }
+                }
+            }
+        } else if (piece.type === 'ring') {
+            // Ring moves
+            const ringDirections = [[0, -2], [1, -2], [2, -2], [2, -1], [2, 0], [1, 1], [0, 2], [-1, 2], [-2, 2], [-2, 1], [-2, 0], [-1, -1]];
+            for (const [dq, dr] of ringDirections) {
+                const landingQ = q + dq;
+                const landingR = r + dr;
+                const landingKey = `${landingQ},${landingR}`;
+
+                if (tiles[landingKey]) {
+                    const targetPiece = pieces[landingKey];
+                    if (targetPiece && targetPiece.color !== player) {
+                        // Can capture
+                        moves.push({ q: landingQ, r: landingR, type: 'capture' });
+                    } else if (!targetPiece) {
+                        // Can move to empty tile
+                        moves.push({ q: landingQ, r: landingR, type: 'move' });
+                    }
+                }
+            }
+        }
+
+        return moves;
     }
 
     // Unified event handler for both click and touch
