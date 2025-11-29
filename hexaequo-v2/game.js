@@ -12,6 +12,7 @@ let aiDifficulty = 2; // 1: Easy, 2: Medium, 3: Hard
 
 // Global variables for valid moves indicator
 let showValidMoves = false;
+let showPreviousMove = true;
 let validMovesHighlights = []; // Array of { q, r, type: 'tile'|'piece'|'move' }
 let globalDrawGrid = null; // Reference to drawGrid function for redraw triggering
 
@@ -44,12 +45,22 @@ function setShowValidMoves(enabled) {
     }
 }
 
+function setShowPreviousMove(enabled) {
+    showPreviousMove = enabled;
+    console.log('Show previous move:', showPreviousMove);
+    // Trigger redraw if drawGrid is available
+    if (globalDrawGrid) {
+        globalDrawGrid();
+    }
+}
+
 // Expose to global scope
 window.toggleGameMode = toggleGameMode;
 window.isAiMode = isAiMode;
 window.setSoundEnabled = setSoundEnabled;
 window.setAiDifficulty = setAiDifficulty;
 window.setShowValidMoves = setShowValidMoves;
+window.setShowPreviousMove = setShowPreviousMove;
 
 window.onload = function () {
     const canvas = document.getElementById('gameCanvas');
@@ -657,7 +668,7 @@ window.onload = function () {
         }
 
         // Draw last move highlight
-        if (lastMove) {
+        if (showPreviousMove && lastMove) {
             if (lastMove.type === 'tile') {
                 const [x, y] = hexToPixel(lastMove.q, lastMove.r, hexSize);
                 ctx.save();
