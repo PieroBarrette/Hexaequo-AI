@@ -13,6 +13,7 @@
     <title>Hexaequo</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="manifest" href="manifest.json">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
     <!-- Favicons with dark/light mode support -->
     <link rel="icon" href="icons/icon-192x192.png"
@@ -119,18 +120,109 @@
                 </select>
             </div>
 
+            <button id="rulesBtn" class="menu-btn">📖 View Rules</button>
             <button id="newGameBtn" class="menu-btn primary">New Game</button>
             <button id="closeMenuBtn" class="menu-btn">Close</button>
+        </div>
+    </div>
+
+    <!-- Rules Modal -->
+    <div id="rulesOverlay" class="rules-overlay">
+        <div class="rules-modal">
+            <div class="rules-header">
+                <h2>Game Rules</h2>
+                <button id="closeRulesBtn" class="close-rules-btn" title="Close">✕</button>
+            </div>
+            <div id="pdfContainer" class="pdf-container">
+                <div class="pdf-viewer">
+                    <canvas id="pdfCanvas"></canvas>
+                </div>
+            </div>
+            <div class="rules-footer">
+                <button id="prevPageBtn" class="page-nav-btn" title="Previous Page">← Prev</button>
+                <span id="pageIndicator" class="page-indicator">Page 1 of 10</span>
+                <button id="nextPageBtn" class="page-nav-btn" title="Next Page">Next →</button>
+            </div>
         </div>
     </div>
 
     <script src="ai.js"></script>
     <script src="game.js"></script>
     <script>
+        // Set up PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        
+        let pdfDoc = null;
+        let currentPage = 1;
+        let totalPages = 0;
+
+        // PDF Viewer Setup
+        async function initializePdfViewer() {
+            try {
+                pdfDoc = await pdfjsLib.getDocument('./rules.pdf').promise;
+                totalPages = pdfDoc.numPages;
+                renderPage(currentPage);
+                updatePageIndicator();
+            } catch (error) {
+                console.error('Error loading PDF:', error);
+                document.getElementById('pdfContainer').innerHTML = '<p style="color: red; padding: 20px;">Error loading rules PDF</p>';
+            }
+        }
+
+        async function renderPage(pageNum) {
+            if (!pdfDoc) return;
+            
+            try {
+                const page = await pdfDoc.getPage(pageNum);
+                const canvas = document.getElementById('pdfCanvas');
+                const ctx = canvas.getContext('2d');
+                
+                // Set viewport with proper scaling
+                const viewport = page.getViewport({ scale: window.devicePixelRatio });
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                
+                // Render page to canvas
+                await page.render({
+                    canvasContext: ctx,
+                    viewport: viewport
+                }).promise;
+            } catch (error) {
+                console.error('Error rendering page:', error);
+            }
+        }
+
+        function updatePageIndicator() {
+            document.getElementById('pageIndicator').textContent = `Page ${currentPage} of ${totalPages}`;
+            document.getElementById('prevPageBtn').disabled = currentPage <= 1;
+            document.getElementById('nextPageBtn').disabled = currentPage >= totalPages;
+        }
+
+        // Event Listeners for PDF Navigation
+        document.getElementById('prevPageBtn').addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                renderPage(currentPage);
+                updatePageIndicator();
+            }
+        });
+
+        document.getElementById('nextPageBtn').addEventListener('click', () => {
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderPage(currentPage);
+                updatePageIndicator();
+            }
+        });
+    </script>
+    <script>
         // Menu Logic
         const hamburgerBtn = document.getElementById('hamburgerBtn');
         const menuOverlay = document.getElementById('menuOverlay');
         const closeMenuBtn = document.getElementById('closeMenuBtn');
+        const rulesBtn = document.getElementById('rulesBtn');
+        const rulesOverlay = document.getElementById('rulesOverlay');
+        const closeRulesBtn = document.getElementById('closeRulesBtn');
         const soundToggle = document.getElementById('soundToggle');
         const difficultySelect = document.getElementById('difficultySelect');
         const gameModeSelect = document.getElementById('gameModeSelect');
@@ -147,6 +239,28 @@
 
         hamburgerBtn.addEventListener('click', toggleMenu);
         closeMenuBtn.addEventListener('click', toggleMenu);
+
+        // Rules Menu
+        function openRules() {
+            rulesOverlay.classList.add('open');
+            if (!pdfDoc) {
+                initializePdfViewer();
+            } else {
+                renderPage(currentPage);
+            }
+        }
+
+        function closeRules() {
+            rulesOverlay.classList.remove('open');
+        }
+
+        rulesBtn.addEventListener('click', openRules);
+        closeRulesBtn.addEventListener('click', closeRules);
+        rulesOverlay.addEventListener('click', (e) => {
+            if (e.target === rulesOverlay) {
+                closeRules();
+            }
+        });
 
         // Close menu when clicking outside
         menuOverlay.addEventListener('click', (e) => {
@@ -294,6 +408,8 @@
         // Initialize settings on load
         window.addEventListener('load', () => {
             setTimeout(loadSettings, 0);
+            // Pre-load PDF on initial load for better UX
+            setTimeout(initializePdfViewer, 1000);
         });
 
         // Register service worker for PWA functionality

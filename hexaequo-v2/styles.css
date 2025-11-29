@@ -524,3 +524,243 @@ select {
 .menu-btn.primary:hover {
     background: var(--accent-hover);
 }
+
+/* Rules Modal Styles */
+.rules-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--menu-overlay-bg);
+    backdrop-filter: blur(5px);
+    z-index: 3000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.rules-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.rules-modal {
+    background: var(--menu-content-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: 0 10px 40px var(--shadow-color);
+    width: 90%;
+    max-width: 900px;
+    height: 90vh;
+    max-height: 800px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform: scale(0.9);
+    transition: transform 0.3s ease;
+}
+
+.rules-overlay.open .rules-modal {
+    transform: scale(1);
+}
+
+.rules-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.rules-header h2 {
+    margin: 0;
+    font-size: 1.5em;
+    color: var(--text-primary);
+}
+
+.close-rules-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 28px;
+    cursor: pointer;
+    padding: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background 0.2s ease;
+}
+
+.close-rules-btn:hover {
+    background: var(--border-color);
+}
+
+.pdf-container {
+    flex: 1;
+    overflow: auto;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 15px;
+    background: var(--bg-body);
+    overscroll-behavior: contain;
+}
+
+.pdf-viewer {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    background: var(--menu-content-bg);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px var(--shadow-color);
+    max-width: 100%;
+}
+
+#pdfCanvas {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+.rules-footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    padding: 20px;
+    border-top: 1px solid var(--border-color);
+    background: var(--menu-content-bg);
+    flex-shrink: 0;
+}
+
+.page-nav-btn {
+    padding: 10px 16px;
+    font-size: 14px;
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-height: 40px;
+    margin: 0;
+}
+
+.page-nav-btn:hover:not(:disabled) {
+    background: var(--accent-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px var(--shadow-color);
+}
+
+.page-nav-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.page-nav-btn:disabled {
+    background: var(--border-color);
+    color: var(--text-secondary);
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.page-indicator {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    min-width: 120px;
+    text-align: center;
+}
+
+/* Mobile optimizations for rules modal */
+@media (max-width: 768px) {
+    .rules-modal {
+        width: 95%;
+        height: 85vh;
+        max-height: 90vh;
+        max-width: none;
+    }
+
+    .rules-header {
+        padding: 15px;
+    }
+
+    .rules-header h2 {
+        font-size: 1.3em;
+    }
+
+    .rules-footer {
+        gap: 10px;
+        padding: 15px;
+    }
+
+    .page-nav-btn {
+        padding: 8px 12px;
+        font-size: 12px;
+        min-height: 36px;
+    }
+
+    .page-indicator {
+        font-size: 12px;
+        min-width: 100px;
+    }
+
+    .pdf-container {
+        padding: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .rules-modal {
+        width: 98%;
+        height: 80vh;
+        max-height: 85vh;
+    }
+
+    .rules-header {
+        padding: 12px;
+    }
+
+    .rules-header h2 {
+        font-size: 1.1em;
+    }
+
+    .close-rules-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 24px;
+    }
+
+    .rules-footer {
+        gap: 8px;
+        padding: 12px;
+        flex-wrap: wrap;
+    }
+
+    .page-nav-btn {
+        padding: 8px 10px;
+        font-size: 11px;
+        min-height: 34px;
+        flex: 1;
+        min-width: 60px;
+    }
+
+    .page-indicator {
+        width: 100%;
+        order: 3;
+        font-size: 11px;
+        min-width: auto;
+        margin-top: 5px;
+    }
+
+    .pdf-container {
+        padding: 8px;
+    }
+}
