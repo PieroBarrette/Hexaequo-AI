@@ -1028,13 +1028,13 @@ const GameGraphics = (function () {
             drawPlacePieceButtons(px, py, result.placePieceBtnBounds);
         }
 
-        // Draw last move highlight
-        if (showPreviousMove && lastMove) {
+        // Draw last move highlight (only when animations are complete)
+        if (showPreviousMove && lastMove && !isAnimating()) {
             drawLastMoveHighlight(lastMove);
         }
 
-        // Draw valid moves indicator
-        if (showValidMoves) {
+        // Draw valid moves indicator (only when animations are complete and it's the player's turn)
+        if (showValidMoves && !isAnimating()) {
             const shouldShowValidMoves = window.isAiMode ? activePlayer === 'black' : true;
 
             if (shouldShowValidMoves) {
