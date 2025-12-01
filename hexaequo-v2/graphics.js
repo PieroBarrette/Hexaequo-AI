@@ -23,6 +23,11 @@ const GameGraphics = (function () {
     let animationsEnabled = true;
     let activeAnimations = []; // Queue of active animations
     let animationCallbacks = []; // Callbacks to execute after all animations complete
+    let pendingFinalDestinations = new Set(); // Track final destinations during multi-segment animations
+    let pendingCaptures = new Map(); // Track captured pieces to render as ghost until their capture animation starts
+    let ghostPieceOpacity = 1.0; // Opacity for ghost pieces (pieces waiting to be captured) - can be adjusted
+    let pendingJumpPosition = null; // Track the jumping piece's current position during capture animations { q, r, piece }
+    let jumpingPieceOpacity = 1.0; // Opacity for the jumping piece during capture animations - can be adjusted independently
     // Each animation: { type, fromQ, fromR, toQ, toR, startTime, duration, piece, opacity, scale, onComplete }
 
     // Color palettes
@@ -362,12 +367,23 @@ const GameGraphics = (function () {
             return;
         }
 
+        // Track the final destination throughout the animation sequence
+        const finalDestination = path[path.length - 1];
+        pendingFinalDestinations.add(`${finalDestination.q},${finalDestination.r}`);
+
+        // Register all captured pieces as pending (to render as ghost pieces)
+        capturedPieces.forEach(cap => {
+            pendingCaptures.set(`${cap.q},${cap.r}`, cap.piece);
+        });
+
         // For each segment of the path, find if there's a capture in between
         // In hex grid, the jumped piece is at the midpoint between from and to
         let currentIndex = 0;
 
         function animateNextSegment() {
             if (currentIndex >= path.length - 1) {
+                // Clear the final destination tracking when animation completes
+                pendingFinalDestinations.delete(`${finalDestination.q},${finalDestination.r}`);
                 if (onComplete) onComplete();
                 return;
             }
@@ -389,7 +405,13 @@ const GameGraphics = (function () {
             queueMoveAnimation(from.q, from.r, to.q, to.r, piece, () => {
                 // After movement completes, queue capture animation if there was a capture
                 if (captureAtMid) {
+                    // Set pending jump position to show the jumping piece during capture animation
+                    pendingJumpPosition = { q: to.q, r: to.r, piece: { ...piece } };
+                    // Remove from pending captures as we're now animating it
+                    pendingCaptures.delete(`${captureAtMid.q},${captureAtMid.r}`);
                     queueCaptureAnimation(captureAtMid.q, captureAtMid.r, captureAtMid.piece, () => {
+                        // Clear pending jump position when starting next move
+                        pendingJumpPosition = null;
                         // After capture animation, continue to next segment
                         animateNextSegment();
                     });
@@ -401,6 +423,65 @@ const GameGraphics = (function () {
         }
 
         animateNextSegment();
+    }
+
+    /**
+     * Queue a single move animation followed by capture animation (sequential)
+     * Used for single jumps with captures to ensure move completes before capture fades
+     * @param {number} fromQ - Starting Q coordinate
+     * @param {number} fromR - Starting R coordinate  
+     * @param {number} toQ - Ending Q coordinate
+     * @param {number} toR - Ending R coordinate
+     * @param {Object} piece - The piece being moved
+     * @param {Array} capturedPieces - Array of {q, r, piece} for captured pieces
+     * @param {Function} onComplete - Callback when all animations complete
+     */
+    function queueSingleMoveWithCapture(fromQ, fromR, toQ, toR, piece, capturedPieces, onComplete) {
+        if (!animationsEnabled) {
+            if (onComplete) onComplete();
+            return;
+        }
+
+        // Track the final destination throughout the animation sequence
+        pendingFinalDestinations.add(`${toQ},${toR}`);
+
+        // Register all captured pieces as pending (to render as ghost pieces)
+        if (capturedPieces) {
+            capturedPieces.forEach(cap => {
+                pendingCaptures.set(`${cap.q},${cap.r}`, cap.piece);
+            });
+        }
+
+        // Queue the movement animation first
+        queueMoveAnimation(fromQ, fromR, toQ, toR, piece, () => {
+            // After movement completes, queue capture animations sequentially
+            if (capturedPieces && capturedPieces.length > 0) {
+                // Set pending jump position to show the jumping piece during capture animations
+                pendingJumpPosition = { q: toQ, r: toR, piece: { ...piece } };
+                let captureIndex = 0;
+                
+                function animateNextCapture() {
+                    if (captureIndex >= capturedPieces.length) {
+                        // All captures done, clear tracking and call completion
+                        pendingJumpPosition = null;
+                        pendingFinalDestinations.delete(`${toQ},${toR}`);
+                        if (onComplete) onComplete();
+                        return;
+                    }
+                    
+                    const cap = capturedPieces[captureIndex];
+                    captureIndex++;
+                    // Remove from pending captures as we're now animating it
+                    pendingCaptures.delete(`${cap.q},${cap.r}`);
+                    queueCaptureAnimation(cap.q, cap.r, cap.piece, animateNextCapture);
+                }
+                
+                animateNextCapture();
+            } else {
+                pendingFinalDestinations.delete(`${toQ},${toR}`);
+                if (onComplete) onComplete();
+            }
+        });
     }
 
     /**
@@ -492,6 +573,9 @@ const GameGraphics = (function () {
     function clearAnimations() {
         activeAnimations = [];
         animationCallbacks = [];
+        pendingCaptures.clear();
+        pendingFinalDestinations.clear();
+        pendingJumpPosition = null;
     }
 
     /**
@@ -883,6 +967,10 @@ const GameGraphics = (function () {
                 animatedToPositions.add(`${anim.q},${anim.r}`);
             }
         });
+        // Also include pending final destinations (for multi-segment animations)
+        pendingFinalDestinations.forEach(pos => animatedToPositions.add(pos));
+        // Pending captures should not be drawn from game state (they'll be drawn as ghost pieces)
+        pendingCaptures.forEach((piece, pos) => animatedFromPositions.add(pos));
 
         // Draw all hexes and contents
         for (let q = -radius; q <= radius; q++) {
@@ -982,6 +1070,20 @@ const GameGraphics = (function () {
      * Draw all animated elements (pieces moving, captures fading, placements scaling)
      */
     function drawAnimatedElements(colorScheme) {
+        // First, draw pending captures as ghost pieces (pieces waiting to be captured)
+        pendingCaptures.forEach((piece, posKey) => {
+            const [q, r] = posKey.split(',').map(Number);
+            const [x, y] = hexToPixel(q, r, hexSize);
+            drawPieceWithOpacity(x, y, piece, colorScheme, ghostPieceOpacity);
+        });
+
+        // Draw the jumping piece at its current position during capture animations
+        if (pendingJumpPosition) {
+            const [x, y] = hexToPixel(pendingJumpPosition.q, pendingJumpPosition.r, hexSize);
+            drawPieceWithOpacity(x, y, pendingJumpPosition.piece, colorScheme, jumpingPieceOpacity);
+        }
+
+        // Then draw active animations
         activeAnimations.forEach(anim => {
             if (anim.type === 'move') {
                 // Interpolate position
@@ -1148,6 +1250,7 @@ const GameGraphics = (function () {
         queueMoveAnimation,
         queueJumpSequence,
         queueJumpSequenceWithCaptures,
+        queueSingleMoveWithCapture,
         queueCaptureAnimation,
         queueTilePlacementAnimation,
         queuePiecePlacementAnimation,

@@ -621,7 +621,8 @@ window.onload = function () {
         //recordMove('turn');
         activePlayer = activePlayer === 'black' ? 'white' : 'black';
         updatedState = serializeGameState();
-        applyGameState(updatedState, gameState, lastJumpPath);
+        // Pass manuallyEndedTurn=true since user clicked the checkmark
+        applyGameState(updatedState, gameState, lastJumpPath, false, true);
         lastJumpPath = null;
     }
 
@@ -909,16 +910,19 @@ window.onload = function () {
             return;
         }
 
-        // Send move to server if in online mode and it was our turn (turn has now switched)
-        if (isOnlineMode && stateBefore && !isMyTurn(activePlayer) && canvas.style.pointerEvents !== 'none') {
-            sendOnlineMove(stateBefore, jumpPathForOnline);
-            jumpPathForOnline = null; // Clear after sending
-        }
+        // Wait for all animations to complete before sending to AI/server
+        GameGraphics.onAllAnimationsComplete(function() {
+            // Send move to server if in online mode and it was our turn (turn has now switched)
+            if (isOnlineMode && stateBefore && !isMyTurn(activePlayer) && canvas.style.pointerEvents !== 'none') {
+                sendOnlineMove(stateBefore, jumpPathForOnline);
+                jumpPathForOnline = null; // Clear after sending
+            }
 
-        // Serialize the board and send it to the AI if in AI mode
-        if (isAiMode && canvas.style.pointerEvents !== 'none') {
-            sendToAI();
-        }
+            // Serialize the board and send it to the AI if in AI mode
+            if (isAiMode && canvas.style.pointerEvents !== 'none') {
+                sendToAI();
+            }
+        });
     });
     canvas.addEventListener('touchend', function (e) {
         // Store state before handling interaction for online mode
@@ -931,16 +935,19 @@ window.onload = function () {
             return;
         }
 
-        // Send move to server if in online mode and it was our turn (turn has now switched)
-        if (isOnlineMode && stateBefore && !isMyTurn(activePlayer) && canvas.style.pointerEvents !== 'none') {
-            sendOnlineMove(stateBefore, jumpPathForOnline);
-            jumpPathForOnline = null; // Clear after sending
-        }
+        // Wait for all animations to complete before sending to AI/server
+        GameGraphics.onAllAnimationsComplete(function() {
+            // Send move to server if in online mode and it was our turn (turn has now switched)
+            if (isOnlineMode && stateBefore && !isMyTurn(activePlayer) && canvas.style.pointerEvents !== 'none') {
+                sendOnlineMove(stateBefore, jumpPathForOnline);
+                jumpPathForOnline = null; // Clear after sending
+            }
 
-        // Serialize the board and send it to the AI if in AI mode
-        if (isAiMode && canvas.style.pointerEvents !== 'none') {
-            sendToAI();
-        }
+            // Serialize the board and send it to the AI if in AI mode
+            if (isAiMode && canvas.style.pointerEvents !== 'none') {
+                sendToAI();
+            }
+        });
     });
 
     // Returns valid jump positions for a ring at (q, r)
@@ -1572,14 +1579,22 @@ window.onload = function () {
 
     // Apply the updated game state received from the AI
     // jumpPathParam: optional array of {q, r} positions for multi-jump path highlighting
-    function applyGameState(updatedState, previousState, jumpPathParam = null) {
+    // animateMultiJumps: whether to animate multi-jump sequences (true for AI/online moves, false for human moves)
+    // manuallyEndedTurn: whether the user manually ended their turn with the checkmark (suppresses single jump animation)
+    function applyGameState(updatedState, previousState, jumpPathParam = null, animateMultiJumps = false, manuallyEndedTurn = false) {
         
         // Determine the effective jump path (from param or from AI's lastJumpPath)
         const effectiveJumpPath = jumpPathParam || updatedState.lastJumpPath || null;
         
         // Queue animations if enabled
         if (animationsEnabled && GameGraphics && GameGraphics.queueMoveAnimation) {
-            queueAnimationsForStateChange(previousState, updatedState, effectiveJumpPath);
+            // Disable interactions while animations are playing
+            disableInteractions();
+            queueAnimationsForStateChange(previousState, updatedState, effectiveJumpPath, animateMultiJumps, manuallyEndedTurn);
+            // Re-enable interactions after all animations complete
+            GameGraphics.onAllAnimationsComplete(() => {
+                enableInteractions();
+            });
         }
 
         // Play sound for tile placement
@@ -1663,16 +1678,20 @@ window.onload = function () {
         // Redraw the grid
         drawGrid();
 
-        enableInteractions();
-
         checkGameEnd(); // Check if the game has ended after applying AI's move
     }
 
     /**
      * Queue animations based on state changes
      * Detects tile placements, piece placements, moves, and captures
+     * Queue animations for a state change (movement, capture, placement)
+     * @param {Object} previousState - The game state before the change
+     * @param {Object} updatedState - The game state after the change
+     * @param {Array} jumpPathParam - Optional array of {q, r} positions for multi-jump path
+     * @param {boolean} animateMultiJumps - Whether to animate multi-jump sequences (true for AI/online, false for human)
+     * @param {boolean} manuallyEndedTurn - Whether the user manually ended their turn (suppresses animation)
      */
-    function queueAnimationsForStateChange(previousState, updatedState, jumpPathParam) {
+    function queueAnimationsForStateChange(previousState, updatedState, jumpPathParam, animateMultiJumps = false, manuallyEndedTurn = false) {
         const opponent = updatedState.activePlayer;
         const player = opponent === 'black' ? 'white' : 'black';
 
@@ -1753,16 +1772,23 @@ window.onload = function () {
                 }
             }
 
-            if (path && path.length > 1) {
-                // Multi-jump: animate each jump with its capture sequentially
+            if (path && path.length > 1 && animateMultiJumps) {
+                // Multi-jump: animate each jump with its capture sequentially (only for AI/online moves)
                 GameGraphics.queueJumpSequenceWithCaptures(path, movedPiece, capturedPieces);
+            } else if (path && path.length > 2 && !animateMultiJumps) {
+                // Multi-jump (3+ positions) from human player: no animation
+                // (the piece just appears at the destination instantly)
+            } else if (path && path.length === 2 && !animateMultiJumps && manuallyEndedTurn) {
+                // Single jump but user manually ended turn (clicked checkmark): no animation
+                // This means user could have continued jumping but chose to stop
             } else {
                 // Single move (adjacent move or single jump or ring move)
-                // Queue capture animation to play alongside movement
-                capturedPieces.forEach(cap => {
-                    GameGraphics.queueCaptureAnimation(cap.q, cap.r, cap.piece);
-                });
-                GameGraphics.queueMoveAnimation(fromQ, fromR, toQ, toR, movedPiece);
+                // Queue move animation followed by capture animations sequentially
+                if (capturedPieces.length > 0) {
+                    GameGraphics.queueSingleMoveWithCapture(fromQ, fromR, toQ, toR, movedPiece, capturedPieces);
+                } else {
+                    GameGraphics.queueMoveAnimation(fromQ, fromR, toQ, toR, movedPiece);
+                }
             }
         } else if (movedTo && movedPiece && !movedFrom) {
             // It's a piece placement (disc or ring from inventory)
@@ -1886,7 +1912,7 @@ window.onload = function () {
 
             if (type === 'moveComputed') {
                 if (pendingGameState) {
-                    applyGameState(updatedState, pendingGameState); // Apply the updated state from AI
+                    applyGameState(updatedState, pendingGameState, null, true); // Apply the updated state from AI with multi-jump animation
                     pendingGameState = null; // Clear the pending state
                 }
                 hideLoader(); // Hide loader
@@ -1917,7 +1943,7 @@ window.onload = function () {
             // Fallback to direct computation if Web Workers not supported
             try {
                 const updatedState = processGameState(gameState, aiDifficulty);
-                applyGameState(updatedState, gameState);
+                applyGameState(updatedState, gameState, null, true); // Animate multi-jumps for AI
                 pendingGameState = null;
             } catch (error) {
                 console.error('Error communicating with AI:', error);
@@ -1996,7 +2022,7 @@ window.onload = function () {
     // Apply a move received from the online opponent
     function applyOnlineMove(gameState, previousState, jumpPath = null) {
         if (previousState) {
-            applyGameState(gameState, previousState, jumpPath);
+            applyGameState(gameState, previousState, jumpPath, true); // Animate multi-jumps for online opponent
         } else {
             // Initial state sync - just apply without sounds
             tiles = gameState.tiles;
