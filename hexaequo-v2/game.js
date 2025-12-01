@@ -64,9 +64,7 @@ window.setShowPreviousMove = setShowPreviousMove;
 
 window.onload = function () {
     const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
     const inventoryCanvas = document.getElementById('inventoryCanvas');
-    const inventoryCtx = inventoryCanvas.getContext('2d');
     const btnCoords = document.getElementById('toggleCoordsBtn');
     const btnScheme = document.getElementById('toggleColorSchemeBtn');
     const playerStatus = document.getElementById('playerStatus');
@@ -88,8 +86,6 @@ window.onload = function () {
     let multiJumpPos = null; // {q, r} of the piece in multi-jump
     let turnStartState = null; // State at the beginning of a multi-jump sequence
     let turnStartPiecePos = null; // Position of the piece at the start of the sequence
-    let inventoryItemSize = 20;
-    let inventoryItemGap = 42;
 
     // Move history for undo/redo functionality
     let moveHistory = []; // Array of {gameState, moveType}
@@ -108,16 +104,8 @@ window.onload = function () {
         white: 5
     };
 
-    // Hex grid parameters
-    const radius = 8; // grid radius in hexes
-    let hexSize = 25; // pixel size from center to corner (will be adjusted)
-    let centerX = canvas.width / 2;
-    let centerY = canvas.height / 2;
-
-    // Target values for animation
-    let targetHexSize = hexSize;
-    let targetCenterX = centerX;
-    let targetCenterY = centerY;
+    // Grid radius in hexes
+    const radius = 8;
 
     // Initial tile content: key = 'q,r', value = 'black' or 'white'
     let tiles = {
@@ -127,736 +115,26 @@ window.onload = function () {
         '0,1': 'white',
     };
 
-    // Update hex size and center dynamically based on placed tiles
-    function updateDynamicLayout() {
-        const tileKeys = Object.keys(tiles);
-        if (tileKeys.length === 0) {
-            // Default if no tiles (shouldn't happen in normal game)
-            targetCenterX = canvas.width / 2;
-            targetCenterY = canvas.height / 2;
-            targetHexSize = Math.min(canvas.width, canvas.height) / 10;
-            return;
-        }
-
-        // Calculate bounding box of all tiles in axial coordinates
-        let minQ = Infinity, maxQ = -Infinity;
-        let minR = Infinity, maxR = -Infinity;
-        let minS = Infinity, maxS = -Infinity; // s = -q-r
-
-        // We need to convert to pixel coordinates to get the true bounding box
-        // because hex grid is not a simple rectangle in q,r
-        let minX = Infinity, maxX = -Infinity;
-        let minY = Infinity, maxY = -Infinity;
-
-        // Use a temporary size of 1 to calculate relative positions
-        const tempSize = 1;
-
-        // Set of all hexes to include in the bounds (tiles + their neighbors)
-        const hexesToInclude = new Set(tileKeys);
-
-        tileKeys.forEach(key => {
-            const [q, r] = key.split(',').map(Number);
-            const neighbors = getNeighbors(q, r);
-            neighbors.forEach(([nq, nr]) => {
-                hexesToInclude.add(`${nq},${nr}`);
-            });
-        });
-
-        hexesToInclude.forEach(key => {
-            const [q, r] = key.split(',').map(Number);
-
-            // Calculate center of this hex
-            const x = tempSize * Math.sqrt(3) * (q + r / 2);
-            const y = tempSize * 3 / 2 * r;
-
-            // Add hex dimensions to bounds (width is sqrt(3)*size, height is 2*size)
-            // We use the corners to be precise
-            // Top/Bottom points are at y +/- size
-            // Side points are at x +/- sqrt(3)/2 * size
-
-            const hWidth = Math.sqrt(3) * tempSize;
-            const hHeight = 2 * tempSize;
-
-            minX = Math.min(minX, x - hWidth / 2);
-            maxX = Math.max(maxX, x + hWidth / 2);
-            minY = Math.min(minY, y - hHeight / 2);
-            maxY = Math.max(maxY, y + hHeight / 2);
-        });
-
-        // Add some padding (in relative units)
-        // We want to fit this bounding box into the canvas
-        const contentWidth = maxX - minX;
-        const contentHeight = maxY - minY;
-
-        // Available space in canvas (with padding)
-        const padding = 40; // pixels
-        const availWidth = canvas.width - padding * 2;
-        const availHeight = canvas.height - padding * 2;
-
-        // Calculate scale
-        // If content width is 0 (1 tile), avoid division by zero
-        const scaleX = contentWidth > 0 ? availWidth / contentWidth : availWidth / (Math.sqrt(3));
-        const scaleY = contentHeight > 0 ? availHeight / contentHeight : availHeight / 2;
-
-        // Choose the smaller scale to fit both dimensions
-        let newHexSize = Math.min(scaleX, scaleY);
-
-        // Clamp hex size to reasonable limits
-        const maxHexSize = Math.min(canvas.width, canvas.height) / 4; // Don't let one tile take up whole screen
-        const minHexSize = 15; // Don't let it get too small
-        newHexSize = Math.min(Math.max(newHexSize, minHexSize), maxHexSize);
-
-        targetHexSize = newHexSize;
-
-        // Calculate center offset
-        // The center of the content in pixel coords (relative to 0,0) is:
-        const contentCenterX = (minX + maxX) / 2 * targetHexSize; // Scale up
-        const contentCenterY = (minY + maxY) / 2 * targetHexSize;
-
-        // We want this content center to be at canvas center
-        // contentCenterX/Y are the pixel coordinates of the center of the bounding box relative to the grid origin (0,0)
-        targetCenterX = (canvas.width / 2) - contentCenterX;
-        targetCenterY = (canvas.height / 2) - contentCenterY;
-    }
-
-    // Animation loop for smooth transitions
-    function animateView() {
-        // Interpolation factor (0.1 for smooth, fast movement)
-        const ease = 0.1;
-        const epsilon = 0.1;
-
-        let changed = false;
-
-        if (Math.abs(targetHexSize - hexSize) > epsilon) {
-            hexSize += (targetHexSize - hexSize) * ease;
-            changed = true;
-        } else {
-            hexSize = targetHexSize;
-        }
-
-        if (Math.abs(targetCenterX - centerX) > epsilon) {
-            centerX += (targetCenterX - centerX) * ease;
-            changed = true;
-        } else {
-            centerX = targetCenterX;
-        }
-
-        if (Math.abs(targetCenterY - centerY) > epsilon) {
-            centerY += (targetCenterY - centerY) * ease;
-            changed = true;
-        } else {
-            centerY = targetCenterY;
-        }
-
-        if (changed) {
-            drawGrid();
-        }
-
-        requestAnimationFrame(animateView);
-    }
-    // Start animation loop
-    requestAnimationFrame(animateView);
-
-    // Responsive canvas sizing
-    function resizeCanvas() {
-        const isMobile = window.innerWidth <= 768;
-        const isSmallMobile = window.innerWidth <= 480;
-
-        // Set canvas to full window size
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-
-        if (isSmallMobile) {
-            inventoryItemSize = 10; // Much smaller for very small screens
-            inventoryItemGap = 18;
-        } else if (isMobile) {
-            inventoryItemSize = 12; // Smaller for mobile screens
-            inventoryItemGap = 22;
-        } else {
-            inventoryItemSize = 20; // Default size for larger screens
-            inventoryItemGap = 42;
-        }
-
-        inventoryCanvas.width = canvas.width;
-        inventoryCanvas.height = canvas.height;
-
-        updateDynamicLayout(); // Recalculate targets on resize
-        drawGrid();
-    }
-
     // Pieces: key = 'q,r', value = {type: 'disc'|'ring', color: 'black'|'white'}
     let pieces = {
         '1,0': { type: 'disc', color: 'black' },
         '-1,1': { type: 'disc', color: 'white' },
     };
 
-    // Color palettes
-    const schemes = {
-        modern: {
-            bg: '#121212',
-            black: '#333333', // Dark gray tile
-            white: '#cccccc', // Light gray tile
-            border: '#666666', // Gray grid lines
-        },
-        classic: {
-            bg: '#d0c09bff',
-            black: '#7a5230', // dark brown
-            white: '#f5e2b6', // light brown
-            border: '#7a5230',
-        }
-    };
-
-    // Function to set the game theme
-    function setGameTheme(theme) {
-        if (theme === 'dark') {
-            colorScheme = 'modern';
-        } else {
-            colorScheme = 'classic';
-        }
-        drawGrid();
-        // Also redraw inventory
-        drawInventory();
-    }
-    window.setGameTheme = setGameTheme;
-
-    // Draw a single hex at (cx, cy)
-    function drawHex(cx, cy, size, color = '#fff') {
-        ctx.beginPath();
-        for (let i = 0; i < 6; i++) {
-            const angle = Math.PI / 3 * i + Math.PI / 6;
-            const x = cx + size * Math.cos(angle);
-            const y = cy + size * Math.sin(angle);
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-    }
-
-    // Draw a tile (hexagonal, fills the hex) at (cx, cy)
-    function drawTile(cx, cy, color, scheme) {
-        ctx.save();
-        ctx.beginPath();
-        for (let i = 0; i < 6; i++) {
-            const angle = Math.PI / 3 * i + Math.PI / 6;
-            const x = cx + hexSize * Math.cos(angle);
-            const y = cy + hexSize * Math.sin(angle);
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-        ctx.fillStyle = schemes[scheme][color];
-        ctx.shadowColor = '#000a';
-        ctx.shadowBlur = 6;
-        ctx.fill();
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = scheme === 'classic' ? '#b08b4f' : '#888';
-        ctx.stroke();
-        ctx.restore();
-    }
-
-    // Draw a disc piece on a tile
-    function drawPiece(cx, cy, piece, scheme) {
-        if (!piece) return;
-        if (piece.type === 'disc') {
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(cx, cy, hexSize * 0.45, 0, 2 * Math.PI);
-            ctx.fillStyle = piece.color === 'black' ? (scheme === 'classic' ? '#222' : '#000') : (scheme === 'classic' ? '#fafafa' : '#fff');
-            ctx.shadowColor = '#000a';
-            ctx.shadowBlur = 4;
-            ctx.fill();
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = piece.color === 'black' ? '#888' : '#bbb';
-            ctx.stroke();
-            ctx.restore();
-        } else if (piece.type === 'ring') {
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(cx, cy, hexSize * 0.45, 0, 2 * Math.PI);
-            ctx.lineWidth = 7;
-            ctx.strokeStyle = piece.color === 'black'
-                ? (scheme === 'classic' ? '#222' : '#000')
-                : (scheme === 'classic' ? '#fafafa' : '#fff');
-            ctx.shadowColor = '#000a';
-            ctx.shadowBlur = 4;
-            ctx.stroke();
-
-            // Add a gray inner line for contrast (inner edge of ring)
-            ctx.beginPath();
-            ctx.arc(cx, cy, hexSize * 0.32, 0, 2 * Math.PI);
-            ctx.lineWidth = 1.5;
-            ctx.strokeStyle = '#bbb';
-            ctx.shadowBlur = 0;
-            ctx.stroke();
-
-            // Add a gray outer line for contrast (outer edge of ring)
-            ctx.beginPath();
-            ctx.arc(cx, cy, hexSize * 0.6, 0, 2 * Math.PI);
-            ctx.lineWidth = 1.5;
-            ctx.strokeStyle = '#bbb';
-            ctx.shadowBlur = 0;
-            ctx.stroke();
-
-            ctx.restore();
-        }
-    }
-
-    // Convert axial coordinates (q, r) to pixel coordinates
-    function hexToPixel(q, r, size) {
-        const x = size * Math.sqrt(3) * (q + r / 2);
-        const y = size * 3 / 2 * r;
-        return [centerX + x, centerY + y];
-    }
-
-    // Convert pixel coordinates to axial (q, r)
-    function pixelToHex(x, y) {
-        const px = x - centerX;
-        const py = y - centerY;
-        const q = (Math.sqrt(3) / 3 * px - 1 / 3 * py) / hexSize;
-        const r = (2 / 3 * py) / hexSize;
-        // Round to nearest hex
-        let rq = Math.round(q);
-        let rr = Math.round(r);
-        let rs = Math.round(-q - r);
-        const q_diff = Math.abs(rq - q);
-        const r_diff = Math.abs(rr - r);
-        const s_diff = Math.abs(rs - (-q - r));
-        if (q_diff > r_diff && q_diff > s_diff) rq = -rr - rs;
-        else if (r_diff > s_diff) rr = -rq - rs;
-        return [rq, rr];
-    }
-
-    function drawInventory() {
-        inventoryCtx.clearRect(0, 0, inventoryCanvas.width, inventoryCanvas.height);
-
-        const isMobile = window.innerWidth <= 768;
-        const isSmallMobile = window.innerWidth <= 480;
-
-        // Smaller inventory box on mobile
-        const boxWidth = isSmallMobile ? 80 : (isMobile ? 100 : 130);
-        const padding = isSmallMobile ? 5 : (isMobile ? 8 : 10);
-
-        // Black player inventory box (top-left)
-        const blackBoxX = padding;
-        const blackBoxY = padding;
-
-        // White player inventory box (top-right)
-        const whiteBoxX = canvas.width - boxWidth - padding;
-        const whiteBoxY = padding;
-
-        // Draw black player's inventory items
-        drawInventoryItems(blackBoxX, blackBoxY, 'black');
-
-        // Draw white player's inventory items
-        drawInventoryItems(whiteBoxX, whiteBoxY, 'white');
-    }
-
-    function drawInventoryItems(boxX, boxY, player) {
-        const isMobile = window.innerWidth <= 768;
-        const isSmallMobile = window.innerWidth <= 480;
-
-        const itemSize = inventoryItemSize;
-        const gap = inventoryItemGap;
-        const columns = isSmallMobile ? 4 : (isMobile ? 4 : 3); // More columns on mobile to save space
-        const startX = boxX + (isSmallMobile ? 8 : (isMobile ? 12 : 20));
-        const startY = boxY + (isSmallMobile ? 8 : (isMobile ? 12 : 20));
-
-        const items = [];
-
-        // Add tiles, discs, rings (player's own pieces)
-        for (let i = 0; i < inventory[player]; i++) {
-            items.push({ type: 'tile', color: player });
-        }
-        for (let i = 0; i < discInventory[player]; i++) {
-            items.push({ type: 'disc', color: player });
-        }
-        for (let i = 0; i < ringInventory[player]; i++) {
-            items.push({ type: 'ring', color: player });
-        }
-
-        // Count player's pieces (before captured pieces)
-        const playerPiecesCount = items.length;
-
-        // Add captured discs and rings (opponent's pieces)
-        for (let i = 0; i < captured[player].disc; i++) {
-            items.push({ type: 'disc', color: player === 'black' ? 'white' : 'black' });
-        }
-        for (let i = 0; i < captured[player].ring; i++) {
-            items.push({ type: 'ring', color: player === 'black' ? 'white' : 'black' });
-        }
-
-        // Draw player's pieces first
-        for (let index = 0; index < playerPiecesCount; index++) {
-            const item = items[index];
-            const col = index % columns;
-            const row = Math.floor(index / columns);
-            const x = startX + col * gap;
-            const y = startY + row * gap;
-
-            drawSingleInventoryItem(inventoryCtx, x, y, item, itemSize);
-        }
-
-        // Calculate the last row of player's pieces (0-indexed)
-        const lastPlayerRow = playerPiecesCount > 0 ? Math.floor((playerPiecesCount - 1) / columns) : -1;
-        const capturedPiecesCount = items.length - playerPiecesCount;
-
-        // Draw separator line between player's pieces and captured pieces
-        if (playerPiecesCount > 0 && capturedPiecesCount > 0) {
-            // Calculate the Y position for the separator line
-            // It should be between the last row of player pieces and the first row of captured pieces
-            const separatorY = startY + (lastPlayerRow + 1) * gap - gap / 2;
-            const boxWidth = isSmallMobile ? 80 : (isMobile ? 100 : 130);
-            const lineStartX = boxX + (isSmallMobile ? 4 : (isMobile ? 6 : 10));
-            const lineEndX = boxX + boxWidth - (isSmallMobile ? 4 : (isMobile ? 6 : 10));
-
-            inventoryCtx.save();
-            inventoryCtx.strokeStyle = '#999';
-            inventoryCtx.lineWidth = 1;
-            inventoryCtx.setLineDash([3, 3]);
-            inventoryCtx.beginPath();
-            inventoryCtx.moveTo(lineStartX, separatorY);
-            inventoryCtx.lineTo(lineEndX, separatorY);
-            inventoryCtx.stroke();
-            inventoryCtx.setLineDash([]);
-            inventoryCtx.restore();
-        }
-
-        // Draw captured pieces starting on a new row
-        // Calculate the starting row for captured pieces (after player's pieces + separator)
-        // Always start on a new row, even if the last player row is incomplete
-        const capturedStartRow = lastPlayerRow + 1;
-
-        for (let i = 0; i < capturedPiecesCount; i++) {
-            const index = playerPiecesCount + i;
-            const item = items[index];
-            const col = i % columns;
-            const row = capturedStartRow + Math.floor(i / columns);
-            const x = startX + col * gap;
-            const y = startY + row * gap;
-
-            drawSingleInventoryItem(inventoryCtx, x, y, item, itemSize);
-        }
-    }
-
-    function drawSingleInventoryItem(ctx, x, y, item, size) {
-        ctx.save();
-
-        if (item.type === 'tile') {
-            // Draw a hexagonal tile
-            ctx.beginPath();
-            for (let i = 0; i < 6; i++) {
-                const angle = Math.PI / 3 * i + Math.PI / 6;
-                const hx = x + size * Math.cos(angle);
-                const hy = y + size * Math.sin(angle);
-                if (i === 0) ctx.moveTo(hx, hy);
-                else ctx.lineTo(hx, hy);
-            }
-            ctx.closePath();
-            // Use scheme colors for tiles
-            ctx.fillStyle = schemes[colorScheme][item.color];
-            ctx.shadowColor = '#000a';
-            ctx.shadowBlur = 2;
-            ctx.fill();
-            ctx.lineWidth = 1.5;
-            ctx.strokeStyle = colorScheme === 'classic' ? '#b08b4f' : '#888';
-            ctx.stroke();
-        } else if (item.type === 'disc') {
-            // Draw a disc with a border and subtle shadow for inventory
-            ctx.beginPath();
-            ctx.arc(x, y, size * 0.45, 0, 2 * Math.PI);
-            // Use scheme-aware colors for pieces
-            ctx.fillStyle = item.color === 'black'
-                ? (colorScheme === 'classic' ? '#222' : '#000')
-                : (colorScheme === 'classic' ? '#fafafa' : '#fff');
-            ctx.shadowColor = '#000a';
-            ctx.shadowBlur = 2;
-            ctx.fill();
-            ctx.lineWidth = 1.5;
-            ctx.strokeStyle = item.color === 'black' ? '#888' : '#bbb';
-            ctx.stroke();
-        } else if (item.type === 'ring') {
-            // Draw a ring for inventory matching the board appearance
-            // Main ring (thick outer circle)
-            ctx.beginPath();
-            ctx.arc(x, y, size * 0.45, 0, 2 * Math.PI);
-            ctx.lineWidth = 7;
-            ctx.strokeStyle = item.color === 'black'
-                ? (colorScheme === 'classic' ? '#222' : '#000')
-                : (colorScheme === 'classic' ? '#fafafa' : '#fff');
-            ctx.shadowColor = '#000a';
-            ctx.shadowBlur = 2;
-            ctx.stroke();
-
-            // Inner gray line for contrast (inner edge of ring)
-            ctx.beginPath();
-            ctx.arc(x, y, size * 0.32, 0, 2 * Math.PI);
-            ctx.lineWidth = 1.5;
-            ctx.strokeStyle = '#bbb';
-            ctx.shadowBlur = 0;
-            ctx.stroke();
-
-            // Outer gray line for contrast (outer edge of ring)
-            ctx.beginPath();
-            ctx.arc(x, y, size * 0.6, 0, 2 * Math.PI);
-            ctx.lineWidth = 1.5;
-            ctx.strokeStyle = '#bbb';
-            ctx.shadowBlur = 0;
-            ctx.stroke();
-        }
-        ctx.restore();
-    }
-
-    // Draw all hexes in a hexagonal grid of given radius
-    function drawGrid() {
-        // updateDynamicLayout() is now called only when state changes, not every frame
-        ctx.fillStyle = schemes[colorScheme].bg;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        // Draw all hexes and contents (with selection highlight if any)
-        for (let q = -radius; q <= radius; q++) {
-            for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
-                const [x, y] = hexToPixel(q, r, hexSize);
-                if (showGrid) {
-                    drawHex(x, y, hexSize, schemes[colorScheme].border);
-                }
-                // Draw tile if present
-                const key = `${q},${r}`;
-                if (tiles[key]) {
-                    drawTile(x, y, tiles[key], colorScheme);
-                    // Draw piece if present
-                    if (pieces[key]) {
-                        drawPiece(x, y, pieces[key], colorScheme);
-                        // Draw selection highlight if selected
-                        if (selectedPiece && selectedPiece.q === q && selectedPiece.r === r) {
-                            ctx.save();
-                            ctx.beginPath();
-                            ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
-                            ctx.strokeStyle = 'orange';
-                            ctx.lineWidth = 4;
-                            ctx.setLineDash([4, 4]);
-                            ctx.stroke();
-                            ctx.setLineDash([]);
-                            ctx.restore();
-                        }
-                        // Draw contextual End Turn button if in multi-jump and this is the jumping piece
-                        if (multiJumping && multiJumpPos && multiJumpPos.q === q && multiJumpPos.r === r) {
-                            if (isGameStateChanged()) {
-                                drawEndTurnButton(x, y, q, r);
-                            }
-                        }
-                    }
-
-                }
-                if (showCoords) {
-                    ctx.save();
-                    ctx.font = '11px monospace';
-                    ctx.fillStyle = '#ff0';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(`${q},${r}`, x, y);
-                    ctx.restore();
-                }
-            }
-        }
-
-        // Draw contextual place disc/ring buttons on top of everything
-        if (placePieceBtnTile && placePieceBtnBounds) {
-            const [px, py] = hexToPixel(placePieceBtnTile.q, placePieceBtnTile.r, hexSize);
-            drawPlacePieceButtons(px, py, placePieceBtnBounds);
-        }
-
-        // Draw last move highlight
-        if (showPreviousMove && lastMove) {
-            if (lastMove.type === 'tile') {
-                const [x, y] = hexToPixel(lastMove.q, lastMove.r, hexSize);
-                ctx.save();
-                ctx.beginPath();
-                const highlightSize = hexSize * 0.75;
-                for (let i = 0; i < 6; i++) {
-                    const angle = Math.PI / 3 * i + Math.PI / 6;
-                    const hx = x + highlightSize * Math.cos(angle);
-                    const hy = y + highlightSize * Math.sin(angle);
-                    if (i === 0) ctx.moveTo(hx, hy);
-                    else ctx.lineTo(hx, hy);
-                }
-                ctx.closePath();
-                ctx.strokeStyle = 'gray';
-                ctx.lineWidth = 4;
-                ctx.setLineDash([4, 4]);
-                ctx.stroke();
-                ctx.setLineDash([]);
-                ctx.restore();
-            } else if (lastMove.type === 'piece') {
-                const [x, y] = hexToPixel(lastMove.q, lastMove.r, hexSize);
-                ctx.save();
-                ctx.beginPath();
-                ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
-                ctx.strokeStyle = 'gray';
-                ctx.lineWidth = 4;
-                ctx.setLineDash([4, 4]);
-                ctx.stroke();
-                ctx.setLineDash([]);
-                ctx.restore();
-            } else if (lastMove.type === 'move') {
-                const [fromX, fromY] = hexToPixel(lastMove.from.q, lastMove.from.r, hexSize);
-                const [toX, toY] = hexToPixel(lastMove.to.q, lastMove.to.r, hexSize);
-
-                // Highlight the move
-                ctx.save();
-                ctx.strokeStyle = 'gray';
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.moveTo(fromX, fromY);
-                ctx.lineTo(toX, toY);
-                ctx.stroke();
-
-                // Highlight the destination hex
-                ctx.beginPath();
-                ctx.arc(toX, toY, hexSize * 0.45, 0, 2 * Math.PI);
-                ctx.strokeStyle = 'gray';
-                ctx.lineWidth = 4;
-                ctx.setLineDash([4, 4]);
-                ctx.stroke();
-                ctx.setLineDash([]);
-                ctx.restore();
-
-                // Highlight captured pieces
-                if (lastMove.captured) {
-                    lastMove.captured.forEach(pos => {
-                        const [x, y] = hexToPixel(pos.q, pos.r, hexSize);
-                        ctx.save();
-                        ctx.beginPath();
-                        ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
-                        ctx.strokeStyle = 'gray';
-                        ctx.lineWidth = 4;
-                        ctx.setLineDash([4, 4]);
-                        ctx.stroke();
-                        ctx.setLineDash([]);
-                        ctx.restore();
-                    });
-                }
-            }
-        }
-
-        // Draw valid moves indicator (translucent gray dots)
-        if (showValidMoves) {
-            // Show valid moves based on game mode:
-            // - AI mode: only show for Black (human player)
-            // - 2-player mode: show for both Black and White (both human)
-            const shouldShowValidMoves = isAiMode ? activePlayer === 'black' : true;
-            
-            if (shouldShowValidMoves) {
-                // Calculate valid moves based on selection state
-                let movesToDisplay = [];
-                
-                if (selectedPiece) {
-                    // Show only moves for the selected piece
-                    movesToDisplay = calculateValidMovesForPiece(selectedPiece.q, selectedPiece.r, activePlayer);
-                } else {
-                    // Show all valid moves for the active player
-                    movesToDisplay = calculateAllValidMoves(activePlayer);
-                }
-
-                // Draw translucent gray dots at each valid move location
-                movesToDisplay.forEach(move => {
-                    const [x, y] = hexToPixel(move.q, move.r, hexSize);
-                    ctx.save();
-                    
-                    // Draw translucent gray dot
-                    ctx.beginPath();
-                    ctx.arc(x, y, hexSize * 0.08, 0, 2 * Math.PI);
-                    ctx.fillStyle = 'rgba(128, 128, 128, 0.5)'; // Translucent gray
-                    ctx.fill();
-                    
-                    ctx.restore();
-                });
-            }
-        }
-
-        function drawPlacePieceButtons(x, y, btns) {
-            // Position buttons inside the tile, closer to center
-            const offset = hexSize * 0.5;
-
-            const discX = x - offset;
-            const discY = y;
-
-            const ringX = x + offset;
-            const ringY = y;
-
-            // Draw Disc symbol
-            drawSingleInventoryItem(ctx, discX, discY, { type: 'disc', color: activePlayer }, inventoryItemSize * 2);
-
-            // Draw Ring symbol
-            drawSingleInventoryItem(ctx, ringX, ringY, { type: 'ring', color: activePlayer }, inventoryItemSize * 2);
-
-            // Update btns for click detection
-            const hitRadius = inventoryItemSize * 2;
-
-            btns.discBtn = { x: discX, y: discY, r: hitRadius };
-            btns.ringBtn = { x: ringX, y: ringY, r: hitRadius };
-        }
-
-        function drawEndTurnButton(x, y, q, r) {
-            // Draw a green checkmark on the tile to indicate end turn option
-            const checkSize = inventoryItemSize * 2;
-
-            ctx.save();
-            ctx.strokeStyle = '#00ff00'; // Green color
-            ctx.lineWidth = 6;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-
-            // Draw checkmark (✓)
-            // Start point (bottom-left of check)
-            const startX = x - checkSize * 0.4;
-            const startY = y;
-
-            // Middle point (bottom of check)
-            const midX = x - checkSize * 0.1;
-            const midY = y + checkSize * 0.4;
-
-            // End point (top-right of check)
-            const endX = x + checkSize * 0.5;
-            const endY = y - checkSize * 0.5;
-
-            ctx.beginPath();
-            ctx.moveTo(startX, startY);
-            ctx.lineTo(midX, midY);
-            ctx.lineTo(endX, endY);
-            ctx.stroke();
-            ctx.restore();
-
-            // Store the checkmark position for click detection
-            endTurnBtnBounds = { q, r, x, y, checkSize };
-        }
-
-        const btnGrid = document.getElementById('toggleGridBtn');
-        btnGrid.addEventListener('click', function () {
-            showGrid = !showGrid;
-            drawGrid();
-        });
-
-        // Update player status
-        if (playerStatus) {
-            playerStatus.textContent = `Active player: ${activePlayer.charAt(0).toUpperCase() + activePlayer.slice(1)}`;
-            playerStatus.style.color = colorScheme === 'modern'
-                ? (activePlayer === 'black' ? schemes.modern.black : schemes.modern.white)
-                : (activePlayer === 'black' ? schemes.classic.black : schemes.classic.white);
-            playerStatus.style.textShadow = colorScheme === 'modern' ? '0 0 4px #fff, 0 0 2px #000' : '0 0 2px #b08b4f';
-        }
-        drawInventory();
+    // Returns array of [q, r] for neighbors
+    function getNeighbors(q, r) {
+        return [
+            [q + 1, r], [q - 1, r], [q, r + 1], [q, r - 1], [q + 1, r - 1], [q - 1, r + 1]
+        ];
     }
 
     // Helper to check if game state changed during multi-jump
     function isGameStateChanged() {
-        if (!turnStartState || !turnStartPiecePos || !multiJumpPos) return true; // Should not happen if multiJumping
+        if (!turnStartState || !turnStartPiecePos || !multiJumpPos) return true;
 
         const currentCaptured = captured[activePlayer];
         const startCaptured = turnStartState.captured;
 
-        // Note: turnStartState.captured structure from serializeGameState is { black_discs: ..., ... }
         const startDiscs = activePlayer === 'black' ? startCaptured.black_discs : startCaptured.white_discs;
         const startRings = activePlayer === 'black' ? startCaptured.black_rings : startCaptured.white_rings;
         const currentDiscs = currentCaptured.disc;
@@ -868,8 +146,91 @@ window.onload = function () {
         return capturesChanged || positionChanged;
     }
 
+    /**
+     * Get the current game state for the graphics module
+     * This provides read-only access to game state
+     */
+    function getGameState() {
+        return {
+            tiles,
+            pieces,
+            inventory,
+            discInventory,
+            ringInventory,
+            captured,
+            activePlayer,
+            selectedPiece,
+            lastMove,
+            multiJumping,
+            multiJumpPos,
+            showCoords,
+            showGrid,
+            colorScheme,
+            endTurnBtnBounds,
+            placePieceBtnBounds,
+            placePieceBtnTile,
+            validMovesHighlights,
+            showValidMoves,
+            showPreviousMove,
+            isGameStateChanged,
+            calculateAllValidMoves,
+            calculateValidMovesForPiece
+        };
+    }
+
+    // Initialize GameGraphics module
+    GameGraphics.init(canvas, inventoryCanvas, getGameState);
+
+    // Helper function to trigger redraw via GameGraphics
+    function drawGrid() {
+        const bounds = GameGraphics.drawGrid();
+        // Update button bounds from graphics return values
+        if (bounds.endTurnBtnBounds) {
+            endTurnBtnBounds = bounds.endTurnBtnBounds;
+        }
+        if (bounds.placePieceBtnBounds) {
+            placePieceBtnBounds = bounds.placePieceBtnBounds;
+        }
+    }
+
+    // Helper function to trigger inventory redraw
+    function drawInventory() {
+        GameGraphics.drawInventory();
+    }
+
+    // Helper function to update dynamic layout
+    function updateDynamicLayout() {
+        GameGraphics.updateDynamicLayout();
+    }
+
+    // Helper function for coordinate conversion
+    function pixelToHex(x, y) {
+        return GameGraphics.pixelToHex(x, y);
+    }
+
+    // Helper function for coordinate conversion
+    function hexToPixel(q, r, size) {
+        return GameGraphics.hexToPixel(q, r, size);
+    }
+
+    // Responsive canvas sizing - delegated to GameGraphics
+    function resizeCanvas() {
+        GameGraphics.resizeCanvas();
+    }
+
+    // Function to set the game theme
+    function setGameTheme(theme) {
+        if (theme === 'dark') {
+            colorScheme = 'modern';
+        } else {
+            colorScheme = 'classic';
+        }
+        drawGrid();
+        drawInventory();
+    }
+    window.setGameTheme = setGameTheme;
+
     // Initialize canvas size and set up resize listener
-    // This must be called AFTER all variables (schemes, tiles, pieces) are defined
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
