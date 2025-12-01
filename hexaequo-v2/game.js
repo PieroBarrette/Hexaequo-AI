@@ -158,9 +158,9 @@ window.onload = function () {
         ];
     }
 
-    // Helper to check if game state changed during multi-jump
-    function isGameStateChanged() {
-        if (!turnStartState || !turnStartPiecePos || !multiJumpPos) return true;
+    // Helper to check if any captures have been made during the current multi-jump sequence
+    function hasCapturedDuringSequence() {
+        if (!turnStartState) return false;
 
         const currentCaptured = captured[activePlayer];
         const startCaptured = turnStartState.captured;
@@ -170,7 +170,14 @@ window.onload = function () {
         const currentDiscs = currentCaptured.disc;
         const currentRings = currentCaptured.ring;
 
-        const capturesChanged = (currentDiscs !== startDiscs) || (currentRings !== startRings);
+        return (currentDiscs !== startDiscs) || (currentRings !== startRings);
+    }
+
+    // Helper to check if game state changed during multi-jump
+    function isGameStateChanged() {
+        if (!turnStartState || !turnStartPiecePos || !multiJumpPos) return true;
+
+        const capturesChanged = hasCapturedDuringSequence();
         const positionChanged = (multiJumpPos.q !== turnStartPiecePos.q) || (multiJumpPos.r !== turnStartPiecePos.r);
 
         return capturesChanged || positionChanged;
@@ -431,9 +438,18 @@ window.onload = function () {
 
                 if (pieces[jumpKey] && tiles[landingKey] && !pieces[landingKey]) {
                     // Prevent jumping over same friendly piece twice during multi-jump
-                    if (!(pieces[jumpKey].color === player && window.jumpHistory && window.jumpHistory.some(h => h.q === jq && h.r === jr))) {
-                        moves.push({ q: landingQ, r: landingR, type: 'jump' });
+                    if (pieces[jumpKey].color === player && window.jumpHistory && window.jumpHistory.some(h => h.q === jq && h.r === jr)) {
+                        continue;
                     }
+
+                    // Prevent showing origin tile as valid destination if no captures made during multi-jump
+                    if (multiJumping && turnStartPiecePos && 
+                        landingQ === turnStartPiecePos.q && landingR === turnStartPiecePos.r && 
+                        !hasCapturedDuringSequence()) {
+                        continue;
+                    }
+
+                    moves.push({ q: landingQ, r: landingR, type: 'jump' });
                 }
             }
         } else if (piece.type === 'ring') {
@@ -695,6 +711,13 @@ window.onload = function () {
                     continue;
                 }
 
+                // Prevent returning to origin tile without any captures (invalid loop)
+                if (multiJumping && turnStartPiecePos && 
+                    landingQ === turnStartPiecePos.q && landingR === turnStartPiecePos.r && 
+                    !hasCapturedDuringSequence()) {
+                    continue;
+                }
+
                 performDiscJump(sq, sr, jq, jr, landingQ, landingR, jumpKey, landingKey);
                 return true;
             }
@@ -822,6 +845,12 @@ window.onload = function () {
                     pieces[jumpKey].color === player &&
                     jumpHistory.some(h => h.q === jq && h.r === jr)
                 ) {
+                    continue;
+                }
+                // Prevent counting origin tile as valid if no captures made
+                if (turnStartPiecePos && 
+                    landingQ === turnStartPiecePos.q && landingR === turnStartPiecePos.r && 
+                    !hasCapturedDuringSequence()) {
                     continue;
                 }
                 // At least one jump available
