@@ -107,6 +107,7 @@
                 <select id="gameModeSelect">
                     <option value="2player">2 Players</option>
                     <option value="ai">vs AI</option>
+                    <option value="online">Play Online</option>
                 </select>
             </div>
 
@@ -146,6 +147,70 @@
         </div>
     </div>
 
+    <!-- Online Room Modal -->
+    <div id="onlineOverlay" class="online-overlay">
+        <div class="online-modal">
+            <div class="online-header">
+                <h2>Play Online</h2>
+                <button id="closeOnlineBtn" class="close-online-btn" title="Close">✕</button>
+            </div>
+            <div class="online-content">
+                <!-- Connection Status -->
+                <div id="connectionStatus" class="connection-status">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Connecting...</span>
+                </div>
+                
+                <!-- Room Actions (visible when connected) -->
+                <div id="roomActions" class="room-actions" style="display: none;">
+                    <button id="createRoomBtn" class="online-btn primary">Create Room</button>
+                    <div class="divider"><span>or</span></div>
+                    <div class="join-room-section">
+                        <input type="text" id="roomCodeInput" class="room-code-input" 
+                               placeholder="Enter room code" maxlength="4" 
+                               autocomplete="off" autocapitalize="characters">
+                        <button id="joinRoomBtn" class="online-btn">Join Room</button>
+                    </div>
+                </div>
+                
+                <!-- Waiting for opponent (visible after creating room) -->
+                <div id="waitingSection" class="waiting-section" style="display: none;">
+                    <div class="room-code-display">
+                        <span class="room-code-label">Room Code</span>
+                        <span id="roomCodeDisplay" class="room-code-value">----</span>
+                        <button id="copyRoomCodeBtn" class="copy-btn" title="Copy code">📋</button>
+                    </div>
+                    <p class="waiting-text">Waiting for opponent to join...</p>
+                    <div class="loading-spinner"></div>
+                    <button id="cancelWaitingBtn" class="online-btn secondary">Cancel</button>
+                </div>
+                
+                <!-- In-game status (visible during online game) -->
+                <div id="inGameSection" class="in-game-section" style="display: none;">
+                    <div class="game-info">
+                        <div class="player-color">
+                            <span class="color-label">You are playing as</span>
+                            <span id="playerColorDisplay" class="color-value">Black</span>
+                        </div>
+                        <div class="room-info">
+                            <span class="room-label">Room:</span>
+                            <span id="currentRoomCode" class="room-value">----</span>
+                        </div>
+                        <div id="opponentStatus" class="opponent-status connected">
+                            <span class="status-dot"></span>
+                            <span class="opponent-text">Opponent connected</span>
+                        </div>
+                    </div>
+                    <button id="leaveGameBtn" class="online-btn danger">Leave Game</button>
+                </div>
+                
+                <!-- Error message -->
+                <div id="errorMessage" class="error-message" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="multiplayer.js"></script>
     <script src="ai.js"></script>
     <script src="graphics.js"></script>
     <script src="game.js"></script>
@@ -356,12 +421,285 @@
 
         gameModeSelect.addEventListener('change', (e) => {
             const mode = e.target.value;
-            const isAi = mode === 'ai';
-            window.toggleGameMode(isAi);
+            
+            if (mode === 'online') {
+                // Open online modal
+                openOnlineModal();
+            } else {
+                const isAi = mode === 'ai';
+                window.toggleGameMode(isAi);
+                if (window.Multiplayer) {
+                    window.Multiplayer.setOnlineMode(false);
+                }
+            }
+            
             if (difficultyContainer) {
-                difficultyContainer.style.display = isAi ? 'flex' : 'none';
+                difficultyContainer.style.display = mode === 'ai' ? 'flex' : 'none';
             }
             saveSettings();
+        });
+
+        // ===== Online Multiplayer Modal Logic =====
+        const onlineOverlay = document.getElementById('onlineOverlay');
+        const closeOnlineBtn = document.getElementById('closeOnlineBtn');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const roomActions = document.getElementById('roomActions');
+        const waitingSection = document.getElementById('waitingSection');
+        const inGameSection = document.getElementById('inGameSection');
+        const createRoomBtn = document.getElementById('createRoomBtn');
+        const joinRoomBtn = document.getElementById('joinRoomBtn');
+        const roomCodeInput = document.getElementById('roomCodeInput');
+        const roomCodeDisplay = document.getElementById('roomCodeDisplay');
+        const copyRoomCodeBtn = document.getElementById('copyRoomCodeBtn');
+        const cancelWaitingBtn = document.getElementById('cancelWaitingBtn');
+        const leaveGameBtn = document.getElementById('leaveGameBtn');
+        const playerColorDisplay = document.getElementById('playerColorDisplay');
+        const currentRoomCode = document.getElementById('currentRoomCode');
+        const opponentStatus = document.getElementById('opponentStatus');
+        const errorMessage = document.getElementById('errorMessage');
+
+        function openOnlineModal() {
+            onlineOverlay.classList.add('open');
+            toggleMenu(); // Close hamburger menu
+            initializeOnlineMode();
+        }
+
+        function closeOnlineModal() {
+            onlineOverlay.classList.remove('open');
+            // Reset to previous mode if not in a game
+            if (!window.Multiplayer || !window.Multiplayer.isOnlineMode) {
+                gameModeSelect.value = '2player';
+                window.toggleGameMode(false);
+            }
+        }
+
+        closeOnlineBtn.addEventListener('click', closeOnlineModal);
+        onlineOverlay.addEventListener('click', (e) => {
+            if (e.target === onlineOverlay && !window.Multiplayer?.isOnlineMode) {
+                closeOnlineModal();
+            }
+        });
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            setTimeout(() => {
+                errorMessage.style.display = 'none';
+            }, 5000);
+        }
+
+        function hideError() {
+            errorMessage.style.display = 'none';
+        }
+
+        function showSection(section) {
+            roomActions.style.display = 'none';
+            waitingSection.style.display = 'none';
+            inGameSection.style.display = 'none';
+            if (section) section.style.display = 'block';
+        }
+
+        function updateConnectionStatus(status) {
+            connectionStatus.className = 'connection-status ' + status;
+            const statusText = connectionStatus.querySelector('.status-text');
+            switch (status) {
+                case 'connected':
+                    statusText.textContent = 'Connected to server';
+                    showSection(roomActions);
+                    break;
+                case 'disconnected':
+                    statusText.textContent = 'Disconnected - Reconnecting...';
+                    break;
+                default:
+                    statusText.textContent = 'Connecting...';
+            }
+        }
+
+        async function initializeOnlineMode() {
+            hideError();
+            showSection(null);
+            updateConnectionStatus('connecting');
+
+            try {
+                // Check if already in a game
+                if (window.Multiplayer && window.Multiplayer.isOnlineMode) {
+                    updateConnectionStatus('connected');
+                    updateInGameUI();
+                    showSection(inGameSection);
+                    return;
+                }
+
+                // Connect to server
+                await window.Multiplayer.connect();
+                updateConnectionStatus('connected');
+
+                // Check for existing room to rejoin
+                const savedRoom = window.Multiplayer.loadRoomInfo();
+                if (savedRoom) {
+                    try {
+                        const result = await window.Multiplayer.joinRoom(savedRoom.roomCode);
+                        handleJoinSuccess(result);
+                    } catch (err) {
+                        // Room no longer exists, show room actions
+                        window.Multiplayer.clearRoomInfo();
+                        showSection(roomActions);
+                    }
+                } else {
+                    showSection(roomActions);
+                }
+            } catch (err) {
+                showError('Failed to connect to server. Please try again.');
+                console.error('Connection error:', err);
+            }
+        }
+
+        // Set up Multiplayer callbacks
+        if (window.Multiplayer) {
+            window.Multiplayer.onConnectionStatusChange = (status) => {
+                updateConnectionStatus(status);
+            };
+
+            window.Multiplayer.onOpponentJoined = (data) => {
+                // Opponent joined - start the game
+                updateInGameUI();
+                showSection(inGameSection);
+                window.startOnlineGame(data.gameState);
+            };
+
+            window.Multiplayer.onOpponentMoved = (data) => {
+                // Apply opponent's move
+                window.applyOnlineMove(data.gameState, data.previousState);
+            };
+
+            window.Multiplayer.onOpponentDisconnected = () => {
+                opponentStatus.className = 'opponent-status disconnected';
+                opponentStatus.querySelector('.opponent-text').textContent = 'Opponent disconnected - waiting...';
+            };
+
+            window.Multiplayer.onOpponentReconnected = () => {
+                opponentStatus.className = 'opponent-status connected';
+                opponentStatus.querySelector('.opponent-text').textContent = 'Opponent connected';
+            };
+
+            window.Multiplayer.onOpponentLeft = () => {
+                alert('Your opponent has left the game.');
+                window.Multiplayer.clearRoomInfo();
+                window.resetGame();
+                gameModeSelect.value = '2player';
+                window.toggleGameMode(false);
+                closeOnlineModal();
+            };
+
+            window.Multiplayer.onError = (message) => {
+                showError(message);
+            };
+        }
+
+        // Create Room button
+        createRoomBtn.addEventListener('click', async () => {
+            hideError();
+            createRoomBtn.disabled = true;
+            createRoomBtn.textContent = 'Creating...';
+
+            try {
+                const result = await window.Multiplayer.createRoom();
+                roomCodeDisplay.textContent = result.roomCode;
+                showSection(waitingSection);
+                
+                // Reset game for new online match
+                window.resetGame();
+                window.setOnlineMode(true, result.color);
+            } catch (err) {
+                showError(err.message || 'Failed to create room');
+            } finally {
+                createRoomBtn.disabled = false;
+                createRoomBtn.textContent = 'Create Room';
+            }
+        });
+
+        // Join Room button
+        joinRoomBtn.addEventListener('click', async () => {
+            const code = roomCodeInput.value.trim().toUpperCase();
+            if (code.length !== 4) {
+                showError('Please enter a 4-character room code');
+                return;
+            }
+
+            hideError();
+            joinRoomBtn.disabled = true;
+            joinRoomBtn.textContent = 'Joining...';
+
+            try {
+                const result = await window.Multiplayer.joinRoom(code);
+                handleJoinSuccess(result);
+            } catch (err) {
+                showError(err.message || 'Failed to join room');
+            } finally {
+                joinRoomBtn.disabled = false;
+                joinRoomBtn.textContent = 'Join Room';
+            }
+        });
+
+        function handleJoinSuccess(result) {
+            updateInGameUI();
+            showSection(inGameSection);
+            
+            // Start the game with the received state
+            window.resetGame();
+            window.setOnlineMode(true, result.color);
+            
+            if (result.gameState) {
+                window.applyOnlineMove(result.gameState, null);
+            }
+        }
+
+        function updateInGameUI() {
+            const color = window.Multiplayer.playerColor;
+            playerColorDisplay.textContent = color.charAt(0).toUpperCase() + color.slice(1);
+            playerColorDisplay.className = 'color-value ' + color;
+            currentRoomCode.textContent = window.Multiplayer.roomCode;
+            opponentStatus.className = 'opponent-status connected';
+            opponentStatus.querySelector('.opponent-text').textContent = 'Opponent connected';
+        }
+
+        // Copy room code
+        copyRoomCodeBtn.addEventListener('click', () => {
+            const code = roomCodeDisplay.textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                copyRoomCodeBtn.textContent = '✓';
+                setTimeout(() => {
+                    copyRoomCodeBtn.textContent = '📋';
+                }, 2000);
+            });
+        });
+
+        // Room code input - auto uppercase and allow Enter to join
+        roomCodeInput.addEventListener('input', (e) => {
+            e.target.value = e.target.value.toUpperCase();
+        });
+        roomCodeInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                joinRoomBtn.click();
+            }
+        });
+
+        // Cancel waiting
+        cancelWaitingBtn.addEventListener('click', async () => {
+            await window.Multiplayer.leaveRoom();
+            window.setOnlineMode(false);
+            showSection(roomActions);
+        });
+
+        // Leave game
+        leaveGameBtn.addEventListener('click', async () => {
+            if (confirm('Are you sure you want to leave the game?')) {
+                await window.Multiplayer.leaveRoom();
+                window.Multiplayer.setOnlineMode(false);
+                window.resetGame();
+                gameModeSelect.value = '2player';
+                window.toggleGameMode(false);
+                closeOnlineModal();
+            }
         });
 
         // Theme Toggle

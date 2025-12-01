@@ -10,6 +10,10 @@ let isAiMode = false;
 let isSoundEnabled = true;
 let aiDifficulty = 2; // 1: Easy, 2: Medium, 3: Hard
 
+// Online multiplayer mode
+let isOnlineMode = false;
+let onlinePlayerColor = null; // 'black' or 'white'
+
 // Global variables for valid moves indicator
 let showValidMoves = false;
 let showPreviousMove = true;
@@ -19,11 +23,35 @@ let globalDrawGrid = null; // Reference to drawGrid function for redraw triggeri
 // Toggle between AI and 2-player modes
 function toggleGameMode(aiMode) {
     isAiMode = aiMode;
+    if (!aiMode) {
+        // When switching away from AI mode, also disable online mode
+        isOnlineMode = false;
+        onlinePlayerColor = null;
+    }
     if (isAiMode) {
         console.log('Switched to AI Mode');
     } else {
         console.log('Switched to 2 Player Mode');
     }
+}
+
+// Set online mode
+function setOnlineMode(enabled, playerColor = null) {
+    isOnlineMode = enabled;
+    onlinePlayerColor = playerColor;
+    if (enabled) {
+        isAiMode = false; // Ensure AI mode is off
+        console.log('Online Mode enabled, playing as:', playerColor);
+    } else {
+        onlinePlayerColor = null;
+        console.log('Online Mode disabled');
+    }
+}
+
+// Check if it's the local player's turn in online mode
+function isMyTurn(activePlayer) {
+    if (!isOnlineMode) return true;
+    return onlinePlayerColor === activePlayer;
 }
 
 function setSoundEnabled(enabled) {
@@ -61,6 +89,8 @@ window.setSoundEnabled = setSoundEnabled;
 window.setAiDifficulty = setAiDifficulty;
 window.setShowValidMoves = setShowValidMoves;
 window.setShowPreviousMove = setShowPreviousMove;
+window.setOnlineMode = setOnlineMode;
+window.isMyTurn = isMyTurn;
 
 window.onload = function () {
     const canvas = document.getElementById('gameCanvas');
@@ -434,6 +464,12 @@ window.onload = function () {
     function handleCanvasInteraction(e) {
         e.preventDefault(); // Prevent default touch behavior
 
+        // In online mode, block input if it's not our turn
+        if (isOnlineMode && !isMyTurn(activePlayer)) {
+            console.log('Not your turn');
+            return;
+        }
+
         const { mx, my } = getCanvasCoordinates(e);
         const [q, r] = pixelToHex(mx, my);
 
@@ -797,11 +833,19 @@ window.onload = function () {
 
     // Add both click and touch event listeners
     canvas.addEventListener('click', function (e) {
+        // Store state before handling interaction for online mode
+        const stateBefore = isOnlineMode ? serializeGameState() : null;
+        
         handleCanvasInteraction(e);
 
         // Check if the game has ended
         if (checkGameEnd()) {
             return;
+        }
+
+        // Send move to server if in online mode and it was our turn (turn has now switched)
+        if (isOnlineMode && stateBefore && !isMyTurn(activePlayer) && canvas.style.pointerEvents !== 'none') {
+            sendOnlineMove(stateBefore);
         }
 
         // Serialize the board and send it to the AI if in AI mode
@@ -810,11 +854,19 @@ window.onload = function () {
         }
     });
     canvas.addEventListener('touchend', function (e) {
+        // Store state before handling interaction for online mode
+        const stateBefore = isOnlineMode ? serializeGameState() : null;
+        
         handleCanvasInteraction(e);
 
         // Check if the game has ended
         if (checkGameEnd()) {
             return;
+        }
+
+        // Send move to server if in online mode and it was our turn (turn has now switched)
+        if (isOnlineMode && stateBefore && !isMyTurn(activePlayer) && canvas.style.pointerEvents !== 'none') {
+            sendOnlineMove(stateBefore);
         }
 
         // Serialize the board and send it to the AI if in AI mode
@@ -1252,7 +1304,18 @@ window.onload = function () {
         
         // Update player indicator
         if (playerIndicator) {
-            playerIndicator.textContent = `Player: ${activePlayer.charAt(0).toUpperCase() + activePlayer.slice(1)}`;
+            let indicatorText = `Player: ${activePlayer.charAt(0).toUpperCase() + activePlayer.slice(1)}`;
+            
+            // Add online mode indicator
+            if (isOnlineMode) {
+                if (isMyTurn(activePlayer)) {
+                    indicatorText = `Your Turn (${onlinePlayerColor.charAt(0).toUpperCase() + onlinePlayerColor.slice(1)})`;
+                } else {
+                    indicatorText = `Opponent's Turn`;
+                }
+            }
+            
+            playerIndicator.textContent = indicatorText;
             playerIndicator.classList.toggle('player-black', activePlayer === 'black');
             playerIndicator.classList.toggle('player-white', activePlayer === 'white');
         }
@@ -1606,6 +1669,75 @@ window.onload = function () {
     function hideLoader() {
         loader.style.display = 'none';
     }
+
+    // ===== Online Multiplayer Functions =====
+    
+    // Send a move to the online server
+    function sendOnlineMove(previousState) {
+        const currentState = serializeGameState();
+        
+        if (window.Multiplayer && window.Multiplayer.isOnlineMode) {
+            window.Multiplayer.sendMove(currentState, previousState)
+                .then(() => {
+                    console.log('Move sent to server');
+                })
+                .catch((err) => {
+                    console.error('Failed to send move:', err);
+                    // Optionally show error to user
+                });
+        }
+    }
+
+    // Apply a move received from the online opponent
+    function applyOnlineMove(gameState, previousState) {
+        if (previousState) {
+            applyGameState(gameState, previousState);
+        } else {
+            // Initial state sync - just apply without sounds
+            tiles = gameState.tiles;
+            pieces = gameState.pieces;
+            inventory = {
+                black: gameState.inventory.black.tiles,
+                white: gameState.inventory.white.tiles
+            };
+            discInventory = {
+                black: gameState.inventory.black.discs,
+                white: gameState.inventory.white.discs
+            };
+            ringInventory = {
+                black: gameState.inventory.black.rings,
+                white: gameState.inventory.white.rings
+            };
+            captured = {
+                black: {
+                    disc: gameState.captured.black_discs,
+                    ring: gameState.captured.black_rings
+                },
+                white: {
+                    disc: gameState.captured.white_discs,
+                    ring: gameState.captured.white_rings
+                }
+            };
+            activePlayer = gameState.activePlayer;
+            updateDynamicLayout();
+            drawGrid();
+        }
+        
+        // Check if game ended after opponent's move
+        checkGameEnd();
+    }
+    window.applyOnlineMove = applyOnlineMove;
+
+    // Start an online game
+    function startOnlineGame(gameState) {
+        // Apply the initial game state
+        if (gameState) {
+            applyOnlineMove(gameState, null);
+        }
+        
+        console.log('Online game started');
+    }
+    window.startOnlineGame = startOnlineGame;
 
     // Initialize IndexedDB and load saved game session
     (async () => {
