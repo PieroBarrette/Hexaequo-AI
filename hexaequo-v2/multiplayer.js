@@ -140,8 +140,7 @@ const Multiplayer = (function () {
                 return;
             }
 
-            // Set up one-time listener for the response
-            socket.once('create-room-response', (response) => {
+            socket.emit('create-room', { playerId }, (response) => {
                 if (response.success) {
                     roomCode = response.roomCode;
                     playerColor = response.color;
@@ -160,14 +159,6 @@ const Multiplayer = (function () {
                     reject(new Error(response.error || 'Failed to create room'));
                 }
             });
-
-            socket.emit('create-room', { playerId });
-            
-            // Timeout after 10 seconds
-            setTimeout(() => {
-                socket.off('create-room-response');
-                reject(new Error('Request timed out'));
-            }, 10000);
         });
     }
 
@@ -179,8 +170,7 @@ const Multiplayer = (function () {
                 return;
             }
 
-            // Set up one-time listener for the response
-            socket.once('join-room-response', (response) => {
+            socket.emit('join-room', { roomCode: code.toUpperCase(), playerId }, (response) => {
                 if (response.success) {
                     roomCode = response.roomCode;
                     playerColor = response.color;
@@ -201,14 +191,6 @@ const Multiplayer = (function () {
                     reject(new Error(response.error || 'Failed to join room'));
                 }
             });
-
-            socket.emit('join-room', { roomCode: code.toUpperCase(), playerId });
-            
-            // Timeout after 10 seconds
-            setTimeout(() => {
-                socket.off('join-room-response');
-                reject(new Error('Request timed out'));
-            }, 10000);
         });
     }
 
@@ -236,27 +218,18 @@ const Multiplayer = (function () {
                 return;
             }
 
-            // Set up one-time listener for the response
-            socket.once('make-move-response', (response) => {
+            socket.emit('make-move', {
+                roomCode,
+                playerId,
+                gameState,
+                previousState
+            }, (response) => {
                 if (response.success) {
                     resolve();
                 } else {
                     reject(new Error(response.error || 'Failed to send move'));
                 }
             });
-
-            socket.emit('make-move', {
-                roomCode,
-                playerId,
-                gameState,
-                previousState
-            });
-            
-            // Timeout after 10 seconds
-            setTimeout(() => {
-                socket.off('make-move-response');
-                reject(new Error('Request timed out'));
-            }, 10000);
         });
     }
 
@@ -264,18 +237,10 @@ const Multiplayer = (function () {
     function leaveRoom() {
         return new Promise((resolve) => {
             if (socket && socket.connected && roomCode) {
-                socket.once('leave-room-response', () => {
+                socket.emit('leave-room', { roomCode, playerId }, () => {
                     clearRoomInfo();
                     resolve();
                 });
-                socket.emit('leave-room', { roomCode, playerId });
-                
-                // Don't wait forever
-                setTimeout(() => {
-                    socket.off('leave-room-response');
-                    clearRoomInfo();
-                    resolve();
-                }, 3000);
             } else {
                 clearRoomInfo();
                 resolve();
