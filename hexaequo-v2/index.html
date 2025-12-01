@@ -103,6 +103,14 @@
             </div>
 
             <div class="menu-item">
+                <label>Animations</label>
+                <label class="switch">
+                    <input type="checkbox" id="animationsToggle" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div class="menu-item">
                 <label>Game Mode</label>
                 <select id="gameModeSelect">
                     <option value="2player">2 Players</option>
@@ -296,6 +304,7 @@
         const themeToggle = document.getElementById('themeToggle');
         const validMovesToggle = document.getElementById('validMovesToggle');
         const previousMoveToggle = document.getElementById('previousMoveToggle');
+        const animationsToggle = document.getElementById('animationsToggle');
         const difficultyContainer = document.getElementById('difficultyContainer');
 
         function toggleMenu() {
@@ -342,7 +351,8 @@
             gameMode: 'ai', // '2player' or 'ai'
             theme: 'light', // 'light' or 'dark'
             showValidMoves: false, // Show valid moves indicator
-            showPreviousMove: true
+            showPreviousMove: true,
+            animations: true // Enable animations
         };
 
         function saveSettings() {
@@ -352,7 +362,8 @@
                 gameMode: gameModeSelect.value,
                 theme: themeToggle.checked ? 'light' : 'dark',
                 showValidMoves: validMovesToggle.checked,
-                showPreviousMove: previousMoveToggle.checked
+                showPreviousMove: previousMoveToggle.checked,
+                animations: animationsToggle.checked
             };
             localStorage.setItem('hexaequoSettings', JSON.stringify(settings));
         }
@@ -380,6 +391,7 @@
             themeToggle.checked = settings.theme === 'light';
             validMovesToggle.checked = settings.showValidMoves;
             previousMoveToggle.checked = settings.showPreviousMove;
+            animationsToggle.checked = settings.animations !== false; // Default to true
 
             // Apply settings to Game Logic
             if (window.setSoundEnabled) window.setSoundEnabled(settings.sound);
@@ -387,6 +399,7 @@
             if (window.toggleGameMode) window.toggleGameMode(settings.gameMode === 'ai');
             if (window.setShowValidMoves) window.setShowValidMoves(settings.showValidMoves);
             if (window.setShowPreviousMove) window.setShowPreviousMove(settings.showPreviousMove);
+            if (window.setAnimationsEnabled) window.setAnimationsEnabled(settings.animations !== false);
 
             // Apply Theme
             applyTheme(settings.theme === 'light');
@@ -410,6 +423,11 @@
 
         previousMoveToggle.addEventListener('change', (e) => {
             window.setShowPreviousMove(e.target.checked);
+            saveSettings();
+        });
+
+        animationsToggle.addEventListener('change', (e) => {
+            window.setAnimationsEnabled(e.target.checked);
             saveSettings();
         });
 

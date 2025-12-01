@@ -19,6 +19,12 @@ const GameGraphics = (function () {
     let inventoryItemSize = 20;
     let inventoryItemGap = 42;
 
+    // Animation system
+    let animationsEnabled = true;
+    let activeAnimations = []; // Queue of active animations
+    let animationCallbacks = []; // Callbacks to execute after all animations complete
+    // Each animation: { type, fromQ, fromR, toQ, toR, startTime, duration, piece, opacity, scale, onComplete }
+
     // Color palettes
     const schemes = {
         modern: {
@@ -202,11 +208,290 @@ const GameGraphics = (function () {
             centerY = targetCenterY;
         }
 
+        // Process active animations
+        if (activeAnimations.length > 0) {
+            changed = true;
+            processAnimations();
+        }
+
         if (changed) {
             drawGrid();
         }
 
         requestAnimationFrame(animateView);
+    }
+
+    /**
+     * Easing function - ease out cubic for smooth deceleration
+     */
+    function easeOutCubic(t) {
+        return 1 - Math.pow(1 - t, 3);
+    }
+
+    /**
+     * Linear interpolation
+     */
+    function lerp(start, end, t) {
+        return start + (end - start) * t;
+    }
+
+    /**
+     * Get animation duration from game.js
+     */
+    function getAnimationDuration() {
+        return window.getAnimationDuration ? window.getAnimationDuration() : 200;
+    }
+
+    /**
+     * Set animations enabled state
+     */
+    function setAnimationsEnabled(enabled) {
+        animationsEnabled = enabled;
+    }
+
+    /**
+     * Check if animations are currently playing
+     */
+    function isAnimating() {
+        return activeAnimations.length > 0;
+    }
+
+    /**
+     * Process all active animations
+     */
+    function processAnimations() {
+        const now = performance.now();
+        const completedAnimations = [];
+
+        for (let i = activeAnimations.length - 1; i >= 0; i--) {
+            const anim = activeAnimations[i];
+            const elapsed = now - anim.startTime;
+            const progress = Math.min(elapsed / anim.duration, 1);
+            anim.progress = easeOutCubic(progress);
+
+            if (progress >= 1) {
+                completedAnimations.push(anim);
+                activeAnimations.splice(i, 1);
+            }
+        }
+
+        // Execute callbacks for completed animations
+        completedAnimations.forEach(anim => {
+            if (anim.onComplete) {
+                anim.onComplete();
+            }
+        });
+
+        // If all animations are done, execute queued callbacks
+        if (activeAnimations.length === 0 && animationCallbacks.length > 0) {
+            const callbacks = [...animationCallbacks];
+            animationCallbacks = [];
+            callbacks.forEach(cb => cb());
+        }
+    }
+
+    /**
+     * Queue a piece movement animation
+     * @param {number} fromQ - Starting Q coordinate
+     * @param {number} fromR - Starting R coordinate
+     * @param {number} toQ - Ending Q coordinate
+     * @param {number} toR - Ending R coordinate
+     * @param {Object} piece - The piece being moved {type, color}
+     * @param {Function} onComplete - Callback when animation completes
+     */
+    function queueMoveAnimation(fromQ, fromR, toQ, toR, piece, onComplete) {
+        if (!animationsEnabled) {
+            if (onComplete) onComplete();
+            return;
+        }
+
+        activeAnimations.push({
+            type: 'move',
+            fromQ, fromR,
+            toQ, toR,
+            piece: { ...piece },
+            startTime: performance.now(),
+            duration: getAnimationDuration(),
+            progress: 0,
+            onComplete
+        });
+    }
+
+    /**
+     * Queue a multi-jump animation sequence (each jump animated one at a time)
+     * @param {Array} path - Array of {q, r} positions
+     * @param {Object} piece - The piece being moved
+     * @param {Function} onComplete - Callback when all jumps complete
+     */
+    function queueJumpSequence(path, piece, onComplete) {
+        if (!animationsEnabled || !path || path.length < 2) {
+            if (onComplete) onComplete();
+            return;
+        }
+
+        // Chain animations: each jump starts after the previous one completes
+        let currentIndex = 0;
+
+        function animateNextJump() {
+            if (currentIndex >= path.length - 1) {
+                if (onComplete) onComplete();
+                return;
+            }
+
+            const from = path[currentIndex];
+            const to = path[currentIndex + 1];
+            currentIndex++;
+
+            queueMoveAnimation(from.q, from.r, to.q, to.r, piece, animateNextJump);
+        }
+
+        animateNextJump();
+    }
+
+    /**
+     * Queue a multi-jump animation sequence with captures at each segment
+     * Each jump is followed by its capture animation (if any), then the next jump
+     * @param {Array} path - Array of {q, r} positions for the jump path
+     * @param {Object} piece - The piece being moved
+     * @param {Array} capturedPieces - Array of {q, r, piece} for all captured pieces
+     * @param {Function} onComplete - Callback when all animations complete
+     */
+    function queueJumpSequenceWithCaptures(path, piece, capturedPieces, onComplete) {
+        if (!animationsEnabled || !path || path.length < 2) {
+            if (onComplete) onComplete();
+            return;
+        }
+
+        // For each segment of the path, find if there's a capture in between
+        // In hex grid, the jumped piece is at the midpoint between from and to
+        let currentIndex = 0;
+
+        function animateNextSegment() {
+            if (currentIndex >= path.length - 1) {
+                if (onComplete) onComplete();
+                return;
+            }
+
+            const from = path[currentIndex];
+            const to = path[currentIndex + 1];
+            currentIndex++;
+
+            // Calculate the midpoint (the jumped-over hex)
+            const midQ = (from.q + to.q) / 2;
+            const midR = (from.r + to.r) / 2;
+
+            // Find if there's a captured piece at this midpoint
+            const captureAtMid = capturedPieces.find(cap => 
+                cap.q === midQ && cap.r === midR
+            );
+
+            // Queue the movement animation
+            queueMoveAnimation(from.q, from.r, to.q, to.r, piece, () => {
+                // After movement completes, queue capture animation if there was a capture
+                if (captureAtMid) {
+                    queueCaptureAnimation(captureAtMid.q, captureAtMid.r, captureAtMid.piece, () => {
+                        // After capture animation, continue to next segment
+                        animateNextSegment();
+                    });
+                } else {
+                    // No capture, continue to next segment
+                    animateNextSegment();
+                }
+            });
+        }
+
+        animateNextSegment();
+    }
+
+    /**
+     * Queue a capture (fade-out) animation
+     * @param {number} q - Q coordinate of captured piece
+     * @param {number} r - R coordinate of captured piece
+     * @param {Object} piece - The piece being captured
+     * @param {Function} onComplete - Callback when animation completes
+     */
+    function queueCaptureAnimation(q, r, piece, onComplete) {
+        if (!animationsEnabled) {
+            if (onComplete) onComplete();
+            return;
+        }
+
+        activeAnimations.push({
+            type: 'capture',
+            q, r,
+            piece: { ...piece },
+            startTime: performance.now(),
+            duration: getAnimationDuration(),
+            progress: 0,
+            onComplete
+        });
+    }
+
+    /**
+     * Queue a tile placement (scale-in) animation
+     * @param {number} q - Q coordinate
+     * @param {number} r - R coordinate
+     * @param {string} color - Tile color
+     * @param {Function} onComplete - Callback when animation completes
+     */
+    function queueTilePlacementAnimation(q, r, color, onComplete) {
+        if (!animationsEnabled) {
+            if (onComplete) onComplete();
+            return;
+        }
+
+        activeAnimations.push({
+            type: 'tilePlacement',
+            q, r,
+            color,
+            startTime: performance.now(),
+            duration: getAnimationDuration(),
+            progress: 0,
+            onComplete
+        });
+    }
+
+    /**
+     * Queue a piece placement (pop-in) animation
+     * @param {number} q - Q coordinate
+     * @param {number} r - R coordinate
+     * @param {Object} piece - The piece being placed
+     * @param {Function} onComplete - Callback when animation completes
+     */
+    function queuePiecePlacementAnimation(q, r, piece, onComplete) {
+        if (!animationsEnabled) {
+            if (onComplete) onComplete();
+            return;
+        }
+
+        activeAnimations.push({
+            type: 'piecePlacement',
+            q, r,
+            piece: { ...piece },
+            startTime: performance.now(),
+            duration: getAnimationDuration(),
+            progress: 0,
+            onComplete
+        });
+    }
+
+    /**
+     * Add a callback to execute when all animations complete
+     */
+    function onAllAnimationsComplete(callback) {
+        if (activeAnimations.length === 0) {
+            callback();
+        } else {
+            animationCallbacks.push(callback);
+        }
+    }
+
+    /**
+     * Clear all active animations
+     */
+    function clearAnimations() {
+        activeAnimations = [];
+        animationCallbacks = [];
     }
 
     /**
@@ -581,6 +866,24 @@ const GameGraphics = (function () {
         ctx.fillStyle = schemes[colorScheme].bg;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+        // Collect positions that are being animated (to skip drawing static pieces there)
+        const animatedFromPositions = new Set();
+        const animatedToPositions = new Set();
+        activeAnimations.forEach(anim => {
+            if (anim.type === 'move') {
+                // Don't draw static piece at destination during move animation
+                animatedToPositions.add(`${anim.toQ},${anim.toR}`);
+            }
+            if (anim.type === 'capture') {
+                // Don't draw static piece at capture position
+                animatedFromPositions.add(`${anim.q},${anim.r}`);
+            }
+            if (anim.type === 'piecePlacement') {
+                // Don't draw static piece during placement animation
+                animatedToPositions.add(`${anim.q},${anim.r}`);
+            }
+        });
+
         // Draw all hexes and contents
         for (let q = -radius; q <= radius; q++) {
             for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
@@ -589,25 +892,33 @@ const GameGraphics = (function () {
                     drawHex(x, y, hexSize, schemes[colorScheme].border);
                 }
                 const key = `${q},${r}`;
-                if (tiles[key]) {
+                
+                // Handle tile animations
+                const tileAnim = activeAnimations.find(a => a.type === 'tilePlacement' && a.q === q && a.r === r);
+                if (tileAnim) {
+                    // Draw tile with scale animation
+                    drawTileAnimated(x, y, tileAnim.color, colorScheme, tileAnim.progress);
+                } else if (tiles[key]) {
                     drawTile(x, y, tiles[key], colorScheme);
-                    if (pieces[key]) {
-                        drawPiece(x, y, pieces[key], colorScheme);
-                        if (selectedPiece && selectedPiece.q === q && selectedPiece.r === r) {
-                            ctx.save();
-                            ctx.beginPath();
-                            ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
-                            ctx.strokeStyle = 'orange';
-                            ctx.lineWidth = 4;
-                            ctx.setLineDash([4, 4]);
-                            ctx.stroke();
-                            ctx.setLineDash([]);
-                            ctx.restore();
-                        }
-                        if (multiJumping && multiJumpPos && multiJumpPos.q === q && multiJumpPos.r === r) {
-                            if (isGameStateChanged()) {
-                                result.endTurnBtnBounds = drawEndTurnButton(x, y, q, r);
-                            }
+                }
+                
+                // Draw static pieces (skip if being animated)
+                if (tiles[key] && pieces[key] && !animatedToPositions.has(key) && !animatedFromPositions.has(key)) {
+                    drawPiece(x, y, pieces[key], colorScheme);
+                    if (selectedPiece && selectedPiece.q === q && selectedPiece.r === r) {
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.arc(x, y, hexSize * 0.45, 0, 2 * Math.PI);
+                        ctx.strokeStyle = 'orange';
+                        ctx.lineWidth = 4;
+                        ctx.setLineDash([4, 4]);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                        ctx.restore();
+                    }
+                    if (multiJumping && multiJumpPos && multiJumpPos.q === q && multiJumpPos.r === r) {
+                        if (isGameStateChanged()) {
+                            result.endTurnBtnBounds = drawEndTurnButton(x, y, q, r);
                         }
                     }
                 }
@@ -659,9 +970,78 @@ const GameGraphics = (function () {
             }
         }
 
+        // Draw animated elements on top
+        drawAnimatedElements(colorScheme);
+
         drawInventory();
 
         return result;
+    }
+
+    /**
+     * Draw all animated elements (pieces moving, captures fading, placements scaling)
+     */
+    function drawAnimatedElements(colorScheme) {
+        activeAnimations.forEach(anim => {
+            if (anim.type === 'move') {
+                // Interpolate position
+                const fromPixel = hexToPixel(anim.fromQ, anim.fromR, hexSize);
+                const toPixel = hexToPixel(anim.toQ, anim.toR, hexSize);
+                const currentX = lerp(fromPixel[0], toPixel[0], anim.progress);
+                const currentY = lerp(fromPixel[1], toPixel[1], anim.progress);
+                
+                drawPiece(currentX, currentY, anim.piece, colorScheme);
+            } else if (anim.type === 'capture') {
+                // Fade out with opacity
+                const [x, y] = hexToPixel(anim.q, anim.r, hexSize);
+                const opacity = 1 - anim.progress;
+                drawPieceWithOpacity(x, y, anim.piece, colorScheme, opacity);
+            } else if (anim.type === 'piecePlacement') {
+                // Scale in from small to full size
+                const [x, y] = hexToPixel(anim.q, anim.r, hexSize);
+                const scale = anim.progress;
+                drawPieceWithScale(x, y, anim.piece, colorScheme, scale);
+            }
+        });
+    }
+
+    /**
+     * Draw a piece with opacity (for capture fade-out)
+     */
+    function drawPieceWithOpacity(cx, cy, piece, scheme, opacity) {
+        if (!piece || opacity <= 0) return;
+        ctx.save();
+        ctx.globalAlpha = opacity;
+        drawPiece(cx, cy, piece, scheme);
+        ctx.restore();
+    }
+
+    /**
+     * Draw a piece with scale (for placement pop-in)
+     */
+    function drawPieceWithScale(cx, cy, piece, scheme, scale) {
+        if (!piece || scale <= 0) return;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(scale, scale);
+        ctx.translate(-cx, -cy);
+        drawPiece(cx, cy, piece, scheme);
+        ctx.restore();
+    }
+
+    /**
+     * Draw a tile with scale animation (for placement)
+     */
+    function drawTileAnimated(cx, cy, color, scheme, progress) {
+        const scale = progress;
+        if (scale <= 0) return;
+        
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(scale, scale);
+        ctx.translate(-cx, -cy);
+        drawTile(cx, cy, color, scheme);
+        ctx.restore();
     }
 
     /**
@@ -761,7 +1141,18 @@ const GameGraphics = (function () {
         schemes,
         getHexSize: function () { return hexSize; },
         getCenterX: function () { return centerX; },
-        getCenterY: function () { return centerY; }
+        getCenterY: function () { return centerY; },
+        // Animation API
+        setAnimationsEnabled,
+        isAnimating,
+        queueMoveAnimation,
+        queueJumpSequence,
+        queueJumpSequenceWithCaptures,
+        queueCaptureAnimation,
+        queueTilePlacementAnimation,
+        queuePiecePlacementAnimation,
+        onAllAnimationsComplete,
+        clearAnimations
     };
 })();
 

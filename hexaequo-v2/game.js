@@ -20,6 +20,10 @@ let showPreviousMove = true;
 let validMovesHighlights = []; // Array of { q, r, type: 'tile'|'piece'|'move' }
 let globalDrawGrid = null; // Reference to drawGrid function for redraw triggering
 
+// Animation settings
+let animationsEnabled = true;
+const ANIMATION_DURATION_MS = 200; // Duration for all animations in milliseconds - easy to change globally
+
 // Toggle between AI and 2-player modes
 function toggleGameMode(aiMode) {
     isAiMode = aiMode;
@@ -82,6 +86,19 @@ function setShowPreviousMove(enabled) {
     }
 }
 
+function setAnimationsEnabled(enabled) {
+    animationsEnabled = enabled;
+    console.log('Animations enabled:', animationsEnabled);
+    // Update graphics module
+    if (window.GameGraphics && window.GameGraphics.setAnimationsEnabled) {
+        window.GameGraphics.setAnimationsEnabled(enabled);
+    }
+}
+
+function getAnimationDuration() {
+    return ANIMATION_DURATION_MS;
+}
+
 // Expose to global scope
 window.toggleGameMode = toggleGameMode;
 window.isAiMode = isAiMode;
@@ -89,6 +106,8 @@ window.setSoundEnabled = setSoundEnabled;
 window.setAiDifficulty = setAiDifficulty;
 window.setShowValidMoves = setShowValidMoves;
 window.setShowPreviousMove = setShowPreviousMove;
+window.setAnimationsEnabled = setAnimationsEnabled;
+window.getAnimationDuration = getAnimationDuration;
 window.setOnlineMode = setOnlineMode;
 window.isMyTurn = isMyTurn;
 
@@ -1548,6 +1567,14 @@ window.onload = function () {
     // Apply the updated game state received from the AI
     // jumpPathParam: optional array of {q, r} positions for multi-jump path highlighting
     function applyGameState(updatedState, previousState, jumpPathParam = null) {
+        
+        // Determine the effective jump path (from param or from AI's lastJumpPath)
+        const effectiveJumpPath = jumpPathParam || updatedState.lastJumpPath || null;
+        
+        // Queue animations if enabled
+        if (animationsEnabled && GameGraphics && GameGraphics.queueMoveAnimation) {
+            queueAnimationsForStateChange(previousState, updatedState, effectiveJumpPath);
+        }
 
         // Play sound for tile placement
         for (const key in updatedState.tiles) {
@@ -1633,6 +1660,109 @@ window.onload = function () {
         enableInteractions();
 
         checkGameEnd(); // Check if the game has ended after applying AI's move
+    }
+
+    /**
+     * Queue animations based on state changes
+     * Detects tile placements, piece placements, moves, and captures
+     */
+    function queueAnimationsForStateChange(previousState, updatedState, jumpPathParam) {
+        const opponent = updatedState.activePlayer;
+        const player = opponent === 'black' ? 'white' : 'black';
+
+        // 1. Detect and animate tile placements
+        for (const key in updatedState.tiles) {
+            if (!previousState.tiles[key] && updatedState.tiles[key]) {
+                const [q, r] = key.split(',').map(Number);
+                GameGraphics.queueTilePlacementAnimation(q, r, updatedState.tiles[key]);
+            }
+        }
+
+        // 2. Detect all captures (pieces that existed before but not after, or were replaced by opponent)
+        const capturedPieces = [];
+        for (const key in previousState.pieces) {
+            const prevPiece = previousState.pieces[key];
+            const currPiece = updatedState.pieces[key];
+            
+            if (prevPiece && prevPiece.color === opponent) {
+                // Piece was removed entirely (disc jump capture)
+                if (!currPiece) {
+                    const [q, r] = key.split(',').map(Number);
+                    capturedPieces.push({ q, r, piece: prevPiece });
+                }
+                // Piece was replaced by player's piece (ring capture - lands on captured position)
+                else if (currPiece && currPiece.color === player) {
+                    const [q, r] = key.split(',').map(Number);
+                    capturedPieces.push({ q, r, piece: prevPiece });
+                }
+            }
+        }
+
+        // 3. Detect piece movements and placements
+        // Find piece that moved (same type and color, different position)
+        let movedFrom = null;
+        let movedTo = null;
+        let movedPiece = null;
+
+        // Find pieces that were removed (moved from)
+        for (const key in previousState.pieces) {
+            if (previousState.pieces[key] && previousState.pieces[key].color === player) {
+                if (!updatedState.pieces[key]) {
+                    movedFrom = key;
+                    movedPiece = previousState.pieces[key];
+                }
+            }
+        }
+
+        // Find pieces that were added (moved to or placed)
+        for (const key in updatedState.pieces) {
+            if (updatedState.pieces[key] && updatedState.pieces[key].color === player) {
+                if (!previousState.pieces[key] || previousState.pieces[key].color !== player) {
+                    movedTo = key;
+                    if (!movedPiece) {
+                        movedPiece = updatedState.pieces[key];
+                    }
+                }
+            }
+        }
+
+        // Determine if it's a move or a placement
+        if (movedFrom && movedTo && movedPiece) {
+            // It's a move
+            const [fromQ, fromR] = movedFrom.split(',').map(Number);
+            const [toQ, toR] = movedTo.split(',').map(Number);
+
+            // Check if we have a jump path for multi-jump animation
+            let path = null;
+            if (jumpPathParam && jumpPathParam.length > 1) {
+                if (typeof jumpPathParam[0] === 'string') {
+                    // AI format: ["q,r", "q,r", ...]
+                    path = jumpPathParam.map(pos => {
+                        const [q, r] = pos.split(',').map(Number);
+                        return { q, r };
+                    });
+                } else {
+                    // Game format: [{q, r}, {q, r}, ...]
+                    path = jumpPathParam;
+                }
+            }
+
+            if (path && path.length > 1) {
+                // Multi-jump: animate each jump with its capture sequentially
+                GameGraphics.queueJumpSequenceWithCaptures(path, movedPiece, capturedPieces);
+            } else {
+                // Single move (adjacent move or single jump or ring move)
+                // Queue capture animation to play alongside movement
+                capturedPieces.forEach(cap => {
+                    GameGraphics.queueCaptureAnimation(cap.q, cap.r, cap.piece);
+                });
+                GameGraphics.queueMoveAnimation(fromQ, fromR, toQ, toR, movedPiece);
+            }
+        } else if (movedTo && movedPiece && !movedFrom) {
+            // It's a piece placement (disc or ring from inventory)
+            const [q, r] = movedTo.split(',').map(Number);
+            GameGraphics.queuePiecePlacementAnimation(q, r, movedPiece);
+        }
     }
 
     // Function to calculate the last move made and store it in lastMove
