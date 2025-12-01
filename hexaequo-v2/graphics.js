@@ -706,8 +706,20 @@ const GameGraphics = (function () {
             ctx.strokeStyle = 'gray';
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.moveTo(fromX, fromY);
-            ctx.lineTo(toX, toY);
+            
+            // If we have a path with multiple positions, draw each segment
+            if (lastMove.path && lastMove.path.length > 1) {
+                const [startX, startY] = hexToPixel(lastMove.path[0].q, lastMove.path[0].r, hexSize);
+                ctx.moveTo(startX, startY);
+                for (let i = 1; i < lastMove.path.length; i++) {
+                    const [px, py] = hexToPixel(lastMove.path[i].q, lastMove.path[i].r, hexSize);
+                    ctx.lineTo(px, py);
+                }
+            } else {
+                // Fallback to simple from->to line
+                ctx.moveTo(fromX, fromY);
+                ctx.lineTo(toX, toY);
+            }
             ctx.stroke();
 
             ctx.beginPath();

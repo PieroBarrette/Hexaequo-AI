@@ -116,6 +116,9 @@ window.onload = function () {
     let multiJumpPos = null; // {q, r} of the piece in multi-jump
     let turnStartState = null; // State at the beginning of a multi-jump sequence
     let turnStartPiecePos = null; // Position of the piece at the start of the sequence
+    let jumpPath = []; // Array of {q, r} positions visited during a multi-jump sequence
+    let lastJumpPath = null; // Stores the jump path to pass to highlightLastMove
+    let jumpPathForOnline = null; // Stores jump path to send with online moves
 
     // Move history for undo/redo functionality
     let moveHistory = []; // Array of {gameState, moveType}
@@ -591,10 +594,15 @@ window.onload = function () {
         endTurnBtnBounds = null;
         turnStartState = null;
         turnStartPiecePos = null;
+        // Store the jump path before clearing
+        lastJumpPath = jumpPath.length > 1 ? [...jumpPath] : null;
+        jumpPathForOnline = lastJumpPath; // Store for online move sending
+        jumpPath = [];
         //recordMove('turn');
         activePlayer = activePlayer === 'black' ? 'white' : 'black';
         updatedState = serializeGameState();
-        applyGameState(updatedState, gameState);
+        applyGameState(updatedState, gameState, lastJumpPath);
+        lastJumpPath = null;
     }
 
     function placeDisc(q, r) {
@@ -751,7 +759,11 @@ window.onload = function () {
         if (!multiJumping) {
             turnStartState = JSON.parse(JSON.stringify(gameState));
             turnStartPiecePos = { q: sq, r: sr };
+            // Start tracking jump path from the starting position
+            jumpPath = [{ q: sq, r: sr }];
         }
+        // Add landing position to jump path
+        jumpPath.push({ q: landingQ, r: landingR });
 
         if (pieces[jumpKey].type === 'disc' && pieces[jumpKey].color !== activePlayer) {
             captured[activePlayer].disc++;
@@ -780,10 +792,15 @@ window.onload = function () {
             multiJumpPos = null;
             endTurnBtnBounds = null;
             window.jumpHistory = [];
+            // Store the jump path before clearing
+            lastJumpPath = jumpPath.length > 1 ? [...jumpPath] : null;
+            jumpPathForOnline = lastJumpPath; // Store for online move sending
+            jumpPath = [];
             //recordMove('jump');
             activePlayer = activePlayer === 'black' ? 'white' : 'black';
             updatedState = serializeGameState();
-            applyGameState(updatedState, gameState);
+            applyGameState(updatedState, gameState, lastJumpPath);
+            lastJumpPath = null;
         }
     }
 
@@ -874,7 +891,8 @@ window.onload = function () {
 
         // Send move to server if in online mode and it was our turn (turn has now switched)
         if (isOnlineMode && stateBefore && !isMyTurn(activePlayer) && canvas.style.pointerEvents !== 'none') {
-            sendOnlineMove(stateBefore);
+            sendOnlineMove(stateBefore, jumpPathForOnline);
+            jumpPathForOnline = null; // Clear after sending
         }
 
         // Serialize the board and send it to the AI if in AI mode
@@ -895,7 +913,8 @@ window.onload = function () {
 
         // Send move to server if in online mode and it was our turn (turn has now switched)
         if (isOnlineMode && stateBefore && !isMyTurn(activePlayer) && canvas.style.pointerEvents !== 'none') {
-            sendOnlineMove(stateBefore);
+            sendOnlineMove(stateBefore, jumpPathForOnline);
+            jumpPathForOnline = null; // Clear after sending
         }
 
         // Serialize the board and send it to the AI if in AI mode
@@ -1435,7 +1454,8 @@ window.onload = function () {
     }
 
     // Apply the updated game state received from the AI
-    function applyGameState(updatedState, previousState) {
+    // jumpPathParam: optional array of {q, r} positions for multi-jump path highlighting
+    function applyGameState(updatedState, previousState, jumpPathParam = null) {
 
         // Play sound for tile placement
         for (const key in updatedState.tiles) {
@@ -1508,7 +1528,9 @@ window.onload = function () {
         //Use currentMoveIndex and moveHistory to call the highlightLastMove function
         if (moveHistory[currentMoveIndex - 1]) {
             const prevState = moveHistory[currentMoveIndex - 1].gameState;
-            highlightLastMove(prevState, updatedState);
+            // Use jumpPathParam if provided, otherwise check if AI returned a path
+            const pathToUse = jumpPathParam || updatedState.lastJumpPath || null;
+            highlightLastMove(prevState, updatedState, pathToUse);
         }
 
         // Redraw the grid
@@ -1520,7 +1542,8 @@ window.onload = function () {
     }
 
     // Function to calculate the last move made and store it in lastMove
-    function highlightLastMove(previousState, updatedState) {
+    // jumpPathParam: optional array of {q, r} positions for multi-jump path
+    function highlightLastMove(previousState, updatedState, jumpPathParam = null) {
         lastMove = null;
         const activePlayer = updatedState.activePlayer;
         const opponent = activePlayer === 'black' ? 'white' : 'black';
@@ -1570,7 +1593,21 @@ window.onload = function () {
                 const [q, r] = key.split(',').map(Number);
                 return { q, r };
             });
-            lastMove = { type: 'move', from: { q: fromQ, r: fromR }, to: { q: toQ, r: toR }, captured: capturedKeys };
+            // Convert AI path format ("q,r" strings) to {q, r} objects if needed
+            let path = null;
+            if (jumpPathParam && jumpPathParam.length > 1) {
+                if (typeof jumpPathParam[0] === 'string') {
+                    // AI format: ["q,r", "q,r", ...]
+                    path = jumpPathParam.map(pos => {
+                        const [q, r] = pos.split(',').map(Number);
+                        return { q, r };
+                    });
+                } else {
+                    // Game format: [{q, r}, {q, r}, ...]
+                    path = jumpPathParam;
+                }
+            }
+            lastMove = { type: 'move', from: { q: fromQ, r: fromR }, to: { q: toQ, r: toR }, captured: capturedKeys, path: path };
         }
     }
 
@@ -1702,11 +1739,11 @@ window.onload = function () {
     // ===== Online Multiplayer Functions =====
     
     // Send a move to the online server
-    function sendOnlineMove(previousState) {
+    function sendOnlineMove(previousState, jumpPathParam = null) {
         const currentState = serializeGameState();
         
         if (window.Multiplayer && window.Multiplayer.isOnlineMode) {
-            window.Multiplayer.sendMove(currentState, previousState)
+            window.Multiplayer.sendMove(currentState, previousState, jumpPathParam)
                 .then(() => {
                     console.log('Move sent to server');
                 })
@@ -1718,9 +1755,9 @@ window.onload = function () {
     }
 
     // Apply a move received from the online opponent
-    function applyOnlineMove(gameState, previousState) {
+    function applyOnlineMove(gameState, previousState, jumpPath = null) {
         if (previousState) {
-            applyGameState(gameState, previousState);
+            applyGameState(gameState, previousState, jumpPath);
         } else {
             // Initial state sync - just apply without sounds
             tiles = gameState.tiles;

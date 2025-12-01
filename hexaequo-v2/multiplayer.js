@@ -206,7 +206,7 @@ const Multiplayer = (function () {
     }
 
     // Send a move to the server
-    function sendMove(gameState, previousState) {
+    function sendMove(gameState, previousState, jumpPath = null) {
         return new Promise((resolve, reject) => {
             if (!socket || !socket.connected) {
                 reject(new Error('Not connected to server'));
@@ -222,7 +222,8 @@ const Multiplayer = (function () {
                 roomCode,
                 playerId,
                 gameState,
-                previousState
+                previousState,
+                jumpPath
             }, (response) => {
                 if (response.success) {
                     resolve();

@@ -567,8 +567,8 @@
             };
 
             window.Multiplayer.onOpponentMoved = (data) => {
-                // Apply opponent's move
-                window.applyOnlineMove(data.gameState, data.previousState);
+                // Apply opponent's move (includes jumpPath for multi-jump highlighting)
+                window.applyOnlineMove(data.gameState, data.previousState, data.jumpPath);
             };
 
             window.Multiplayer.onOpponentDisconnected = () => {

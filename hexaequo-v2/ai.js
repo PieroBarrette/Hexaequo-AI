@@ -302,6 +302,10 @@ function getChildren(state, branchPrefix) {
         simulateDiscJumpSequence(newState, jumpSequence);
         newState.activePlayer = player === 'black' ? 'white' : 'black';
         newState.branch = `${branchPrefix}.${moveIndex}`;
+        // Attach the jump path for highlighting (only at depth 1, i.e., direct children)
+        if (branchPrefix === '1') {
+            newState.lastJumpPath = jumpSequence;
+        }
         children.push(newState);
         moveIndex++;
     }

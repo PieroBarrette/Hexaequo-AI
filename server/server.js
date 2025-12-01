@@ -278,7 +278,7 @@ io.on('connection', (socket) => {
     // Handle move
     socket.on('make-move', (data, callback) => {
         try {
-            const { roomCode, playerId, gameState, previousState } = data;
+            const { roomCode, playerId, gameState, previousState, jumpPath } = data;
             const room = statements.getRoom.get(roomCode);
 
             if (!room) {
@@ -303,10 +303,11 @@ io.on('connection', (socket) => {
                 roomCode
             );
 
-            // Broadcast move to opponent
+            // Broadcast move to opponent (includes jumpPath for multi-jump highlighting)
             socket.to(roomCode).emit('opponent-moved', {
                 gameState,
-                previousState
+                previousState,
+                jumpPath
             });
 
             console.log(`Move in room ${roomCode} by ${player.color}`);
