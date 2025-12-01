@@ -617,6 +617,7 @@ window.onload = function () {
         lastJumpPath = jumpPath.length > 1 ? [...jumpPath] : null;
         jumpPathForOnline = lastJumpPath; // Store for online move sending
         jumpPath = [];
+        window.jumpHistory = []; // Clear jump history to prevent blocking valid jumps on next turn
         //recordMove('turn');
         activePlayer = activePlayer === 'black' ? 'white' : 'black';
         updatedState = serializeGameState();
@@ -1135,7 +1136,11 @@ window.onload = function () {
         resetButton.style.padding = '10px 20px';
         resetButton.style.fontSize = '16px';
         resetButton.style.cursor = 'pointer';
-        resetButton.addEventListener('click', resetGame);
+        resetButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            resetGame();
+        });
         gameOverDiv.appendChild(resetButton);
 
         document.body.appendChild(gameOverDiv);
@@ -1509,6 +1514,7 @@ window.onload = function () {
         multiJumping = false;
         multiJumpPos = null;
         lastMove = null;
+        window.jumpHistory = []; // Clear jump history on reset
 
         // Set initial tiles and pieces
         tiles['0,0'] = 'black';
@@ -1522,7 +1528,7 @@ window.onload = function () {
         // Remove game over UI
         const gameOverDiv = document.getElementById('gameOver');
         if (gameOverDiv) {
-            document.body.removeChild(gameOverDiv);
+            gameOverDiv.remove();
         }
 
         // Re-enable interactions after game reset
