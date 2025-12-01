@@ -960,18 +960,41 @@ window.onload = function () {
         const whiteCaptured = captured.white;
 
         // Check if a player has captured 6 opponent discs or 3 opponent rings
-        if (blackCaptured.disc >= 6 || blackCaptured.ring >= 3 || !hasActivePieces('white')) {
-            endGame('Black');
+        if (blackCaptured.disc >= 6) {
+            endGame('Black', 'capturing 6 discs');
             return true;
         }
-        if (whiteCaptured.disc >= 6 || whiteCaptured.ring >= 3 || !hasActivePieces('black')) {
-            endGame('White');
+        if (blackCaptured.ring >= 3) {
+            endGame('Black', 'capturing 3 rings');
+            return true;
+        }
+        if (!hasActivePieces('white')) {
+            endGame('Black', 'eliminating all opponent pieces');
+            return true;
+        }
+        
+        if (whiteCaptured.disc >= 6) {
+            endGame('White', 'capturing 6 discs');
+            return true;
+        }
+        if (whiteCaptured.ring >= 3) {
+            endGame('White', 'capturing 3 rings');
+            return true;
+        }
+        if (!hasActivePieces('black')) {
+            endGame('White', 'eliminating all opponent pieces');
             return true;
         }
 
         // Stalemate: if active player has no legal move, declare Ex Aequo!
         if (!hasAnyLegalMove(activePlayer)) {
-            endGame('Ex Aequo!');
+            endGame('Ex Aequo', 'stalemate');
+            return true;
+        }
+
+        // Threefold repetition: same position occurred 3 times
+        if (checkThreefoldRepetition()) {
+            endGame('Ex Aequo', 'threefold repetition');
             return true;
         }
 
@@ -1041,7 +1064,9 @@ window.onload = function () {
     }
 
     // End the game and display the winner
-    function endGame(winner) {
+    // winner: 'Black', 'White', or 'Ex Aequo'
+    // reason: explanation for why the game ended (e.g., 'capturing 6 discs', 'stalemate', 'threefold repetition')
+    function endGame(winner, reason = '') {
         playSound('gameEnd');
         const gameOverDiv = document.createElement('div');
         gameOverDiv.id = 'gameOver';
@@ -1057,11 +1082,33 @@ window.onload = function () {
         gameOverDiv.style.borderRadius = '8px';
 
         const winnerText = document.createElement('p');
-        winnerText.textContent = winner === 'Ex Aequo!' ? 'Ex Aequo!' : `${winner} wins the game!`;
-        winnerText.style.fontSize = '20px';
+        let messageText;
+        if (winner === 'Ex Aequo') {
+            messageText = 'Ex Aequo!';
+        } else {
+            messageText = `${winner} wins!`;
+        }
+        winnerText.textContent = messageText;
+        winnerText.style.fontSize = '24px';
         winnerText.style.fontWeight = 'bold';
-        winnerText.style.color = '#000'; // Set text color to black for contrast
+        winnerText.style.color = '#000';
+        winnerText.style.marginBottom = '8px';
         gameOverDiv.appendChild(winnerText);
+
+        // Add reason text
+        if (reason) {
+            const reasonText = document.createElement('p');
+            if (winner === 'Ex Aequo') {
+                reasonText.textContent = `by ${reason}`;
+            } else {
+                reasonText.textContent = `by ${reason}`;
+            }
+            reasonText.style.fontSize = '16px';
+            reasonText.style.color = '#555';
+            reasonText.style.marginTop = '0';
+            reasonText.style.marginBottom = '16px';
+            gameOverDiv.appendChild(reasonText);
+        }
 
         const resetButton = document.createElement('button');
         resetButton.textContent = 'Reset Game';
@@ -1078,14 +1125,52 @@ window.onload = function () {
         disableInteractions();
     }
 
+    // Generate a hash string representing the current game state
+    // Used for threefold repetition detection (like in chess)
+    // Includes tiles, pieces, activePlayer, and inventory
+    function getPositionHash(gameState) {
+        // Sort keys for consistent ordering
+        const tilesStr = Object.keys(gameState.tiles).sort().map(k => `${k}:${gameState.tiles[k]}`).join('|');
+        const piecesStr = Object.keys(gameState.pieces).sort().map(k => {
+            const p = gameState.pieces[k];
+            return `${k}:${p.type}:${p.color}`;
+        }).join('|');
+        // Include inventory in the hash
+        const inv = gameState.inventory;
+        const inventoryStr = `b:${inv.black.tiles},${inv.black.discs},${inv.black.rings}|w:${inv.white.tiles},${inv.white.discs},${inv.white.rings}`;
+        return `${gameState.activePlayer}#${tilesStr}#${piecesStr}#${inventoryStr}`;
+    }
+
+    // Check if the current position has occurred 3 times (threefold repetition)
+    function checkThreefoldRepetition() {
+        if (moveHistory.length < 5) return false; // Need at least 5 moves for repetition
+        
+        const positionCounts = {};
+        
+        // Count occurrences of each position hash in the history
+        for (let i = 0; i <= currentMoveIndex; i++) {
+            const entry = moveHistory[i];
+            if (entry && entry.positionHash) {
+                positionCounts[entry.positionHash] = (positionCounts[entry.positionHash] || 0) + 1;
+                if (positionCounts[entry.positionHash] >= 3) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    }
+
     // Record initial state when game starts or resets
     function recordInitialState() {
         isRestoringState = true; // Prevent any move recording
         
         const currentState = serializeGameState();
+        const positionHash = getPositionHash(currentState);
         moveHistory = [{
             gameState: JSON.parse(JSON.stringify(currentState)),
             moveType: 'initial',
+            positionHash: positionHash,
             timestamp: Date.now()
         }];
         currentMoveIndex = 0;
@@ -1102,6 +1187,7 @@ window.onload = function () {
         if (isRestoringState) return;
         
         const currentState = serializeGameState();
+        const positionHash = getPositionHash(currentState);
         
         // If we're not at the end of history, truncate future moves
         if (currentMoveIndex < moveHistory.length - 1) {
@@ -1113,6 +1199,7 @@ window.onload = function () {
             gameState: JSON.parse(JSON.stringify(currentState)),
             moveType: moveType,
             jumpPath: jumpPathParam ? JSON.parse(JSON.stringify(jumpPathParam)) : null,
+            positionHash: positionHash,
             timestamp: Date.now()
         });
         currentMoveIndex++;
