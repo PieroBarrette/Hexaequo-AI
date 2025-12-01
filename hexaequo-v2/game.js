@@ -1096,7 +1096,8 @@ window.onload = function () {
     }
 
     // Record a move in the move history (called after each turn completes)
-    function recordMove(moveType) {
+    // jumpPathParam: optional array of positions for multi-jump path highlighting
+    function recordMove(moveType, jumpPathParam = null) {
         // Don't record moves while restoring from undo/redo
         if (isRestoringState) return;
         
@@ -1107,10 +1108,11 @@ window.onload = function () {
             moveHistory = moveHistory.slice(0, currentMoveIndex + 1);
         }
         
-        // Add the new move
+        // Add the new move (include jumpPath if provided for multi-jump highlighting)
         moveHistory.push({
             gameState: JSON.parse(JSON.stringify(currentState)),
             moveType: moveType,
+            jumpPath: jumpPathParam ? JSON.parse(JSON.stringify(jumpPathParam)) : null,
             timestamp: Date.now()
         });
         currentMoveIndex++;
@@ -1227,7 +1229,10 @@ window.onload = function () {
         //Use currentMoveIndex and moveHistory to call the highlightLastMove function
         if (moveHistory[currentMoveIndex - 1]) {
             const prevState = moveHistory[currentMoveIndex - 1].gameState;
-            highlightLastMove(prevState, savedState);
+            // Get jumpPath from the current history entry (the move that led to this state)
+            const currentEntry = moveHistory[currentMoveIndex];
+            const jumpPathFromHistory = currentEntry ? currentEntry.jumpPath : null;
+            highlightLastMove(prevState, savedState, jumpPathFromHistory);
         }
 
         // Update button states
@@ -1518,9 +1523,12 @@ window.onload = function () {
         // Update active player
         activePlayer = updatedState.activePlayer;
 
+        // Determine the jump path to use for recording
+        const pathToRecord = jumpPathParam || updatedState.lastJumpPath || null;
+
         //recordMove player's move only when the game state changed
         if (JSON.stringify(previousState) !== JSON.stringify(updatedState)) {
-            recordMove();
+            recordMove('move', pathToRecord);
         }
 
         updateDynamicLayout(); // Update targets based on new state
@@ -1528,9 +1536,8 @@ window.onload = function () {
         //Use currentMoveIndex and moveHistory to call the highlightLastMove function
         if (moveHistory[currentMoveIndex - 1]) {
             const prevState = moveHistory[currentMoveIndex - 1].gameState;
-            // Use jumpPathParam if provided, otherwise check if AI returned a path
-            const pathToUse = jumpPathParam || updatedState.lastJumpPath || null;
-            highlightLastMove(prevState, updatedState, pathToUse);
+            // Use the same path for highlighting
+            highlightLastMove(prevState, updatedState, pathToRecord);
         }
 
         // Redraw the grid
@@ -1586,28 +1593,37 @@ window.onload = function () {
             key => (!updatedState.pieces[key] || updatedState.pieces[key].color === opponent) && previousState.pieces[key].color === activePlayer
         );
 
+        // Convert jump path to consistent format
+        let path = null;
+        if (jumpPathParam && jumpPathParam.length > 1) {
+            if (typeof jumpPathParam[0] === 'string') {
+                // AI format: ["q,r", "q,r", ...]
+                path = jumpPathParam.map(pos => {
+                    const [q, r] = pos.split(',').map(Number);
+                    return { q, r };
+                });
+            } else {
+                // Game format: [{q, r}, {q, r}, ...]
+                path = jumpPathParam;
+            }
+        }
+
+        // Build captured positions array
+        const capturedKeys = capturedPieces.map(key => {
+            const [q, r] = key.split(',').map(Number);
+            return { q, r };
+        });
+
         if (movedFrom && movedTo) {
             const [fromQ, fromR] = movedFrom.split(',').map(Number);
             const [toQ, toR] = movedTo.split(',').map(Number);
-            const capturedKeys = capturedPieces.map(key => {
-                const [q, r] = key.split(',').map(Number);
-                return { q, r };
-            });
-            // Convert AI path format ("q,r" strings) to {q, r} objects if needed
-            let path = null;
-            if (jumpPathParam && jumpPathParam.length > 1) {
-                if (typeof jumpPathParam[0] === 'string') {
-                    // AI format: ["q,r", "q,r", ...]
-                    path = jumpPathParam.map(pos => {
-                        const [q, r] = pos.split(',').map(Number);
-                        return { q, r };
-                    });
-                } else {
-                    // Game format: [{q, r}, {q, r}, ...]
-                    path = jumpPathParam;
-                }
-            }
             lastMove = { type: 'move', from: { q: fromQ, r: fromR }, to: { q: toQ, r: toR }, captured: capturedKeys, path: path };
+        } else if (path && path.length > 1) {
+            // Edge case: disc returned to starting position (loop with captures)
+            // The piece didn't "move" between states, but we have the path
+            const from = path[0];
+            const to = path[path.length - 1];
+            lastMove = { type: 'move', from: from, to: to, captured: capturedKeys, path: path };
         }
     }
 
