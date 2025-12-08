@@ -585,7 +585,7 @@ window.onload = function () {
         const rect = canvas.getBoundingClientRect();
         let mx, my;
 
-        if (e.type === 'touchstart' || e.type === 'touchend') {
+        if (e.type === 'touchstart' || e.type === 'touchend' || e.type === 'touchmove') {
             const touch = e.changedTouches[0];
             mx = touch.clientX - rect.left;
             my = touch.clientY - rect.top;
