@@ -139,6 +139,16 @@ window.onload = function () {
     let lastJumpPath = null; // Stores the jump path to pass to highlightLastMove
     let jumpPathForOnline = null; // Stores jump path to send with online moves
 
+    // Drag and drop state
+    let isDragging = false;
+    let draggedPiece = null; // { q, r, piece: {type, color} } - original position and piece data
+    let dragCurrentX = 0; // Current canvas X position of dragged piece
+    let dragCurrentY = 0; // Current canvas Y position of dragged piece
+    let dragStartX = 0; // Starting canvas X position (for threshold detection)
+    let dragStartY = 0; // Starting canvas Y position (for threshold detection)
+    let dragThresholdMet = false; // Whether the drag threshold has been met
+    const DRAG_THRESHOLD = 8; // Minimum pixels to move before drag starts
+
     // Move history for undo/redo functionality
     let moveHistory = []; // Array of {gameState, moveType}
     let currentMoveIndex = 0; // Index of the current position in move history
@@ -233,7 +243,13 @@ window.onload = function () {
             showPreviousMove,
             isGameStateChanged,
             calculateAllValidMoves,
-            calculateValidMovesForPiece
+            calculateValidMovesForPiece,
+            // Drag and drop state
+            isDragging,
+            draggedPiece,
+            dragCurrentX,
+            dragCurrentY,
+            dragThresholdMet
         };
     }
 
@@ -690,7 +706,7 @@ window.onload = function () {
         return handleDiscJump(sq, sr, q, r);
     }
 
-    function performRingMove(sq, sr, q, r, isCapture) {
+    function performRingMove(sq, sr, q, r, isCapture, skipMoveAnimation = false) {
         gameState = serializeGameState();
         if (isCapture) {
             const capturedKey = `${q},${r}`;
@@ -704,10 +720,10 @@ window.onload = function () {
         //recordMove('ringMove');
         activePlayer = activePlayer === 'black' ? 'white' : 'black';
         updatedState = serializeGameState();
-        applyGameState(updatedState, gameState);
+        applyGameState(updatedState, gameState, null, false, false, skipMoveAnimation);
     }
 
-    function performAdjacentMove(sq, sr, q, r) {
+    function performAdjacentMove(sq, sr, q, r, skipMoveAnimation = false) {
         gameState = serializeGameState();
         pieces[`${q},${r}`] = { type: 'disc', color: activePlayer };
         delete pieces[`${sq},${sr}`];
@@ -719,7 +735,7 @@ window.onload = function () {
         //recordMove('adjacentMove');
         activePlayer = activePlayer === 'black' ? 'white' : 'black';
         updatedState = serializeGameState();
-        applyGameState(updatedState, gameState);
+        applyGameState(updatedState, gameState, null, false, false, skipMoveAnimation);
     }
 
     function handleDiscJump(sq, sr, q, r) {
@@ -774,7 +790,7 @@ window.onload = function () {
         return false;
     }
 
-    function performDiscJump(sq, sr, jq, jr, landingQ, landingR, jumpKey, landingKey) {
+    function performDiscJump(sq, sr, jq, jr, landingQ, landingR, jumpKey, landingKey, skipMoveAnimation = false) {
         gameState = serializeGameState();
 
         if (!multiJumping) {
@@ -786,10 +802,14 @@ window.onload = function () {
         // Add landing position to jump path
         jumpPath.push({ q: landingQ, r: landingR });
 
+        // Track if we captured something for animation purposes
+        let capturedPiece = null;
         if (pieces[jumpKey].type === 'disc' && pieces[jumpKey].color !== activePlayer) {
+            capturedPiece = { ...pieces[jumpKey] };
             captured[activePlayer].disc++;
             delete pieces[jumpKey];
         } else if (pieces[jumpKey].type === 'ring' && pieces[jumpKey].color !== activePlayer) {
+            capturedPiece = { ...pieces[jumpKey] };
             captured[activePlayer].ring++;
             delete pieces[jumpKey];
         }
@@ -806,6 +826,12 @@ window.onload = function () {
             multiJumping = true;
             multiJumpPos = { q: landingQ, r: landingR };
             endTurnBtnBounds = null;
+            
+            // If drag & drop with capture, animate the capture only
+            if (skipMoveAnimation && capturedPiece) {
+                GameGraphics.queueCaptureAnimation(jq, jr, capturedPiece);
+            }
+            
             drawGrid();
         } else {
             selectedPiece = null;
@@ -820,7 +846,7 @@ window.onload = function () {
             //recordMove('jump');
             activePlayer = activePlayer === 'black' ? 'white' : 'black';
             updatedState = serializeGameState();
-            applyGameState(updatedState, gameState, lastJumpPath);
+            applyGameState(updatedState, gameState, lastJumpPath, false, false, skipMoveAnimation);
             lastJumpPath = null;
         }
     }
@@ -898,8 +924,290 @@ window.onload = function () {
         return false;
     }
 
+    // ==================== Drag and Drop Handlers ====================
+
+    /**
+     * Check if a piece can be moved by the current player
+     */
+    function canPieceBeDragged(q, r, player) {
+        const key = `${q},${r}`;
+        const piece = pieces[key];
+        if (!piece || piece.color !== player) return false;
+
+        // In multi-jump mode, only the jumping piece can be moved
+        if (multiJumping && multiJumpPos) {
+            return q === multiJumpPos.q && r === multiJumpPos.r;
+        }
+
+        // Check if the piece has any valid moves
+        if (piece.type === 'disc') {
+            // Check adjacent moves (only if not in multi-jump)
+            for (const [nq, nr] of getNeighbors(q, r)) {
+                const nkey = `${nq},${nr}`;
+                if (tiles[nkey] && !pieces[nkey]) {
+                    return true;
+                }
+            }
+            // Check jump moves
+            const directions = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
+            for (const [dq, dr] of directions) {
+                const jq = q + dq;
+                const jr = r + dr;
+                const landingQ = q + 2 * dq;
+                const landingR = r + 2 * dr;
+                const jumpKey = `${jq},${jr}`;
+                const landingKey = `${landingQ},${landingR}`;
+                if (pieces[jumpKey] && tiles[landingKey] && !pieces[landingKey]) {
+                    // Prevent jumping over same friendly piece twice during multi-jump
+                    if (!(pieces[jumpKey].color === player && window.jumpHistory && window.jumpHistory.some(h => h.q === jq && h.r === jr))) {
+                        return true;
+                    }
+                }
+            }
+        } else if (piece.type === 'ring') {
+            const ringDirections = [[0, -2], [1, -2], [2, -2], [2, -1], [2, 0], [1, 1], [0, 2], [-1, 2], [-2, 2], [-2, 1], [-2, 0], [-1, -1]];
+            for (const [dq, dr] of ringDirections) {
+                const landingQ = q + dq;
+                const landingR = r + dr;
+                const landingKey = `${landingQ},${landingR}`;
+                if (tiles[landingKey]) {
+                    const targetPiece = pieces[landingKey];
+                    if (!targetPiece || targetPiece.color !== player) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Handle the start of a drag operation (mousedown/touchstart)
+     */
+    function handleDragStart(e) {
+        e.preventDefault();
+
+        // Block if not our turn in online mode
+        if (isOnlineMode && !isMyTurn(activePlayer)) {
+            return;
+        }
+
+        // Block if animations are playing
+        if (GameGraphics.isAnimating()) {
+            return;
+        }
+
+        const { mx, my } = getCanvasCoordinates(e);
+        const [q, r] = pixelToHex(mx, my);
+
+        // Check if clicking on a piece that can be dragged
+        if (!canPieceBeDragged(q, r, activePlayer)) {
+            return;
+        }
+
+        const key = `${q},${r}`;
+        const piece = pieces[key];
+
+        // Initialize drag state
+        dragStartX = mx;
+        dragStartY = my;
+        dragCurrentX = mx;
+        dragCurrentY = my;
+        draggedPiece = { q, r, piece: { ...piece } };
+        isDragging = true;
+        dragThresholdMet = false;
+
+        // Select the piece
+        selectedPiece = { q, r };
+
+        // Change cursor
+        canvas.style.cursor = 'grabbing';
+
+        drawGrid();
+    }
+
+    /**
+     * Handle drag movement (mousemove/touchmove)
+     */
+    function handleDragMove(e) {
+        if (!isDragging || !draggedPiece) return;
+
+        e.preventDefault();
+
+        const { mx, my } = getCanvasCoordinates(e);
+
+        // Check if threshold has been met
+        if (!dragThresholdMet) {
+            const distance = Math.hypot(mx - dragStartX, my - dragStartY);
+            if (distance >= DRAG_THRESHOLD) {
+                dragThresholdMet = true;
+            }
+        }
+
+        // Update drag position
+        dragCurrentX = mx;
+        dragCurrentY = my;
+
+        // Redraw to show piece following cursor
+        drawGrid();
+    }
+
+    /**
+     * Handle the end of a drag operation (mouseup/touchend)
+     */
+    function handleDragEnd(e) {
+        if (!isDragging || !draggedPiece) {
+            // Reset cursor just in case
+            canvas.style.cursor = 'default';
+            return;
+        }
+
+        e.preventDefault();
+
+        const { mx, my } = getCanvasCoordinates(e);
+        const [dropQ, dropR] = pixelToHex(mx, my);
+
+        // Reset cursor
+        canvas.style.cursor = 'default';
+
+        // If threshold was not met, treat as a click (selection only)
+        if (!dragThresholdMet) {
+            isDragging = false;
+            draggedPiece = null;
+            dragThresholdMet = false;
+            // selectedPiece is already set, just redraw
+            // Don't set dragJustCompleted - let the click event process normally for piece selection
+            drawGrid();
+            return;
+        }
+
+        // Threshold was met - this was a drag, suppress subsequent click event
+        dragJustCompleted = true;
+
+        const { q: fromQ, r: fromR, piece } = draggedPiece;
+
+        // Store state before handling for online mode
+        const stateBefore = isOnlineMode ? serializeGameState() : null;
+
+        // Try to execute the move
+        let moveExecuted = false;
+
+        if (piece.type === 'disc') {
+            // Check for adjacent move (only if not in multi-jump)
+            if (!multiJumping) {
+                for (const [nq, nr] of getNeighbors(fromQ, fromR)) {
+                    if (nq === dropQ && nr === dropR && tiles[`${dropQ},${dropR}`] && !pieces[`${dropQ},${dropR}`]) {
+                        performAdjacentMove(fromQ, fromR, dropQ, dropR, true); // skipAnimation = true
+                        moveExecuted = true;
+                        break;
+                    }
+                }
+            }
+
+            // Check for jump move
+            if (!moveExecuted) {
+                moveExecuted = handleDiscJumpForDrag(fromQ, fromR, dropQ, dropR);
+            }
+        } else if (piece.type === 'ring') {
+            const validMoves = getRingJumpPositions(fromQ, fromR, activePlayer);
+            for (const move of validMoves) {
+                if (move.q === dropQ && move.r === dropR) {
+                    performRingMove(fromQ, fromR, dropQ, dropR, move.capture, true); // skipAnimation = true
+                    moveExecuted = true;
+                    break;
+                }
+            }
+        }
+
+        // Reset drag state
+        isDragging = false;
+        draggedPiece = null;
+        dragThresholdMet = false;
+
+        // If move was not executed, just redraw (piece goes back)
+        if (!moveExecuted) {
+            drawGrid();
+            return;
+        }
+
+        // Check if the game has ended
+        if (checkGameEnd()) {
+            return;
+        }
+
+        // Handle AI/online move sending after animations complete
+        GameGraphics.onAllAnimationsComplete(function() {
+            if (isOnlineMode && stateBefore && !isMyTurn(activePlayer) && canvas.style.pointerEvents !== 'none') {
+                sendOnlineMove(stateBefore, jumpPathForOnline);
+                jumpPathForOnline = null;
+            }
+
+            if (isAiMode && canvas.style.pointerEvents !== 'none') {
+                sendToAI();
+            }
+        });
+    }
+
+    /**
+     * Handle disc jump specifically for drag and drop
+     * Returns true if jump was executed
+     */
+    function handleDiscJumpForDrag(sq, sr, q, r) {
+        if (!window.jumpHistory) window.jumpHistory = [];
+        const directions = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
+
+        for (const [dq, dr] of directions) {
+            const jq = sq + dq;
+            const jr = sr + dr;
+            const landingQ = sq + 2 * dq;
+            const landingR = sr + 2 * dr;
+            const jumpKey = `${jq},${jr}`;
+            const landingKey = `${landingQ},${landingR}`;
+
+            if (q === landingQ && r === landingR && pieces[jumpKey] && tiles[landingKey] && !pieces[landingKey]) {
+                // Prevent jumping over same friendly piece
+                if (pieces[jumpKey].color === activePlayer && window.jumpHistory.some(h => h.q === jq && h.r === jr)) {
+                    continue;
+                }
+
+                // Prevent returning to origin tile without any captures (invalid loop)
+                if (multiJumping && turnStartPiecePos && 
+                    landingQ === turnStartPiecePos.q && landingR === turnStartPiecePos.r && 
+                    !hasCapturedDuringSequence()) {
+                    continue;
+                }
+
+                performDiscJump(sq, sr, jq, jr, landingQ, landingR, jumpKey, landingKey, true); // skipAnimation = true
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Cancel any active drag operation
+     */
+    function cancelDrag() {
+        if (isDragging) {
+            isDragging = false;
+            draggedPiece = null;
+            dragThresholdMet = false;
+            canvas.style.cursor = 'default';
+            drawGrid();
+        }
+    }
+
+    // Track if drag was just completed (to suppress click event)
+    let dragJustCompleted = false;
+
     // Add both click and touch event listeners
     canvas.addEventListener('click', function (e) {
+        // Skip click handling if drag was just completed
+        if (dragJustCompleted) {
+            dragJustCompleted = false;
+            return;
+        }
+
         // Store state before handling interaction for online mode
         const stateBefore = isOnlineMode ? serializeGameState() : null;
         
@@ -949,6 +1257,24 @@ window.onload = function () {
             }
         });
     });
+
+    // ==================== Drag and Drop Event Listeners ====================
+    // Mouse drag events
+    canvas.addEventListener('mousedown', handleDragStart);
+    canvas.addEventListener('mousemove', handleDragMove);
+    canvas.addEventListener('mouseup', handleDragEnd);
+    canvas.addEventListener('mouseleave', cancelDrag);
+
+    // Touch drag events
+    canvas.addEventListener('touchstart', handleDragStart, { passive: false });
+    canvas.addEventListener('touchmove', handleDragMove, { passive: false });
+    // Note: touchend is handled above for click behavior, but we also need it for drag
+    canvas.addEventListener('touchend', function(e) {
+        if (isDragging) {
+            handleDragEnd(e);
+        }
+    }, { passive: false });
+    canvas.addEventListener('touchcancel', cancelDrag);
 
     // Returns valid jump positions for a ring at (q, r)
     function getRingJumpPositions(q, r, player) {
@@ -1581,7 +1907,8 @@ window.onload = function () {
     // jumpPathParam: optional array of {q, r} positions for multi-jump path highlighting
     // animateMultiJumps: whether to animate multi-jump sequences (true for AI/online moves, false for human moves)
     // manuallyEndedTurn: whether the user manually ended their turn with the checkmark (suppresses single jump animation)
-    function applyGameState(updatedState, previousState, jumpPathParam = null, animateMultiJumps = false, manuallyEndedTurn = false) {
+    // skipMoveAnimation: whether to skip move animation (true for drag & drop) but still animate captures
+    function applyGameState(updatedState, previousState, jumpPathParam = null, animateMultiJumps = false, manuallyEndedTurn = false, skipMoveAnimation = false) {
         
         // Determine the effective jump path (from param or from AI's lastJumpPath)
         const effectiveJumpPath = jumpPathParam || updatedState.lastJumpPath || null;
@@ -1590,7 +1917,7 @@ window.onload = function () {
         if (animationsEnabled && GameGraphics && GameGraphics.queueMoveAnimation) {
             // Disable interactions while animations are playing
             disableInteractions();
-            queueAnimationsForStateChange(previousState, updatedState, effectiveJumpPath, animateMultiJumps, manuallyEndedTurn);
+            queueAnimationsForStateChange(previousState, updatedState, effectiveJumpPath, animateMultiJumps, manuallyEndedTurn, skipMoveAnimation);
             // Re-enable interactions after all animations complete
             GameGraphics.onAllAnimationsComplete(() => {
                 enableInteractions();
@@ -1690,8 +2017,9 @@ window.onload = function () {
      * @param {Array} jumpPathParam - Optional array of {q, r} positions for multi-jump path
      * @param {boolean} animateMultiJumps - Whether to animate multi-jump sequences (true for AI/online, false for human)
      * @param {boolean} manuallyEndedTurn - Whether the user manually ended their turn (suppresses animation)
+     * @param {boolean} skipMoveAnimation - Whether to skip move animation (drag & drop) but still animate captures
      */
-    function queueAnimationsForStateChange(previousState, updatedState, jumpPathParam, animateMultiJumps = false, manuallyEndedTurn = false) {
+    function queueAnimationsForStateChange(previousState, updatedState, jumpPathParam, animateMultiJumps = false, manuallyEndedTurn = false, skipMoveAnimation = false) {
         const opponent = updatedState.activePlayer;
         const player = opponent === 'black' ? 'white' : 'black';
 
@@ -1772,7 +2100,15 @@ window.onload = function () {
                 }
             }
 
-            if (path && path.length > 1 && animateMultiJumps) {
+            // Handle drag & drop: skip move animation but still animate captures
+            if (skipMoveAnimation) {
+                // Only animate captures, not the move itself
+                if (capturedPieces.length > 0) {
+                    capturedPieces.forEach(cap => {
+                        GameGraphics.queueCaptureAnimation(cap.q, cap.r, cap.piece);
+                    });
+                }
+            } else if (path && path.length > 1 && animateMultiJumps) {
                 // Multi-jump: animate each jump with its capture sequentially (only for AI/online moves)
                 GameGraphics.queueJumpSequenceWithCaptures(path, movedPiece, capturedPieces);
             } else if (path && path.length > 2 && !animateMultiJumps) {

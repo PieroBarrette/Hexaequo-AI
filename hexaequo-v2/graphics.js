@@ -904,6 +904,10 @@ const GameGraphics = (function () {
      */
     function drawEndTurnButton(x, y, q, r) {
         const checkSize = inventoryItemSize * 2;
+        
+        // Offset the checkmark upward to avoid interfering with drag & drop on the piece
+        const offsetY = -hexSize * 0.8;
+        const buttonY = y + offsetY;
 
         ctx.save();
         ctx.strokeStyle = '#00ff00';
@@ -912,11 +916,11 @@ const GameGraphics = (function () {
         ctx.lineJoin = 'round';
 
         const startX = x - checkSize * 0.4;
-        const startY = y;
+        const startY = buttonY;
         const midX = x - checkSize * 0.1;
-        const midY = y + checkSize * 0.4;
+        const midY = buttonY + checkSize * 0.4;
         const endX = x + checkSize * 0.5;
-        const endY = y - checkSize * 0.5;
+        const endY = buttonY - checkSize * 0.5;
 
         ctx.beginPath();
         ctx.moveTo(startX, startY);
@@ -925,7 +929,8 @@ const GameGraphics = (function () {
         ctx.stroke();
         ctx.restore();
 
-        return { q, r, x, y, checkSize };
+        // Return bounds with the offset Y for hit detection
+        return { q, r, x, y: buttonY, checkSize };
     }
 
     /**
@@ -938,7 +943,8 @@ const GameGraphics = (function () {
             tiles, pieces, selectedPiece, multiJumping, multiJumpPos,
             showCoords, showGrid, colorScheme, placePieceBtnTile, placePieceBtnBounds,
             lastMove, showValidMoves, showPreviousMove, activePlayer,
-            isGameStateChanged, calculateAllValidMoves, calculateValidMovesForPiece
+            isGameStateChanged, calculateAllValidMoves, calculateValidMovesForPiece,
+            isDragging, draggedPiece, dragCurrentX, dragCurrentY, dragThresholdMet
         } = state;
 
         // Result object for button bounds
@@ -972,6 +978,11 @@ const GameGraphics = (function () {
         // Pending captures should not be drawn from game state (they'll be drawn as ghost pieces)
         pendingCaptures.forEach((piece, pos) => animatedFromPositions.add(pos));
 
+        // Track dragged piece position to skip drawing it at its original position
+        const draggedPieceKey = isDragging && draggedPiece && dragThresholdMet 
+            ? `${draggedPiece.q},${draggedPiece.r}` 
+            : null;
+
         // Draw all hexes and contents
         for (let q = -radius; q <= radius; q++) {
             for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
@@ -990,8 +1001,9 @@ const GameGraphics = (function () {
                     drawTile(x, y, tiles[key], colorScheme);
                 }
                 
-                // Draw static pieces (skip if being animated)
-                if (tiles[key] && pieces[key] && !animatedToPositions.has(key) && !animatedFromPositions.has(key)) {
+                // Draw static pieces (skip if being animated or being dragged)
+                const isBeingDragged = draggedPieceKey === key;
+                if (tiles[key] && pieces[key] && !animatedToPositions.has(key) && !animatedFromPositions.has(key) && !isBeingDragged) {
                     drawPiece(x, y, pieces[key], colorScheme);
                     if (selectedPiece && selectedPiece.q === q && selectedPiece.r === r) {
                         ctx.save();
@@ -1060,6 +1072,11 @@ const GameGraphics = (function () {
 
         // Draw animated elements on top
         drawAnimatedElements(colorScheme);
+
+        // Draw dragged piece at cursor position (on top of everything else)
+        if (isDragging && draggedPiece && dragThresholdMet) {
+            drawPiece(dragCurrentX, dragCurrentY, draggedPiece.piece, colorScheme);
+        }
 
         drawInventory();
 
