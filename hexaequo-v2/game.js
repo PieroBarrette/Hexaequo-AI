@@ -1149,16 +1149,18 @@ window.onload = function () {
             return;
         }
 
-        // Check if the game has ended
-        if (checkGameEnd()) {
-            return;
-        }
-
         // Handle AI/online move sending after animations complete
         GameGraphics.onAllAnimationsComplete(function() {
+            // Send move to server if in online mode and it was our turn (turn has now switched)
+            // This must happen BEFORE checkGameEnd so the winning move is sent
             if (isOnlineMode && stateBefore && !isMyTurn(activePlayer) && canvas.style.pointerEvents !== 'none') {
                 sendOnlineMove(stateBefore, jumpPathForOnline);
                 jumpPathForOnline = null;
+            }
+
+            // Check if the game has ended (after sending the move)
+            if (checkGameEnd()) {
+                return;
             }
 
             if (isAiMode && canvas.style.pointerEvents !== 'none') {
@@ -1232,17 +1234,18 @@ window.onload = function () {
         
         handleCanvasInteraction(e);
 
-        // Check if the game has ended
-        if (checkGameEnd()) {
-            return;
-        }
-
         // Wait for all animations to complete before sending to AI/server
         GameGraphics.onAllAnimationsComplete(function() {
             // Send move to server if in online mode and it was our turn (turn has now switched)
+            // This must happen BEFORE checkGameEnd so the winning move is sent
             if (isOnlineMode && stateBefore && !isMyTurn(activePlayer) && canvas.style.pointerEvents !== 'none') {
                 sendOnlineMove(stateBefore, jumpPathForOnline);
                 jumpPathForOnline = null; // Clear after sending
+            }
+
+            // Check if the game has ended (after sending the move)
+            if (checkGameEnd()) {
+                return;
             }
 
             // Serialize the board and send it to the AI if in AI mode
@@ -1257,17 +1260,18 @@ window.onload = function () {
         
         handleCanvasInteraction(e);
 
-        // Check if the game has ended
-        if (checkGameEnd()) {
-            return;
-        }
-
         // Wait for all animations to complete before sending to AI/server
         GameGraphics.onAllAnimationsComplete(function() {
             // Send move to server if in online mode and it was our turn (turn has now switched)
+            // This must happen BEFORE checkGameEnd so the winning move is sent
             if (isOnlineMode && stateBefore && !isMyTurn(activePlayer) && canvas.style.pointerEvents !== 'none') {
                 sendOnlineMove(stateBefore, jumpPathForOnline);
                 jumpPathForOnline = null; // Clear after sending
+            }
+
+            // Check if the game has ended (after sending the move)
+            if (checkGameEnd()) {
+                return;
             }
 
             // Serialize the board and send it to the AI if in AI mode
@@ -1439,6 +1443,11 @@ window.onload = function () {
     // winner: 'Black', 'White', or 'Ex Aequo'
     // reason: explanation for why the game ended (e.g., 'capturing 6 discs', 'stalemate', 'threefold repetition')
     function endGame(winner, reason = '') {
+        // Prevent duplicate game over popups
+        if (document.getElementById('gameOver')) {
+            return;
+        }
+        
         playSound('gameEnd');
         const gameOverDiv = document.createElement('div');
         gameOverDiv.id = 'gameOver';
