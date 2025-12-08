@@ -303,8 +303,12 @@ function getChildren(state, branchPrefix) {
         newState.activePlayer = player === 'black' ? 'white' : 'black';
         newState.branch = `${branchPrefix}.${moveIndex}`;
         // Attach the jump path for highlighting (only at depth 1, i.e., direct children)
+        // Convert from string format "q,r" to object format {q, r} for consistency
         if (branchPrefix === '1') {
-            newState.lastJumpPath = jumpSequence;
+            newState.lastJumpPath = jumpSequence.map(pos => {
+                const [q, r] = pos.split(',').map(Number);
+                return { q, r };
+            });
         }
         children.push(newState);
         moveIndex++;

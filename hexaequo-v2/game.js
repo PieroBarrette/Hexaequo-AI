@@ -1794,6 +1794,26 @@ window.onload = function () {
             // It's a piece placement (disc or ring from inventory)
             const [q, r] = movedTo.split(',').map(Number);
             GameGraphics.queuePiecePlacementAnimation(q, r, movedPiece);
+        } else if (!movedFrom && !movedTo && jumpPathParam && jumpPathParam.length > 1 && animateMultiJumps) {
+            // Loop case: disc returned to starting position after captures
+            // The piece didn't "move" between states (same key in both), but we have the path
+            let path = null;
+            if (typeof jumpPathParam[0] === 'string') {
+                // AI format: ["q,r", "q,r", ...]
+                path = jumpPathParam.map(pos => {
+                    const [q, r] = pos.split(',').map(Number);
+                    return { q, r };
+                });
+            } else {
+                // Game format: [{q, r}, {q, r}, ...]
+                path = jumpPathParam;
+            }
+            // Get the piece from the start/end position (they're the same in a loop)
+            const startKey = `${path[0].q},${path[0].r}`;
+            const loopPiece = updatedState.pieces[startKey];
+            if (loopPiece && path.length > 1) {
+                GameGraphics.queueJumpSequenceWithCaptures(path, loopPiece, capturedPieces);
+            }
         }
     }
 
