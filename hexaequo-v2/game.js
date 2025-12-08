@@ -657,7 +657,8 @@ window.onload = function () {
         activePlayer = activePlayer === 'black' ? 'white' : 'black';
         updatedState = serializeGameState();
         // Pass manuallyEndedTurn=true since user clicked the checkmark
-        applyGameState(updatedState, gameState, lastJumpPath, false, true);
+        // Skip game end check in online mode - let event handler check after sending move
+        applyGameState(updatedState, gameState, lastJumpPath, false, true, false, false, isOnlineMode);
         lastJumpPath = null;
     }
 
@@ -671,7 +672,8 @@ window.onload = function () {
         //recordMove('placeDisc');
         activePlayer = activePlayer === 'black' ? 'white' : 'black';
         updatedState = serializeGameState();
-        applyGameState(updatedState, gameState);
+        // Skip game end check in online mode - let event handler check after sending move
+        applyGameState(updatedState, gameState, null, false, false, false, false, isOnlineMode);
     }
 
     function placeRing(q, r) {
@@ -688,7 +690,8 @@ window.onload = function () {
         //recordMove('placeRing');
         activePlayer = opp;
         updatedState = serializeGameState();
-        applyGameState(updatedState, gameState);
+        // Skip game end check in online mode - let event handler check after sending move
+        applyGameState(updatedState, gameState, null, false, false, false, false, isOnlineMode);
     }
 
     function handlePieceMovement(q, r) {
@@ -739,7 +742,8 @@ window.onload = function () {
         //recordMove('ringMove');
         activePlayer = activePlayer === 'black' ? 'white' : 'black';
         updatedState = serializeGameState();
-        applyGameState(updatedState, gameState, null, false, false, skipMoveAnimation);
+        // Skip game end check in online mode - let event handler check after sending move
+        applyGameState(updatedState, gameState, null, false, false, skipMoveAnimation, false, isOnlineMode);
     }
 
     function performAdjacentMove(sq, sr, q, r, skipMoveAnimation = false) {
@@ -754,7 +758,8 @@ window.onload = function () {
         //recordMove('adjacentMove');
         activePlayer = activePlayer === 'black' ? 'white' : 'black';
         updatedState = serializeGameState();
-        applyGameState(updatedState, gameState, null, false, false, skipMoveAnimation);
+        // Skip game end check in online mode - let event handler check after sending move
+        applyGameState(updatedState, gameState, null, false, false, skipMoveAnimation, false, isOnlineMode);
     }
 
     function handleDiscJump(sq, sr, q, r) {
@@ -865,7 +870,8 @@ window.onload = function () {
             //recordMove('jump');
             activePlayer = activePlayer === 'black' ? 'white' : 'black';
             updatedState = serializeGameState();
-            applyGameState(updatedState, gameState, lastJumpPath, false, false, skipMoveAnimation);
+            // Skip game end check in online mode - let event handler check after sending move
+            applyGameState(updatedState, gameState, lastJumpPath, false, false, skipMoveAnimation, false, isOnlineMode);
             lastJumpPath = null;
         }
     }
@@ -908,7 +914,8 @@ window.onload = function () {
         //recordMove('tile');
         activePlayer = activePlayer === 'black' ? 'white' : 'black';
         updatedState = serializeGameState();
-        applyGameState(updatedState, gameState);
+        // Skip game end check in online mode - let event handler check after sending move
+        applyGameState(updatedState, gameState, null, false, false, false, false, isOnlineMode);
     }
 
     // Returns true if another jump is available for the piece at (q, r)
@@ -2160,7 +2167,8 @@ window.onload = function () {
     // manuallyEndedTurn: whether the user manually ended their turn with the checkmark (suppresses single jump animation)
     // skipMoveAnimation: whether to skip move animation (true for drag & drop) but still animate captures
     // isOpponentMove: whether this is an online opponent's move (affects how history is recorded)
-    function applyGameState(updatedState, previousState, jumpPathParam = null, animateMultiJumps = false, manuallyEndedTurn = false, skipMoveAnimation = false, isOpponentMove = false) {
+    // skipGameEndCheck: whether to skip the game end check (true when caller handles it, e.g., for online mode)
+    function applyGameState(updatedState, previousState, jumpPathParam = null, animateMultiJumps = false, manuallyEndedTurn = false, skipMoveAnimation = false, isOpponentMove = false, skipGameEndCheck = false) {
         
         // Determine the effective jump path (from param or from AI's lastJumpPath)
         const effectiveJumpPath = jumpPathParam || updatedState.lastJumpPath || null;
@@ -2257,7 +2265,10 @@ window.onload = function () {
         // Redraw the grid
         drawGrid();
 
-        checkGameEnd(); // Check if the game has ended after applying AI's move
+        // Check if the game has ended (unless caller wants to handle it)
+        if (!skipGameEndCheck) {
+            checkGameEnd();
+        }
     }
 
     /**
@@ -2631,7 +2642,8 @@ window.onload = function () {
     function applyOnlineMove(gameState, previousState, jumpPath = null) {
         if (previousState) {
             // Pass isOpponentMove = true so history is handled correctly when viewing past moves
-            applyGameState(gameState, previousState, jumpPath, true, false, false, true);
+            // Skip internal game end check - we handle it below
+            applyGameState(gameState, previousState, jumpPath, true, false, false, true, true);
         } else {
             // Initial state sync - just apply without sounds
             tiles = gameState.tiles;
