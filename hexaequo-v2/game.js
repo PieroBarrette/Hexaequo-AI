@@ -1581,13 +1581,9 @@ window.onload = function () {
             timestamp: Date.now()
         });
         
-        // For opponent moves in online mode when viewing history, don't update currentMoveIndex
-        // The player stays at their current position, but can redo to see the new move
-        if (!isOpponentMove || isAtEndOfHistory()) {
-            currentMoveIndex = moveHistory.length - 1;
-        }
-        // If it IS an opponent move and we WERE viewing history, keep viewing position
-        // but the UI will update to show "X moves back" and redo will be available
+        // Always move to the end of history (latest position)
+        // For opponent moves, this brings the player to the current board state so they can play
+        currentMoveIndex = moveHistory.length - 1;
         
         // Save to IndexedDB
         saveGameSession();
