@@ -1262,6 +1262,12 @@ window.onload = function () {
         });
     });
     canvas.addEventListener('touchend', function (e) {
+        // Skip touch handling if drag was just completed
+        if (dragJustCompleted) {
+            dragJustCompleted = false;
+            return;
+        }
+
         // Store state before handling interaction for online mode
         const stateBefore = isOnlineMode ? serializeGameState() : null;
         
