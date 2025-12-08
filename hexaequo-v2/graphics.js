@@ -944,7 +944,8 @@ const GameGraphics = (function () {
             showCoords, showGrid, colorScheme, placePieceBtnTile, placePieceBtnBounds,
             lastMove, showValidMoves, showPreviousMove, activePlayer,
             isGameStateChanged, calculateAllValidMoves, calculateValidMovesForPiece,
-            isDragging, draggedPiece, dragCurrentX, dragCurrentY, dragThresholdMet
+            isDragging, draggedPiece, dragCurrentX, dragCurrentY, dragThresholdMet,
+            isAtEndOfHistory, canMakeMove
         } = state;
 
         // Result object for button bounds
@@ -1046,8 +1047,21 @@ const GameGraphics = (function () {
         }
 
         // Draw valid moves indicator (only when animations are complete and it's the player's turn)
+        // In online mode, only show valid moves when at the end of history and it's your turn
         if (showValidMoves && !isAnimating()) {
-            const shouldShowValidMoves = window.isAiMode ? activePlayer === 'black' : true;
+            let shouldShowValidMoves = false;
+            
+            if (window.isOnlineMode) {
+                // Online mode: only show valid moves when canMakeMove() is true
+                // (i.e., at end of history AND it's your turn)
+                shouldShowValidMoves = canMakeMove && canMakeMove();
+            } else if (window.isAiMode) {
+                // AI mode: only show for human player (black)
+                shouldShowValidMoves = activePlayer === 'black';
+            } else {
+                // Local 2-player mode: always show
+                shouldShowValidMoves = true;
+            }
 
             if (shouldShowValidMoves) {
                 let movesToDisplay = [];

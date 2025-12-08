@@ -155,6 +155,18 @@ window.onload = function () {
     let isRestoringState = false; // Flag to prevent recording moves during undo/redo restoration
     let initialGameState = null; // Store the initial state for undo to game start
 
+    // Helper function to check if we're at the end of move history
+    // In online mode, moves can only be made when at the end of history
+    function isAtEndOfHistory() {
+        return currentMoveIndex >= moveHistory.length - 1;
+    }
+
+    // Check if moves are allowed (for online mode: must be at end of history AND your turn)
+    function canMakeMove() {
+        if (!isOnlineMode) return true;
+        return isAtEndOfHistory() && isMyTurn(activePlayer);
+    }
+
     // Each player starts with 9 tiles, 2 are already placed
     let inventory = {
         black: 7,
@@ -244,6 +256,9 @@ window.onload = function () {
             isGameStateChanged,
             calculateAllValidMoves,
             calculateValidMovesForPiece,
+            // Online mode helpers
+            isAtEndOfHistory,
+            canMakeMove,
             // Drag and drop state
             isDragging,
             draggedPiece,
@@ -518,9 +533,13 @@ window.onload = function () {
     function handleCanvasInteraction(e) {
         e.preventDefault(); // Prevent default touch behavior
 
-        // In online mode, block input if it's not our turn
-        if (isOnlineMode && !isMyTurn(activePlayer)) {
-            console.log('Not your turn');
+        // In online mode, block input if it's not our turn OR if viewing history
+        if (isOnlineMode && !canMakeMove()) {
+            if (!isAtEndOfHistory()) {
+                console.log('Cannot make moves while viewing history - navigate to current position first');
+            } else {
+                console.log('Not your turn');
+            }
             return;
         }
 
@@ -987,8 +1006,8 @@ window.onload = function () {
     function handleDragStart(e) {
         e.preventDefault();
 
-        // Block if not our turn in online mode
-        if (isOnlineMode && !isMyTurn(activePlayer)) {
+        // Block if not allowed to make moves (online mode: not our turn or viewing history)
+        if (isOnlineMode && !canMakeMove()) {
             return;
         }
 
@@ -1539,7 +1558,8 @@ window.onload = function () {
 
     // Record a move in the move history (called after each turn completes)
     // jumpPathParam: optional array of positions for multi-jump path highlighting
-    function recordMove(moveType, jumpPathParam = null) {
+    // isOpponentMove: true when this is an online opponent's move (don't truncate history)
+    function recordMove(moveType, jumpPathParam = null, isOpponentMove = false) {
         // Don't record moves while restoring from undo/redo
         if (isRestoringState) return;
         
@@ -1547,7 +1567,8 @@ window.onload = function () {
         const positionHash = getPositionHash(currentState);
         
         // If we're not at the end of history, truncate future moves
-        if (currentMoveIndex < moveHistory.length - 1) {
+        // BUT: In online mode, if this is an opponent's move, don't truncate - just add to end
+        if (currentMoveIndex < moveHistory.length - 1 && !isOpponentMove) {
             moveHistory = moveHistory.slice(0, currentMoveIndex + 1);
         }
         
@@ -1559,7 +1580,14 @@ window.onload = function () {
             positionHash: positionHash,
             timestamp: Date.now()
         });
-        currentMoveIndex++;
+        
+        // For opponent moves in online mode when viewing history, don't update currentMoveIndex
+        // The player stays at their current position, but can redo to see the new move
+        if (!isOpponentMove || isAtEndOfHistory()) {
+            currentMoveIndex = moveHistory.length - 1;
+        }
+        // If it IS an opponent move and we WERE viewing history, keep viewing position
+        // but the UI will update to show "X moves back" and redo will be available
         
         // Save to IndexedDB
         saveGameSession();
@@ -1805,7 +1833,11 @@ window.onload = function () {
             
             // Add online mode indicator
             if (isOnlineMode) {
-                if (isMyTurn(activePlayer)) {
+                // Check if viewing history (not at end)
+                if (!isAtEndOfHistory()) {
+                    const movesBack = moveHistory.length - 1 - currentMoveIndex;
+                    indicatorText = `Viewing History (${movesBack} move${movesBack > 1 ? 's' : ''} back)`;
+                } else if (isMyTurn(activePlayer)) {
                     indicatorText = `Your Turn (${onlinePlayerColor.charAt(0).toUpperCase() + onlinePlayerColor.slice(1)})`;
                 } else {
                     indicatorText = `Opponent's Turn`;
@@ -1908,7 +1940,8 @@ window.onload = function () {
     // animateMultiJumps: whether to animate multi-jump sequences (true for AI/online moves, false for human moves)
     // manuallyEndedTurn: whether the user manually ended their turn with the checkmark (suppresses single jump animation)
     // skipMoveAnimation: whether to skip move animation (true for drag & drop) but still animate captures
-    function applyGameState(updatedState, previousState, jumpPathParam = null, animateMultiJumps = false, manuallyEndedTurn = false, skipMoveAnimation = false) {
+    // isOpponentMove: whether this is an online opponent's move (affects how history is recorded)
+    function applyGameState(updatedState, previousState, jumpPathParam = null, animateMultiJumps = false, manuallyEndedTurn = false, skipMoveAnimation = false, isOpponentMove = false) {
         
         // Determine the effective jump path (from param or from AI's lastJumpPath)
         const effectiveJumpPath = jumpPathParam || updatedState.lastJumpPath || null;
@@ -1990,7 +2023,7 @@ window.onload = function () {
 
         //recordMove player's move only when the game state changed
         if (JSON.stringify(previousState) !== JSON.stringify(updatedState)) {
-            recordMove('move', pathToRecord);
+            recordMove('move', pathToRecord, isOpponentMove);
         }
 
         updateDynamicLayout(); // Update targets based on new state
@@ -2378,7 +2411,8 @@ window.onload = function () {
     // Apply a move received from the online opponent
     function applyOnlineMove(gameState, previousState, jumpPath = null) {
         if (previousState) {
-            applyGameState(gameState, previousState, jumpPath, true); // Animate multi-jumps for online opponent
+            // Pass isOpponentMove = true so history is handled correctly when viewing past moves
+            applyGameState(gameState, previousState, jumpPath, true, false, false, true);
         } else {
             // Initial state sync - just apply without sounds
             tiles = gameState.tiles;

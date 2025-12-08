@@ -142,14 +142,12 @@ function getUniqueRoomCode() {
 function getInitialGameState() {
     return {
         tiles: {
-            '0,0': 'black', '1,0': 'black', '0,1': 'black',
-            '-1,0': 'white', '0,-1': 'white', '-1,1': 'white'
+            '0,0': 'black', '1,0': 'black',
+            '-1,1': 'white', '0,1': 'white'
         },
         pieces: {
             '1,0': { type: 'disc', color: 'black' },
-            '0,1': { type: 'disc', color: 'black' },
-            '-1,0': { type: 'disc', color: 'white' },
-            '0,-1': { type: 'disc', color: 'white' }
+            '-1,1': { type: 'disc', color: 'white' }
         },
         inventory: {
             black: { tiles: 7, discs: 5, rings: 3 },
