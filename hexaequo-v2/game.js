@@ -1442,16 +1442,21 @@ window.onload = function () {
         playSound('gameEnd');
         const gameOverDiv = document.createElement('div');
         gameOverDiv.id = 'gameOver';
+        gameOverDiv.className = 'game-over-popup';
+        
+        // Apply theme-aware styling
+        const isDarkTheme = !document.body.classList.contains('light-theme');
         gameOverDiv.style.position = 'fixed';
         gameOverDiv.style.top = '20px';
         gameOverDiv.style.left = '50%';
         gameOverDiv.style.transform = 'translateX(-50%)';
-        gameOverDiv.style.backgroundColor = '#fff';
+        gameOverDiv.style.backgroundColor = isDarkTheme ? '#2a2a2a' : '#fff';
         gameOverDiv.style.padding = '20px';
-        gameOverDiv.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.2)';
+        gameOverDiv.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.3)';
         gameOverDiv.style.textAlign = 'center';
         gameOverDiv.style.zIndex = '1000';
         gameOverDiv.style.borderRadius = '8px';
+        gameOverDiv.style.minWidth = '280px';
 
         const winnerText = document.createElement('p');
         let messageText;
@@ -1463,8 +1468,9 @@ window.onload = function () {
         winnerText.textContent = messageText;
         winnerText.style.fontSize = '24px';
         winnerText.style.fontWeight = 'bold';
-        winnerText.style.color = '#000';
+        winnerText.style.color = isDarkTheme ? '#fafafa' : '#000';
         winnerText.style.marginBottom = '8px';
+        winnerText.style.marginTop = '0';
         gameOverDiv.appendChild(winnerText);
 
         // Add reason text
@@ -1476,30 +1482,238 @@ window.onload = function () {
                 reasonText.textContent = `by ${reason}`;
             }
             reasonText.style.fontSize = '16px';
-            reasonText.style.color = '#555';
+            reasonText.style.color = isDarkTheme ? '#aaa' : '#555';
             reasonText.style.marginTop = '0';
             reasonText.style.marginBottom = '16px';
             gameOverDiv.appendChild(reasonText);
         }
 
-        const resetButton = document.createElement('button');
-        resetButton.textContent = 'Reset Game';
-        resetButton.style.marginTop = '10px';
-        resetButton.style.padding = '10px 20px';
-        resetButton.style.fontSize = '16px';
-        resetButton.style.cursor = 'pointer';
-        resetButton.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            resetGame();
-        });
-        gameOverDiv.appendChild(resetButton);
+        // Different UI for online mode vs local modes
+        if (isOnlineMode) {
+            // Online mode: Play Again and Leave Room buttons with opponent status
+            
+            // Opponent status container
+            const opponentStatusDiv = document.createElement('div');
+            opponentStatusDiv.id = 'endgameOpponentStatus';
+            opponentStatusDiv.className = 'endgame-opponent-status';
+            opponentStatusDiv.style.padding = '10px';
+            opponentStatusDiv.style.marginBottom = '16px';
+            opponentStatusDiv.style.backgroundColor = isDarkTheme ? '#1a1a1a' : '#f5f5f5';
+            opponentStatusDiv.style.borderRadius = '6px';
+            opponentStatusDiv.style.fontSize = '14px';
+            opponentStatusDiv.style.color = isDarkTheme ? '#ccc' : '#666';
+            opponentStatusDiv.innerHTML = '<span class="status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981; margin-right: 8px;"></span>Opponent in room';
+            gameOverDiv.appendChild(opponentStatusDiv);
+
+            // Buttons container
+            const buttonsDiv = document.createElement('div');
+            buttonsDiv.style.display = 'flex';
+            buttonsDiv.style.gap = '10px';
+            buttonsDiv.style.justifyContent = 'center';
+
+            // Play Again button (green)
+            const playAgainButton = document.createElement('button');
+            playAgainButton.id = 'playAgainBtn';
+            playAgainButton.textContent = 'Play Again';
+            playAgainButton.className = 'endgame-btn play-again';
+            playAgainButton.style.padding = '12px 24px';
+            playAgainButton.style.fontSize = '16px';
+            playAgainButton.style.cursor = 'pointer';
+            playAgainButton.style.border = 'none';
+            playAgainButton.style.borderRadius = '6px';
+            playAgainButton.style.backgroundColor = '#10b981';
+            playAgainButton.style.color = '#fff';
+            playAgainButton.style.fontWeight = 'bold';
+            playAgainButton.style.transition = 'background-color 0.2s';
+            playAgainButton.addEventListener('mouseenter', () => {
+                if (!playAgainButton.disabled) playAgainButton.style.backgroundColor = '#059669';
+            });
+            playAgainButton.addEventListener('mouseleave', () => {
+                if (!playAgainButton.disabled) playAgainButton.style.backgroundColor = '#10b981';
+            });
+            playAgainButton.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                handlePlayAgainClick();
+            });
+            buttonsDiv.appendChild(playAgainButton);
+
+            // Leave Room button (red)
+            const leaveRoomButton = document.createElement('button');
+            leaveRoomButton.id = 'leaveRoomBtn';
+            leaveRoomButton.textContent = 'Leave Room';
+            leaveRoomButton.className = 'endgame-btn leave-room';
+            leaveRoomButton.style.padding = '12px 24px';
+            leaveRoomButton.style.fontSize = '16px';
+            leaveRoomButton.style.cursor = 'pointer';
+            leaveRoomButton.style.border = 'none';
+            leaveRoomButton.style.borderRadius = '6px';
+            leaveRoomButton.style.backgroundColor = '#ef4444';
+            leaveRoomButton.style.color = '#fff';
+            leaveRoomButton.style.fontWeight = 'bold';
+            leaveRoomButton.style.transition = 'background-color 0.2s';
+            leaveRoomButton.addEventListener('mouseenter', () => {
+                leaveRoomButton.style.backgroundColor = '#dc2626';
+            });
+            leaveRoomButton.addEventListener('mouseleave', () => {
+                leaveRoomButton.style.backgroundColor = '#ef4444';
+            });
+            leaveRoomButton.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                handleLeaveRoomClick();
+            });
+            buttonsDiv.appendChild(leaveRoomButton);
+
+            gameOverDiv.appendChild(buttonsDiv);
+        } else {
+            // Local mode (2 player or AI): Reset Game button
+            const resetButton = document.createElement('button');
+            resetButton.textContent = 'Reset Game';
+            resetButton.style.marginTop = '10px';
+            resetButton.style.padding = '10px 20px';
+            resetButton.style.fontSize = '16px';
+            resetButton.style.cursor = 'pointer';
+            resetButton.style.border = 'none';
+            resetButton.style.borderRadius = '6px';
+            resetButton.style.backgroundColor = isDarkTheme ? '#4a4a4a' : '#e5e5e5';
+            resetButton.style.color = isDarkTheme ? '#fff' : '#333';
+            resetButton.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                resetGame();
+            });
+            gameOverDiv.appendChild(resetButton);
+        }
 
         document.body.appendChild(gameOverDiv);
         
         // Disable interactions while game over popup is displayed
         disableInteractions();
     }
+
+    // Handle Play Again button click in online mode
+    let localPlayerReady = false;
+    let opponentReady = false;
+
+    function handlePlayAgainClick() {
+        const playAgainBtn = document.getElementById('playAgainBtn');
+        const statusDiv = document.getElementById('endgameOpponentStatus');
+        
+        if (!localPlayerReady) {
+            localPlayerReady = true;
+            playAgainBtn.disabled = true;
+            playAgainBtn.style.backgroundColor = '#6b7280';
+            playAgainBtn.style.cursor = 'not-allowed';
+            playAgainBtn.textContent = 'Ready!';
+            
+            // Request rematch from server
+            if (window.Multiplayer && window.Multiplayer.requestRematch) {
+                window.Multiplayer.requestRematch().catch(err => {
+                    console.error('Failed to request rematch:', err);
+                });
+            }
+            
+            // Update status
+            if (statusDiv) {
+                if (opponentReady) {
+                    // Both ready, start new game
+                    startRematchGame();
+                } else {
+                    statusDiv.innerHTML = '<span class="status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; margin-right: 8px; animation: pulse 1.5s infinite;"></span>Waiting for opponent...';
+                }
+            }
+        }
+    }
+
+    function handleLeaveRoomClick() {
+        // Notify server and leave room
+        if (window.Multiplayer) {
+            window.Multiplayer.leaveEndgame().then(() => {
+                return window.Multiplayer.leaveRoom();
+            }).then(() => {
+                // Reset to 2 player mode
+                resetGame();
+                setOnlineMode(false);
+                // Update game mode selector if exists
+                const gameModeSelect = document.getElementById('gameModeSelect');
+                if (gameModeSelect) {
+                    gameModeSelect.value = '2player';
+                }
+                // Close online modal if open
+                const onlineOverlay = document.getElementById('onlineOverlay');
+                if (onlineOverlay) {
+                    onlineOverlay.classList.remove('open');
+                }
+            }).catch(err => {
+                console.error('Failed to leave room:', err);
+            });
+        }
+    }
+
+    // Called when opponent signals they're ready for rematch
+    function onOpponentReadyForRematch() {
+        opponentReady = true;
+        const statusDiv = document.getElementById('endgameOpponentStatus');
+        const playAgainBtn = document.getElementById('playAgainBtn');
+        
+        if (statusDiv) {
+            if (localPlayerReady) {
+                // Both ready, start new game
+                startRematchGame();
+            } else {
+                statusDiv.innerHTML = '<span class="status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981; margin-right: 8px;"></span>Opponent is ready for next game';
+            }
+        }
+    }
+
+    // Called when opponent leaves during end game screen
+    function onOpponentLeftEndgame() {
+        opponentReady = false;
+        const statusDiv = document.getElementById('endgameOpponentStatus');
+        const playAgainBtn = document.getElementById('playAgainBtn');
+        
+        if (statusDiv) {
+            statusDiv.innerHTML = '<span class="status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ef4444; margin-right: 8px;"></span>Opponent has left the room';
+        }
+        
+        if (playAgainBtn) {
+            playAgainBtn.disabled = true;
+            playAgainBtn.style.backgroundColor = '#6b7280';
+            playAgainBtn.style.cursor = 'not-allowed';
+        }
+    }
+
+    // Start a new game after both players are ready
+    function startRematchGame() {
+        if (window.Multiplayer && window.Multiplayer.startRematch) {
+            window.Multiplayer.startRematch().then(gameState => {
+                // Game will be reset via the game-reset event
+            }).catch(err => {
+                console.error('Failed to start rematch:', err);
+            });
+        }
+    }
+
+    // Called when game is reset for rematch (triggered by server)
+    function onGameReset(data) {
+        // Reset ready states
+        localPlayerReady = false;
+        opponentReady = false;
+        
+        // Apply the new game state using applyOnlineMove which handles initial state properly
+        resetGame();
+        
+        // If game state is provided, apply it (overwrites default initial state from resetGame)
+        if (data && data.gameState) {
+            applyOnlineMove(data.gameState, null);
+        }
+    }
+
+    // Expose rematch handlers for use in index.html
+    window.onOpponentReadyForRematch = onOpponentReadyForRematch;
+    window.onOpponentLeftEndgame = onOpponentLeftEndgame;
+    window.onGameReset = onGameReset;
 
     // Generate a hash string representing the current game state
     // Used for threefold repetition detection (like in chess)

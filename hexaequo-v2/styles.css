@@ -1180,3 +1180,36 @@ select {
         font-size: 1.2em;
     }
 }
+
+/* ===== End Game Popup Styles (Online Mode) ===== */
+.game-over-popup {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.endgame-opponent-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.endgame-btn {
+    font-family: inherit;
+}
+
+.endgame-btn:disabled {
+    opacity: 0.7;
+}
+
+.endgame-btn.play-again:hover:not(:disabled) {
+    background-color: #059669 !important;
+}
+
+.endgame-btn.leave-room:hover {
+    background-color: #dc2626 !important;
+}
+
+/* Pulse animation for waiting status */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}

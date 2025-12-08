@@ -608,6 +608,30 @@
                 closeOnlineModal();
             };
 
+            // Rematch callbacks
+            window.Multiplayer.onOpponentReadyRematch = (data) => {
+                // Opponent is ready for a rematch
+                if (window.onOpponentReadyForRematch) {
+                    window.onOpponentReadyForRematch();
+                }
+            };
+
+            window.Multiplayer.onOpponentLeftEndgame = () => {
+                // Opponent left during end game screen
+                if (window.onOpponentLeftEndgame) {
+                    window.onOpponentLeftEndgame();
+                }
+            };
+
+            window.Multiplayer.onGameReset = (data) => {
+                // Server initiated game reset for rematch
+                if (window.onGameReset) {
+                    window.onGameReset(data);
+                }
+                // Update UI
+                updateInGameUI();
+            };
+
             window.Multiplayer.onError = (message) => {
                 showError(message);
             };

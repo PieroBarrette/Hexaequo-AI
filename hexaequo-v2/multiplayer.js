@@ -26,6 +26,9 @@ const Multiplayer = (function () {
     let onOpponentDisconnected = null;
     let onOpponentReconnected = null;
     let onOpponentLeft = null;
+    let onOpponentReadyRematch = null;
+    let onOpponentLeftEndgame = null;
+    let onGameReset = null;
     let onConnectionStatusChange = null;
     let onError = null;
 
@@ -125,6 +128,22 @@ const Multiplayer = (function () {
             socket.on('opponent-left', () => {
                 console.log('Opponent left');
                 if (onOpponentLeft) onOpponentLeft();
+            });
+
+            // Rematch events
+            socket.on('opponent-ready-rematch', (data) => {
+                console.log('Opponent ready for rematch');
+                if (onOpponentReadyRematch) onOpponentReadyRematch(data);
+            });
+
+            socket.on('opponent-left-endgame', () => {
+                console.log('Opponent left endgame screen');
+                if (onOpponentLeftEndgame) onOpponentLeftEndgame();
+            });
+
+            socket.on('game-reset', (data) => {
+                console.log('Game reset for rematch');
+                if (onGameReset) onGameReset(data);
             });
 
         } catch (err) {
@@ -249,6 +268,65 @@ const Multiplayer = (function () {
         });
     }
 
+    // Request a rematch after game ends
+    function requestRematch() {
+        return new Promise((resolve, reject) => {
+            if (!socket || !socket.connected) {
+                reject(new Error('Not connected to server'));
+                return;
+            }
+
+            if (!roomCode) {
+                reject(new Error('Not in a room'));
+                return;
+            }
+
+            socket.emit('request-rematch', { roomCode, playerId }, (response) => {
+                if (response.success) {
+                    resolve();
+                } else {
+                    reject(new Error(response.error || 'Failed to request rematch'));
+                }
+            });
+        });
+    }
+
+    // Start a rematch (called when both players are ready)
+    function startRematch() {
+        return new Promise((resolve, reject) => {
+            if (!socket || !socket.connected) {
+                reject(new Error('Not connected to server'));
+                return;
+            }
+
+            if (!roomCode) {
+                reject(new Error('Not in a room'));
+                return;
+            }
+
+            socket.emit('start-rematch', { roomCode, playerId }, (response) => {
+                if (response.success) {
+                    resolve(response.gameState);
+                } else {
+                    reject(new Error(response.error || 'Failed to start rematch'));
+                }
+            });
+        });
+    }
+
+    // Notify opponent that player is leaving the endgame screen (before leaving room)
+    function leaveEndgame() {
+        return new Promise((resolve) => {
+            if (socket && socket.connected && roomCode) {
+                socket.emit('leave-endgame', { roomCode, playerId }, () => {
+                    resolve();
+                });
+            } else {
+                resolve();
+            }
+        });
+    }
+
     // Disconnect from server
     function disconnect() {
         if (socket) {
@@ -305,6 +383,9 @@ const Multiplayer = (function () {
         joinRoom,
         sendMove,
         leaveRoom,
+        requestRematch,
+        startRematch,
+        leaveEndgame,
         disconnect,
         clearRoomInfo,
         loadRoomInfo,
@@ -323,6 +404,9 @@ const Multiplayer = (function () {
         set onOpponentDisconnected(fn) { onOpponentDisconnected = fn; },
         set onOpponentReconnected(fn) { onOpponentReconnected = fn; },
         set onOpponentLeft(fn) { onOpponentLeft = fn; },
+        set onOpponentReadyRematch(fn) { onOpponentReadyRematch = fn; },
+        set onOpponentLeftEndgame(fn) { onOpponentLeftEndgame = fn; },
+        set onGameReset(fn) { onGameReset = fn; },
         set onConnectionStatusChange(fn) { onConnectionStatusChange = fn; },
         set onError(fn) { onError = fn; },
         

@@ -394,6 +394,92 @@ io.on('connection', (socket) => {
             callback({ success: false, error: err.message });
         }
     });
+
+    // Request rematch after game ends
+    socket.on('request-rematch', (data, callback) => {
+        try {
+            const { roomCode, playerId } = data;
+            const room = statements.getRoom.get(roomCode);
+            
+            if (!room) {
+                return callback({ success: false, error: 'Room not found' });
+            }
+
+            const player = statements.getPlayer.get(playerId);
+            if (!player || player.room_code !== roomCode) {
+                return callback({ success: false, error: 'Invalid player' });
+            }
+
+            // Notify opponent that this player is ready for rematch
+            socket.to(roomCode).emit('opponent-ready-rematch', {
+                color: player.color
+            });
+
+            console.log(`Player ${playerId} (${player.color}) requested rematch in room ${roomCode}`);
+
+            callback({ success: true });
+        } catch (err) {
+            console.error('Request rematch error:', err);
+            callback({ success: false, error: err.message });
+        }
+    });
+
+    // Start new game (both players ready)
+    socket.on('start-rematch', (data, callback) => {
+        try {
+            const { roomCode, playerId } = data;
+            const room = statements.getRoom.get(roomCode);
+            
+            if (!room) {
+                return callback({ success: false, error: 'Room not found' });
+            }
+
+            const player = statements.getPlayer.get(playerId);
+            if (!player || player.room_code !== roomCode) {
+                return callback({ success: false, error: 'Invalid player' });
+            }
+
+            // Reset game state to initial
+            const initialState = getInitialGameState();
+            statements.updateGameState.run(
+                JSON.stringify(initialState),
+                'black',
+                roomCode
+            );
+
+            // Notify both players to start new game
+            io.to(roomCode).emit('game-reset', {
+                gameState: initialState
+            });
+
+            console.log(`Rematch started in room ${roomCode}`);
+
+            callback({ success: true, gameState: initialState });
+        } catch (err) {
+            console.error('Start rematch error:', err);
+            callback({ success: false, error: err.message });
+        }
+    });
+
+    // Notify when a player leaves during end game screen
+    socket.on('leave-endgame', (data, callback) => {
+        try {
+            const { roomCode, playerId } = data;
+            const player = statements.getPlayer.get(playerId);
+            
+            if (player && player.room_code === roomCode) {
+                // Notify opponent that this player left
+                socket.to(roomCode).emit('opponent-left-endgame');
+                
+                console.log(`Player ${playerId} left endgame screen in room ${roomCode}`);
+            }
+
+            callback({ success: true });
+        } catch (err) {
+            console.error('Leave endgame error:', err);
+            callback({ success: false, error: err.message });
+        }
+    });
 });
 
 // Health check endpoint
