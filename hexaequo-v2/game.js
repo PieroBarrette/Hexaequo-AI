@@ -1086,6 +1086,11 @@ window.onload = function () {
 
         const { q: fromQ, r: fromR, piece } = draggedPiece;
 
+        // Reset drag state BEFORE executing move (so drawGrid inside move functions doesn't show dragged piece)
+        isDragging = false;
+        draggedPiece = null;
+        dragThresholdMet = false;
+
         // Store state before handling for online mode
         const stateBefore = isOnlineMode ? serializeGameState() : null;
 
@@ -1118,11 +1123,6 @@ window.onload = function () {
                 }
             }
         }
-
-        // Reset drag state
-        isDragging = false;
-        draggedPiece = null;
-        dragThresholdMet = false;
 
         // If move was not executed, just redraw (piece goes back)
         if (!moveExecuted) {
