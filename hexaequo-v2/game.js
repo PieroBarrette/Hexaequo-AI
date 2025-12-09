@@ -1261,7 +1261,8 @@ window.onload = function () {
             }
         });
     });
-    canvas.addEventListener('touchend', function (e) {
+    // Touch interaction handler - unified with click behavior (for taps when not dragging)
+    function handleTouchInteraction(e) {
         // Skip touch handling if drag was just completed
         if (dragJustCompleted) {
             dragJustCompleted = false;
@@ -1292,7 +1293,7 @@ window.onload = function () {
                 sendToAI();
             }
         });
-    });
+    }
 
     // ==================== Drag and Drop Event Listeners ====================
     // Mouse drag events
@@ -1304,10 +1305,13 @@ window.onload = function () {
     // Touch drag events
     canvas.addEventListener('touchstart', handleDragStart, { passive: false });
     canvas.addEventListener('touchmove', handleDragMove, { passive: false });
-    // Note: touchend is handled above for click behavior, but we also need it for drag
+    // Single touchend handler that handles both drag completion and tap interactions
     canvas.addEventListener('touchend', function(e) {
         if (isDragging) {
             handleDragEnd(e);
+        } else {
+            // Not dragging - treat as a tap (like click)
+            handleTouchInteraction(e);
         }
     }, { passive: false });
     canvas.addEventListener('touchcancel', cancelDrag);
