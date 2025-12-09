@@ -8,6 +8,7 @@ import {
 } from '../shared/game/moveValidator.js';
 
 import { serializeState as serializeSharedState } from '../shared/game/gameState.js';
+import { HistoryManager } from '../shared/game/history.js';
 
 let endTurnBtnBounds = null; // Used to track the End Turn button position for click detection
 let placePieceBtnBounds = null; // Used to track contextual place disc/ring buttons
@@ -132,15 +133,12 @@ window.onload = function () {
     const DRAG_THRESHOLD = 8; // Minimum pixels to move before drag starts
 
     // Move history for undo/redo functionality
-    let moveHistory = []; // Array of {gameState, moveType}
-    let currentMoveIndex = 0; // Index of the current position in move history
-    let isRestoringState = false; // Flag to prevent recording moves during undo/redo restoration
-    let initialGameState = null; // Store the initial state for undo to game start
+    const historyManager = new HistoryManager();
 
     // Helper function to check if we're at the end of move history
     // In online mode, moves can only be made when at the end of history
     function isAtEndOfHistory() {
-        return currentMoveIndex >= moveHistory.length - 1;
+        return historyManager.isAtEnd();
     }
 
     // Helper to check if game has ended (popup is displayed)
@@ -1585,58 +1583,15 @@ window.onload = function () {
     window.onOpponentLeftEndgame = onOpponentLeftEndgame;
     window.onGameReset = onGameReset;
 
-    // Generate a hash string representing the current game state
-    // Used for threefold repetition detection (like in chess)
-    // Includes tiles, pieces, activePlayer, and inventory
-    function getPositionHash(gameState) {
-        // Sort keys for consistent ordering
-        const tilesStr = Object.keys(gameState.tiles).sort().map(k => `${k}:${gameState.tiles[k]}`).join('|');
-        const piecesStr = Object.keys(gameState.pieces).sort().map(k => {
-            const p = gameState.pieces[k];
-            return `${k}:${p.type}:${p.color}`;
-        }).join('|');
-        // Include inventory in the hash
-        const inv = gameState.inventory;
-        const inventoryStr = `b:${inv.black.tiles},${inv.black.discs},${inv.black.rings}|w:${inv.white.tiles},${inv.white.discs},${inv.white.rings}`;
-        return `${gameState.activePlayer}#${tilesStr}#${piecesStr}#${inventoryStr}`;
-    }
-
     // Check if the current position has occurred 3 times (threefold repetition)
     function checkThreefoldRepetition() {
-        if (moveHistory.length < 5) return false; // Need at least 5 moves for repetition
-        
-        const positionCounts = {};
-        
-        // Count occurrences of each position hash in the history
-        for (let i = 0; i <= currentMoveIndex; i++) {
-            const entry = moveHistory[i];
-            if (entry && entry.positionHash) {
-                positionCounts[entry.positionHash] = (positionCounts[entry.positionHash] || 0) + 1;
-                if (positionCounts[entry.positionHash] >= 3) {
-                    return true;
-                }
-            }
-        }
-        
-        return false;
+        return historyManager.hasThreefoldRepetition();
     }
 
     // Record initial state when game starts or resets
     function recordInitialState() {
-        isRestoringState = true; // Prevent any move recording
-        
         const currentState = serializeGameState();
-        const positionHash = getPositionHash(currentState);
-        moveHistory = [{
-            gameState: JSON.parse(JSON.stringify(currentState)),
-            moveType: 'initial',
-            positionHash: positionHash,
-            timestamp: Date.now()
-        }];
-        currentMoveIndex = 0;
-        initialGameState = JSON.parse(JSON.stringify(currentState));
-        
-        isRestoringState = false;
+        historyManager.recordInitialState(currentState);
         updateUndoRedoButtons();
     }
 
@@ -1644,35 +1599,18 @@ window.onload = function () {
     // jumpPathParam: optional array of positions for multi-jump path highlighting
     // isOpponentMove: true when this is an online opponent's move (don't truncate history)
     function recordMove(moveType, jumpPathParam = null, isOpponentMove = false) {
-        // Don't record moves while restoring from undo/redo
-        if (isRestoringState) return;
-        
-        const currentState = serializeGameState();
-        const positionHash = getPositionHash(currentState);
-        
-        // If we're not at the end of history, truncate future moves
-        // BUT: In online mode, if this is an opponent's move, don't truncate - just add to end
-        if (currentMoveIndex < moveHistory.length - 1 && !isOpponentMove) {
-            moveHistory = moveHistory.slice(0, currentMoveIndex + 1);
-        }
-        
-        // Add the new move (include jumpPath if provided for multi-jump highlighting)
-        moveHistory.push({
-            gameState: JSON.parse(JSON.stringify(currentState)),
-            moveType: moveType,
-            jumpPath: jumpPathParam ? JSON.parse(JSON.stringify(jumpPathParam)) : null,
-            positionHash: positionHash,
-            timestamp: Date.now()
-        });
-        
-        // Always move to the end of history (latest position)
-        // For opponent moves, this brings the player to the current board state so they can play
-        currentMoveIndex = moveHistory.length - 1;
-        
-        // Save to IndexedDB
+        const snapshot = historyManager.recordMove(
+            serializeGameState(),
+            {
+                moveType,
+                jumpPath: jumpPathParam,
+                isOpponentMove
+            }
+        );
+
+        if (!snapshot) return;
+
         saveGameSession();
-        
-        // Update undo/redo button states
         updateUndoRedoButtons();
     }
 
@@ -1683,24 +1621,15 @@ window.onload = function () {
     function undoMove() {
         // In AI mode: undo 2 moves (back to player's turn), In 2-player mode: undo 1 move
         const movesToUndo = 1;
-        
-        if (currentMoveIndex - movesToUndo < 0) {
+
+        const historyEntry = historyManager.stepBackward(movesToUndo);
+        if (!historyEntry) {
             console.log('Cannot undo: at the beginning of game');
             return;
         }
-        
-        currentMoveIndex -= movesToUndo;
-        const historyEntry = moveHistory[currentMoveIndex];
-        
-        if (!historyEntry) return;
-        
-        // Restore the game state from history
+
         restoreGameState(historyEntry.gameState);
-        
-        // Save to IndexedDB
         saveGameSession();
-        
-        // Update button states
         updateUndoRedoButtons();
     }
 
@@ -1708,30 +1637,21 @@ window.onload = function () {
     function redoMove() {
         // In AI mode: redo 2 moves, In 2-player mode: redo 1 move
         const movesToRedo = 1;
-        
-        if (currentMoveIndex + movesToRedo >= moveHistory.length) {
+
+        const historyEntry = historyManager.stepForward(movesToRedo);
+        if (!historyEntry) {
             console.log('Cannot redo: at the end of move history');
             return;
         }
-        
-        currentMoveIndex += movesToRedo;
-        const historyEntry = moveHistory[currentMoveIndex];
-        
-        if (!historyEntry) return;
-        
-        // Restore the game state from history
+
         restoreGameState(historyEntry.gameState);
-        
-        // Save to IndexedDB
         saveGameSession();
-        
-        // Update button states
         updateUndoRedoButtons();
     }
 
     // Restore game state from a history entry
     function restoreGameState(savedState) {
-        isRestoringState = true; // Prevent recording moves during restoration
+        historyManager.beginRestoration(); // Prevent recording moves during restoration
         
         // Restore tiles
         tiles = JSON.parse(JSON.stringify(savedState.tiles));
@@ -1778,13 +1698,11 @@ window.onload = function () {
         // Redraw
         updateDynamicLayout();
 
-        //Use currentMoveIndex and moveHistory to call the highlightLastMove function
-        if (moveHistory[currentMoveIndex - 1]) {
-            const prevState = moveHistory[currentMoveIndex - 1].gameState;
-            // Get jumpPath from the current history entry (the move that led to this state)
-            const currentEntry = moveHistory[currentMoveIndex];
-            const jumpPathFromHistory = currentEntry ? currentEntry.jumpPath : null;
-            highlightLastMove(prevState, savedState, jumpPathFromHistory);
+        const prevEntry = historyManager.getEntryRelative(-1);
+        const currentEntry = historyManager.getCurrentEntry();
+        if (prevEntry && currentEntry) {
+            const jumpPathFromHistory = currentEntry.jumpPath || null;
+            highlightLastMove(prevEntry.gameState, savedState, jumpPathFromHistory);
         }
 
         // Update button states
@@ -1792,7 +1710,7 @@ window.onload = function () {
 
         drawGrid();
         
-        isRestoringState = false; // Allow move recording again
+        historyManager.endRestoration(); // Allow move recording again
     }
 
     // Initialize IndexedDB for game session persistence
@@ -1825,10 +1743,12 @@ window.onload = function () {
         const transaction = window.hexaequoDb.transaction(['gameSession'], 'readwrite');
         const objectStore = transaction.objectStore('gameSession');
         
+        const { moveHistory, currentMoveIndex } = historyManager.exportState();
+
         const sessionData = {
             id: 'currentGame',
-            moveHistory: moveHistory,
-            currentMoveIndex: currentMoveIndex,
+            moveHistory,
+            currentMoveIndex,
             timestamp: Date.now()
         };
         
@@ -1858,12 +1778,14 @@ window.onload = function () {
             request.onsuccess = (event) => {
                 const sessionData = event.target.result;
                 if (sessionData) {
-                    moveHistory = sessionData.moveHistory || [];
-                    currentMoveIndex = sessionData.currentMoveIndex || 0;
-                    
-                    // Restore the last saved state if available
-                    if (currentMoveIndex >= 0 && moveHistory[currentMoveIndex]) {
-                        restoreGameState(moveHistory[currentMoveIndex].gameState);
+                    historyManager.importState({
+                        moveHistory: sessionData.moveHistory,
+                        currentMoveIndex: sessionData.currentMoveIndex
+                    });
+
+                    const currentEntry = historyManager.getCurrentEntry();
+                    if (currentEntry) {
+                        restoreGameState(currentEntry.gameState);
                         updateUndoRedoButtons();
                         console.log('Game session restored from IndexedDB');
                         resolve(true);
@@ -1896,9 +1818,9 @@ window.onload = function () {
         
         // Determine how many moves we can undo
         const movesToUndo = 1;
-        const canUndo = currentMoveIndex - movesToUndo >= 0;
+        const canUndo = historyManager.canUndo(movesToUndo);
         const movesToRedo = 1;
-        const canRedo = currentMoveIndex + movesToRedo < moveHistory.length;
+        const canRedo = historyManager.canRedo(movesToRedo);
         
 
         //if (!undoBtn || !redoBtn) return;
@@ -1915,7 +1837,7 @@ window.onload = function () {
             if (isOnlineMode) {
                 // Check if viewing history (not at end)
                 if (!isAtEndOfHistory()) {
-                    const movesBack = moveHistory.length - 1 - currentMoveIndex;
+                    const movesBack = historyManager.getMovesBackFromEnd();
                     indicatorText = `Viewing History (${movesBack} move${movesBack > 1 ? 's' : ''} back)`;
                 } else if (isMyTurn(activePlayer)) {
                     indicatorText = `Your Turn (${onlinePlayerColor.charAt(0).toUpperCase() + onlinePlayerColor.slice(1)})`;
@@ -2096,11 +2018,10 @@ window.onload = function () {
 
         updateDynamicLayout(); // Update targets based on new state
 
-        //Use currentMoveIndex and moveHistory to call the highlightLastMove function
-        if (moveHistory[currentMoveIndex - 1]) {
-            const prevState = moveHistory[currentMoveIndex - 1].gameState;
-            // Use the same path for highlighting
-            highlightLastMove(prevState, updatedState, pathToRecord);
+        const prevEntry = historyManager.getEntryRelative(-1);
+        const currentEntry = historyManager.getCurrentEntry();
+        if (prevEntry && currentEntry) {
+            highlightLastMove(prevEntry.gameState, currentEntry.gameState, pathToRecord);
         }
 
         // Redraw the grid
@@ -2538,13 +2459,8 @@ window.onload = function () {
         const sessionLoaded = await loadGameSession();
         if (!sessionLoaded) {
             // No saved session, record the initial game state only once
-            if (moveHistory.length === 0) {
-                moveHistory.push({
-                    gameState: serializeGameState(),
-                    moveType: 'initial',
-                    timestamp: Date.now()
-                });
-                currentMoveIndex = 0;
+            if (historyManager.getHistoryLength() === 0) {
+                historyManager.recordInitialState(serializeGameState());
             }
         }
         // Initialize button states
