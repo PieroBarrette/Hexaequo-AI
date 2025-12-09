@@ -25,23 +25,16 @@ export function initGameController(canvas, options = {}) {
 	const hexSize = options.hexSize ?? 40;
 
 	const handleClick = (event) => {
-		const rect = canvas.getBoundingClientRect();
-		const scaledX = (event.clientX - rect.left) * (canvas.width / rect.width);
-		const scaledY = (event.clientY - rect.top) * (canvas.height / rect.height);
-		const { q, r } = pixelToAxial(scaledX, scaledY, hexSize);
-		handleBoardInteraction(Math.round(q), Math.round(r));
+		const { q, r } = extractBoardCoordinates(event, canvas, hexSize);
+		handleBoardInteraction(q, r);
 	};
 
 	canvas.addEventListener('click', handleClick);
 	canvas.addEventListener('touchend', (event) => {
 		event.preventDefault();
 		if (!event.changedTouches?.length) return;
-		const touch = event.changedTouches[0];
-		const rect = canvas.getBoundingClientRect();
-		const scaledX = (touch.clientX - rect.left) * (canvas.width / rect.width);
-		const scaledY = (touch.clientY - rect.top) * (canvas.height / rect.height);
-		const { q, r } = pixelToAxial(scaledX, scaledY, hexSize);
-		handleBoardInteraction(Math.round(q), Math.round(r));
+		const { q, r } = extractBoardCoordinates(event.changedTouches[0], canvas, hexSize);
+		handleBoardInteraction(q, r);
 	}, { passive: false });
 
 	return () => {
@@ -395,6 +388,18 @@ function buildMoveContext(state) {
 		turnStartPiecePos: state.metadata?.turnStartPiecePos,
 		sequenceCapturedSnapshot: state.metadata?.sequenceCapturedSnapshot ?? null
 	};
+}
+
+function extractBoardCoordinates(pointer, canvas, hexSize) {
+	const rect = canvas.getBoundingClientRect();
+	const rawX = pointer.clientX - rect.left;
+	const rawY = pointer.clientY - rect.top;
+	const scaledX = rawX * (canvas.width / rect.width);
+	const scaledY = rawY * (canvas.height / rect.height);
+	const centeredX = scaledX - canvas.width / 2;
+	const centeredY = scaledY - canvas.height / 2;
+	const { q, r } = pixelToAxial(centeredX, centeredY, hexSize);
+	return { q, r };
 }
 
 function placeDiscAt(q, r, options = {}) {
