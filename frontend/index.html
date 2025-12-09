@@ -80,6 +80,30 @@
 		.status-actions {
 			display: flex;
 			gap: 12px;
+			flex-wrap: wrap;
+		}
+
+		.status-actions input {
+			flex: 1;
+			min-width: 140px;
+			padding: 10px 14px;
+			border-radius: 8px;
+			border: 1px solid rgba(148, 163, 184, 0.4);
+			background: #0f172a;
+			color: #e2e8f0;
+			font-size: 0.95rem;
+		}
+
+		.status-actions input:focus {
+			outline: none;
+			border-color: #10b981;
+			box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
+		}
+
+		.status-error {
+			margin: 0;
+			font-size: 0.85rem;
+			color: #f87171;
 		}
 
 		button {
@@ -122,7 +146,12 @@
 			<div class="status-actions">
 				<button id="connectServerBtn">Connect</button>
 				<button id="createRoomDevBtn">Create Room</button>
+				<input id="roomCodeInput" placeholder="Room code" maxlength="4" autocapitalize="characters" />
+				<button id="joinRoomDevBtn">Join Room</button>
+				<button id="leaveRoomDevBtn">Leave Room</button>
+				<button id="sendStateBtn">Send State</button>
 			</div>
+			<p class="status-error" data-error-msg></p>
 		</section>
 	</main>
 

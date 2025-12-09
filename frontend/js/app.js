@@ -4,8 +4,10 @@ import {
 	updateGameState,
 	applySerializedState,
 	serializeCurrentState,
-	subscribeToGameState
+	subscribeToGameState,
+	getPreviousGameState
 } from './store/gameStore.js';
+import { serializeState } from './game/gameState.js';
 import { SocketClient } from './utils/socketClient.js';
 import { HEX_DIRECTIONS } from '../../shared/game/constants.js';
 
@@ -15,7 +17,8 @@ let appState = {
 	view: 'splash',
 	connectionStatus: 'disconnected',
 	roomCode: null,
-	playerColor: null
+	playerColor: null,
+	lastError: null
 };
 
 const appSubscribers = new Set();
@@ -75,20 +78,28 @@ function wireDevButtons() {
 function wireStatusPanel() {
 	const statusEl = document.querySelector('[data-connection-status]');
 	const roomEl = document.querySelector('[data-room-code]');
+	const errorEl = document.querySelector('[data-error-msg]');
 	const connectBtn = document.getElementById('connectServerBtn');
 	const createRoomBtn = document.getElementById('createRoomDevBtn');
+	const joinRoomBtn = document.getElementById('joinRoomDevBtn');
+	const leaveRoomBtn = document.getElementById('leaveRoomDevBtn');
+	const roomInput = document.getElementById('roomCodeInput');
+	const sendStateBtn = document.getElementById('sendStateBtn');
 
 	subscribeToAppState((state) => {
 		if (statusEl) statusEl.textContent = state.connectionStatus;
 		if (roomEl) roomEl.textContent = state.roomCode ?? '----';
+		if (errorEl) errorEl.textContent = state.lastError ?? '';
 		document.body?.setAttribute('data-view', state.view);
 	});
 
 	connectBtn?.addEventListener('click', async () => {
 		try {
 			await socketClient.connect();
+			setAppState({ lastError: null });
 		} catch (err) {
 			console.error('Socket connect failed', err);
+			setAppState({ lastError: err.message });
 		}
 	});
 
@@ -96,9 +107,65 @@ function wireStatusPanel() {
 		try {
 			await socketClient.ensureConnected();
 			const response = await socketClient.createRoom();
-			setAppState({ roomCode: response.roomCode, playerColor: response.color, view: 'game' });
+			hydrateFromServerState(response.gameState);
+			setAppState({
+				roomCode: response.roomCode,
+				playerColor: response.color,
+				view: 'game',
+				lastError: null
+			});
 		} catch (err) {
 			console.error('Create room failed', err);
+			setAppState({ lastError: err.message });
+		}
+	});
+
+	joinRoomBtn?.addEventListener('click', async () => {
+		try {
+			await socketClient.ensureConnected();
+			const code = roomInput?.value?.trim();
+			if (!code) {
+				setAppState({ lastError: 'Enter a room code to join.' });
+				return;
+			}
+			const response = await socketClient.joinRoom(code);
+			hydrateFromServerState(response.gameState);
+			setAppState({
+				roomCode: response.roomCode,
+				playerColor: response.color,
+				view: 'game',
+				lastError: null
+			});
+		} catch (err) {
+			console.error('Join room failed', err);
+			setAppState({ lastError: err.message });
+		}
+	});
+
+	leaveRoomBtn?.addEventListener('click', async () => {
+		try {
+			await socketClient.leaveRoom();
+			setAppState({ roomCode: null, playerColor: null, lastError: null });
+		} catch (err) {
+			console.error('Leave room failed', err);
+			setAppState({ lastError: err.message });
+		}
+	});
+
+	sendStateBtn?.addEventListener('click', async () => {
+		try {
+			await socketClient.ensureConnected();
+			if (!appState.roomCode) {
+				setAppState({ lastError: 'Create or join a room first.' });
+				return;
+			}
+			const current = serializeCurrentState();
+			const previous = serializeState(getPreviousGameState());
+			await socketClient.sendMove(current, previous, null);
+			setAppState({ lastError: null });
+		} catch (err) {
+			console.error('Send state failed', err);
+			setAppState({ lastError: err.message });
 		}
 	});
 }
@@ -109,16 +176,21 @@ function observeMultiplayer() {
 	});
 
 	socketClient.on('error', (message) => {
-		setAppState({ connectionStatus: 'error' });
+		setAppState({ connectionStatus: 'error', lastError: message });
 		console.error('Socket error:', message);
 	});
 
-	socketClient.on('game-reset', () => {
+	socketClient.on('game-reset', ({ gameState }) => {
+		hydrateFromServerState(gameState);
 		setAppView('game');
 	});
 
 	socketClient.on('opponent-joined', () => {
 		setAppView('game');
+	});
+
+	socketClient.on('opponent-moved', ({ gameState }) => {
+		hydrateFromServerState(gameState);
 	});
 }
 
@@ -145,6 +217,11 @@ function setAppState(patch) {
 	if (!changed) return;
 	appState = nextState;
 	notifyAppSubscribers();
+}
+
+function hydrateFromServerState(snapshot) {
+	if (!snapshot) return;
+	applySerializedState(snapshot, { reason: 'server-sync' });
 }
 
 function subscribeToAppState(listener, options = {}) {
