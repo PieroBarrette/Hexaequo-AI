@@ -42,6 +42,66 @@
 			box-shadow: 0 20px 45px rgba(15, 23, 42, 0.45);
 		}
 
+		.hud-grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+			gap: 16px;
+		}
+
+		.hud-card {
+			background: #111827;
+			border: 1px solid rgba(148, 163, 184, 0.25);
+			border-radius: 14px;
+			padding: 16px;
+			box-shadow: 0 12px 30px rgba(15, 23, 42, 0.4);
+			min-height: 120px;
+			display: flex;
+			flex-direction: column;
+			gap: 12px;
+		}
+
+		.timer-card {
+			gap: 16px;
+		}
+
+		.timer-card .timer-row {
+			display: flex;
+			flex-direction: column;
+			gap: 8px;
+		}
+
+		.timer-card .timer-row > div {
+			flex: 1;
+		}
+
+		.inventory-card {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+			gap: 12px;
+		}
+
+		.hud-label {
+			font-size: 0.85rem;
+			text-transform: uppercase;
+			letter-spacing: 0.08em;
+			color: #94a3b8;
+		}
+
+		.hud-value {
+			font-size: 1.4rem;
+			color: #f8fafc;
+		}
+
+		.hud-list {
+			list-style: none;
+			margin: 0;
+			padding: 0;
+			display: flex;
+			flex-direction: column;
+			gap: 4px;
+			font-size: 0.9rem;
+		}
+
 		#modernGameCanvas {
 			width: 100%;
 			height: 540px;
@@ -133,6 +193,46 @@
 		<section class="dev-panel">
 			<button id="devAddTile">Add Tile</button>
 			<button id="devAddDisc">Add Piece</button>
+		</section>
+		<section class="hud-grid">
+			<div class="hud-card" data-turn-indicator>
+				<span class="hud-label">Active Player</span>
+				<strong class="hud-value">--</strong>
+			</div>
+			<div class="hud-card timer-card">
+				<div class="timer-row">
+					<div data-timer-black>
+						<span class="hud-label">Black Timer</span>
+						<strong class="hud-value">--:--</strong>
+					</div>
+					<div data-timer-white>
+						<span class="hud-label">White Timer</span>
+						<strong class="hud-value">--:--</strong>
+					</div>
+				</div>
+			</div>
+			<div class="hud-card inventory-card">
+				<div data-inventory-black>
+					<span class="hud-label">Black</span>
+					<ul class="hud-list">
+						<li>Tiles: <strong>0</strong></li>
+						<li>Discs: <strong>0</strong></li>
+						<li>Rings: <strong>0</strong></li>
+						<li>Captured discs: <strong>0</strong></li>
+						<li>Captured rings: <strong>0</strong></li>
+					</ul>
+				</div>
+				<div data-inventory-white>
+					<span class="hud-label">White</span>
+					<ul class="hud-list">
+						<li>Tiles: <strong>0</strong></li>
+						<li>Discs: <strong>0</strong></li>
+						<li>Rings: <strong>0</strong></li>
+						<li>Captured discs: <strong>0</strong></li>
+						<li>Captured rings: <strong>0</strong></li>
+					</ul>
+				</div>
+			</div>
 		</section>
 		<section class="status-panel">
 			<div class="status-row">

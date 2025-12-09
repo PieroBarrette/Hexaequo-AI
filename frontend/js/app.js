@@ -10,8 +10,10 @@ import {
 import { serializeState } from './game/gameState.js';
 import { SocketClient } from './utils/socketClient.js';
 import { HEX_DIRECTIONS } from '../../shared/game/constants.js';
+import { mountHud } from './game/hud/index.js';
 
 const socketClient = new SocketClient();
+let disposeHud = () => {};
 
 let appState = {
 	view: 'splash',
@@ -29,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function initializeApp() {
 	initializeCanvas();
+	disposeHud = mountHud();
 	wireDevButtons();
 	wireStatusPanel();
 	observeMultiplayer();
@@ -201,6 +204,10 @@ function exposeDebugHelpers() {
 		applySerializedState,
 		setView: setAppView,
 		subscribeToGameState,
+		refreshHud() {
+			disposeHud?.();
+			disposeHud = mountHud();
+		},
 		get state() {
 			return appState;
 		}
