@@ -2,6 +2,8 @@ import { mountTurnIndicator } from './turnIndicator.js';
 import { mountInventoryPanel } from './inventoryPanel.js';
 import { mountTimerPanel } from './timerPanel.js';
 import { mountActionCenter } from './actionCenter.js';
+import { mountMultiJumpOverlay } from './multiJumpOverlay.js';
+import { mountGameOverBanner } from './gameOverBanner.js';
 
 export function mountHud() {
     const disposers = [];
@@ -29,6 +31,12 @@ export function mountHud() {
 
     const actionCenter = document.querySelector('[data-action-center]');
     disposers.push(mountActionCenter(actionCenter));
+
+    const multiJumpOverlay = document.querySelector('[data-multi-jump-overlay]');
+    disposers.push(mountMultiJumpOverlay(multiJumpOverlay));
+
+    const gameOverOverlay = document.querySelector('[data-game-over]');
+    disposers.push(mountGameOverBanner(gameOverOverlay));
 
     return () => disposers.forEach((dispose) => dispose?.());
 }

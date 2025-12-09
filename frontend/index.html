@@ -40,6 +40,63 @@
 			border-radius: 16px;
 			padding: 16px;
 			box-shadow: 0 20px 45px rgba(15, 23, 42, 0.45);
+			position: relative;
+		}
+
+		.canvas-overlay {
+			position: absolute;
+			top: 16px;
+			right: 16px;
+			left: 16px;
+			pointer-events: none;
+			z-index: 2;
+			display: flex;
+			justify-content: flex-end;
+		}
+
+		.multi-jump-chip {
+			background: rgba(15, 23, 42, 0.92);
+			border: 1px solid rgba(16, 185, 129, 0.4);
+			border-radius: 999px;
+			padding: 6px 12px;
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			pointer-events: auto;
+			box-shadow: 0 8px 20px rgba(15, 23, 42, 0.45);
+		}
+
+		.multi-jump-chip span {
+			font-size: 0.85rem;
+			color: #d1fae5;
+			text-transform: uppercase;
+			letter-spacing: 0.08em;
+		}
+
+		.multi-jump-actions {
+			display: inline-flex;
+			gap: 6px;
+		}
+
+		.multi-jump-btn {
+			width: 32px;
+			height: 32px;
+			border-radius: 50%;
+			border: none;
+			cursor: pointer;
+			font-size: 1rem;
+			font-weight: 600;
+		}
+
+		.multi-jump-btn.confirm {
+			background: #10b981;
+			color: #0f172a;
+		}
+
+		.multi-jump-btn.ghost {
+			background: rgba(15, 23, 42, 0.6);
+			color: #94a3b8;
+			border: 1px solid rgba(148, 163, 184, 0.4);
 		}
 
 		.board-stage {
@@ -266,11 +323,6 @@
 			border: none;
 		}
 
-		.dev-panel {
-			display: flex;
-			gap: 12px;
-		}
-
 		.status-panel {
 			background: #111827;
 			border: 1px solid rgba(148, 163, 184, 0.3);
@@ -334,6 +386,48 @@
 			transform: translateY(-1px);
 			box-shadow: 0 8px 20px rgba(16, 185, 129, 0.35);
 		}
+
+		.game-over-overlay {
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			background: rgba(2, 6, 23, 0.78);
+			z-index: 50;
+		}
+
+		.game-over-overlay[hidden] {
+			display: none;
+		}
+
+		.game-over-card {
+			background: #0f172a;
+			border: 1px solid rgba(148, 163, 184, 0.3);
+			border-radius: 20px;
+			padding: 32px;
+			max-width: 420px;
+			text-align: center;
+			box-shadow: 0 25px 60px rgba(15, 23, 42, 0.75);
+		}
+
+		.game-over-card h2 {
+			margin: 0 0 8px;
+			font-size: 2rem;
+			color: #f8fafc;
+		}
+
+		.game-over-card p {
+			margin: 0 0 16px;
+			color: #cbd5f5;
+		}
+
+		.game-over-card button {
+			margin-top: 12px;
+		}
 	</style>
 </head>
 
@@ -345,16 +439,13 @@
 				<p class="hud-muted">Waiting for data…</p>
 			</div>
 			<div class="canvas-shell">
+				<div class="canvas-overlay" data-multi-jump-overlay hidden></div>
 				<canvas id="modernGameCanvas" width="1080" height="540"></canvas>
 			</div>
 			<div class="inventory-column" data-inventory-white>
 				<span class="hud-label">White Inventory</span>
 				<p class="hud-muted">Waiting for data…</p>
 			</div>
-		</section>
-		<section class="dev-panel">
-			<button id="devAddTile">Add Tile</button>
-			<button id="devAddDisc">Add Piece</button>
 		</section>
 		<section class="hud-grid">
 			<div class="hud-card" data-turn-indicator>
@@ -398,6 +489,8 @@
 			<p class="status-error" data-error-msg></p>
 		</section>
 	</main>
+
+	<div class="game-over-overlay" data-game-over hidden></div>
 
 	<script type="module" src="./js/app.js"></script>
 </body>

@@ -43,12 +43,15 @@ export function initGameController(canvas, options = {}) {
 }
 
 function handleBoardInteraction(q, r) {
+	const state = getGameState();
+	if (state.metadata?.gameOver) {
+		return;
+	}
 	if (!isInsideBoard(q, r)) {
 		clearSelection();
 		return;
 	}
 
-	const state = getGameState();
 	const key = `${q},${r}`;
 	const piece = state.pieces?.[key];
 	const ownsPiece = piece && piece.color === state.activePlayer;

@@ -1,7 +1,6 @@
 import { mountBoardRenderer } from './game/boardRenderer.js';
 import { createCanvasGraphics } from './game/canvasGraphics.js';
 import {
-	updateGameState,
 	applySerializedState,
 	serializeCurrentState,
 	subscribeToGameState,
@@ -9,13 +8,14 @@ import {
 } from './store/gameStore.js';
 import { serializeState } from './game/gameState.js';
 import { SocketClient } from './utils/socketClient.js';
-import { HEX_DIRECTIONS } from '../../shared/game/constants.js';
 import { mountHud } from './game/hud/index.js';
 import { initGameController } from './game/gameController.js';
+import { initEndgameWatcher } from './game/endgameWatcher.js';
 
 const socketClient = new SocketClient();
 let disposeHud = () => {};
 let disposeController = () => {};
+let disposeEndgame = () => {};
 
 let appState = {
 	view: 'splash',
@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function initializeApp() {
 	initializeCanvas();
 	disposeHud = mountHud();
-	wireDevButtons();
+	disposeEndgame = initEndgameWatcher();
 	wireStatusPanel();
 	observeMultiplayer();
 	exposeDebugHelpers();
@@ -52,34 +52,6 @@ function initializeCanvas() {
 	const graphicsApi = createCanvasGraphics(canvas, { hexSize, verbose: false });
 	mountBoardRenderer({ graphicsApi });
 	disposeController = initGameController(canvas, { hexSize });
-}
-
-function wireDevButtons() {
-	const addTileBtn = document.getElementById('devAddTile');
-	const addDiscBtn = document.getElementById('devAddDisc');
-
-	addTileBtn?.addEventListener('click', () => {
-		updateGameState((state) => {
-			const tiles = { ...state.tiles };
-			const candidate = findPlacementSpot(tiles);
-			if (!candidate) return state;
-			tiles[`${candidate.q},${candidate.r}`] = Math.random() > 0.5 ? 'black' : 'white';
-			return { ...state, tiles };
-		}, { reason: 'dev-tile' });
-	});
-
-	addDiscBtn?.addEventListener('click', () => {
-		updateGameState((state) => {
-			const placement = findPiecePlacement(state);
-			if (!placement) return state;
-			const pieces = { ...state.pieces };
-			pieces[`${placement.q},${placement.r}`] = {
-				type: placement.type,
-				color: placement.color
-			};
-			return { ...state, pieces };
-		}, { reason: 'dev-piece' });
-	});
 }
 
 function wireStatusPanel() {
@@ -219,6 +191,10 @@ function exposeDebugHelpers() {
 				disposeController = initGameController(canvas, { hexSize: 40 });
 			}
 		},
+		refreshEndgameWatcher() {
+			disposeEndgame?.();
+			disposeEndgame = initEndgameWatcher();
+		},
 		get state() {
 			return appState;
 		}
@@ -260,31 +236,3 @@ function notifyAppSubscribers() {
 	});
 }
 
-function findPlacementSpot(tiles) {
-	const occupied = new Set(Object.keys(tiles));
-	const candidates = [];
-	for (const key of occupied) {
-		const [q, r] = key.split(',').map(Number);
-		for (const [dq, dr] of HEX_DIRECTIONS) {
-			const cq = q + dq;
-			const cr = r + dr;
-			const cKey = `${cq},${cr}`;
-			if (!occupied.has(cKey)) {
-				candidates.push({ q: cq, r: cr });
-			}
-		}
-	}
-	if (candidates.length === 0) return null;
-	return candidates[Math.floor(Math.random() * candidates.length)];
-}
-
-function findPiecePlacement(state) {
-	const tiles = state.tiles || {};
-	const pieces = state.pieces || {};
-	const emptyTiles = Object.keys(tiles).filter((key) => !pieces[key]);
-	if (emptyTiles.length === 0) return null;
-	const [q, r] = emptyTiles[Math.floor(Math.random() * emptyTiles.length)].split(',').map(Number);
-	const type = Math.random() > 0.7 ? 'ring' : 'disc';
-	const color = Math.random() > 0.5 ? 'black' : 'white';
-	return { q, r, type, color };
-}
