@@ -15,6 +15,9 @@ let endTurnBtnBounds = null; // Used to track the End Turn button position for c
 let placePieceBtnBounds = null; // Used to track contextual place disc/ring buttons
 let placePieceBtnTile = null; // {q, r} for which tile the buttons are shown
 
+const ANIMATION_DURATION_MS = 350;
+let animationsEnabled = true;
+
 // Global variables for game mode
 let isAiMode = false;
 let isSoundEnabled = true;
@@ -29,6 +32,44 @@ let showValidMoves = false;
 let showPreviousMove = true;
 let validMovesHighlights = []; // Array of { q, r, type: 'tile'|'piece'|'move' }
 let globalDrawGrid = null; // Reference to drawGrid function for redraw triggering
+
+function toggleGameMode(enableAiMode = false) {
+    isAiMode = Boolean(enableAiMode);
+    if (isAiMode) {
+        setOnlineMode(false);
+    }
+    window.isAiMode = isAiMode;
+    console.log('AI mode enabled:', isAiMode);
+}
+
+function setSoundEnabled(enabled) {
+    isSoundEnabled = Boolean(enabled);
+    console.log('Sound enabled:', isSoundEnabled);
+}
+
+function setAiDifficulty(level) {
+    const parsed = Number(level);
+    const clamped = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), 4) : 1;
+    aiDifficulty = clamped;
+    console.log('AI difficulty set to:', aiDifficulty);
+}
+
+function setOnlineMode(enabled, playerColor = null) {
+    isOnlineMode = Boolean(enabled);
+    window.isOnlineMode = isOnlineMode;
+    onlinePlayerColor = isOnlineMode ? playerColor || onlinePlayerColor || 'black' : null;
+    if (!isOnlineMode) {
+        window.jumpHistory = [];
+    }
+    console.log('Online mode:', isOnlineMode, 'color:', onlinePlayerColor);
+}
+
+function isMyTurn(currentActiveColor) {
+    if (!isOnlineMode || !onlinePlayerColor) {
+        return true;
+    }
+    return currentActiveColor === onlinePlayerColor;
+}
 
 function setShowValidMoves(enabled) {
     showValidMoves = Boolean(enabled);
@@ -47,7 +88,7 @@ function setShowPreviousMove(enabled) {
 }
 
 function setAnimationsEnabled(enabled) {
-    animationsEnabled = enabled;
+    animationsEnabled = Boolean(enabled);
     console.log('Animations enabled:', animationsEnabled);
     // Update graphics module
     if (window.GameGraphics && window.GameGraphics.setAnimationsEnabled) {
@@ -70,6 +111,7 @@ window.setAnimationsEnabled = setAnimationsEnabled;
 window.getAnimationDuration = getAnimationDuration;
 window.setOnlineMode = setOnlineMode;
 window.isMyTurn = isMyTurn;
+window.isOnlineMode = isOnlineMode;
 
 window.onload = function () {
     const canvas = document.getElementById('gameCanvas');

@@ -49,6 +49,10 @@ The manager clones snapshots internally, so callers can pass the objects returne
 
 - Because the helper always prefers the provided `jumpPath` (falling back to `updatedState.lastJumpPath`), discs that traverse multi-jump loops animate deterministically even when their origin and destination tiles are identical.
 
+### Animation smoke tests
+- Run `node tests/animation/animationTests.mjs` from the repo root to exercise both `diffStatesForAnimation` and `buildAnimationQueue` end-to-end.
+- The script relies on the local `frontend/` and `shared/` package manifests declaring `"type": "module"`, which lets Node import the browser-oriented ES modules without a bundler.
+
 ## Local testing procedure
 Use this checklist when you want to play with the refactor locally without touching production or provisioning the backend/database yet.
 
