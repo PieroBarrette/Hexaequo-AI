@@ -198,6 +198,7 @@ frontend/
 - Introduce a thin state store module to own inventories, captured counts, and undo history; migrate `serializeGameState`/`applyGameState` next.
 - Once logic lives in reusable modules, rebuild input handlers and UI bindings on top of the new SPA shell, then retire the monolithic script.
 - **Progress log:** `constants.js`, `moveValidator.js`, `gameState.js`, and `store/gameStore.js` now contain ESM-ready helpers so future UI work can import shared logic without re-reading the legacy file.
+- **Legacy bridge:** `hexaequo-v2/game.js` now imports the shared move/state helpers as an ES module (see `index.html` script type change) so we can incrementally delete duplicated logic without breaking the current UI.
 
 ## 6. Deployment & Operations
 | Layer | Option | Notes |

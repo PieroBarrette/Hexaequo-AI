@@ -1,6 +1,14 @@
 // game.js
 // Entry point for Hexaequo V2 game logic
 
+import {
+    getNeighbors as sharedGetNeighbors,
+    calculateAllValidMoves as sharedCalculateAllValidMoves,
+    calculateValidMovesForPiece as sharedCalculateValidMovesForPiece
+} from '../shared/game/moveValidator.js';
+
+import { serializeState as serializeSharedState } from '../shared/game/gameState.js';
+
 let endTurnBtnBounds = null; // Used to track the End Turn button position for click detection
 let placePieceBtnBounds = null; // Used to track contextual place disc/ring buttons
 let placePieceBtnTile = null; // {q, r} for which tile the buttons are shown
@@ -19,66 +27,16 @@ let showValidMoves = false;
 let showPreviousMove = true;
 let validMovesHighlights = []; // Array of { q, r, type: 'tile'|'piece'|'move' }
 let globalDrawGrid = null; // Reference to drawGrid function for redraw triggering
-
-// Animation settings
-let animationsEnabled = true;
-const ANIMATION_DURATION_MS = 200; // Duration for all animations in milliseconds - easy to change globally
-
-// Toggle between AI and 2-player modes
-function toggleGameMode(aiMode) {
-    isAiMode = aiMode;
-    if (!aiMode) {
-        // When switching away from AI mode, also disable online mode
-        isOnlineMode = false;
-        onlinePlayerColor = null;
-    }
-    if (isAiMode) {
-        console.log('Switched to AI Mode');
-    } else {
-        console.log('Switched to 2 Player Mode');
-    }
-}
-
-// Set online mode
-function setOnlineMode(enabled, playerColor = null) {
-    isOnlineMode = enabled;
-    onlinePlayerColor = playerColor;
-    if (enabled) {
-        isAiMode = false; // Ensure AI mode is off
-        console.log('Online Mode enabled, playing as:', playerColor);
-    } else {
-        onlinePlayerColor = null;
-        console.log('Online Mode disabled');
-    }
-}
-
-// Check if it's the local player's turn in online mode
-function isMyTurn(activePlayer) {
-    if (!isOnlineMode) return true;
-    return onlinePlayerColor === activePlayer;
-}
-
-function setSoundEnabled(enabled) {
-    isSoundEnabled = enabled;
-    console.log('Sound enabled:', isSoundEnabled);
-}
-
-function setAiDifficulty(level) {
-    aiDifficulty = level;
-    console.log('AI Difficulty set to:', aiDifficulty);
-}
-
-function setShowValidMoves(enabled) {
-    showValidMoves = enabled;
-    console.log('Show valid moves:', showValidMoves);
-    // Trigger redraw if drawGrid is available
-    if (globalDrawGrid) {
-        globalDrawGrid();
-    }
-}
-
-function setShowPreviousMove(enabled) {
-    showPreviousMove = enabled;
+    return sharedCalculateValidMovesForPiece(
+        buildSharedMoveState(),
+        q,
+        r,
+        {
+            ...buildMoveGenContext(player),
+            turnStartPiecePos,
+            sequenceCapturedSnapshot: turnStartState ? turnStartState.captured : null
+        }
+    );
     console.log('Show previous move:', showPreviousMove);
     // Trigger redraw if drawGrid is available
     if (globalDrawGrid) {
@@ -138,6 +96,30 @@ window.onload = function () {
     let jumpPath = []; // Array of {q, r} positions visited during a multi-jump sequence
     let lastJumpPath = null; // Stores the jump path to pass to highlightLastMove
     let jumpPathForOnline = null; // Stores jump path to send with online moves
+
+    function buildSharedMoveState() {
+        return {
+            tiles,
+            pieces,
+            inventory,
+            discInventory,
+            ringInventory,
+            captured,
+            activePlayer,
+            radius
+        };
+    }
+
+    function buildMoveGenContext(player) {
+        return {
+            player,
+            radius,
+            multiJumping,
+            jumpHistory: window.jumpHistory || [],
+            turnStartPiecePos,
+            sequenceCapturedSnapshot: turnStartState ? turnStartState.captured : null
+        };
+    }
 
     // Drag and drop state
     let isDragging = false;
@@ -204,9 +186,7 @@ window.onload = function () {
 
     // Returns array of [q, r] for neighbors
     function getNeighbors(q, r) {
-        return [
-            [q + 1, r], [q - 1, r], [q, r + 1], [q, r - 1], [q + 1, r - 1], [q - 1, r + 1]
-        ];
+        return sharedGetNeighbors(q, r);
     }
 
     // Helper to check if any captures have been made during the current multi-jump sequence
@@ -357,183 +337,31 @@ window.onload = function () {
     });
 
     // Handle placing tiles on click
-    // Returns array of [q, r] for neighbors
-    function getNeighbors(q, r) {
-        return [
-            [q + 1, r], [q - 1, r], [q, r + 1], [q, r - 1], [q + 1, r - 1], [q - 1, r + 1]
-        ];
-    }
-
     // Calculate all valid moves for a player (returns pieces that can be moved, and placement locations)
     function calculateAllValidMoves(player) {
-        const highlights = [];
-        const addedPieces = new Set(); // Track pieces already added to avoid duplicates
-
-        // 1. Pieces that can move (disc and ring pieces)
-        for (const key in pieces) {
-            const piece = pieces[key];
-            if (piece.color !== player) continue;
-            
-            const [q, r] = key.split(',').map(Number);
-            let canMove = false;
-
-            if (piece.type === 'disc') {
-                // Check adjacent moves (only if not already in multi-jump)
-                if (!multiJumping) {
-                    for (const [nq, nr] of getNeighbors(q, r)) {
-                        const nkey = `${nq},${nr}`;
-                        if (tiles[nkey] && !pieces[nkey]) {
-                            canMove = true;
-                            break;
-                        }
-                    }
-                }
-
-                // Check jump moves
-                if (!canMove) {
-                    const directions = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
-                    for (const [dq, dr] of directions) {
-                        const jq = q + dq;
-                        const jr = r + dr;
-                        const landingQ = q + 2 * dq;
-                        const landingR = r + 2 * dr;
-                        const jumpKey = `${jq},${jr}`;
-                        const landingKey = `${landingQ},${landingR}`;
-
-                        if (pieces[jumpKey] && tiles[landingKey] && !pieces[landingKey]) {
-                            // Prevent jumping over same friendly piece twice during multi-jump
-                            if (!(pieces[jumpKey].color === player && window.jumpHistory && window.jumpHistory.some(h => h.q === jq && h.r === jr))) {
-                                canMove = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-            } else if (piece.type === 'ring') {
-                // Check ring moves
-                const ringDirections = [[0, -2], [1, -2], [2, -2], [2, -1], [2, 0], [1, 1], [0, 2], [-1, 2], [-2, 2], [-2, 1], [-2, 0], [-1, -1]];
-                for (const [dq, dr] of ringDirections) {
-                    const landingQ = q + dq;
-                    const landingR = r + dr;
-                    const landingKey = `${landingQ},${landingR}`;
-
-                    if (tiles[landingKey]) {
-                        const targetPiece = pieces[landingKey];
-                        if (!targetPiece || targetPiece.color !== player) {
-                            canMove = true;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            // Add piece location if it can move
-            if (canMove) {
-                const pieceKey = `${q},${r}`;
-                if (!addedPieces.has(pieceKey)) {
-                    highlights.push({ q, r, type: 'piece' });
-                    addedPieces.add(pieceKey);
-                }
-            }
-        }
-
-        // 2. Valid tile placement locations
-        if (inventory[player] > 0) {
-            for (let q = -radius; q <= radius; q++) {
-                for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
-                    const key = `${q},${r}`;
-                    if (tiles[key]) continue; // Occupied
-                    
-                    let adjacent = 0;
-                    for (const [nq, nr] of getNeighbors(q, r)) {
-                        if (tiles[`${nq},${nr}`]) adjacent++;
-                    }
-                    if (adjacent >= 2) {
-                        highlights.push({ q, r, type: 'tile' });
-                    }
-                }
-            }
-        }
-
-        // 3. Valid piece placement locations (disc/ring on player's own tiles)
-        for (const key in tiles) {
-            if (tiles[key] === player && !pieces[key]) {
-                const [q, r] = key.split(',').map(Number);
-                
-                if (discInventory[player] > 0 || (ringInventory[player] > 0 && captured[player].disc > 0)) {
-                    highlights.push({ q, r, type: 'placement' });
-                }
-            }
-        }
-
-        return highlights;
+        return sharedCalculateAllValidMoves(
+            buildSharedMoveState(),
+            buildMoveGenContext(player)
+        );
     }
 
     // Calculate valid moves for a specific piece
     function calculateValidMovesForPiece(q, r, player) {
-        const moves = [];
         const piece = pieces[`${q},${r}`];
-        if (!piece || piece.color !== player) return moves;
-
-        if (piece.type === 'disc') {
-            // Adjacent moves (only if not already in multi-jump)
-            if (!multiJumping) {
-                for (const [nq, nr] of getNeighbors(q, r)) {
-                    const nkey = `${nq},${nr}`;
-                    if (tiles[nkey] && !pieces[nkey]) {
-                        moves.push({ q: nq, r: nr, type: 'adjacent' });
-                    }
-                }
-            }
-
-            // Jump moves
-            const directions = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
-            for (const [dq, dr] of directions) {
-                const jq = q + dq;
-                const jr = r + dr;
-                const landingQ = q + 2 * dq;
-                const landingR = r + 2 * dr;
-                const jumpKey = `${jq},${jr}`;
-                const landingKey = `${landingQ},${landingR}`;
-
-                if (pieces[jumpKey] && tiles[landingKey] && !pieces[landingKey]) {
-                    // Prevent jumping over same friendly piece twice during multi-jump
-                    if (pieces[jumpKey].color === player && window.jumpHistory && window.jumpHistory.some(h => h.q === jq && h.r === jr)) {
-                        continue;
-                    }
-
-                    // Prevent showing origin tile as valid destination if no captures made during multi-jump
-                    if (multiJumping && turnStartPiecePos && 
-                        landingQ === turnStartPiecePos.q && landingR === turnStartPiecePos.r && 
-                        !hasCapturedDuringSequence()) {
-                        continue;
-                    }
-
-                    moves.push({ q: landingQ, r: landingR, type: 'jump' });
-                }
-            }
-        } else if (piece.type === 'ring') {
-            // Ring moves
-            const ringDirections = [[0, -2], [1, -2], [2, -2], [2, -1], [2, 0], [1, 1], [0, 2], [-1, 2], [-2, 2], [-2, 1], [-2, 0], [-1, -1]];
-            for (const [dq, dr] of ringDirections) {
-                const landingQ = q + dq;
-                const landingR = r + dr;
-                const landingKey = `${landingQ},${landingR}`;
-
-                if (tiles[landingKey]) {
-                    const targetPiece = pieces[landingKey];
-                    if (targetPiece && targetPiece.color !== player) {
-                        // Can capture
-                        moves.push({ q: landingQ, r: landingR, type: 'capture' });
-                    } else if (!targetPiece) {
-                        // Can move to empty tile
-                        moves.push({ q: landingQ, r: landingR, type: 'move' });
-                    }
-                }
-            }
+        if (!piece || piece.color !== player) {
+            return [];
         }
 
-        return moves;
+        return sharedCalculateValidMovesForPiece(
+            buildSharedMoveState(),
+            q,
+            r,
+            {
+                ...buildMoveGenContext(player),
+                turnStartPiecePos,
+                sequenceCapturedSnapshot: turnStartState ? turnStartState.captured : null
+            }
+        );
     }
 
     // Unified event handler for both click and touch
@@ -2162,29 +1990,16 @@ window.onload = function () {
 
     // Serialize the game state to send to the AI
     function serializeGameState() {
-        return {
-            tiles: { ...tiles },
-            pieces: JSON.parse(JSON.stringify(pieces)),
-            inventory: {
-                black: {
-                    tiles: inventory.black,
-                    discs: discInventory.black,
-                    rings: ringInventory.black
-                },
-                white: {
-                    tiles: inventory.white,
-                    discs: discInventory.white,
-                    rings: ringInventory.white
-                }
-            },
-            captured: {
-                black_discs: captured.black.disc,
-                black_rings: captured.black.ring,
-                white_discs: captured.white.disc,
-                white_rings: captured.white.ring
-            },
-            activePlayer: activePlayer
-        };
+        return serializeSharedState({
+            tiles,
+            pieces,
+            inventory,
+            discInventory,
+            ringInventory,
+            captured,
+            activePlayer,
+            lastJumpPath
+        });
     }
 
     // Apply the updated game state received from the AI
