@@ -1,4 +1,4 @@
-const SQRT3 = Math.sqrt(3);
+import { axialToPixel } from './hexMath.js';
 
 export function createCanvasGraphics(canvas, options = {}) {
     if (!canvas) {
@@ -18,6 +18,8 @@ export function createCanvasGraphics(canvas, options = {}) {
         ctx.translate(canvas.width / 2, canvas.height / 2);
         drawTiles(ctx, state.tiles, hexSize);
         drawPieces(ctx, state.pieces, state.tiles, hexSize);
+        drawSelection(ctx, state.metadata, hexSize);
+        drawValidMoves(ctx, state.metadata, hexSize);
         ctx.restore();
     }
 
@@ -88,13 +90,6 @@ function drawPieces(ctx, pieces = {}, tiles = {}, size) {
     }
 }
 
-function axialToPixel(q, r, size) {
-    return {
-        x: size * (SQRT3 * q + (SQRT3 / 2) * r),
-        y: size * (1.5 * r)
-    };
-}
-
 function hexPath(ctx, size) {
     for (let i = 0; i < 6; i++) {
         const angle = (Math.PI / 180) * (60 * i + 30);
@@ -112,4 +107,35 @@ function hexPath(ctx, size) {
 function parseKey(key) {
     const [q, r] = key.split(',').map(Number);
     return [q, r];
+}
+
+function drawSelection(ctx, metadata = {}, size) {
+    if (!metadata?.selection) return;
+    const { q, r } = metadata.selection;
+    const { x, y } = axialToPixel(q, r, size);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.beginPath();
+    ctx.arc(0, 0, size * 0.5, 0, Math.PI * 2);
+    ctx.strokeStyle = '#f97316';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([6, 4]);
+    ctx.stroke();
+    ctx.restore();
+}
+
+function drawValidMoves(ctx, metadata = {}, size) {
+    const moves = metadata?.validMoves;
+    if (!Array.isArray(moves) || moves.length === 0) return;
+
+    moves.forEach((move) => {
+        const { x, y } = axialToPixel(move.q, move.r, size);
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.2, 0, Math.PI * 2);
+        ctx.fillStyle = move.type === 'jump' ? 'rgba(251, 191, 36, 0.85)' : 'rgba(96, 165, 250, 0.85)';
+        ctx.fill();
+        ctx.restore();
+    });
 }
