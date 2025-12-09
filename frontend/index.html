@@ -1,1 +1,95 @@
-<!-- Placeholder entry for the future SPA shell. Will include modular bundles for auth, lobby, game, profile components. -->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Hexaequo Frontend Prototype</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&display=swap" rel="stylesheet" />
+	<style>
+		:root {
+			color-scheme: dark;
+			font-family: 'Space Grotesk', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+			background-color: #0f172a;
+			color: #e2e8f0;
+		}
+
+		body {
+			margin: 0;
+			padding: 0;
+			min-height: 100vh;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+
+		main {
+			width: 100%;
+			max-width: 1200px;
+			padding: 24px;
+			box-sizing: border-box;
+			display: grid;
+			gap: 24px;
+		}
+
+		.canvas-shell {
+			background: #111827;
+			border: 1px solid rgba(148, 163, 184, 0.3);
+			border-radius: 16px;
+			padding: 16px;
+			box-shadow: 0 20px 45px rgba(15, 23, 42, 0.45);
+		}
+
+		#modernGameCanvas {
+			width: 100%;
+			height: 540px;
+			display: block;
+			background: radial-gradient(circle at top, rgba(255, 255, 255, 0.05), rgba(15, 23, 42, 0.95));
+			border-radius: 12px;
+		}
+
+		canvas {
+			border: none;
+		}
+
+		.dev-panel {
+			display: flex;
+			gap: 12px;
+		}
+
+		button {
+			cursor: pointer;
+			border: none;
+			border-radius: 8px;
+			padding: 10px 16px;
+			font-size: 0.95rem;
+			font-weight: 600;
+			background: #10b981;
+			color: #0f172a;
+			transition: transform 0.1s ease, box-shadow 0.1s ease;
+		}
+
+		button:hover {
+			transform: translateY(-1px);
+			box-shadow: 0 8px 20px rgba(16, 185, 129, 0.35);
+		}
+	</style>
+</head>
+
+<body>
+	<main>
+		<section class="canvas-shell">
+			<canvas id="modernGameCanvas" width="1080" height="540"></canvas>
+		</section>
+		<section class="dev-panel">
+			<button id="devAddTile">Add Tile</button>
+			<button id="devAddDisc">Add Piece</button>
+		</section>
+	</main>
+
+	<script type="module" src="./js/main.js"></script>
+</body>
+
+</html>

@@ -40,9 +40,9 @@ export function mountBoardRenderer(options = {}) {
 
 		if (queueResult.events.length > 0) {
 			playQueueWithGraphics(queueResult, graphicsApi);
-		} else {
-			graphicsApi.renderStatic?.(nextState);
 		}
+
+		graphicsApi.renderStatic?.(nextState);
 
 		previousState = nextState;
 	});
