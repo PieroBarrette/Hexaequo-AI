@@ -11,9 +11,11 @@ import { serializeState } from './game/gameState.js';
 import { SocketClient } from './utils/socketClient.js';
 import { HEX_DIRECTIONS } from '../../shared/game/constants.js';
 import { mountHud } from './game/hud/index.js';
+import { initGameController } from './game/gameController.js';
 
 const socketClient = new SocketClient();
 let disposeHud = () => {};
+let disposeController = () => {};
 
 let appState = {
 	view: 'splash',
@@ -46,8 +48,10 @@ function initializeCanvas() {
 		return;
 	}
 
-	const graphicsApi = createCanvasGraphics(canvas, { hexSize: 40, verbose: false });
+	const hexSize = 40;
+	const graphicsApi = createCanvasGraphics(canvas, { hexSize, verbose: false });
 	mountBoardRenderer({ graphicsApi });
+	disposeController = initGameController(canvas, { hexSize });
 }
 
 function wireDevButtons() {
@@ -207,6 +211,13 @@ function exposeDebugHelpers() {
 		refreshHud() {
 			disposeHud?.();
 			disposeHud = mountHud();
+		},
+		refreshController() {
+			disposeController?.();
+			const canvas = document.getElementById('modernGameCanvas');
+			if (canvas) {
+				disposeController = initGameController(canvas, { hexSize: 40 });
+			}
 		},
 		get state() {
 			return appState;
