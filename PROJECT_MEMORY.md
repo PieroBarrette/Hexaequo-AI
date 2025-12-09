@@ -193,6 +193,11 @@ frontend/
 - **Chat**: emoji strip with tooltips, collapse toggle, enforced one-per-turn limit via server ack.
 - **Replay**: timeline scrubber, move list with adapted notation, evaluation bar fed by AI evaluation service.
 
+### 5.4 Legacy Migration Strategy
+- Phase game.js decomposition by extracting pure logic first (constants, validators, serialization) into `frontend/js/game/*` while keeping rendering glue in the legacy file.
+- Introduce a thin state store module to own inventories, captured counts, and undo history; migrate `serializeGameState`/`applyGameState` next.
+- Once logic lives in reusable modules, rebuild input handlers and UI bindings on top of the new SPA shell, then retire the monolithic script.
+
 ## 6. Deployment & Operations
 | Layer | Option | Notes |
 |-------|--------|-------|
