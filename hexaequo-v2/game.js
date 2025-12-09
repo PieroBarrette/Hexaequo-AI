@@ -9,6 +9,7 @@ import {
 
 import { serializeState as serializeSharedState } from '../shared/game/gameState.js';
 import { HistoryManager } from '../shared/game/history.js';
+import { diffStatesForAnimation } from '../shared/game/animationDiff.js';
 
 let endTurnBtnBounds = null; // Used to track the End Turn button position for click detection
 let placePieceBtnBounds = null; // Used to track contextual place disc/ring buttons
@@ -28,18 +29,18 @@ let showValidMoves = false;
 let showPreviousMove = true;
 let validMovesHighlights = []; // Array of { q, r, type: 'tile'|'piece'|'move' }
 let globalDrawGrid = null; // Reference to drawGrid function for redraw triggering
-    return sharedCalculateValidMovesForPiece(
-        buildSharedMoveState(),
-        q,
-        r,
-        {
-            ...buildMoveGenContext(player),
-            turnStartPiecePos,
-            sequenceCapturedSnapshot: turnStartState ? turnStartState.captured : null
-        }
-    );
+
+function setShowValidMoves(enabled) {
+    showValidMoves = Boolean(enabled);
+    console.log('Show valid moves:', showValidMoves);
+    if (globalDrawGrid) {
+        globalDrawGrid();
+    }
+}
+
+function setShowPreviousMove(enabled) {
+    showPreviousMove = Boolean(enabled);
     console.log('Show previous move:', showPreviousMove);
-    // Trigger redraw if drawGrid is available
     if (globalDrawGrid) {
         globalDrawGrid();
     }
@@ -2045,136 +2046,61 @@ window.onload = function () {
      * @param {boolean} skipMoveAnimation - Whether to skip move animation (drag & drop) but still animate captures
      */
     function queueAnimationsForStateChange(previousState, updatedState, jumpPathParam, animateMultiJumps = false, manuallyEndedTurn = false, skipMoveAnimation = false) {
-        const opponent = updatedState.activePlayer;
-        const player = opponent === 'black' ? 'white' : 'black';
+        const diff = diffStatesForAnimation(previousState, updatedState, { jumpPath: jumpPathParam });
 
-        // 1. Detect and animate tile placements
-        for (const key in updatedState.tiles) {
-            if (!previousState.tiles[key] && updatedState.tiles[key]) {
-                const [q, r] = key.split(',').map(Number);
-                GameGraphics.queueTilePlacementAnimation(q, r, updatedState.tiles[key]);
-            }
-        }
+        diff.tilePlacements.forEach(({ q, r, color }) => {
+            GameGraphics.queueTilePlacementAnimation(q, r, color);
+        });
 
-        // 2. Detect all captures (pieces that existed before but not after, or were replaced by opponent)
-        const capturedPieces = [];
-        for (const key in previousState.pieces) {
-            const prevPiece = previousState.pieces[key];
-            const currPiece = updatedState.pieces[key];
-            
-            if (prevPiece && prevPiece.color === opponent) {
-                // Piece was removed entirely (disc jump capture)
-                if (!currPiece) {
-                    const [q, r] = key.split(',').map(Number);
-                    capturedPieces.push({ q, r, piece: prevPiece });
-                }
-                // Piece was replaced by player's piece (ring capture - lands on captured position)
-                else if (currPiece && currPiece.color === player) {
-                    const [q, r] = key.split(',').map(Number);
-                    capturedPieces.push({ q, r, piece: prevPiece });
-                }
-            }
-        }
+        const capturedPieces = diff.captures || [];
+        const move = diff.move;
+        const placements = diff.placements || [];
+        const jumpPath = diff.jumpPath;
 
-        // 3. Detect piece movements and placements
-        // Find piece that moved (same type and color, different position)
-        let movedFrom = null;
-        let movedTo = null;
-        let movedPiece = null;
+        if (move) {
+            const { from, to, piece } = move;
 
-        // Find pieces that were removed (moved from)
-        for (const key in previousState.pieces) {
-            if (previousState.pieces[key] && previousState.pieces[key].color === player) {
-                if (!updatedState.pieces[key]) {
-                    movedFrom = key;
-                    movedPiece = previousState.pieces[key];
-                }
-            }
-        }
-
-        // Find pieces that were added (moved to or placed)
-        for (const key in updatedState.pieces) {
-            if (updatedState.pieces[key] && updatedState.pieces[key].color === player) {
-                if (!previousState.pieces[key] || previousState.pieces[key].color !== player) {
-                    movedTo = key;
-                    if (!movedPiece) {
-                        movedPiece = updatedState.pieces[key];
-                    }
-                }
-            }
-        }
-
-        // Determine if it's a move or a placement
-        if (movedFrom && movedTo && movedPiece) {
-            // It's a move
-            const [fromQ, fromR] = movedFrom.split(',').map(Number);
-            const [toQ, toR] = movedTo.split(',').map(Number);
-
-            // Check if we have a jump path for multi-jump animation
-            let path = null;
-            if (jumpPathParam && jumpPathParam.length > 1) {
-                if (typeof jumpPathParam[0] === 'string') {
-                    // AI format: ["q,r", "q,r", ...]
-                    path = jumpPathParam.map(pos => {
-                        const [q, r] = pos.split(',').map(Number);
-                        return { q, r };
-                    });
-                } else {
-                    // Game format: [{q, r}, {q, r}, ...]
-                    path = jumpPathParam;
-                }
-            }
-
-            // Handle drag & drop: skip move animation but still animate captures
             if (skipMoveAnimation) {
-                // Only animate captures, not the move itself
-                if (capturedPieces.length > 0) {
-                    capturedPieces.forEach(cap => {
-                        GameGraphics.queueCaptureAnimation(cap.q, cap.r, cap.piece);
-                    });
-                }
-            } else if (path && path.length > 1 && animateMultiJumps) {
-                // Multi-jump: animate each jump with its capture sequentially (only for AI/online moves)
-                GameGraphics.queueJumpSequenceWithCaptures(path, movedPiece, capturedPieces);
-            } else if (path && path.length > 2 && !animateMultiJumps) {
-                // Multi-jump (3+ positions) from human player: no animation
-                // (the piece just appears at the destination instantly)
-            } else if (path && path.length === 2 && !animateMultiJumps && manuallyEndedTurn) {
-                // Single jump but user manually ended turn (clicked checkmark): no animation
-                // This means user could have continued jumping but chose to stop
-            } else {
-                // Single move (adjacent move or single jump or ring move)
-                // Queue move animation followed by capture animations sequentially
-                if (capturedPieces.length > 0) {
-                    GameGraphics.queueSingleMoveWithCapture(fromQ, fromR, toQ, toR, movedPiece, capturedPieces);
-                } else {
-                    GameGraphics.queueMoveAnimation(fromQ, fromR, toQ, toR, movedPiece);
-                }
-            }
-        } else if (movedTo && movedPiece && !movedFrom) {
-            // It's a piece placement (disc or ring from inventory)
-            const [q, r] = movedTo.split(',').map(Number);
-            GameGraphics.queuePiecePlacementAnimation(q, r, movedPiece);
-        } else if (!movedFrom && !movedTo && jumpPathParam && jumpPathParam.length > 1 && animateMultiJumps) {
-            // Loop case: disc returned to starting position after captures
-            // The piece didn't "move" between states (same key in both), but we have the path
-            let path = null;
-            if (typeof jumpPathParam[0] === 'string') {
-                // AI format: ["q,r", "q,r", ...]
-                path = jumpPathParam.map(pos => {
-                    const [q, r] = pos.split(',').map(Number);
-                    return { q, r };
+                capturedPieces.forEach((cap) => {
+                    GameGraphics.queueCaptureAnimation(cap.q, cap.r, cap.piece);
                 });
+                return;
+            }
+
+            if (jumpPath && jumpPath.length > 1 && animateMultiJumps) {
+                GameGraphics.queueJumpSequenceWithCaptures(jumpPath, piece, capturedPieces);
+                return;
+            }
+
+            if (jumpPath && jumpPath.length > 2 && !animateMultiJumps) {
+                return;
+            }
+
+            if (jumpPath && jumpPath.length === 2 && !animateMultiJumps && manuallyEndedTurn) {
+                return;
+            }
+
+            if (capturedPieces.length > 0) {
+                GameGraphics.queueSingleMoveWithCapture(from.q, from.r, to.q, to.r, piece, capturedPieces);
             } else {
-                // Game format: [{q, r}, {q, r}, ...]
-                path = jumpPathParam;
+                GameGraphics.queueMoveAnimation(from.q, from.r, to.q, to.r, piece);
             }
-            // Get the piece from the start/end position (they're the same in a loop)
-            const startKey = `${path[0].q},${path[0].r}`;
-            const loopPiece = updatedState.pieces[startKey];
-            if (loopPiece && path.length > 1) {
-                GameGraphics.queueJumpSequenceWithCaptures(path, loopPiece, capturedPieces);
-            }
+            return;
+        }
+
+        if (placements.length > 0) {
+            placements.forEach(({ q, r, piece }) => {
+                GameGraphics.queuePiecePlacementAnimation(q, r, piece);
+            });
+            return;
+        }
+
+        if (diff.loopMove && diff.loopMove.piece && diff.loopMove.path && animateMultiJumps) {
+            GameGraphics.queueJumpSequenceWithCaptures(diff.loopMove.path, diff.loopMove.piece, capturedPieces);
+        } else if (capturedPieces.length > 0 && !skipMoveAnimation) {
+            capturedPieces.forEach((cap) => {
+                GameGraphics.queueCaptureAnimation(cap.q, cap.r, cap.piece);
+            });
         }
     }
 
