@@ -197,6 +197,7 @@ frontend/
 - Phase game.js decomposition by extracting pure logic first (constants, validators, serialization) into `frontend/js/game/*` while keeping rendering glue in the legacy file.
 - Introduce a thin state store module to own inventories, captured counts, and undo history; migrate `serializeGameState`/`applyGameState` next.
 - Once logic lives in reusable modules, rebuild input handlers and UI bindings on top of the new SPA shell, then retire the monolithic script.
+- **Progress log:** `constants.js`, `moveValidator.js`, `gameState.js`, and `store/gameStore.js` now contain ESM-ready helpers so future UI work can import shared logic without re-reading the legacy file.
 
 ## 6. Deployment & Operations
 | Layer | Option | Notes |
