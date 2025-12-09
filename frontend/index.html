@@ -42,6 +42,107 @@
 			box-shadow: 0 20px 45px rgba(15, 23, 42, 0.45);
 		}
 
+		.board-stage {
+			display: grid;
+			grid-template-columns: minmax(180px, 220px) minmax(0, 1fr) minmax(180px, 220px);
+			gap: 18px;
+			align-items: stretch;
+		}
+
+		.inventory-column {
+			background: #111827;
+			border: 1px solid rgba(148, 163, 184, 0.25);
+			border-radius: 16px;
+			padding: 18px;
+			box-shadow: 0 20px 45px rgba(15, 23, 42, 0.45);
+			display: flex;
+			flex-direction: column;
+			gap: 16px;
+			min-height: 540px;
+		}
+
+		.inventory-header {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			gap: 8px;
+		}
+
+		.inventory-player {
+			font-size: 1.1rem;
+			font-weight: 600;
+			color: #f8fafc;
+		}
+
+		.inventory-status {
+			font-size: 0.85rem;
+			text-transform: uppercase;
+			letter-spacing: 0.08em;
+			color: #94a3b8;
+		}
+
+		.inventory-status.live {
+			color: #10b981;
+		}
+
+		.inventory-remaining {
+			font-size: 0.85rem;
+			color: #cbd5f5;
+		}
+
+		.inventory-stats {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 12px;
+		}
+
+		.inventory-stats div {
+			background: rgba(15, 23, 42, 0.6);
+			border: 1px solid rgba(148, 163, 184, 0.2);
+			border-radius: 10px;
+			padding: 10px;
+			text-align: center;
+		}
+
+		.inventory-stats label {
+			display: block;
+			font-size: 0.8rem;
+			color: #94a3b8;
+			margin-bottom: 6px;
+		}
+
+		.inventory-stats strong {
+			font-size: 1.3rem;
+			color: #f8fafc;
+		}
+
+		.inventory-captures {
+			margin-top: auto;
+			display: grid;
+			gap: 8px;
+		}
+
+		.inventory-captures div {
+			display: flex;
+			justify-content: space-between;
+			font-size: 0.9rem;
+			color: #cbd5f5;
+		}
+
+		.inventory-captures span {
+			font-weight: 600;
+			color: #f8fafc;
+		}
+
+		@media (max-width: 960px) {
+			.board-stage {
+				grid-template-columns: 1fr;
+			}
+			.inventory-column {
+				min-height: auto;
+			}
+		}
+
 		.hud-grid {
 			display: grid;
 			grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -128,12 +229,6 @@
 
 		.timer-card .timer-row > div {
 			flex: 1;
-		}
-
-		.inventory-card {
-			display: grid;
-			grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-			gap: 12px;
 		}
 
 		.hud-label {
@@ -243,8 +338,18 @@
 
 <body>
 	<main>
-		<section class="canvas-shell">
-			<canvas id="modernGameCanvas" width="1080" height="540"></canvas>
+		<section class="board-stage">
+			<div class="inventory-column" data-inventory-black>
+				<span class="hud-label">Black Inventory</span>
+				<p class="hud-muted">Waiting for data…</p>
+			</div>
+			<div class="canvas-shell">
+				<canvas id="modernGameCanvas" width="1080" height="540"></canvas>
+			</div>
+			<div class="inventory-column" data-inventory-white>
+				<span class="hud-label">White Inventory</span>
+				<p class="hud-muted">Waiting for data…</p>
+			</div>
 		</section>
 		<section class="dev-panel">
 			<button id="devAddTile">Add Tile</button>
@@ -265,28 +370,6 @@
 						<span class="hud-label">White Timer</span>
 						<strong class="hud-value">--:--</strong>
 					</div>
-				</div>
-			</div>
-			<div class="hud-card inventory-card">
-				<div data-inventory-black>
-					<span class="hud-label">Black</span>
-					<ul class="hud-list">
-						<li>Tiles: <strong>0</strong></li>
-						<li>Discs: <strong>0</strong></li>
-						<li>Rings: <strong>0</strong></li>
-						<li>Captured discs: <strong>0</strong></li>
-						<li>Captured rings: <strong>0</strong></li>
-					</ul>
-				</div>
-				<div data-inventory-white>
-					<span class="hud-label">White</span>
-					<ul class="hud-list">
-						<li>Tiles: <strong>0</strong></li>
-						<li>Discs: <strong>0</strong></li>
-						<li>Rings: <strong>0</strong></li>
-						<li>Captured discs: <strong>0</strong></li>
-						<li>Captured rings: <strong>0</strong></li>
-					</ul>
 				</div>
 			</div>
 			<div class="hud-card" data-action-center>

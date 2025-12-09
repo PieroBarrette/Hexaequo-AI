@@ -17,16 +17,41 @@ function renderInventory(element, state, color) {
     const discs = state.discInventory?.[color] ?? 0;
     const rings = state.ringInventory?.[color] ?? 0;
     const captured = state.captured?.[color] ?? { disc: 0, ring: 0 };
+    const opponent = color === 'black' ? 'white' : 'black';
+    const losses = state.captured?.[opponent] ?? { disc: 0, ring: 0 };
+    const isTurn = state.activePlayer === color;
+    const tilesLabel = inventoryCount === 1 ? 'tile' : 'tiles';
 
     element.innerHTML = `
-        <span class="hud-label">${capitalize(color)}</span>
-        <ul class="hud-list">
-            <li>Tiles: <strong>${inventoryCount}</strong></li>
-            <li>Discs: <strong>${discs}</strong></li>
-            <li>Rings: <strong>${rings}</strong></li>
-            <li>Captured discs: <strong>${captured.disc ?? 0}</strong></li>
-            <li>Captured rings: <strong>${captured.ring ?? 0}</strong></li>
-        </ul>
+        <div class="inventory-header">
+            <div>
+                <div class="inventory-player">${capitalize(color)}</div>
+                <div class="inventory-status ${isTurn ? 'live' : ''}">${isTurn ? 'Your move' : 'Waiting'}</div>
+            </div>
+            <div class="inventory-remaining">${inventoryCount} ${tilesLabel} left</div>
+        </div>
+        <div class="inventory-stats">
+            <div>
+                <label>Discs</label>
+                <strong>${discs}</strong>
+            </div>
+            <div>
+                <label>Rings</label>
+                <strong>${rings}</strong>
+            </div>
+            <div>
+                <label>Captured discs</label>
+                <strong>${captured.disc ?? 0}</strong>
+            </div>
+            <div>
+                <label>Captured rings</label>
+                <strong>${captured.ring ?? 0}</strong>
+            </div>
+        </div>
+        <div class="inventory-captures">
+            <div>Discs lost <span>${losses.disc ?? 0}</span></div>
+            <div>Rings lost <span>${losses.ring ?? 0}</span></div>
+        </div>
     `;
 }
 
