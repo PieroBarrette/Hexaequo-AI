@@ -6,7 +6,14 @@ import { DEFAULT_BOARD_RADIUS } from '../../../shared/game/constants.js';
 const controllerState = {
 	selection: null,
 	validMoves: [],
-	pendingPlacement: null
+	pendingPlacement: null,
+	jumpPath: [],
+	jumpHistory: [],
+	turnSnapshot: null,
+	multiJumping: false,
+	lastClicked: null,
+	turnStartPiecePos: null,
+	sequenceCapturedSnapshot: null
 };
 
 export function initGameController(canvas, options = {}) {
@@ -89,23 +96,26 @@ function tryPlacePiece(q, r, state) {
 	const canPlaceDisc = (state.discInventory?.[state.activePlayer] ?? 0) > 0;
 	const canPlaceRing = (state.ringInventory?.[state.activePlayer] ?? 0) > 0 && (state.captured?.[state.activePlayer]?.disc ?? 0) > 0;
 
+	// TODO: show contextual disc/ring buttons similar to legacy UI when both are available
 	if (canPlaceDisc) {
-		mutateState((draft) => {
+		applyStateUpdate((draft) => {
 			draft.pieces[key] = { type: 'disc', color: draft.activePlayer };
 			draft.discInventory[draft.activePlayer] = Math.max(0, (draft.discInventory[draft.activePlayer] ?? 0) - 1);
 			advanceTurn(draft);
+			clearMultiJumpMetadata(draft);
 		});
 		return true;
 	}
 
 	if (canPlaceRing) {
-		mutateState((draft) => {
+		applyStateUpdate((draft) => {
 			draft.pieces[key] = { type: 'ring', color: draft.activePlayer };
 			draft.ringInventory[draft.activePlayer] = Math.max(0, (draft.ringInventory[draft.activePlayer] ?? 0) - 1);
 			draft.captured[draft.activePlayer].disc = Math.max(0, draft.captured[draft.activePlayer].disc - 1);
 			const opponent = draft.activePlayer === 'black' ? 'white' : 'black';
 			draft.discInventory[opponent] = (draft.discInventory[opponent] ?? 0) + 1;
 			advanceTurn(draft);
+			clearMultiJumpMetadata(draft);
 		});
 		return true;
 	}
@@ -129,10 +139,11 @@ function tryPlaceTile(q, r, state) {
 		return false;
 	}
 
-	mutateState((draft) => {
+	applyStateUpdate((draft) => {
 		draft.tiles[key] = draft.activePlayer;
 		draft.inventory[draft.activePlayer] = Math.max(0, (draft.inventory[draft.activePlayer] ?? 0) - 1);
 		advanceTurn(draft);
+		clearMultiJumpMetadata(draft);
 	});
 	return true;
 }
@@ -143,6 +154,13 @@ function tryMoveSelectedPiece(q, r, state) {
 	const moves = controllerState.validMoves || [];
 	const matchingMove = moves.find((move) => move.q === q && move.r === r);
 	if (!matchingMove) {
+		if (controllerState.multiJumping) {
+			if (selection.q === q && selection.r === r) {
+				return true;
+			}
+			cancelMultiJumpSequence('invalid-target');
+			return true;
+		}
 		return false;
 	}
 
@@ -155,7 +173,7 @@ function tryMoveSelectedPiece(q, r, state) {
 	}
 
 	if (selectedPiece.type === 'ring') {
-		mutateState((draft) => {
+		applyStateUpdate((draft, original) => {
 			const occupant = draft.pieces[toKey];
 			if (occupant && occupant.color !== draft.activePlayer) {
 				draft.captured[draft.activePlayer][occupant.type] = (draft.captured[draft.activePlayer][occupant.type] ?? 0) + 1;
@@ -163,6 +181,7 @@ function tryMoveSelectedPiece(q, r, state) {
 			draft.pieces[toKey] = { ...draft.pieces[fromKey] };
 			delete draft.pieces[fromKey];
 			advanceTurn(draft);
+			clearMultiJumpMetadata(draft);
 		});
 		clearSelection();
 		return true;
@@ -170,30 +189,24 @@ function tryMoveSelectedPiece(q, r, state) {
 
 	if (selectedPiece.type === 'disc') {
 		if (matchingMove.type === 'adjacent') {
-			mutateState((draft) => {
+			applyStateUpdate((draft, original) => {
 				draft.pieces[toKey] = { ...draft.pieces[fromKey] };
 				delete draft.pieces[fromKey];
 				advanceTurn(draft);
+				clearMultiJumpMetadata(draft);
 			});
 			clearSelection();
 			return true;
 		}
 
 		if (matchingMove.type === 'jump') {
-			const midQ = (selection.q + q) / 2;
-			const midR = (selection.r + r) / 2;
-			const jumpedKey = `${midQ},${midR}`;
-
-			mutateState((draft) => {
-				const capturedPiece = draft.pieces[jumpedKey];
-				if (capturedPiece && capturedPiece.color !== draft.activePlayer) {
-					draft.captured[draft.activePlayer][capturedPiece.type] = (draft.captured[draft.activePlayer][capturedPiece.type] ?? 0) + 1;
-				}
-				draft.pieces[toKey] = { ...draft.pieces[fromKey] };
-				delete draft.pieces[fromKey];
-				delete draft.pieces[jumpedKey];
-				advanceTurn(draft);
-			});
+			const nextState = executeDiscJumpMove(selection, { q, r }, state);
+			if (nextState.metadata?.multiJumping) {
+				controllerState.selection = nextState.metadata.selection;
+				controllerState.validMoves = nextState.metadata.validMoves ?? [];
+				controllerState.multiJumping = true;
+				return true;
+			}
 			clearSelection();
 			return true;
 		}
@@ -204,15 +217,17 @@ function tryMoveSelectedPiece(q, r, state) {
 
 function selectPiece(q, r, state) {
 	controllerState.selection = { q, r };
-	const moves = calculateValidMovesForPiece(state, q, r, { player: state.activePlayer }) || [];
+	const moves = calculateValidMovesForPiece(state, q, r, buildMoveContext(state)) || [];
 	controllerState.validMoves = moves;
 	updateMetadata({ selection: { q, r }, validMoves: moves });
 }
 
-function clearSelection() {
+function clearSelection(options = {}) {
 	controllerState.selection = null;
 	controllerState.validMoves = [];
-	updateMetadata({ selection: null, validMoves: [] });
+	if (!options.skipMetadata) {
+		updateMetadata({ selection: null, validMoves: [] });
+	}
 }
 
 function mutateState(mutateFn) {
@@ -221,6 +236,14 @@ function mutateState(mutateFn) {
 		mutateFn(next);
 		return next;
 	}, { reason: 'gameplay' });
+}
+
+function applyStateUpdate(mutator, options = {}) {
+	return updateGameState((state) => {
+		const next = cloneState(state);
+		mutator(next, state);
+		return next;
+	}, { reason: options.reason ?? 'gameplay' });
 }
 
 function updateMetadata(patch) {
@@ -235,6 +258,21 @@ function updateMetadata(patch) {
 
 function advanceTurn(state) {
 	state.activePlayer = state.activePlayer === 'black' ? 'white' : 'black';
+}
+
+function clearMultiJumpMetadata(state, extra = {}) {
+	state.metadata = {
+		...(state.metadata ?? {}),
+		multiJumping: false,
+		selection: null,
+		validMoves: [],
+		jumpHistory: [],
+		jumpPath: [],
+		turnStartPiecePos: null,
+		sequenceCapturedSnapshot: null,
+		...extra
+	};
+	resetControllerJumpState();
 }
 
 function countAdjacentTiles(tiles = {}, q, r) {
@@ -277,5 +315,125 @@ function clonePieces(source = {}) {
 		copy[key] = piece ? { ...piece } : piece;
 	}
 	return copy;
+}
+
+function executeDiscJumpMove(selection, target, previousState) {
+	const fromKey = `${selection.q},${selection.r}`;
+	const toKey = `${target.q},${target.r}`;
+	const midQ = (selection.q + target.q) / 2;
+	const midR = (selection.r + target.r) / 2;
+	const midKey = `${midQ},${midR}`;
+
+	if (!controllerState.multiJumping) {
+		ensureTurnSnapshot(previousState, selection);
+		controllerState.jumpPath = [{ q: selection.q, r: selection.r }];
+	}
+
+	controllerState.jumpPath = [...controllerState.jumpPath, { q: target.q, r: target.r }];
+
+	const nextState = applyStateUpdate((draft) => {
+		const movingPiece = draft.pieces[fromKey];
+		const jumpedPiece = draft.pieces[midKey];
+
+		if (!movingPiece) {
+			return;
+		}
+
+		if (jumpedPiece && jumpedPiece.color !== draft.activePlayer) {
+			draft.captured[draft.activePlayer][jumpedPiece.type] = (draft.captured[draft.activePlayer][jumpedPiece.type] ?? 0) + 1;
+			delete draft.pieces[midKey];
+		}
+
+		draft.pieces[toKey] = { ...movingPiece };
+		delete draft.pieces[fromKey];
+
+		let jumpHistory = Array.isArray(draft.metadata?.jumpHistory)
+			? [...draft.metadata.jumpHistory]
+			: [];
+		if (jumpedPiece && jumpedPiece.color === draft.activePlayer) {
+			jumpHistory = [...jumpHistory, { q: midQ, r: midR }];
+		}
+
+		controllerState.jumpHistory = jumpHistory;
+
+		const nextMoves = getJumpMoves(draft, target.q, target.r, jumpHistory);
+
+		if (nextMoves.length > 0) {
+			draft.metadata = {
+				...(draft.metadata ?? {}),
+				multiJumping: true,
+				selection: { q: target.q, r: target.r },
+				validMoves: nextMoves,
+				jumpHistory,
+				jumpPath: controllerState.jumpPath,
+				turnStartPiecePos: controllerState.turnStartPiecePos,
+				sequenceCapturedSnapshot: controllerState.sequenceCapturedSnapshot
+			};
+		} else {
+			const completedPath = controllerState.jumpPath.length > 1 ? [...controllerState.jumpPath] : [];
+			clearMultiJumpMetadata(draft, completedPath.length ? { lastJumpPath: completedPath } : {});
+			advanceTurn(draft);
+		}
+	}, { reason: 'disc-jump' });
+
+	return nextState;
+}
+
+function getJumpMoves(state, q, r, jumpHistory = []) {
+	const moves = calculateValidMovesForPiece(state, q, r, {
+		player: state.activePlayer,
+		multiJumping: true,
+		jumpHistory,
+		turnStartPiecePos: state.metadata?.turnStartPiecePos,
+		sequenceCapturedSnapshot: state.metadata?.sequenceCapturedSnapshot ?? null
+	}) || [];
+	return moves.filter((move) => move.type === 'jump');
+}
+
+function buildMoveContext(state) {
+	return {
+		player: state.activePlayer,
+		multiJumping: state.metadata?.multiJumping,
+		jumpHistory: state.metadata?.jumpHistory ?? [],
+		turnStartPiecePos: state.metadata?.turnStartPiecePos,
+		sequenceCapturedSnapshot: state.metadata?.sequenceCapturedSnapshot ?? null
+	};
+}
+
+function ensureTurnSnapshot(state, selection) {
+	if (controllerState.turnSnapshot) {
+		return;
+	}
+	controllerState.turnSnapshot = cloneState(state);
+	controllerState.turnStartPiecePos = { ...selection };
+	controllerState.sequenceCapturedSnapshot = cloneCaptureSnapshot(state.captured);
+}
+
+function cloneCaptureSnapshot(captured = {}) {
+	return {
+		black: { ...(captured.black ?? { disc: 0, ring: 0 }) },
+		white: { ...(captured.white ?? { disc: 0, ring: 0 }) }
+	};
+}
+
+function resetControllerJumpState() {
+	controllerState.multiJumping = false;
+	controllerState.turnSnapshot = null;
+	controllerState.turnStartPiecePos = null;
+	controllerState.sequenceCapturedSnapshot = null;
+	controllerState.jumpPath = [];
+	controllerState.jumpHistory = [];
+}
+
+function cancelMultiJumpSequence(reason = 'cancel') {
+	if (!controllerState.turnSnapshot) {
+		resetControllerJumpState();
+		clearSelection();
+		return;
+	}
+	const snapshot = cloneState(controllerState.turnSnapshot);
+	updateGameState(() => snapshot, { reason: `multi-jump-${reason}` });
+	resetControllerJumpState();
+	clearSelection({ skipMetadata: true });
 }
 
