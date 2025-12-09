@@ -6,20 +6,34 @@ export function createCanvasGraphics(canvas, options = {}) {
     }
 
     const ctx = canvas.getContext('2d');
-    const hexSize = options.hexSize ?? 36;
+    const fallbackHexSize = options.hexSize ?? 36;
+    const offsetY = options.offsetY ?? 0;
+    const offsetX = options.offsetX ?? 0;
+    const minHexSize = options.minHexSize ?? 28;
+    const maxHexSize = options.maxHexSize ?? 72;
+    const padding = options.padding ?? 48;
     let lastState = null;
+    let currentLayout = {
+        hexSize: fallbackHexSize,
+        translateX: canvas.width / 2 + offsetX,
+        translateY: canvas.height / 2 + offsetY
+    };
+    const layoutSubscribers = new Set();
 
     function renderStatic(state) {
         if (!ctx || !state) return;
         lastState = state;
+        updateLayout(state);
+        const layout = currentLayout;
+        const size = layout.hexSize;
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.save();
-        ctx.translate(canvas.width / 2, canvas.height / 2);
-        drawTiles(ctx, state.tiles, hexSize);
-        drawPieces(ctx, state.pieces, state.tiles, hexSize);
-        drawSelection(ctx, state.metadata, hexSize);
-        drawValidMoves(ctx, state.metadata, hexSize);
+        ctx.translate(layout.translateX, layout.translateY);
+        drawTiles(ctx, state.tiles, size);
+        drawPieces(ctx, state.pieces, state.tiles, size);
+        drawSelection(ctx, state.metadata, size);
+        drawValidMoves(ctx, state.metadata, size);
         ctx.restore();
     }
 
@@ -31,6 +45,22 @@ export function createCanvasGraphics(canvas, options = {}) {
 
     return {
         renderStatic,
+        rerenderLastFrame() {
+            if (lastState) {
+                renderStatic(lastState);
+            }
+        },
+        getLayout() {
+            return { ...currentLayout };
+        },
+        subscribeLayout(listener) {
+            if (typeof listener !== 'function') {
+                return () => {};
+            }
+            layoutSubscribers.add(listener);
+            listener({ ...currentLayout });
+            return () => layoutSubscribers.delete(listener);
+        },
         queueTilePlacementAnimation(q, r, color) {
             logEvent('tile-placement', { q, r, color });
         },
@@ -50,6 +80,32 @@ export function createCanvasGraphics(canvas, options = {}) {
             logEvent('capture', { q, r, piece });
         }
     };
+
+    function updateLayout(state) {
+        const next = computeResponsiveLayout(state, canvas, {
+            fallbackHexSize,
+            offsetX,
+            offsetY,
+            minHexSize,
+            maxHexSize,
+            padding
+        });
+        const changed =
+            Math.abs(next.hexSize - currentLayout.hexSize) > 0.25 ||
+            Math.abs(next.translateX - currentLayout.translateX) > 0.5 ||
+            Math.abs(next.translateY - currentLayout.translateY) > 0.5;
+        currentLayout = next;
+        if (changed) {
+            const snapshot = { ...currentLayout };
+            layoutSubscribers.forEach((listener) => {
+                try {
+                    listener(snapshot);
+                } catch (err) {
+                    console.error('[CanvasGraphics] layout listener error', err);
+                }
+            });
+        }
+    }
 }
 
 function drawTiles(ctx, tiles = {}, size) {
@@ -138,4 +194,89 @@ function drawValidMoves(ctx, metadata = {}, size) {
         ctx.fill();
         ctx.restore();
     });
+}
+
+const NEIGHBOR_DELTAS = [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+    [1, -1],
+    [-1, 1]
+];
+
+const SQRT3 = Math.sqrt(3);
+const HEX_HALF_WIDTH = SQRT3 / 2;
+const HEX_HALF_HEIGHT = 1; // since height = 2 * size when size = 1
+
+function computeResponsiveLayout(state, canvas, options) {
+    const fallback = {
+        hexSize: options.fallbackHexSize,
+        translateX: canvas.width / 2 + (options.offsetX ?? 0),
+        translateY: canvas.height / 2 + (options.offsetY ?? 0)
+    };
+
+    const tiles = state?.tiles;
+    if (!tiles || Object.keys(tiles).length === 0) {
+        return fallback;
+    }
+
+    const coords = new Set();
+    for (const [key, owner] of Object.entries(tiles)) {
+        if (!owner) continue;
+        coords.add(key);
+        const [q, r] = parseKey(key);
+        NEIGHBOR_DELTAS.forEach(([dq, dr]) => coords.add(`${q + dq},${r + dr}`));
+    }
+
+    if (coords.size === 0) {
+        return fallback;
+    }
+
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+
+    coords.forEach((key) => {
+        const [q, r] = parseKey(key);
+        const { x, y } = axialToPixel(q, r, 1);
+        minX = Math.min(minX, x - HEX_HALF_WIDTH);
+        maxX = Math.max(maxX, x + HEX_HALF_WIDTH);
+        minY = Math.min(minY, y - HEX_HALF_HEIGHT);
+        maxY = Math.max(maxY, y + HEX_HALF_HEIGHT);
+    });
+
+    if (!isFinite(minX) || !isFinite(maxX) || !isFinite(minY) || !isFinite(maxY)) {
+        return fallback;
+    }
+
+    const contentWidth = maxX - minX;
+    const contentHeight = maxY - minY;
+    const padding = options.padding ?? 48;
+    const availableWidth = Math.max(10, canvas.width - padding * 2);
+    const availableHeight = Math.max(10, canvas.height - padding * 2);
+    const fallbackWidth = SQRT3;
+    const fallbackHeight = 2;
+
+    const scaleX = contentWidth > 0 ? availableWidth / contentWidth : availableWidth / fallbackWidth;
+    const scaleY = contentHeight > 0 ? availableHeight / contentHeight : availableHeight / fallbackHeight;
+
+    let hexSize = Math.min(scaleX, scaleY);
+    const minSize = options.minHexSize ?? 24;
+    const maxSize = options.maxHexSize ?? Math.min(canvas.width, canvas.height) / 3;
+    hexSize = clamp(hexSize, minSize, maxSize);
+
+    const centerUnitX = (minX + maxX) / 2;
+    const centerUnitY = (minY + maxY) / 2;
+
+    return {
+        hexSize,
+        translateX: canvas.width / 2 - centerUnitX * hexSize + (options.offsetX ?? 0),
+        translateY: canvas.height / 2 - centerUnitY * hexSize + (options.offsetY ?? 0)
+    };
+}
+
+function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
 }

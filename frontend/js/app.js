@@ -16,6 +16,8 @@ const socketClient = new SocketClient();
 let disposeHud = () => {};
 let disposeController = () => {};
 let disposeEndgame = () => {};
+let boardGraphicsApi = null;
+let canvasResizeHandler = null;
 
 let appState = {
 	view: 'splash',
@@ -48,11 +50,50 @@ function initializeCanvas() {
 		return;
 	}
 
-	const hexSize = 40;
-	const graphicsApi = createCanvasGraphics(canvas, { hexSize, verbose: false });
+	syncCanvasSize(canvas);
+
+	const defaultHexSize = 40;
+	const graphicsApi = createCanvasGraphics(canvas, {
+		hexSize: defaultHexSize,
+		verbose: false,
+		padding: 56,
+		minHexSize: 28,
+		maxHexSize: 72
+	});
+	boardGraphicsApi = graphicsApi;
+
+	if (canvasResizeHandler) {
+		window.removeEventListener('resize', canvasResizeHandler);
+	}
+
+	canvasResizeHandler = () => {
+		if (syncCanvasSize(canvas)) {
+			boardGraphicsApi?.rerenderLastFrame?.();
+		}
+	};
+
+	window.addEventListener('resize', canvasResizeHandler);
+
 	mountBoardRenderer({ graphicsApi });
-	disposeController = initGameController(canvas, { hexSize });
+	disposeController = initGameController(canvas, {
+		hexSize: defaultHexSize,
+		getLayout: () => graphicsApi.getLayout?.(),
+		subscribeToLayout: graphicsApi.subscribeLayout
+	});
 }
+
+function syncCanvasSize(canvas) {
+	const rect = canvas.getBoundingClientRect();
+	const targetWidth = Math.max(1, Math.floor(rect.width));
+	const targetHeight = Math.max(1, Math.floor(rect.height));
+	const needsResize = canvas.width !== targetWidth || canvas.height !== targetHeight;
+	if (needsResize) {
+		canvas.width = targetWidth;
+		canvas.height = targetHeight;
+	}
+	return needsResize;
+}
+
 
 function wireStatusPanel() {
 	const statusEl = document.querySelector('[data-connection-status]');

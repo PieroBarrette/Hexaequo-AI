@@ -22,23 +22,35 @@ export function initGameController(canvas, options = {}) {
 		return () => {};
 	}
 
-	const hexSize = options.hexSize ?? 40;
+	const fallbackHexSize = options.hexSize ?? 40;
+	const getLayout = typeof options.getLayout === 'function' ? options.getLayout : null;
+	const subscribeToLayout = typeof options.subscribeToLayout === 'function' ? options.subscribeToLayout : null;
+	let currentLayout = normalizeLayoutSnapshot(getLayout?.(), canvas, fallbackHexSize);
+	const unsubscribeLayout = subscribeToLayout
+		? subscribeToLayout((nextLayout) => {
+			currentLayout = normalizeLayoutSnapshot(nextLayout, canvas, fallbackHexSize);
+		})
+		: null;
 
 	const handleClick = (event) => {
-		const { q, r } = extractBoardCoordinates(event, canvas, hexSize);
+		const { q, r } = extractBoardCoordinates(event, canvas, currentLayout, fallbackHexSize);
+		handleBoardInteraction(q, r);
+	};
+
+	const handleTouchEnd = (event) => {
+		event.preventDefault();
+		if (!event.changedTouches?.length) return;
+		const { q, r } = extractBoardCoordinates(event.changedTouches[0], canvas, currentLayout, fallbackHexSize);
 		handleBoardInteraction(q, r);
 	};
 
 	canvas.addEventListener('click', handleClick);
-	canvas.addEventListener('touchend', (event) => {
-		event.preventDefault();
-		if (!event.changedTouches?.length) return;
-		const { q, r } = extractBoardCoordinates(event.changedTouches[0], canvas, hexSize);
-		handleBoardInteraction(q, r);
-	}, { passive: false });
+	canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
 
 	return () => {
 		canvas.removeEventListener('click', handleClick);
+		canvas.removeEventListener('touchend', handleTouchEnd);
+		unsubscribeLayout?.();
 	};
 }
 
@@ -393,16 +405,36 @@ function buildMoveContext(state) {
 	};
 }
 
-function extractBoardCoordinates(pointer, canvas, hexSize) {
+function extractBoardCoordinates(pointer, canvas, layout, fallbackHexSize) {
 	const rect = canvas.getBoundingClientRect();
 	const rawX = pointer.clientX - rect.left;
 	const rawY = pointer.clientY - rect.top;
 	const scaledX = rawX * (canvas.width / rect.width);
 	const scaledY = rawY * (canvas.height / rect.height);
-	const centeredX = scaledX - canvas.width / 2;
-	const centeredY = scaledY - canvas.height / 2;
-	const { q, r } = pixelToAxial(centeredX, centeredY, hexSize);
+	const layoutSnapshot = normalizeLayoutSnapshot(layout, canvas, fallbackHexSize);
+	const centeredX = scaledX - layoutSnapshot.translateX;
+	const centeredY = scaledY - layoutSnapshot.translateY;
+	const { q, r } = pixelToAxial(centeredX, centeredY, layoutSnapshot.hexSize);
 	return { q, r };
+}
+
+function normalizeLayoutSnapshot(layout, canvas, fallbackHexSize) {
+	const defaultLayout = {
+		hexSize: fallbackHexSize,
+		translateX: canvas.width / 2,
+		translateY: canvas.height / 2
+	};
+	if (!layout) {
+		return defaultLayout;
+	}
+	const size = Number.isFinite(layout.hexSize) ? layout.hexSize : fallbackHexSize;
+	const translateX = Number.isFinite(layout.translateX) ? layout.translateX : defaultLayout.translateX;
+	const translateY = Number.isFinite(layout.translateY) ? layout.translateY : defaultLayout.translateY;
+	return {
+		hexSize: size,
+		translateX,
+		translateY
+	};
 }
 
 function placeDiscAt(q, r, options = {}) {
