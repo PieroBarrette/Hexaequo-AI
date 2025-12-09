@@ -1,6 +1,7 @@
 import { mountTurnIndicator } from './turnIndicator.js';
 import { mountInventoryPanel } from './inventoryPanel.js';
 import { mountTimerPanel } from './timerPanel.js';
+import { mountActionCenter } from './actionCenter.js';
 
 export function mountHud() {
     const disposers = [];
@@ -25,6 +26,9 @@ export function mountHud() {
             white: timerWhite
         })
     );
+
+    const actionCenter = document.querySelector('[data-action-center]');
+    disposers.push(mountActionCenter(actionCenter));
 
     return () => disposers.forEach((dispose) => dispose?.());
 }

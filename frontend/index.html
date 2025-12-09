@@ -60,6 +60,62 @@
 			gap: 12px;
 		}
 
+		.hud-muted {
+			font-size: 0.9rem;
+			color: #94a3b8;
+			margin: 0;
+		}
+
+		.hud-action-group {
+			display: flex;
+			flex-direction: column;
+			gap: 8px;
+			padding-top: 4px;
+		}
+
+		.hud-action-headline {
+			font-weight: 600;
+			font-size: 1rem;
+			color: #f1f5f9;
+		}
+
+		.hud-action-subtext {
+			font-size: 0.85rem;
+			color: #94a3b8;
+			margin: 0;
+		}
+
+		.hud-action-buttons {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px;
+		}
+
+		button.hud-action-btn {
+			background: #1e293b;
+			color: #e2e8f0;
+			border: 1px solid rgba(148, 163, 184, 0.5);
+			padding: 8px 14px;
+			font-size: 0.9rem;
+		}
+
+		button.hud-action-btn.primary {
+			background: #10b981;
+			color: #0f172a;
+			border-color: #10b981;
+		}
+
+		button.hud-action-btn.ghost {
+			background: transparent;
+			color: #94a3b8;
+			border-color: rgba(148, 163, 184, 0.35);
+		}
+
+		button.hud-action-btn:disabled {
+			opacity: 0.45;
+			cursor: not-allowed;
+		}
+
 		.timer-card {
 			gap: 16px;
 		}
@@ -232,6 +288,10 @@
 						<li>Captured rings: <strong>0</strong></li>
 					</ul>
 				</div>
+			</div>
+			<div class="hud-card" data-action-center>
+				<span class="hud-label">Contextual Actions</span>
+				<p class="hud-muted">No pending actions</p>
 			</div>
 		</section>
 		<section class="status-panel">

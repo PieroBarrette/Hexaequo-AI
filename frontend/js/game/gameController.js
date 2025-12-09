@@ -96,27 +96,23 @@ function tryPlacePiece(q, r, state) {
 	const canPlaceDisc = (state.discInventory?.[state.activePlayer] ?? 0) > 0;
 	const canPlaceRing = (state.ringInventory?.[state.activePlayer] ?? 0) > 0 && (state.captured?.[state.activePlayer]?.disc ?? 0) > 0;
 
-	// TODO: show contextual disc/ring buttons similar to legacy UI when both are available
-	if (canPlaceDisc) {
-		applyStateUpdate((draft) => {
-			draft.pieces[key] = { type: 'disc', color: draft.activePlayer };
-			draft.discInventory[draft.activePlayer] = Math.max(0, (draft.discInventory[draft.activePlayer] ?? 0) - 1);
-			advanceTurn(draft);
-			clearMultiJumpMetadata(draft);
+	if (canPlaceDisc && canPlaceRing) {
+		setPlacementPrompt({
+			q,
+			r,
+			player: state.activePlayer,
+			options: { disc: true, ring: true }
 		});
 		return true;
 	}
 
+	if (canPlaceDisc) {
+		placeDiscAt(q, r);
+		return true;
+	}
+
 	if (canPlaceRing) {
-		applyStateUpdate((draft) => {
-			draft.pieces[key] = { type: 'ring', color: draft.activePlayer };
-			draft.ringInventory[draft.activePlayer] = Math.max(0, (draft.ringInventory[draft.activePlayer] ?? 0) - 1);
-			draft.captured[draft.activePlayer].disc = Math.max(0, draft.captured[draft.activePlayer].disc - 1);
-			const opponent = draft.activePlayer === 'black' ? 'white' : 'black';
-			draft.discInventory[opponent] = (draft.discInventory[opponent] ?? 0) + 1;
-			advanceTurn(draft);
-			clearMultiJumpMetadata(draft);
-		});
+		placeRingAt(q, r);
 		return true;
 	}
 
@@ -359,6 +355,7 @@ function executeDiscJumpMove(selection, target, previousState) {
 		const nextMoves = getJumpMoves(draft, target.q, target.r, jumpHistory);
 
 		if (nextMoves.length > 0) {
+			controllerState.multiJumping = true;
 			draft.metadata = {
 				...(draft.metadata ?? {}),
 				multiJumping: true,
@@ -400,6 +397,95 @@ function buildMoveContext(state) {
 	};
 }
 
+function placeDiscAt(q, r, options = {}) {
+	applyStateUpdate((draft) => {
+		const key = `${q},${r}`;
+		draft.pieces[key] = { type: 'disc', color: draft.activePlayer };
+		draft.discInventory[draft.activePlayer] = Math.max(0, (draft.discInventory[draft.activePlayer] ?? 0) - 1);
+		advanceTurn(draft);
+		clearMultiJumpMetadata(draft);
+		clearPlacementPrompt({ state: draft });
+	}, { reason: options.reason ?? 'place-disc' });
+}
+
+function placeRingAt(q, r, options = {}) {
+	applyStateUpdate((draft) => {
+		const key = `${q},${r}`;
+		draft.pieces[key] = { type: 'ring', color: draft.activePlayer };
+		draft.ringInventory[draft.activePlayer] = Math.max(0, (draft.ringInventory[draft.activePlayer] ?? 0) - 1);
+		draft.captured[draft.activePlayer].disc = Math.max(0, draft.captured[draft.activePlayer].disc - 1);
+		const opponent = draft.activePlayer === 'black' ? 'white' : 'black';
+		draft.discInventory[opponent] = (draft.discInventory[opponent] ?? 0) + 1;
+		advanceTurn(draft);
+		clearMultiJumpMetadata(draft);
+		clearPlacementPrompt({ state: draft });
+	}, { reason: options.reason ?? 'place-ring' });
+}
+
+function setPlacementPrompt(prompt) {
+	controllerState.pendingPlacement = prompt;
+	updateMetadata({ placementPrompt: prompt });
+}
+
+function clearPlacementPrompt(context = {}) {
+	controllerState.pendingPlacement = null;
+	if (context.state) {
+		context.state.metadata = {
+			...(context.state.metadata ?? {}),
+			placementPrompt: null
+		};
+		return;
+	}
+	updateMetadata({ placementPrompt: null });
+}
+
+function confirmPendingPlacement(kind) {
+	const prompt = controllerState.pendingPlacement;
+	if (!prompt) {
+		return false;
+	}
+	const desired = kind === 'ring' ? 'ring' : 'disc';
+	if (!prompt.options?.[desired]) {
+		return false;
+	}
+	const current = getGameState();
+	if (current.activePlayer !== prompt.player) {
+		clearPlacementPrompt();
+		return false;
+	}
+	const key = `${prompt.q},${prompt.r}`;
+	const tileOwner = current.tiles?.[key];
+	const occupant = current.pieces?.[key];
+	if (tileOwner !== prompt.player || occupant) {
+		clearPlacementPrompt();
+		return false;
+	}
+	if (desired === 'disc') {
+		const canPlaceDisc = (current.discInventory?.[prompt.player] ?? 0) > 0;
+		if (!canPlaceDisc) {
+			clearPlacementPrompt();
+			return false;
+		}
+		placeDiscAt(prompt.q, prompt.r, { reason: 'hud-place-disc' });
+		return true;
+	}
+	const canPlaceRing = (current.ringInventory?.[prompt.player] ?? 0) > 0 && (current.captured?.[prompt.player]?.disc ?? 0) > 0;
+	if (!canPlaceRing) {
+		clearPlacementPrompt();
+		return false;
+	}
+	placeRingAt(prompt.q, prompt.r, { reason: 'hud-place-ring' });
+	return true;
+}
+
+function cancelPendingPlacement(reason = 'cancel') {
+	if (!controllerState.pendingPlacement) {
+		return false;
+	}
+	clearPlacementPrompt();
+	return true;
+}
+
 function ensureTurnSnapshot(state, selection) {
 	if (controllerState.turnSnapshot) {
 		return;
@@ -436,4 +522,27 @@ function cancelMultiJumpSequence(reason = 'cancel') {
 	resetControllerJumpState();
 	clearSelection({ skipMetadata: true });
 }
+
+function finalizeMultiJumpSequence(reason = 'manual-end') {
+	if (!controllerState.multiJumping) {
+		return false;
+	}
+	const completedPath = controllerState.jumpPath.length > 1 ? [...controllerState.jumpPath] : [];
+	applyStateUpdate((draft) => {
+		clearMultiJumpMetadata(draft, completedPath.length ? { lastJumpPath: completedPath } : {});
+		advanceTurn(draft);
+	}, { reason: `multi-jump-${reason}` });
+	clearSelection({ skipMetadata: true });
+	return true;
+}
+
+export const controllerActions = {
+	endMultiJumpTurn: () => finalizeMultiJumpSequence('hud-end'),
+	cancelMultiJump: () => {
+		cancelMultiJumpSequence('hud-cancel');
+		return true;
+	},
+	confirmPlacement: (kind) => confirmPendingPlacement(kind),
+	cancelPlacement: () => cancelPendingPlacement('hud-cancel')
+};
 
