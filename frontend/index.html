@@ -59,6 +59,29 @@
 			gap: 12px;
 		}
 
+		.status-panel {
+			background: #111827;
+			border: 1px solid rgba(148, 163, 184, 0.3);
+			border-radius: 16px;
+			padding: 16px;
+			display: flex;
+			flex-direction: column;
+			gap: 12px;
+			box-shadow: 0 20px 45px rgba(15, 23, 42, 0.45);
+		}
+
+		.status-row {
+			display: flex;
+			justify-content: space-between;
+			font-size: 0.95rem;
+			color: #cbd5f5;
+		}
+
+		.status-actions {
+			display: flex;
+			gap: 12px;
+		}
+
 		button {
 			cursor: pointer;
 			border: none;
@@ -87,9 +110,23 @@
 			<button id="devAddTile">Add Tile</button>
 			<button id="devAddDisc">Add Piece</button>
 		</section>
+		<section class="status-panel">
+			<div class="status-row">
+				<span>Server:</span>
+				<strong data-connection-status>disconnected</strong>
+			</div>
+			<div class="status-row">
+				<span>Room:</span>
+				<strong data-room-code>----</strong>
+			</div>
+			<div class="status-actions">
+				<button id="connectServerBtn">Connect</button>
+				<button id="createRoomDevBtn">Create Room</button>
+			</div>
+		</section>
 	</main>
 
-	<script type="module" src="./js/main.js"></script>
+	<script type="module" src="./js/app.js"></script>
 </body>
 
 </html>
