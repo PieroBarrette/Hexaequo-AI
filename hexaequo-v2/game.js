@@ -161,8 +161,15 @@ window.onload = function () {
         return currentMoveIndex >= moveHistory.length - 1;
     }
 
+    // Helper to check if game has ended (popup is displayed)
+    function isGameOver() {
+        return document.getElementById('gameOver') !== null;
+    }
+
     // Check if moves are allowed (for online mode: must be at end of history AND your turn)
     function canMakeMove() {
+        // Block all moves if game is over
+        if (isGameOver()) return false;
         if (!isOnlineMode) return true;
         return isAtEndOfHistory() && isMyTurn(activePlayer);
     }
@@ -1013,6 +1020,9 @@ window.onload = function () {
     function handleDragStart(e) {
         e.preventDefault();
 
+        // Block interactions if game is over
+        if (isGameOver()) return;
+
         // Block if not allowed to make moves (online mode: not our turn or viewing history)
         if (isOnlineMode && !canMakeMove()) {
             return;
@@ -1230,6 +1240,9 @@ window.onload = function () {
 
     // Add both click and touch event listeners
     canvas.addEventListener('click', function (e) {
+        // Block interactions if game is over
+        if (isGameOver()) return;
+
         // Skip click handling if drag was just completed
         if (dragJustCompleted) {
             dragJustCompleted = false;
@@ -1263,6 +1276,9 @@ window.onload = function () {
     });
     // Touch interaction handler - unified with click behavior (for taps when not dragging)
     function handleTouchInteraction(e) {
+        // Block interactions if game is over
+        if (isGameOver()) return;
+
         // Skip touch handling if drag was just completed
         if (dragJustCompleted) {
             dragJustCompleted = false;
