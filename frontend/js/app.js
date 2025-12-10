@@ -11,6 +11,7 @@ import { SocketClient } from './utils/socketClient.js';
 import { mountHud } from './game/hud/index.js';
 import { initGameController } from './game/gameController.js';
 import { initEndgameWatcher } from './game/endgameWatcher.js';
+import { soundManager } from './utils/soundManager.js';
 
 const socketClient = new SocketClient();
 let disposeHud = () => {};
@@ -24,7 +25,15 @@ let appState = {
 	connectionStatus: 'disconnected',
 	roomCode: null,
 	playerColor: null,
-	lastError: null
+	lastError: null,
+	theme: 'dark',
+	uiSoundsEnabled: true,
+	gameplaySoundsEnabled: true,
+	animationsEnabled: true,
+	showValidMoves: false,
+	showPreviousMove: true,
+	navExpanded: true,
+	activeFlyout: ''
 };
 
 const appSubscribers = new Set();
@@ -37,6 +46,8 @@ function initializeApp() {
 	initializeCanvas();
 	disposeHud = mountHud();
 	disposeEndgame = initEndgameWatcher();
+	initializeNavigationPanels();
+	observeLayoutChrome();
 	wireStatusPanel();
 	observeMultiplayer();
 	exposeDebugHelpers();
@@ -58,7 +69,11 @@ function initializeCanvas() {
 		verbose: false,
 		padding: 56,
 		minHexSize: 28,
-		maxHexSize: 72
+		maxHexSize: 72,
+		getPreferences: () => ({
+			showValidMoves: appState.showValidMoves,
+			showPreviousMove: appState.showPreviousMove
+		})
 	});
 	boardGraphicsApi = graphicsApi;
 
@@ -74,7 +89,12 @@ function initializeCanvas() {
 
 	window.addEventListener('resize', canvasResizeHandler);
 
-	mountBoardRenderer({ graphicsApi });
+	mountBoardRenderer({
+		graphicsApi,
+		animateMultiJumps: () => appState.animationsEnabled,
+		skipMoveAnimation: () => !appState.animationsEnabled,
+		onQueueBuilt: (queueResult) => soundManager.handleQueue(queueResult)
+	});
 	disposeController = initGameController(canvas, {
 		hexSize: defaultHexSize,
 		getLayout: () => graphicsApi.getLayout?.(),
@@ -110,10 +130,10 @@ function wireStatusPanel() {
 		if (statusEl) statusEl.textContent = state.connectionStatus;
 		if (roomEl) roomEl.textContent = state.roomCode ?? '----';
 		if (errorEl) errorEl.textContent = state.lastError ?? '';
-		document.body?.setAttribute('data-view', state.view);
 	});
 
 	connectBtn?.addEventListener('click', async () => {
+		soundManager.playUiClick();
 		try {
 			await socketClient.connect();
 			setAppState({ lastError: null });
@@ -124,6 +144,7 @@ function wireStatusPanel() {
 	});
 
 	createRoomBtn?.addEventListener('click', async () => {
+		soundManager.playUiClick();
 		try {
 			await socketClient.ensureConnected();
 			const response = await socketClient.createRoom();
@@ -141,6 +162,7 @@ function wireStatusPanel() {
 	});
 
 	joinRoomBtn?.addEventListener('click', async () => {
+		soundManager.playUiClick();
 		try {
 			await socketClient.ensureConnected();
 			const code = roomInput?.value?.trim();
@@ -163,6 +185,7 @@ function wireStatusPanel() {
 	});
 
 	leaveRoomBtn?.addEventListener('click', async () => {
+		soundManager.playUiClick();
 		try {
 			await socketClient.leaveRoom();
 			setAppState({ roomCode: null, playerColor: null, lastError: null });
@@ -173,6 +196,7 @@ function wireStatusPanel() {
 	});
 
 	sendStateBtn?.addEventListener('click', async () => {
+		soundManager.playUiClick();
 		try {
 			await socketClient.ensureConnected();
 			if (!appState.roomCode) {
@@ -186,6 +210,185 @@ function wireStatusPanel() {
 		} catch (err) {
 			console.error('Send state failed', err);
 			setAppState({ lastError: err.message });
+		}
+	});
+}
+
+function initializeNavigationPanels() {
+	const navToggleBtn = document.querySelector('[data-nav-toggle]');
+	const navPeekBtn = document.querySelector('[data-nav-peek]');
+	const flyoutPanel = document.querySelector('[data-flyout-panel]');
+	const flyoutCloseBtn = document.querySelector('[data-flyout-close]');
+	const flyoutTriggers = document.querySelectorAll('[data-flyout-trigger]');
+	const themeToggle = document.querySelector('[data-theme-toggle]');
+	const animationToggle = document.querySelector('[data-animation-toggle]');
+	const soundToggles = document.querySelectorAll('[data-sound-toggle]');
+	const validMovesToggle = document.querySelector('[data-visual-toggle="valid"]');
+	const previousMoveToggle = document.querySelector('[data-visual-toggle="previous"]');
+	const supportsHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+	const emitUiSound = () => soundManager.playUiClick();
+
+	navToggleBtn?.addEventListener('click', () => {
+		emitUiSound();
+		toggleNavExpansion();
+	});
+	navPeekBtn?.addEventListener('click', () => {
+		emitUiSound();
+		toggleNavExpansion(true);
+	});
+	flyoutCloseBtn?.addEventListener('click', () => {
+		emitUiSound();
+		setAppState({ activeFlyout: '' });
+	});
+
+	flyoutTriggers.forEach((trigger) => {
+		const flyoutId = trigger.getAttribute('data-flyout-trigger');
+		if (!flyoutId) return;
+
+		trigger.addEventListener('click', (event) => {
+			event.preventDefault();
+			emitUiSound();
+			const isSame = appState.activeFlyout === flyoutId && appState.navExpanded;
+			setAppState({
+				navExpanded: true,
+				activeFlyout: isSame ? '' : flyoutId
+			});
+		});
+
+		if (supportsHover) {
+			trigger.addEventListener('mouseenter', () => {
+				if (!appState.navExpanded) return;
+				setAppState({ activeFlyout: flyoutId });
+			});
+		}
+
+		trigger.addEventListener('focus', () => {
+			if (!appState.navExpanded) return;
+			setAppState({ activeFlyout: flyoutId });
+		});
+	});
+
+	if (supportsHover && flyoutPanel) {
+		flyoutPanel.addEventListener('mouseleave', () => {
+			setAppState({ activeFlyout: '' });
+		});
+	}
+
+	themeToggle?.addEventListener('click', () => {
+		emitUiSound();
+		setTheme(appState.theme === 'dark' ? 'light' : 'dark');
+	});
+
+	soundToggles.forEach((toggle) => {
+		const category = toggle.getAttribute('data-sound-toggle');
+		toggle.addEventListener('click', () => {
+			emitUiSound();
+			if (category === 'ui') {
+				setAppState({ uiSoundsEnabled: !appState.uiSoundsEnabled });
+			} else if (category === 'game') {
+				setAppState({ gameplaySoundsEnabled: !appState.gameplaySoundsEnabled });
+			}
+		});
+	});
+
+	animationToggle?.addEventListener('click', () => {
+		emitUiSound();
+		setAppState({ animationsEnabled: !appState.animationsEnabled });
+	});
+
+	validMovesToggle?.addEventListener('click', () => {
+		emitUiSound();
+		setAppState({ showValidMoves: !appState.showValidMoves });
+	});
+
+	previousMoveToggle?.addEventListener('click', () => {
+		emitUiSound();
+		setAppState({ showPreviousMove: !appState.showPreviousMove });
+	});
+}
+
+function observeLayoutChrome() {
+	const appShell = document.querySelector('[data-app-shell]');
+	const themeToggle = document.querySelector('[data-theme-toggle]');
+	const themeLabel = document.querySelector('[data-theme-toggle-label]');
+	const uiSoundToggle = document.querySelector('[data-sound-toggle="ui"]');
+	const uiSoundLabel = document.querySelector('[data-ui-sound-label]');
+	const gameSoundToggle = document.querySelector('[data-sound-toggle="game"]');
+	const gameSoundLabel = document.querySelector('[data-game-sound-label]');
+	const animationToggle = document.querySelector('[data-animation-toggle]');
+	const animationLabel = document.querySelector('[data-animation-label]');
+	const validMovesToggle = document.querySelector('[data-visual-toggle="valid"]');
+	const validMovesLabel = document.querySelector('[data-valid-moves-label]');
+	const previousMoveToggle = document.querySelector('[data-visual-toggle="previous"]');
+	const previousMoveLabel = document.querySelector('[data-previous-move-label]');
+	let lastNavExpanded = appState.navExpanded;
+	let lastFlyout = appState.activeFlyout;
+	let lastShowValidMoves = appState.showValidMoves;
+	let lastShowPreviousMove = appState.showPreviousMove;
+
+	subscribeToAppState((state) => {
+		document.body?.setAttribute('data-view', state.view);
+		document.body?.setAttribute('data-theme', state.theme);
+		if (appShell) {
+			appShell.setAttribute('data-nav-expanded', state.navExpanded ? 'true' : 'false');
+			appShell.setAttribute('data-flyout-active', state.activeFlyout ?? '');
+		}
+
+		const isDarkTheme = state.theme === 'dark';
+		themeToggle?.setAttribute('aria-pressed', isDarkTheme ? 'true' : 'false');
+		if (themeLabel) themeLabel.textContent = isDarkTheme ? 'Dark' : 'Light';
+
+		uiSoundToggle?.setAttribute('aria-pressed', state.uiSoundsEnabled ? 'true' : 'false');
+		if (uiSoundLabel) uiSoundLabel.textContent = state.uiSoundsEnabled ? 'On' : 'Muted';
+
+		const gameplayEnabled = state.gameplaySoundsEnabled;
+		gameSoundToggle?.setAttribute('aria-pressed', gameplayEnabled ? 'true' : 'false');
+		if (gameSoundLabel) gameSoundLabel.textContent = gameplayEnabled ? 'On' : 'Muted';
+
+		soundManager.setUiEnabled(state.uiSoundsEnabled);
+		soundManager.setGameplayEnabled(gameplayEnabled);
+
+		animationToggle?.setAttribute('aria-pressed', state.animationsEnabled ? 'true' : 'false');
+		if (animationLabel) animationLabel.textContent = state.animationsEnabled ? 'On' : 'Off';
+
+		validMovesToggle?.setAttribute('aria-pressed', state.showValidMoves ? 'true' : 'false');
+		if (validMovesLabel) validMovesLabel.textContent = state.showValidMoves ? 'On' : 'Off';
+
+		previousMoveToggle?.setAttribute('aria-pressed', state.showPreviousMove ? 'true' : 'false');
+		if (previousMoveLabel) previousMoveLabel.textContent = state.showPreviousMove ? 'On' : 'Off';
+
+		if (state.navExpanded !== lastNavExpanded) {
+			lastNavExpanded = state.navExpanded;
+			queueCanvasResize();
+		}
+		if (state.activeFlyout !== lastFlyout) {
+			lastFlyout = state.activeFlyout;
+			queueCanvasResize();
+		}
+		if (state.showValidMoves !== lastShowValidMoves || state.showPreviousMove !== lastShowPreviousMove) {
+			lastShowValidMoves = state.showValidMoves;
+			lastShowPreviousMove = state.showPreviousMove;
+			boardGraphicsApi?.rerenderLastFrame?.();
+		}
+	});
+}
+
+function toggleNavExpansion(forceState) {
+	const desired = typeof forceState === 'boolean' ? forceState : !appState.navExpanded;
+	setAppState({ navExpanded: desired });
+}
+
+function setTheme(theme) {
+	if (theme !== 'dark' && theme !== 'light') return;
+	setAppState({ theme });
+}
+
+function queueCanvasResize() {
+	const canvas = document.getElementById('modernGameCanvas');
+	if (!canvas) return;
+	requestAnimationFrame(() => {
+		if (syncCanvasSize(canvas)) {
+			boardGraphicsApi?.rerenderLastFrame?.();
 		}
 	});
 }
@@ -220,6 +423,10 @@ function exposeDebugHelpers() {
 		serializeCurrentState,
 		applySerializedState,
 		setView: setAppView,
+		setTheme,
+		toggleNav(state) {
+			toggleNavExpansion(state);
+		},
 		subscribeToGameState,
 		refreshHud() {
 			disposeHud?.();
@@ -243,12 +450,18 @@ function exposeDebugHelpers() {
 }
 
 function setAppView(view) {
-	setAppState({ view });
+	const patch = { view };
+	if (view === 'game' && appState.view !== 'game' && appState.navExpanded) {
+		patch.navExpanded = false;
+	} else if (view !== 'game' && appState.view === 'game' && !appState.navExpanded) {
+		patch.navExpanded = true;
+	}
+	setAppState(patch);
 }
 
 function setAppState(patch) {
-	const nextState = { ...appState, ...patch };
-	const changed = Object.keys(patch).some((key) => appState[key] !== nextState[key]);
+	const nextState = applyStateGuards({ ...appState, ...patch });
+	const changed = Object.keys(nextState).some((key) => appState[key] !== nextState[key]);
 	if (!changed) return;
 	appState = nextState;
 	notifyAppSubscribers();
@@ -257,6 +470,23 @@ function setAppState(patch) {
 function hydrateFromServerState(snapshot) {
 	if (!snapshot) return;
 	applySerializedState(snapshot, { reason: 'server-sync' });
+}
+
+function applyStateGuards(state) {
+	const nextState = { ...state };
+	if (nextState.theme !== 'dark' && nextState.theme !== 'light') {
+		nextState.theme = 'dark';
+	}
+	nextState.animationsEnabled = nextState.animationsEnabled !== false;
+	nextState.showValidMoves = Boolean(nextState.showValidMoves);
+	nextState.showPreviousMove = nextState.showPreviousMove !== false;
+	if (!nextState.navExpanded) {
+		nextState.activeFlyout = '';
+	}
+	if (!nextState.activeFlyout) {
+		nextState.activeFlyout = '';
+	}
+	return nextState;
 }
 
 function subscribeToAppState(listener, options = {}) {

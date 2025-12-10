@@ -1,3 +1,6 @@
+				<p class="hud-muted">No pending actions</p>
+			</div>
+		</section>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -8,488 +11,217 @@
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 	<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&display=swap" rel="stylesheet" />
-	<style>
-		:root {
-			color-scheme: dark;
-			font-family: 'Space Grotesk', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-			background-color: #0f172a;
-			color: #e2e8f0;
-		}
-
-		body {
-			margin: 0;
-			padding: 0;
-			min-height: 100vh;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-		}
-
-		main {
-			width: 100%;
-			max-width: 1200px;
-			padding: 24px;
-			box-sizing: border-box;
-			display: grid;
-			gap: 24px;
-		}
-
-		.canvas-shell {
-			background: #111827;
-			border: 1px solid rgba(148, 163, 184, 0.3);
-			border-radius: 16px;
-			padding: 16px;
-			box-shadow: 0 20px 45px rgba(15, 23, 42, 0.45);
-			position: relative;
-		}
-
-		.canvas-overlay {
-			position: absolute;
-			top: 16px;
-			right: 16px;
-			left: 16px;
-			pointer-events: none;
-			z-index: 2;
-			display: flex;
-			justify-content: flex-end;
-		}
-
-		.multi-jump-chip {
-			background: rgba(15, 23, 42, 0.92);
-			border: 1px solid rgba(16, 185, 129, 0.4);
-			border-radius: 999px;
-			padding: 6px 12px;
-			display: flex;
-			align-items: center;
-			gap: 12px;
-			pointer-events: auto;
-			box-shadow: 0 8px 20px rgba(15, 23, 42, 0.45);
-		}
-
-		.multi-jump-chip span {
-			font-size: 0.85rem;
-			color: #d1fae5;
-			text-transform: uppercase;
-			letter-spacing: 0.08em;
-		}
-
-		.multi-jump-actions {
-			display: inline-flex;
-			gap: 6px;
-		}
-
-		.multi-jump-btn {
-			width: 32px;
-			height: 32px;
-			border-radius: 50%;
-			border: none;
-			cursor: pointer;
-			font-size: 1rem;
-			font-weight: 600;
-		}
-
-		.multi-jump-btn.confirm {
-			background: #10b981;
-			color: #0f172a;
-		}
-
-		.multi-jump-btn.ghost {
-			background: rgba(15, 23, 42, 0.6);
-			color: #94a3b8;
-			border: 1px solid rgba(148, 163, 184, 0.4);
-		}
-
-		.board-stage {
-			display: grid;
-			grid-template-columns: minmax(180px, 220px) minmax(0, 1fr) minmax(180px, 220px);
-			gap: 18px;
-			align-items: stretch;
-		}
-
-		.inventory-column {
-			background: #111827;
-			border: 1px solid rgba(148, 163, 184, 0.25);
-			border-radius: 16px;
-			padding: 18px;
-			box-shadow: 0 20px 45px rgba(15, 23, 42, 0.45);
-			display: flex;
-			flex-direction: column;
-			gap: 16px;
-			min-height: 540px;
-		}
-
-		.inventory-header {
-			display: flex;
-			justify-content: space-between;
-			align-items: center;
-			gap: 8px;
-		}
-
-		.inventory-player {
-			font-size: 1.1rem;
-			font-weight: 600;
-			color: #f8fafc;
-		}
-
-		.inventory-status {
-			font-size: 0.85rem;
-			text-transform: uppercase;
-			letter-spacing: 0.08em;
-			color: #94a3b8;
-		}
-
-		.inventory-status.live {
-			color: #10b981;
-		}
-
-		.inventory-remaining {
-			font-size: 0.85rem;
-			color: #cbd5f5;
-		}
-
-		.inventory-stats {
-			display: grid;
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-			gap: 12px;
-		}
-
-		.inventory-stats div {
-			background: rgba(15, 23, 42, 0.6);
-			border: 1px solid rgba(148, 163, 184, 0.2);
-			border-radius: 10px;
-			padding: 10px;
-			text-align: center;
-		}
-
-		.inventory-stats label {
-			display: block;
-			font-size: 0.8rem;
-			color: #94a3b8;
-			margin-bottom: 6px;
-		}
-
-		.inventory-stats strong {
-			font-size: 1.3rem;
-			color: #f8fafc;
-		}
-
-		.inventory-captures {
-			margin-top: auto;
-			display: grid;
-			gap: 8px;
-		}
-
-		.inventory-captures div {
-			display: flex;
-			justify-content: space-between;
-			font-size: 0.9rem;
-			color: #cbd5f5;
-		}
-
-		.inventory-captures span {
-			font-weight: 600;
-			color: #f8fafc;
-		}
-
-		@media (max-width: 960px) {
-			.board-stage {
-				grid-template-columns: 1fr;
-			}
-			.inventory-column {
-				min-height: auto;
-			}
-		}
-
-		.hud-grid {
-			display: grid;
-			grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-			gap: 16px;
-		}
-
-		.hud-card {
-			background: #111827;
-			border: 1px solid rgba(148, 163, 184, 0.25);
-			border-radius: 14px;
-			padding: 16px;
-			box-shadow: 0 12px 30px rgba(15, 23, 42, 0.4);
-			min-height: 120px;
-			display: flex;
-			flex-direction: column;
-			gap: 12px;
-		}
-
-
-		.hud-muted {
-			font-size: 0.9rem;
-			color: #94a3b8;
-			margin: 0;
-		}
-
-		.hud-action-group {
-			display: flex;
-			flex-direction: column;
-			gap: 8px;
-			padding-top: 4px;
-		}
-
-		.hud-action-headline {
-			font-weight: 600;
-			font-size: 1rem;
-			color: #f1f5f9;
-		}
-
-		.hud-action-subtext {
-			font-size: 0.85rem;
-			color: #94a3b8;
-			margin: 0;
-		}
-
-		.hud-action-buttons {
-			display: flex;
-			flex-wrap: wrap;
-			gap: 8px;
-		}
-
-		button.hud-action-btn {
-			background: #1e293b;
-			color: #e2e8f0;
-			border: 1px solid rgba(148, 163, 184, 0.5);
-			padding: 8px 14px;
-			font-size: 0.9rem;
-		}
-
-		button.hud-action-btn.primary {
-			background: #10b981;
-			color: #0f172a;
-			border-color: #10b981;
-		}
-
-		button.hud-action-btn.ghost {
-			background: transparent;
-			color: #94a3b8;
-			border-color: rgba(148, 163, 184, 0.35);
-		}
-
-		button.hud-action-btn:disabled {
-			opacity: 0.45;
-			cursor: not-allowed;
-		}
-
-		.timer-card {
-			gap: 16px;
-		}
-
-		.timer-card .timer-row {
-			display: flex;
-			flex-direction: column;
-			gap: 8px;
-		}
-
-		.timer-card .timer-row > div {
-			flex: 1;
-		}
-
-		.hud-label {
-			font-size: 0.85rem;
-			text-transform: uppercase;
-			letter-spacing: 0.08em;
-			color: #94a3b8;
-		}
-
-		.hud-value {
-			font-size: 1.4rem;
-			color: #f8fafc;
-		}
-
-		.hud-list {
-			list-style: none;
-			margin: 0;
-			padding: 0;
-			display: flex;
-			flex-direction: column;
-			gap: 4px;
-			font-size: 0.9rem;
-		}
-
-		#modernGameCanvas {
-			width: 100%;
-			height: auto;
-			aspect-ratio: 2 / 1;
-			display: block;
-			background: radial-gradient(circle at top, rgba(255, 255, 255, 0.05), rgba(15, 23, 42, 0.95));
-			border-radius: 12px;
-		}
-
-		canvas {
-			border: none;
-		}
-
-		.status-panel {
-			background: #111827;
-			border: 1px solid rgba(148, 163, 184, 0.3);
-			border-radius: 16px;
-			padding: 16px;
-			display: flex;
-			flex-direction: column;
-			gap: 12px;
-			box-shadow: 0 20px 45px rgba(15, 23, 42, 0.45);
-		}
-
-		.status-row {
-			display: flex;
-			justify-content: space-between;
-			font-size: 0.95rem;
-			color: #cbd5f5;
-		}
-
-		.status-actions {
-			display: flex;
-			gap: 12px;
-			flex-wrap: wrap;
-		}
-
-		.status-actions input {
-			flex: 1;
-			min-width: 140px;
-			padding: 10px 14px;
-			border-radius: 8px;
-			border: 1px solid rgba(148, 163, 184, 0.4);
-			background: #0f172a;
-			color: #e2e8f0;
-			font-size: 0.95rem;
-		}
-
-		.status-actions input:focus {
-			outline: none;
-			border-color: #10b981;
-			box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
-		}
-
-		.status-error {
-			margin: 0;
-			font-size: 0.85rem;
-			color: #f87171;
-		}
-
-		button {
-			cursor: pointer;
-			border: none;
-			border-radius: 8px;
-			padding: 10px 16px;
-			font-size: 0.95rem;
-			font-weight: 600;
-			background: #10b981;
-			color: #0f172a;
-			transition: transform 0.1s ease, box-shadow 0.1s ease;
-		}
-
-		button:hover {
-			transform: translateY(-1px);
-			box-shadow: 0 8px 20px rgba(16, 185, 129, 0.35);
-		}
-
-		.game-over-overlay {
-			position: fixed;
-			top: 0;
-			left: 0;
-			width: 100%;
-			height: 100%;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			background: rgba(2, 6, 23, 0.78);
-			z-index: 50;
-		}
-
-		.game-over-overlay[hidden] {
-			display: none;
-		}
-
-		.game-over-card {
-			background: #0f172a;
-			border: 1px solid rgba(148, 163, 184, 0.3);
-			border-radius: 20px;
-			padding: 32px;
-			max-width: 420px;
-			text-align: center;
-			box-shadow: 0 25px 60px rgba(15, 23, 42, 0.75);
-		}
-
-		.game-over-card h2 {
-			margin: 0 0 8px;
-			font-size: 2rem;
-			color: #f8fafc;
-		}
-
-		.game-over-card p {
-			margin: 0 0 16px;
-			color: #cbd5f5;
-		}
-
-		.game-over-card button {
-			margin-top: 12px;
-		}
-	</style>
+	<link rel="stylesheet" href="./css/base.css" />
+	<link rel="stylesheet" href="./css/game.css" />
 </head>
 
-<body>
-	<main>
-		<section class="board-stage">
-			<div class="inventory-column" data-inventory-black>
-				<span class="hud-label">Black Inventory</span>
-				<p class="hud-muted">Waiting for data…</p>
-			</div>
-			<div class="canvas-shell">
-				<div class="canvas-overlay" data-multi-jump-overlay hidden></div>
-				<canvas id="modernGameCanvas" width="1080" height="540"></canvas>
-			</div>
-			<div class="inventory-column" data-inventory-white>
-				<span class="hud-label">White Inventory</span>
-				<p class="hud-muted">Waiting for data…</p>
-			</div>
-		</section>
-		<section class="hud-grid">
-			<div class="hud-card" data-turn-indicator>
-				<span class="hud-label">Active Player</span>
-				<strong class="hud-value">--</strong>
-			</div>
-			<div class="hud-card timer-card">
-				<div class="timer-row">
-					<div data-timer-black>
-						<span class="hud-label">Black Timer</span>
-						<strong class="hud-value">--:--</strong>
-					</div>
-					<div data-timer-white>
-						<span class="hud-label">White Timer</span>
-						<strong class="hud-value">--:--</strong>
-					</div>
+<body data-theme="dark">
+	<div class="app-shell" data-app-shell data-nav-expanded="true" data-flyout-active="">
+		<aside class="nav-rail" data-nav-shell>
+			<div class="nav-rail__header">
+				<button type="button" class="nav-control" data-nav-toggle aria-label="Toggle navigation">
+					<span aria-hidden="true">&#9776;</span>
+				</button>
+				<div class="nav-brand">
+					<span class="nav-brand__title">Hexaequo</span>
+					<small class="nav-brand__tagline">modern shell</small>
 				</div>
 			</div>
-			<div class="hud-card" data-action-center>
-				<span class="hud-label">Contextual Actions</span>
-				<p class="hud-muted">No pending actions</p>
+			<nav class="nav-rail__menu" aria-label="Primary">
+				<button type="button" class="nav-rail__item is-active" data-flyout-trigger="play">
+					<span class="nav-rail__icon" aria-hidden="true">&#9671;</span>
+					<span class="nav-rail__label">Play</span>
+				</button>
+				<button type="button" class="nav-rail__item" data-flyout-trigger="lobby">
+					<span class="nav-rail__icon" aria-hidden="true">&#9678;</span>
+					<span class="nav-rail__label">Lobby</span>
+				</button>
+				<button type="button" class="nav-rail__item" data-flyout-trigger="learn">
+					<span class="nav-rail__icon" aria-hidden="true">?</span>
+					<span class="nav-rail__label">Learn</span>
+				</button>
+			</nav>
+			<div class="nav-rail__footer">
+				<button type="button" class="nav-rail__item" data-flyout-trigger="settings">
+					<span class="nav-rail__icon" aria-hidden="true">&#9881;</span>
+					<span class="nav-rail__label">Settings</span>
+				</button>
 			</div>
+		</aside>
+		<section class="nav-flyouts" data-flyout-panel>
+			<article class="flyout-card" data-flyout="play">
+				<header class="flyout-card__header">
+					<div>
+						<p class="flyout-card__eyebrow">Modes</p>
+						<h2>Choose a way to play</h2>
+					</div>
+				</header>
+				<ul class="flyout-list">
+					<li>
+						<strong>Local Duel</strong>
+						<p>Share a device and swap turns quickly.</p>
+					</li>
+					<li>
+						<strong>Vs AI</strong>
+						<p>Warm up against the classic Hexaequo bot.</p>
+					</li>
+					<li>
+						<strong>Online Room</strong>
+						<p>Use Render-hosted rooms while we rebuild the SPA.</p>
+					</li>
+				</ul>
+			</article>
+			<article class="flyout-card" data-flyout="lobby">
+				<header class="flyout-card__header">
+					<div>
+						<p class="flyout-card__eyebrow">Coming Soon</p>
+						<h2>Lobby preview</h2>
+					</div>
+				</header>
+				<p class="flyout-placeholder">Lobby filters, queues, and friend lists will live here.</p>
+			</article>
+			<article class="flyout-card" data-flyout="learn">
+				<header class="flyout-card__header">
+					<div>
+						<p class="flyout-card__eyebrow">Guides</p>
+						<h2>Learn Hexaequo</h2>
+					</div>
+				</header>
+				<p class="flyout-placeholder">Tutorial missions and move explainers return soon.</p>
+			</article>
+			<article class="flyout-card" data-flyout="settings">
+				<header class="flyout-card__header">
+					<div>
+						<p class="flyout-card__eyebrow">Preferences</p>
+						<h2>Quick settings</h2>
+					</div>
+					<button type="button" class="nav-control" data-flyout-close aria-label="Close settings">&#10005;</button>
+				</header>
+				<div class="settings-stack">
+					<div class="setting-row">
+						<div class="setting-copy">
+							<p class="setting-title">Theme</p>
+							<p class="setting-subtitle">Light + dark palettes from the classic client.</p>
+						</div>
+						<button type="button" class="toggle-pill" data-theme-toggle aria-pressed="true">
+							<span class="toggle-track"><span class="toggle-thumb"></span></span>
+							<span class="toggle-label" data-theme-toggle-label>Dark</span>
+						</button>
+					</div>
+					<div class="setting-row">
+						<div class="setting-copy">
+							<p class="setting-title">UI sounds</p>
+							<p class="setting-subtitle">Button + hover feedback.</p>
+						</div>
+						<button type="button" class="toggle-pill" data-sound-toggle="ui" aria-pressed="true">
+							<span class="toggle-track"><span class="toggle-thumb"></span></span>
+							<span class="toggle-label" data-ui-sound-label>On</span>
+						</button>
+					</div>
+					<div class="setting-row">
+						<div class="setting-copy">
+							<p class="setting-title">Gameplay sounds</p>
+							<p class="setting-subtitle">Moves, captures, and alerts.</p>
+						</div>
+						<button type="button" class="toggle-pill" data-sound-toggle="game" aria-pressed="true">
+							<span class="toggle-track"><span class="toggle-thumb"></span></span>
+							<span class="toggle-label" data-game-sound-label>On</span>
+						</button>
+					</div>
+					<div class="setting-row">
+						<div class="setting-copy">
+							<p class="setting-title">Animations</p>
+							<p class="setting-subtitle">Translate + fade sequences for every move.</p>
+						</div>
+						<button type="button" class="toggle-pill" data-animation-toggle aria-pressed="true">
+							<span class="toggle-track"><span class="toggle-thumb"></span></span>
+							<span class="toggle-label" data-animation-label>On</span>
+						</button>
+					</div>
+					<div class="setting-row">
+						<div class="setting-copy">
+							<p class="setting-title">Valid move hints</p>
+							<p class="setting-subtitle">Highlight interactive tiles like the legacy client.</p>
+						</div>
+						<button type="button" class="toggle-pill" data-visual-toggle="valid" aria-pressed="false">
+							<span class="toggle-track"><span class="toggle-thumb"></span></span>
+							<span class="toggle-label" data-valid-moves-label>Off</span>
+						</button>
+					</div>
+					<div class="setting-row">
+						<div class="setting-copy">
+							<p class="setting-title">Previous move trail</p>
+							<p class="setting-subtitle">Keep the last action outlined on the board.</p>
+						</div>
+						<button type="button" class="toggle-pill" data-visual-toggle="previous" aria-pressed="true">
+							<span class="toggle-track"><span class="toggle-thumb"></span></span>
+							<span class="toggle-label" data-previous-move-label>On</span>
+						</button>
+					</div>
+				</div>
+			</article>
 		</section>
-		<section class="status-panel">
-			<div class="status-row">
-				<span>Server:</span>
-				<strong data-connection-status>disconnected</strong>
-			</div>
-			<div class="status-row">
-				<span>Room:</span>
-				<strong data-room-code>----</strong>
-			</div>
-			<div class="status-actions">
-				<button id="connectServerBtn">Connect</button>
-				<button id="createRoomDevBtn">Create Room</button>
-				<input id="roomCodeInput" placeholder="Room code" maxlength="4" autocapitalize="characters" />
-				<button id="joinRoomDevBtn">Join Room</button>
-				<button id="leaveRoomDevBtn">Leave Room</button>
-				<button id="sendStateBtn">Send State</button>
-			</div>
+		<main class="main-stage">
+			<button type="button" class="nav-peek" data-nav-peek aria-label="Open navigation">
+				<span aria-hidden="true">&#9776;</span>
+			</button>
+			<header class="status-bar">
+				<div class="status-chip">
+					<span class="status-chip__label">Server</span>
+					<strong data-connection-status>disconnected</strong>
+				</div>
+				<div class="status-chip">
+					<span class="status-chip__label">Room</span>
+					<strong data-room-code>----</strong>
+				</div>
+				<div class="status-actions">
+					<button type="button" id="connectServerBtn">Connect</button>
+					<button type="button" id="createRoomDevBtn">Create</button>
+					<input id="roomCodeInput" placeholder="Room code" maxlength="4" autocapitalize="characters" />
+					<button type="button" id="joinRoomDevBtn">Join</button>
+					<button type="button" id="leaveRoomDevBtn">Leave</button>
+					<button type="button" id="sendStateBtn">Sync</button>
+				</div>
+			</header>
 			<p class="status-error" data-error-msg></p>
-		</section>
-	</main>
+			<section class="board-stage">
+				<div class="inventory-column" data-inventory-black>
+					<span class="hud-label">Black Inventory</span>
+					<p class="hud-muted">Waiting for data…</p>
+				</div>
+				<div class="canvas-shell">
+					<div class="canvas-overlay" data-multi-jump-overlay hidden></div>
+					<canvas id="modernGameCanvas" width="1080" height="540"></canvas>
+				</div>
+				<div class="inventory-column" data-inventory-white>
+					<span class="hud-label">White Inventory</span>
+					<p class="hud-muted">Waiting for data…</p>
+				</div>
+			</section>
+			<section class="hud-grid">
+				<div class="hud-card" data-turn-indicator>
+					<span class="hud-label">Active Player</span>
+					<strong class="hud-value">--</strong>
+				</div>
+				<div class="hud-card timer-card">
+					<div class="timer-row">
+						<div data-timer-black>
+							<span class="hud-label">Black Timer</span>
+							<strong class="hud-value">--:--</strong>
+						</div>
+						<div data-timer-white>
+							<span class="hud-label">White Timer</span>
+							<strong class="hud-value">--:--</strong>
+						</div>
+					</div>
+				</div>
+				<div class="hud-card" data-action-center>
+					<span class="hud-label">Contextual Actions</span>
+					<p class="hud-muted">No pending actions</p>
+				</div>
+			</section>
+		</main>
+	</div>
 
 	<div class="game-over-overlay" data-game-over hidden></div>
 

@@ -1,4 +1,5 @@
 import { axialToPixel } from './hexMath.js';
+import { calculateAllValidMoves } from '../../../shared/game/moveValidator.js';
 
 export function createCanvasGraphics(canvas, options = {}) {
     if (!canvas) {
@@ -12,6 +13,7 @@ export function createCanvasGraphics(canvas, options = {}) {
     const minHexSize = options.minHexSize ?? 28;
     const maxHexSize = options.maxHexSize ?? 72;
     const padding = options.padding ?? 48;
+    const getPreferences = typeof options.getPreferences === 'function' ? options.getPreferences : null;
     let lastState = null;
     let currentLayout = {
         hexSize: fallbackHexSize,
@@ -25,6 +27,7 @@ export function createCanvasGraphics(canvas, options = {}) {
         lastState = state;
         updateLayout(state);
         const layout = currentLayout;
+        const preferences = getPreferences ? getPreferences() : {};
         const size = layout.hexSize;
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -32,8 +35,10 @@ export function createCanvasGraphics(canvas, options = {}) {
         ctx.translate(layout.translateX, layout.translateY);
         drawTiles(ctx, state.tiles, size);
         drawPieces(ctx, state.pieces, state.tiles, size);
+        drawGlobalMoveHints(ctx, state, size, preferences);
         drawSelection(ctx, state.metadata, size);
         drawValidMoves(ctx, state.metadata, size);
+        drawLastMoveHighlight(ctx, state.metadata, size, preferences);
         ctx.restore();
     }
 
@@ -194,6 +199,144 @@ function drawValidMoves(ctx, metadata = {}, size) {
         ctx.fill();
         ctx.restore();
     });
+}
+
+function drawGlobalMoveHints(ctx, state = {}, size, preferences = {}) {
+    if (!preferences?.showValidMoves) return;
+    const highlights = calculateAllValidMoves(state, buildMoveContext(state));
+    if (!Array.isArray(highlights) || highlights.length === 0) return;
+
+        highlights.forEach((hint) => {
+        if (!Number.isFinite(hint.q) || !Number.isFinite(hint.r)) return;
+        if (hint.type === 'piece') {
+            drawCircleOutline(ctx, hint.q, hint.r, size, 'rgba(59, 130, 246, 0.85)', 0.5);
+            return;
+        }
+        if (hint.type === 'tile') {
+                drawHexOutline(ctx, hint.q, hint.r, size, 'rgba(16, 185, 129, 0.85)', 0.78);
+            return;
+        }
+        drawPlacementDot(ctx, hint.q, hint.r, size, 'rgba(251, 191, 36, 0.65)');
+    });
+}
+
+function drawLastMoveHighlight(ctx, metadata = {}, size, preferences = {}) {
+    if (!preferences?.showPreviousMove) return;
+    const summary = metadata?.lastMoveHighlight;
+    if (!summary) return;
+    const highlightColor = 'rgba(148, 163, 184, 0.9)';
+
+    switch (summary.kind) {
+        case 'tile':
+            drawHexOutline(ctx, summary.q, summary.r, size, highlightColor, 0.85);
+            break;
+        case 'piece':
+            drawCircleOutline(ctx, summary.q, summary.r, size, highlightColor, 0.5);
+            break;
+        case 'move':
+            drawMoveTrail(ctx, summary, size, highlightColor);
+            break;
+        case 'capture':
+            (summary.captures || []).forEach((pos) => drawCaptureMarker(ctx, pos.q, pos.r, size));
+            break;
+        default:
+            break;
+    }
+}
+
+function drawMoveTrail(ctx, summary, size, color) {
+    const nodes = Array.isArray(summary?.path) && summary.path.length > 1
+        ? summary.path
+        : [summary?.from, summary?.to];
+    const filteredNodes = nodes.filter((node) => Number.isFinite(node?.q) && Number.isFinite(node?.r));
+    if (filteredNodes.length < 2) return;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    filteredNodes.forEach((node, index) => {
+        const { x, y } = axialToPixel(node.q, node.r, size);
+        if (index === 0) {
+            ctx.moveTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+    const destination = filteredNodes[filteredNodes.length - 1];
+    drawCircleOutline(ctx, destination.q, destination.r, size, color, 0.52);
+    (summary.captures || []).forEach((pos) => drawCaptureMarker(ctx, pos.q, pos.r, size));
+}
+
+function drawPlacementDot(ctx, q, r, size, color) {
+    if (!Number.isFinite(q) || !Number.isFinite(r)) return;
+    const { x, y } = axialToPixel(q, r, size);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, size * 0.18, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.restore();
+}
+
+function drawCircleOutline(ctx, q, r, size, color, radiusFactor = 0.45) {
+    if (!Number.isFinite(q) || !Number.isFinite(r)) return;
+    const { x, y } = axialToPixel(q, r, size);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, size * radiusFactor, 0, Math.PI * 2);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.setLineDash([6, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+}
+
+function drawHexOutline(ctx, q, r, size, color, scale = 1) {
+    if (!Number.isFinite(q) || !Number.isFinite(r)) return;
+    const { x, y } = axialToPixel(q, r, size);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.beginPath();
+    hexPath(ctx, size * scale);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+}
+
+function drawCaptureMarker(ctx, q, r, size) {
+    if (!Number.isFinite(q) || !Number.isFinite(r)) return;
+    const { x, y } = axialToPixel(q, r, size);
+    const arm = size * 0.22;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(248, 113, 113, 0.95)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x - arm, y - arm);
+    ctx.lineTo(x + arm, y + arm);
+    ctx.moveTo(x + arm, y - arm);
+    ctx.lineTo(x - arm, y + arm);
+    ctx.stroke();
+    ctx.restore();
+}
+
+function buildMoveContext(state = {}) {
+    const metadata = state.metadata ?? {};
+    return {
+        player: state.activePlayer,
+        radius: state.radius,
+        multiJumping: metadata.multiJumping,
+        jumpHistory: metadata.jumpHistory,
+        turnStartPiecePos: metadata.turnStartPiecePos,
+        sequenceCapturedSnapshot: metadata.sequenceCapturedSnapshot
+    };
 }
 
 const NEIGHBOR_DELTAS = [

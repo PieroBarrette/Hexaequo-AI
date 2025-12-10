@@ -1,1 +1,171 @@
-/* Game HUD + board placeholder styles: timers, inventory overlay, emoji chat drawer. */
+.board-stage {
+	display: grid;
+	grid-template-columns: minmax(220px, 260px) minmax(0, 1fr) minmax(220px, 260px);
+	gap: 20px;
+	align-items: stretch;
+}
+
+.canvas-shell {
+	position: relative;
+	padding: 18px;
+	border-radius: 20px;
+	background: var(--color-panel);
+	border: 1px solid var(--color-border);
+	box-shadow: 0 30px 60px rgba(5, 10, 25, 0.45);
+}
+
+.canvas-overlay {
+	position: absolute;
+	left: 18px;
+	right: 18px;
+	top: 18px;
+	display: flex;
+	justify-content: flex-end;
+	pointer-events: none;
+	z-index: 2;
+}
+
+.multi-jump-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 12px;
+	padding: 6px 14px;
+	border-radius: 999px;
+	border: 1px solid var(--color-border-strong);
+	background: rgba(0, 6, 18, 0.9);
+	box-shadow: 0 10px 24px rgba(2, 7, 20, 0.55);
+	pointer-events: auto;
+}
+
+.multi-jump-chip span {
+	font-size: 0.8rem;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--color-text-muted);
+}
+
+.multi-jump-actions {
+	display: inline-flex;
+	gap: 6px;
+}
+
+.multi-jump-btn {
+	width: 34px;
+	height: 34px;
+	border-radius: 50%;
+	border: none;
+	font-weight: 700;
+	font-size: 0.95rem;
+}
+
+.multi-jump-btn.confirm {
+	background: var(--color-accent);
+	color: #021316;
+}
+
+.multi-jump-btn.ghost {
+	background: transparent;
+	color: var(--color-text-muted);
+	border: 1px solid var(--color-border);
+}
+
+.inventory-column {
+	border-radius: 20px;
+	border: 1px solid var(--color-border);
+	background: var(--color-panel);
+	box-shadow: 0 30px 60px rgba(5, 10, 25, 0.35);
+	padding: 20px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	min-height: 520px;
+}
+
+.inventory-column .hud-label {
+	font-size: 0.85rem;
+}
+
+.hud-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	gap: 18px;
+}
+
+.hud-card {
+	border-radius: 18px;
+	border: 1px solid var(--color-border);
+	background: var(--color-panel);
+	padding: 18px;
+	box-shadow: 0 16px 32px rgba(6, 12, 28, 0.4);
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.hud-label {
+	font-size: 0.78rem;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: var(--color-text-muted);
+}
+
+.hud-value {
+	font-size: 1.5rem;
+	margin: 0;
+}
+
+.hud-muted {
+	margin: 0;
+	color: var(--color-text-muted);
+}
+
+.timer-row {
+	display: flex;
+	gap: 14px;
+}
+
+.timer-row > div {
+	flex: 1;
+}
+
+#modernGameCanvas {
+	width: 100%;
+	height: auto;
+	block-size: auto;
+	aspect-ratio: 2 / 1;
+	display: block;
+	border-radius: 16px;
+	background: radial-gradient(circle at top, rgba(255, 255, 255, 0.08), rgba(5, 7, 28, 0.9));
+}
+
+.status-panel {
+	border-radius: 16px;
+	border: 1px solid var(--color-border);
+	background: var(--color-panel);
+	padding: 18px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.status-row {
+	display: flex;
+	justify-content: space-between;
+	color: var(--color-text-muted);
+}
+
+@media (max-width: 1200px) {
+	.board-stage {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.inventory-column {
+		min-height: auto;
+	}
+}
+
+@media (max-width: 640px) {
+	.timer-row {
+		flex-direction: column;
+	}
+}

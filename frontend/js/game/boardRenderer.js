@@ -29,11 +29,21 @@ export function mountBoardRenderer(options = {}) {
 			return;
 		}
 
+		const resolvedAnimateMultiJumps = typeof animateMultiJumps === 'function'
+			? Boolean(animateMultiJumps(previousState, nextState))
+			: Boolean(animateMultiJumps);
+		const resolvedManualTurn = typeof manuallyEndedTurn === 'function'
+			? Boolean(manuallyEndedTurn(previousState, nextState))
+			: Boolean(manuallyEndedTurn);
+		const resolvedSkipMoveAnimation = typeof skipMoveAnimation === 'function'
+			? Boolean(skipMoveAnimation(previousState, nextState))
+			: Boolean(skipMoveAnimation);
+
 		const queueResult = buildAnimationQueue(previousState, nextState, {
 			jumpPath: selectJumpPath ? selectJumpPath(previousState, nextState) : null,
-			animateMultiJumps,
-			manuallyEndedTurn: manuallyEndedTurn(previousState, nextState),
-			skipMoveAnimation: skipMoveAnimation(previousState, nextState)
+			animateMultiJumps: resolvedAnimateMultiJumps,
+			manuallyEndedTurn: resolvedManualTurn,
+			skipMoveAnimation: resolvedSkipMoveAnimation
 		});
 
 		onQueueBuilt?.(queueResult);

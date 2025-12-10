@@ -2,6 +2,7 @@
 // Handles serialized snapshots so Socket.IO payloads and replay logs can hydrate the renderer.
 
 import { createInitialState, applySnapshot, serializeState } from '../game/gameState.js';
+import { deriveMetadataPatch } from './derivedMetadata.js';
 
 let currentState = createInitialState();
 let previousState = currentState;
@@ -39,7 +40,7 @@ export function setGameState(nextState, options = {}) {
     }
 
     previousState = currentState;
-    currentState = resolved;
+    currentState = applyDerivedMetadata(previousState, resolved);
     if (options.skipNotify !== true) {
         notify({ reason: options.reason ?? 'set', snapshot: options.snapshot });
     }
@@ -76,4 +77,21 @@ function notify(payload = {}) {
             console.error('gameStore listener error', err);
         }
     });
+}
+
+function applyDerivedMetadata(prevState, nextState) {
+    if (!prevState || prevState === nextState) {
+        return nextState;
+    }
+    const patch = deriveMetadataPatch(prevState, nextState);
+    if (!patch) {
+        return nextState;
+    }
+    return {
+        ...nextState,
+        metadata: {
+            ...(nextState.metadata ?? {}),
+            ...patch
+        }
+    };
 }
