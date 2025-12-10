@@ -16,6 +16,8 @@ export class SocketClient {
 		this.roomCode = null;
 		this.playerColor = null;
 		this.isOnline = false;
+		this.profile = null;
+		this.lastRoomSettings = null;
 		this.reconnectAttempts = 0;
 		this.handlers = new Map();
 	}
@@ -69,14 +71,21 @@ export class SocketClient {
 		});
 	}
 
-	async createRoom() {
+	async createRoom(options = {}) {
 		await this.ensureConnected();
 		return new Promise((resolve, reject) => {
-			this.socket.emit('create-room', { playerId: this.playerId }, (response) => {
+			const payload = {
+				playerId: this.playerId,
+				settings: normalizeRoomSettings(options.settings ?? options),
+				profile: normalizeProfile(options.profile ?? options)
+			};
+			this.socket.emit('create-room', payload, (response) => {
 				if (response.success) {
 					this.roomCode = response.roomCode;
 					this.playerColor = response.color;
 					this.isOnline = true;
+					this.profile = payload.profile;
+					this.lastRoomSettings = payload.settings;
 					saveRoomInfo(this.roomCode, this.playerColor);
 					resolve(response);
 				} else {
@@ -86,14 +95,20 @@ export class SocketClient {
 		});
 	}
 
-	async joinRoom(code) {
+	async joinRoom(code, options = {}) {
 		await this.ensureConnected();
 		return new Promise((resolve, reject) => {
-			this.socket.emit('join-room', { roomCode: code?.toUpperCase(), playerId: this.playerId }, (response) => {
+			const payload = {
+				roomCode: code?.toUpperCase(),
+				playerId: this.playerId,
+				profile: normalizeProfile(options.profile ?? options)
+			};
+			this.socket.emit('join-room', payload, (response) => {
 				if (response.success) {
 					this.roomCode = response.roomCode;
 					this.playerColor = response.color;
 					this.isOnline = true;
+					this.profile = payload.profile;
 					saveRoomInfo(this.roomCode, this.playerColor);
 					resolve(response);
 				} else {
@@ -310,4 +325,20 @@ function forwardServerEvents(socket, emitFn) {
 	events.forEach((eventName) => {
 		socket.on(eventName, (payload) => emitFn(eventName, payload));
 	});
+}
+
+function normalizeRoomSettings(settings = {}) {
+	const allowedModes = new Set(['none', 'classic', 'rapid', 'blitz']);
+	const desiredMode = typeof settings.timeMode === 'string' ? settings.timeMode.toLowerCase() : 'none';
+	return {
+		allowSpectators: settings.allowSpectators !== false,
+		timeMode: allowedModes.has(desiredMode) ? desiredMode : 'none'
+	};
+}
+
+function normalizeProfile(candidate = {}) {
+	const pseudo = typeof candidate.pseudo === 'string' ? candidate.pseudo.trim() : '';
+	const safePseudo = pseudo ? pseudo.slice(0, 24) : null;
+	const elo = Number.isFinite(candidate.elo) ? Math.max(0, Math.floor(candidate.elo)) : null;
+	return safePseudo || elo ? { pseudo: safePseudo, elo } : null;
 }

@@ -6,8 +6,8 @@ Source of truth: `server/server.js` (Render-hosted multiplayer service). All eve
 
 | Event | Payload | Ack Payload | Notes |
 | --- | --- | --- | --- |
-| `create-room` | `{ playerId: string }` | `{ success, roomCode, color, gameState, waiting }` | Creates a 4-letter room, assigns black to creator, seeds default board state. |
-| `join-room` | `{ roomCode: string, playerId: string }` | `{ success, roomCode, color, gameState, waiting?, reconnected?, opponentConnected? }` | Uppercase room code before sending. If `reconnected` true, caller rejoined the same room/color. |
+| `create-room` | `{ playerId: string, settings?: { allowSpectators?: boolean, timeMode?: 'none'|'classic'|'rapid'|'blitz' }, profile?: { pseudo?: string, elo?: number } }` | `{ success, roomCode, color, gameState, waiting }` | Creates a 4-letter room, assigns black to creator, seeds default board state. `settings` are advisory today but let the UI show spectator/timer choices. |
+| `join-room` | `{ roomCode: string, playerId: string, profile?: { pseudo?: string, elo?: number } }` | `{ success, roomCode, color, gameState, waiting?, reconnected?, opponentConnected? }` | Uppercase room code before sending. If `reconnected` true, caller rejoined the same room/color. |
 | `make-move` | `{ roomCode, playerId, gameState, previousState, jumpPath? }` | `{ success }` or `{ success:false,error }` | Server validates it is the player’s turn, persists `gameState`, and relays to opponent. `previousState` helps legacy clients animate transitions. |
 | `leave-room` | `{ roomCode, playerId }` | `{ success }` | Removes the player; deletes the room if empty, notifies opponent via `opponent-left`. |
 | `request-rematch` | `{ roomCode, playerId }` | `{ success }` | Marks the caller ready; opponent receives `opponent-ready-rematch`. |

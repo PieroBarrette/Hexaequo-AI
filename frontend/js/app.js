@@ -6,37 +6,22 @@ import {
 	subscribeToGameState,
 	getPreviousGameState
 } from './store/gameStore.js';
+import { getAppState, setAppState, subscribeToAppState } from './store/appStore.js';
 import { serializeState } from './game/gameState.js';
 import { SocketClient } from './utils/socketClient.js';
 import { mountHud } from './game/hud/index.js';
 import { initGameController } from './game/gameController.js';
 import { initEndgameWatcher } from './game/endgameWatcher.js';
 import { soundManager } from './utils/soundManager.js';
+import { initLobbyPanel } from './lobby/panel.js';
 
 const socketClient = new SocketClient();
 let disposeHud = () => {};
 let disposeController = () => {};
 let disposeEndgame = () => {};
+let disposeLobby = () => {};
 let boardGraphicsApi = null;
 let canvasResizeHandler = null;
-
-let appState = {
-	view: 'splash',
-	connectionStatus: 'disconnected',
-	roomCode: null,
-	playerColor: null,
-	lastError: null,
-	theme: 'dark',
-	uiSoundsEnabled: true,
-	gameplaySoundsEnabled: true,
-	animationsEnabled: true,
-	showValidMoves: false,
-	showPreviousMove: true,
-	navExpanded: true,
-	activeFlyout: ''
-};
-
-const appSubscribers = new Set();
 
 document.addEventListener('DOMContentLoaded', () => {
 	initializeApp();
@@ -48,6 +33,11 @@ function initializeApp() {
 	disposeEndgame = initEndgameWatcher();
 	initializeNavigationPanels();
 	observeLayoutChrome();
+	disposeLobby = initLobbyPanel({
+		socketClient,
+		onHydrateGameState: hydrateFromServerState,
+		onNavigateToGame: setAppView
+	});
 	wireStatusPanel();
 	observeMultiplayer();
 	exposeDebugHelpers();
@@ -70,10 +60,13 @@ function initializeCanvas() {
 		padding: 56,
 		minHexSize: 28,
 		maxHexSize: 72,
-		getPreferences: () => ({
-			showValidMoves: appState.showValidMoves,
-			showPreviousMove: appState.showPreviousMove
-		})
+		getPreferences: () => {
+			const state = getAppState();
+			return {
+				showValidMoves: state.showValidMoves,
+				showPreviousMove: state.showPreviousMove
+			};
+		}
 	});
 	boardGraphicsApi = graphicsApi;
 
@@ -91,8 +84,8 @@ function initializeCanvas() {
 
 	mountBoardRenderer({
 		graphicsApi,
-		animateMultiJumps: () => appState.animationsEnabled,
-		skipMoveAnimation: () => !appState.animationsEnabled,
+		animateMultiJumps: () => getAppState().animationsEnabled,
+		skipMoveAnimation: () => !getAppState().animationsEnabled,
 		onQueueBuilt: (queueResult) => soundManager.handleQueue(queueResult)
 	});
 	disposeController = initGameController(canvas, {
@@ -199,7 +192,7 @@ function wireStatusPanel() {
 		soundManager.playUiClick();
 		try {
 			await socketClient.ensureConnected();
-			if (!appState.roomCode) {
+			if (!getAppState().roomCode) {
 				setAppState({ lastError: 'Create or join a room first.' });
 				return;
 			}
@@ -248,7 +241,8 @@ function initializeNavigationPanels() {
 		trigger.addEventListener('click', (event) => {
 			event.preventDefault();
 			emitUiSound();
-			const isSame = appState.activeFlyout === flyoutId && appState.navExpanded;
+			const current = getAppState();
+			const isSame = current.activeFlyout === flyoutId && current.navExpanded;
 			setAppState({
 				navExpanded: true,
 				activeFlyout: isSame ? '' : flyoutId
@@ -257,13 +251,13 @@ function initializeNavigationPanels() {
 
 		if (supportsHover) {
 			trigger.addEventListener('mouseenter', () => {
-				if (!appState.navExpanded) return;
+				if (!getAppState().navExpanded) return;
 				setAppState({ activeFlyout: flyoutId });
 			});
 		}
 
 		trigger.addEventListener('focus', () => {
-			if (!appState.navExpanded) return;
+			if (!getAppState().navExpanded) return;
 			setAppState({ activeFlyout: flyoutId });
 		});
 	});
@@ -276,34 +270,39 @@ function initializeNavigationPanels() {
 
 	themeToggle?.addEventListener('click', () => {
 		emitUiSound();
-		setTheme(appState.theme === 'dark' ? 'light' : 'dark');
+		const theme = getAppState().theme;
+		setTheme(theme === 'dark' ? 'light' : 'dark');
 	});
 
 	soundToggles.forEach((toggle) => {
 		const category = toggle.getAttribute('data-sound-toggle');
 		toggle.addEventListener('click', () => {
 			emitUiSound();
+			const state = getAppState();
 			if (category === 'ui') {
-				setAppState({ uiSoundsEnabled: !appState.uiSoundsEnabled });
+				setAppState({ uiSoundsEnabled: !state.uiSoundsEnabled });
 			} else if (category === 'game') {
-				setAppState({ gameplaySoundsEnabled: !appState.gameplaySoundsEnabled });
+				setAppState({ gameplaySoundsEnabled: !state.gameplaySoundsEnabled });
 			}
 		});
 	});
 
 	animationToggle?.addEventListener('click', () => {
 		emitUiSound();
-		setAppState({ animationsEnabled: !appState.animationsEnabled });
+		const state = getAppState();
+		setAppState({ animationsEnabled: !state.animationsEnabled });
 	});
 
 	validMovesToggle?.addEventListener('click', () => {
 		emitUiSound();
-		setAppState({ showValidMoves: !appState.showValidMoves });
+		const current = getAppState();
+		setAppState({ showValidMoves: !current.showValidMoves });
 	});
 
 	previousMoveToggle?.addEventListener('click', () => {
 		emitUiSound();
-		setAppState({ showPreviousMove: !appState.showPreviousMove });
+		const current = getAppState();
+		setAppState({ showPreviousMove: !current.showPreviousMove });
 	});
 }
 
@@ -321,10 +320,11 @@ function observeLayoutChrome() {
 	const validMovesLabel = document.querySelector('[data-valid-moves-label]');
 	const previousMoveToggle = document.querySelector('[data-visual-toggle="previous"]');
 	const previousMoveLabel = document.querySelector('[data-previous-move-label]');
-	let lastNavExpanded = appState.navExpanded;
-	let lastFlyout = appState.activeFlyout;
-	let lastShowValidMoves = appState.showValidMoves;
-	let lastShowPreviousMove = appState.showPreviousMove;
+	const initialState = getAppState();
+	let lastNavExpanded = initialState.navExpanded;
+	let lastFlyout = initialState.activeFlyout;
+	let lastShowValidMoves = initialState.showValidMoves;
+	let lastShowPreviousMove = initialState.showPreviousMove;
 
 	subscribeToAppState((state) => {
 		document.body?.setAttribute('data-view', state.view);
@@ -374,7 +374,8 @@ function observeLayoutChrome() {
 }
 
 function toggleNavExpansion(forceState) {
-	const desired = typeof forceState === 'boolean' ? forceState : !appState.navExpanded;
+	const current = getAppState();
+	const desired = typeof forceState === 'boolean' ? forceState : !current.navExpanded;
 	setAppState({ navExpanded: desired });
 }
 
@@ -444,27 +445,20 @@ function exposeDebugHelpers() {
 			disposeEndgame = initEndgameWatcher();
 		},
 		get state() {
-			return appState;
+			return getAppState();
 		}
 	};
 }
 
 function setAppView(view) {
+	const current = getAppState();
 	const patch = { view };
-	if (view === 'game' && appState.view !== 'game' && appState.navExpanded) {
+	if (view === 'game' && current.view !== 'game' && current.navExpanded) {
 		patch.navExpanded = false;
-	} else if (view !== 'game' && appState.view === 'game' && !appState.navExpanded) {
+	} else if (view !== 'game' && current.view === 'game' && !current.navExpanded) {
 		patch.navExpanded = true;
 	}
 	setAppState(patch);
-}
-
-function setAppState(patch) {
-	const nextState = applyStateGuards({ ...appState, ...patch });
-	const changed = Object.keys(nextState).some((key) => appState[key] !== nextState[key]);
-	if (!changed) return;
-	appState = nextState;
-	notifyAppSubscribers();
 }
 
 function hydrateFromServerState(snapshot) {
@@ -472,38 +466,4 @@ function hydrateFromServerState(snapshot) {
 	applySerializedState(snapshot, { reason: 'server-sync' });
 }
 
-function applyStateGuards(state) {
-	const nextState = { ...state };
-	if (nextState.theme !== 'dark' && nextState.theme !== 'light') {
-		nextState.theme = 'dark';
-	}
-	nextState.animationsEnabled = nextState.animationsEnabled !== false;
-	nextState.showValidMoves = Boolean(nextState.showValidMoves);
-	nextState.showPreviousMove = nextState.showPreviousMove !== false;
-	if (!nextState.navExpanded) {
-		nextState.activeFlyout = '';
-	}
-	if (!nextState.activeFlyout) {
-		nextState.activeFlyout = '';
-	}
-	return nextState;
-}
-
-function subscribeToAppState(listener, options = {}) {
-	appSubscribers.add(listener);
-	if (options.emitInitial !== false) {
-		listener(appState);
-	}
-	return () => appSubscribers.delete(listener);
-}
-
-function notifyAppSubscribers() {
-	appSubscribers.forEach((listener) => {
-		try {
-			listener(appState);
-		} catch (err) {
-			console.error('appState listener error', err);
-		}
-	});
-}
 

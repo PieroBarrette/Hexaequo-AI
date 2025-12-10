@@ -20,12 +20,12 @@ export function mountHud() {
         })
     );
 
-    const timerBlack = document.querySelector('[data-timer-black]');
-    const timerWhite = document.querySelector('[data-timer-white]');
+    const playerSummaryBlack = document.querySelector('[data-player-summary="black"]');
+    const playerSummaryWhite = document.querySelector('[data-player-summary="white"]');
     disposers.push(
         mountTimerPanel({
-            black: timerBlack,
-            white: timerWhite
+            black: playerSummaryBlack,
+            white: playerSummaryWhite
         })
     );
 

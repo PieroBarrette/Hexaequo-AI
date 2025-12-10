@@ -81,6 +81,57 @@
 	min-height: 520px;
 }
 
+.player-header {
+	display: flex;
+	justify-content: space-between;
+	gap: 16px;
+	align-items: center;
+	padding-bottom: 8px;
+	border-bottom: 1px solid var(--color-border);
+}
+
+.player-header__pseudo {
+	margin: 0;
+	font-size: 1rem;
+	font-weight: 600;
+}
+
+.player-header__elo {
+	margin: 4px 0 0;
+	font-size: 0.85rem;
+	color: var(--color-text-muted);
+}
+
+.player-header__timer {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	min-width: 90px;
+}
+
+.player-header__timer-label {
+	font-size: 0.75rem;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: var(--color-text-muted);
+}
+
+.player-header__timer-value {
+	margin: 2px 0 0;
+	font-size: 1.25rem;
+	font-weight: 600;
+}
+
+[data-player-timer][data-visible='false'] {
+	display: none;
+}
+
+.inventory-panel {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
 .inventory-column .hud-label {
 	font-size: 0.85rem;
 }
@@ -117,15 +168,6 @@
 .hud-muted {
 	margin: 0;
 	color: var(--color-text-muted);
-}
-
-.timer-row {
-	display: flex;
-	gap: 14px;
-}
-
-.timer-row > div {
-	flex: 1;
 }
 
 #modernGameCanvas {

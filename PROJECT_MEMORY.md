@@ -12,7 +12,7 @@ _Last updated: 2025-12-09 (post-audit)_
 - **Hosting:** Render.com currently runs the Socket.IO server; GitHub Pages serves the static client behind Cloudflare. We will keep this topology through the frontend migration, then evaluate Fly/Railway only if Render’s WebSocket limits pinch.
 - **Auth & data:** No account system exists yet. Initial refactor will still rely on pseudo-based rooms; JWT auth, email verification, and Elo persistence land once PostgreSQL is provisioned.
 - **Real-time transport:** Socket.IO already powers room creation, joining, moves, rematches, and reconnects. Future lobby/spectator namespaces will extend the same transport.
-- **Focus order:** 1) modern frontend bridge + shared game logic, 2) richer multiplayer UX (lobby, timers, spectator delay), 3) full REST/API services.
+- **Focus order:** 1) modern frontend bridge + shared game logic, 2) richer multiplayer UX (lobby with spectator controls, timers surfaced beside player HUD), 3) full REST/API services.
 
 ## 3. Current Architecture Snapshot
 
@@ -63,8 +63,8 @@ _Last updated: 2025-12-09 (post-audit)_
    - Provide a thin adapter so the modern renderer can subscribe to Socket.IO events without rewriting the network layer yet.
 
 3. **Rebuild UI panels in `frontend/`**
-   - Create SPA wiring in `app.js` (view state, router, layout) and port critical HUD elements (inventory, turn indicator, controls) from `hexaequo-v2`.
-   - Add lobby/create-room forms that call the existing Render endpoints, ensuring parity before new backend work.
+   - Create SPA wiring in `app.js` (view state, router, layout) and port critical HUD elements (inventory, turn indicator, controls) from `hexaequo-v2`, ensuring timers render beside each player pseudo/Elo whenever a timed mode (classic/rapid/blitz) is selected and remain hidden in no-timer rooms.
+   - Add lobby/create-room forms that call the existing Render endpoints, exposing spectator-allowed toggles and timer presets so room creators can decide whether observers are permitted before sockets support them server-side.
 
 4. **Document and harden the Render server**
    - Capture its API/socket contract inside `docs/SOCKET_EVENTS.md`.
@@ -81,10 +81,11 @@ _Last updated: 2025-12-09 (post-audit)_
 | Date | Decision |
 |------|----------|
 | 2025-12-09 | Keep the Render-hosted Socket.IO server online while prioritizing the frontend refactor; delay PostgreSQL work until the new SPA is feature-complete enough to call fresh endpoints. |
+| 2025-12-10 | Lobby create forms must expose spectator-permitted toggles and timer mode selection; timers render adjacent to pseudo/Elo headers and stay hidden when rooms opt out of timers. |
 
 ## 8. Next Steps Checklist
 - [ ] Expand `frontend/js/store/gameStore.js` to apply serialized states + feed the animation queue.
 - [ ] Create `frontend/js/utils/socketClient.js` by wrapping the existing multiplayer client for reuse in the SPA shell.
-- [ ] Scaffold the SPA layout in `frontend/js/app.js` (view state + router) and port HUD controls.
+- [ ] Scaffold the SPA layout in `frontend/js/app.js` (view state + router) and port HUD controls, including timer placement beside pseudo/Elo when time modes are active.
 - [ ] Update `docs/SOCKET_EVENTS.md` with the actual Render contract and capture hosting/env details.
 - [ ] Choose the path for evolving `server/server.js` vs. replacing it with the `backend/` app once PostgreSQL is ready.

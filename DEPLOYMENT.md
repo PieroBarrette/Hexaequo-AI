@@ -88,17 +88,28 @@ Value: [votre-username].github.io
 ### Étape 4: Vérification
 
 Une fois déployé:
-- Testez sur: https://[votre-username].github.io/Hexaequo-AI/
-- Une fois le DNS propagé: https://hexaequo.com
 
-## ✨ Nouvelles Fonctionnalités
+## 🔌 Serveur Multijoueur Render
 
-### 1. Mode Hors Ligne (PWA)
+Pendant que GitHub Pages distribue le client, toutes les parties en ligne passent par `server/server.js`, un service Express + Socket.IO actuellement hébergé sur Render (free tier).
+
+- URL publique par défaut: `https://hexaequo-server.onrender.com`
+- Variables d’environnement essentielles:
+    - `PORT` (Render fournit automatiquement `process.env.PORT`).
+    - `FRONTEND_URL` → `https://hexaequo.com` (ajoutez aussi `http://localhost:8080` pour les tests).
+    - `DATABASE_PATH` si vous souhaitez pointer vers un fichier SQLite persistant, sinon `server/hexaequo.db` est créé.
+- Endpoints HTTP disponibles pour la supervision: `GET /health`, `GET /room/:code` (retourne statut + joueurs actifs).
+- Socket.IO doit autoriser les origines GitHub Pages + Render pour éviter les erreurs CORS.
+- Les nouvelles préférences lobby (mode timer + spectateurs) sont envoyées comme métadonnées dans `create-room`, ce qui permet à la SPA d’afficher l’intention même si le serveur ignore encore ces champs.
+
+- Socket.IO 4.7+ pour le pont Render ↔ SPA
 - L'application fonctionne offline une fois chargée
 - Installation possible sur mobile et desktop
-- Cache intelligent des ressources
 
-### 2. Responsive Mobile
+### 4. Pont Multijoueur Render
+- Nouvelle interface lobby dans la SPA moderne (sélection de pseudo, timer `classic/rapid/blitz` ou mode libre).
+- Basculer "Allow spectators" directement dans le formulaire de création; l’information apparaît également dans la liste de salons.
+- Adaptateur `frontend/js/utils/socketClient.js` réutilise la logique historique (`hexaequo-v2/multiplayer.js`) mais sous forme d’ES module, prêt pour la future migration backend.
 - Canvas adaptatif à toutes les tailles d'écran
 - Support tactile optimisé
 - Interface adaptée mobile/tablet/desktop
