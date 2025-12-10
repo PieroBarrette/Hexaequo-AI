@@ -562,10 +562,12 @@ input:focus {
 
 .main-stage {
 	background: radial-gradient(circle at top, rgba(255, 255, 255, 0.06), transparent);
-	padding: 32px clamp(16px, 4vw, 48px);
+	padding: 24px clamp(16px, 4vw, 48px);
 	display: flex;
 	flex-direction: column;
-	gap: 24px;
+	gap: 20px;
+	min-height: 100vh;
+	overflow: hidden;
 }
 
 .nav-peek {
@@ -587,6 +589,7 @@ input:focus {
 	flex-wrap: wrap;
 	gap: 14px;
 	align-items: center;
+	flex-shrink: 0;
 }
 
 .status-chip {
@@ -620,11 +623,18 @@ input:focus {
 	margin: -12px 0 0;
 	color: var(--color-danger);
 	font-size: 0.9rem;
+	flex-shrink: 0;
 }
 
 @media (max-width: 1280px) {
 	.app-shell[data-nav-expanded='true'] {
 		--nav-column: 220px;
+	}
+}
+
+@media (max-width: 1200px) {
+	.main-stage {
+		overflow: auto;
 	}
 }
 

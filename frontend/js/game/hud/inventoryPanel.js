@@ -22,40 +22,43 @@ function renderInventory(element, state, color) {
     const isTurn = state.activePlayer === color;
     const tilesLabel = inventoryCount === 1 ? 'tile' : 'tiles';
 
+    element.dataset.player = color;
     element.innerHTML = `
-        <div class="inventory-header">
-            <div>
-                <div class="inventory-player">${capitalize(color)}</div>
-                <div class="inventory-status ${isTurn ? 'live' : ''}">${isTurn ? 'Your move' : 'Waiting'}</div>
-            </div>
-            <div class="inventory-remaining">${inventoryCount} ${tilesLabel} left</div>
+        <div class="inventory-track">
+            ${renderTokenRow('disc', discs, captured.disc ?? 0, losses.disc ?? 0)}
+            ${renderTokenRow('ring', rings, captured.ring ?? 0, losses.ring ?? 0)}
         </div>
-        <div class="inventory-stats">
-            <div>
-                <label>Discs</label>
-                <strong>${discs}</strong>
+        <div class="inventory-footer">
+            <div class="inventory-pool">
+                <span>Tiles in pool</span>
+                <strong>${inventoryCount}</strong>
+                <small>${tilesLabel} remaining</small>
             </div>
-            <div>
-                <label>Rings</label>
-                <strong>${rings}</strong>
+            <div class="inventory-turn ${isTurn ? 'is-active' : ''}">
+                <span>${isTurn ? 'Your move' : 'Stand by'}</span>
+                <span class="inventory-turn__dot" aria-hidden="true"></span>
             </div>
-            <div>
-                <label>Captured discs</label>
-                <strong>${captured.disc ?? 0}</strong>
-            </div>
-            <div>
-                <label>Captured rings</label>
-                <strong>${captured.ring ?? 0}</strong>
-            </div>
-        </div>
-        <div class="inventory-captures">
-            <div>Discs lost <span>${losses.disc ?? 0}</span></div>
-            <div>Rings lost <span>${losses.ring ?? 0}</span></div>
         </div>
     `;
 }
 
-function capitalize(value) {
-    if (!value) return '';
-    return value.charAt(0).toUpperCase() + value.slice(1);
+function renderTokenRow(kind, remaining, captured, lost) {
+    const label = kind === 'disc' ? 'Discs' : 'Rings';
+    const piecesLabel = remaining === 1 ? 'piece ready' : 'pieces ready';
+    return `
+        <article class="inventory-token inventory-token--${kind}">
+            <div class="inventory-token__left">
+                <span class="inventory-token__icon" aria-hidden="true"></span>
+                <div class="inventory-token__copy">
+                    <p class="inventory-token__label">${label}</p>
+                    <p class="inventory-token__meta">${captured} captured · ${lost} lost</p>
+                </div>
+            </div>
+            <div class="inventory-token__counts">
+                <strong>${remaining}</strong>
+                <small>${piecesLabel}</small>
+            </div>
+        </article>
+    `;
 }
+

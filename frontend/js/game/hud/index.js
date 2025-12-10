@@ -1,15 +1,10 @@
-import { mountTurnIndicator } from './turnIndicator.js';
 import { mountInventoryPanel } from './inventoryPanel.js';
 import { mountTimerPanel } from './timerPanel.js';
-import { mountActionCenter } from './actionCenter.js';
-import { mountMultiJumpOverlay } from './multiJumpOverlay.js';
+import { mountInlinePrompts } from './multiJumpOverlay.js';
 import { mountGameOverBanner } from './gameOverBanner.js';
 
 export function mountHud() {
     const disposers = [];
-
-    const turnElement = document.querySelector('[data-turn-indicator]');
-    disposers.push(mountTurnIndicator(turnElement));
 
     const inventoryBlack = document.querySelector('[data-inventory-black]');
     const inventoryWhite = document.querySelector('[data-inventory-white]');
@@ -29,11 +24,8 @@ export function mountHud() {
         })
     );
 
-    const actionCenter = document.querySelector('[data-action-center]');
-    disposers.push(mountActionCenter(actionCenter));
-
-    const multiJumpOverlay = document.querySelector('[data-multi-jump-overlay]');
-    disposers.push(mountMultiJumpOverlay(multiJumpOverlay));
+    const inlinePrompts = document.querySelector('[data-inline-prompts]');
+    disposers.push(mountInlinePrompts(inlinePrompts));
 
     const gameOverOverlay = document.querySelector('[data-game-over]');
     disposers.push(mountGameOverBanner(gameOverOverlay));
