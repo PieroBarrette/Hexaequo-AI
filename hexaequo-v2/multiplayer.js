@@ -153,6 +153,19 @@ const Multiplayer = (function () {
         }
     }
 
+    // Get current user info from lobby
+    function getUserInfo() {
+        const currentUser = window.GameLobby?.getUser();
+        if (currentUser) {
+            return {
+                name: currentUser.display_name || currentUser.displayName || currentUser.username,
+                elo: currentUser.elo || 1000,
+                isGuest: false
+            };
+        }
+        return { name: 'Guest', elo: null, isGuest: true };
+    }
+
     // Create a new room
     function createRoom() {
         return new Promise((resolve, reject) => {
@@ -161,7 +174,8 @@ const Multiplayer = (function () {
                 return;
             }
 
-            socket.emit('create-room', { playerId }, (response) => {
+            const userInfo = getUserInfo();
+            socket.emit('create-room', { playerId, userInfo }, (response) => {
                 if (response.success) {
                     roomCode = response.roomCode;
                     playerColor = response.color;
@@ -191,7 +205,8 @@ const Multiplayer = (function () {
                 return;
             }
 
-            socket.emit('join-room', { roomCode: code.toUpperCase(), playerId }, (response) => {
+            const userInfo = getUserInfo();
+            socket.emit('join-room', { roomCode: code.toUpperCase(), playerId, userInfo }, (response) => {
                 if (response.success) {
                     roomCode = response.roomCode;
                     playerColor = response.color;
@@ -206,7 +221,8 @@ const Multiplayer = (function () {
                         gameState: response.gameState,
                         waiting: response.waiting,
                         reconnected: response.reconnected,
-                        opponentConnected: response.opponentConnected
+                        opponentConnected: response.opponentConnected,
+                        opponentInfo: response.opponentInfo
                     });
                 } else {
                     reject(new Error(response.error || 'Failed to join room'));

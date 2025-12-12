@@ -18,6 +18,7 @@
     let currentRoomCode = null;
     let currentUser = null;
     let sessionToken = null;
+    let currentOpponent = null; // Stores opponent info for online games
 
     // ==================== DOM Elements ====================
     const lobby = {
@@ -346,7 +347,7 @@
         4: 'Expert'
     };
     
-    function updatePlayerInfoDisplays(mode, aiLevel = null) {
+    function updatePlayerInfoDisplays(mode, aiLevel = null, playerColor = null, opponentInfo = null) {
         const blackInfo = document.getElementById('blackPlayerInfo');
         const whiteInfo = document.getElementById('whitePlayerInfo');
         
@@ -377,9 +378,28 @@
             whiteName.textContent = 'White';
             whiteRating.textContent = '';
         } else if (mode === 'online') {
-            // Will be updated when game starts with opponent info
-            if (currentUser) {
-                // We'll set this when we know which color we're playing
+            // Determine which player is local and which is opponent based on playerColor
+            const localUser = currentUser;
+            const localIsGuest = !localUser;
+            const localName = localUser ? (localUser.display_name || localUser.displayName || localUser.username) : 'Guest';
+            const localElo = localIsGuest ? '?' : (localUser.elo || 1000);
+            
+            const opponentIsGuest = !opponentInfo || opponentInfo.isGuest;
+            const opponentName = opponentInfo?.name || 'Guest';
+            const opponentElo = opponentIsGuest ? '?' : (opponentInfo?.elo || 1000);
+            
+            if (playerColor === 'black') {
+                // Local player is black
+                blackName.textContent = localName;
+                blackRating.textContent = `ELO: ${localElo}`;
+                whiteName.textContent = opponentName;
+                whiteRating.textContent = `ELO: ${opponentElo}`;
+            } else {
+                // Local player is white
+                blackName.textContent = opponentName;
+                blackRating.textContent = `ELO: ${opponentElo}`;
+                whiteName.textContent = localName;
+                whiteRating.textContent = `ELO: ${localElo}`;
             }
         }
     }
@@ -463,7 +483,9 @@
             console.log('[Lobby] Opponent joined!', data);
             // Get our color from Multiplayer module
             const playerColor = window.Multiplayer.playerColor;
-            startOnlineGame({ playerColor, gameState: data.gameState });
+            // Store opponent info
+            currentOpponent = data.opponentInfo || { name: 'Guest', elo: null, isGuest: true };
+            startOnlineGame({ playerColor, gameState: data.gameState, opponentInfo: currentOpponent });
         });
         
         socket.on('roomError', (data) => {
@@ -549,8 +571,14 @@
             if (result.waiting) {
                 showWaitingForOpponent(result.roomCode);
             } else {
-                // Game is starting
-                startOnlineGame(result);
+                // Game is starting - we're the joining player (white)
+                // Store opponent info (black player)
+                currentOpponent = result.opponentInfo || { name: 'Guest', elo: null, isGuest: true };
+                startOnlineGame({ 
+                    playerColor: result.color, 
+                    gameState: result.gameState,
+                    opponentInfo: currentOpponent 
+                });
             }
         }).catch((err) => {
             console.error('[Lobby] Failed to join room:', err);
@@ -593,17 +621,41 @@
     }
 
     function startOnlineGame(data) {
-        console.log('[Lobby] Starting online game');
+        console.log('[Lobby] Starting online game', data);
         
-        // Set game mode to online
+        const playerColor = data.playerColor || window.Multiplayer.playerColor;
+        const opponentInfo = data.opponentInfo || currentOpponent;
+        
+        // Set online mode directly in game.js (don't trigger gameModeSelect change which opens old modal)
+        if (window.setOnlineMode) {
+            window.setOnlineMode(true, playerColor);
+        }
+        
+        // Update Multiplayer module
+        if (window.Multiplayer) {
+            window.Multiplayer.setOnlineMode(true);
+        }
+        
+        // Update the gameModeSelect visually without triggering change event
         const gameModeSelect = document.getElementById('gameModeSelect');
         if (gameModeSelect) {
             gameModeSelect.value = 'online';
-            gameModeSelect.dispatchEvent(new Event('change'));
         }
         
-        // Let game.js handle the online game setup through its existing listeners
+        // Hide difficulty selector for online mode
+        const difficultyContainer = document.getElementById('difficultyContainer');
+        if (difficultyContainer) {
+            difficultyContainer.style.display = 'none';
+        }
+        
+        // Update player info displays with online mode data
+        updatePlayerInfoDisplays('online', null, playerColor, opponentInfo);
+        
+        // Hide lobby
         hideLobby();
+        
+        // Trigger new game
+        triggerNewGame();
     }
 
     // ==================== Utility Functions ====================

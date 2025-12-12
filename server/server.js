@@ -385,13 +385,16 @@ app.get('/api/health', (req, res) => {
 });
 
 // Socket.IO connection handling
+// Store user info in memory (keyed by room code and player color)
+const roomPlayerInfo = new Map();
+
 io.on('connection', (socket) => {
     console.log(`Client connected: ${socket.id}`);
 
     // Create a new room
     socket.on('create-room', (data, callback) => {
         try {
-            const { playerId } = data;
+            const { playerId, userInfo } = data;
             const roomCode = getUniqueRoomCode();
             const initialState = getInitialGameState();
 
@@ -400,6 +403,9 @@ io.on('connection', (socket) => {
             
             // Create player record
             statements.createPlayer.run(playerId, socket.id, roomCode, 'black');
+
+            // Store user info for this room
+            roomPlayerInfo.set(`${roomCode}:black`, userInfo || { name: 'Guest', elo: null, isGuest: true });
 
             // Join socket room
             socket.join(roomCode);
@@ -422,7 +428,7 @@ io.on('connection', (socket) => {
     // Join an existing room
     socket.on('join-room', (data, callback) => {
         try {
-            const { roomCode, playerId } = data;
+            const { roomCode, playerId, userInfo } = data;
             const room = statements.getRoom.get(roomCode.toUpperCase());
 
             if (!room) {
@@ -438,6 +444,10 @@ io.on('connection', (socket) => {
 
                 const gameState = JSON.parse(room.game_state);
                 
+                // Get opponent info
+                const opponentColor = existingPlayer.color === 'black' ? 'white' : 'black';
+                const opponentInfo = roomPlayerInfo.get(`${roomCode.toUpperCase()}:${opponentColor}`);
+                
                 // Notify other player of reconnection
                 socket.to(roomCode.toUpperCase()).emit('opponent-reconnected');
 
@@ -449,7 +459,8 @@ io.on('connection', (socket) => {
                     color: existingPlayer.color,
                     gameState,
                     reconnected: true,
-                    opponentConnected: room.status === 'playing'
+                    opponentConnected: room.status === 'playing',
+                    opponentInfo
                 });
             }
 
@@ -461,14 +472,22 @@ io.on('connection', (socket) => {
             // Join as white player
             statements.updateRoom.run(playerId, 'playing', roomCode.toUpperCase());
             statements.createPlayer.run(playerId, socket.id, roomCode.toUpperCase(), 'white');
+            
+            // Store white player's user info
+            const whiteUserInfo = userInfo || { name: 'Guest', elo: null, isGuest: true };
+            roomPlayerInfo.set(`${roomCode.toUpperCase()}:white`, whiteUserInfo);
 
             socket.join(roomCode.toUpperCase());
 
             const gameState = JSON.parse(room.game_state);
 
-            // Notify black player that opponent joined
+            // Get black player's info
+            const blackPlayerInfo = roomPlayerInfo.get(`${roomCode.toUpperCase()}:black`);
+
+            // Notify black player that opponent joined (with opponent's info)
             socket.to(roomCode.toUpperCase()).emit('opponent-joined', {
-                gameState
+                gameState,
+                opponentInfo: whiteUserInfo
             });
 
             console.log(`Player ${playerId} joined room ${roomCode} as white`);
@@ -478,7 +497,8 @@ io.on('connection', (socket) => {
                 roomCode: roomCode.toUpperCase(),
                 color: 'white',
                 gameState,
-                waiting: false
+                waiting: false,
+                opponentInfo: blackPlayerInfo
             });
         } catch (err) {
             console.error('Join room error:', err);
