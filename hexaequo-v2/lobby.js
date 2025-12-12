@@ -152,12 +152,20 @@
         lobby.eloMax = document.getElementById('eloMax');
         lobby.sortableHeaders = document.querySelectorAll('.room-list-table th.sortable');
         
-        // Resume button
-        lobby.resumeSection = document.getElementById('resumeSection');
-        lobby.resumeGameBtn = document.getElementById('resumeGameBtn');
-        
         lobby.rulesBtn = document.getElementById('lobbyRulesBtn');
         lobby.settingsBtn = document.getElementById('lobbySettingsBtn');
+        
+        // Profile
+        lobby.profileBtn = document.getElementById('profileBtn');
+        lobby.profileModal = document.getElementById('profileModal');
+        lobby.profileCloseBtn = document.getElementById('profileCloseBtn');
+        
+        // ELO display
+        lobby.userEloDisplay = document.getElementById('userEloDisplay');
+        
+        // Filter toggle
+        lobby.filterToggleBtn = document.getElementById('filterToggleBtn');
+        lobby.roomFilters = document.getElementById('roomFilters');
 
         // Set up event listeners
         setupEventListeners();
@@ -232,14 +240,18 @@
             console.log('[Lobby] Time control changed to:', selectedTimeControl);
         });
         
-        // Resume game button
-        lobby.resumeGameBtn?.addEventListener('click', resumeGame);
+        // Profile button
+        lobby.profileBtn?.addEventListener('click', openProfileModal);
+        lobby.profileCloseBtn?.addEventListener('click', closeProfileModal);
+        lobby.profileModal?.addEventListener('click', (e) => {
+            if (e.target === lobby.profileModal) closeProfileModal();
+        });
+        
+        // Filter toggle
+        lobby.filterToggleBtn?.addEventListener('click', toggleFilters);
         
         // Footer
         lobby.rulesBtn?.addEventListener('click', openRules);
-        
-        // Check for saved game on init
-        checkForSavedGame();
     }
 
     // ==================== Settings Sync ====================
@@ -969,51 +981,23 @@
         triggerNewGame();
     }
 
-    // ==================== Resume Game Functions ====================
-    function checkForSavedGame() {
-        // Check IndexedDB for saved game
-        if (!window.hexaequoDb) {
-            // DB not initialized yet, try again later
-            setTimeout(checkForSavedGame, 500);
-            return;
-        }
-        
-        const transaction = window.hexaequoDb.transaction(['gameSession'], 'readonly');
-        const objectStore = transaction.objectStore('gameSession');
-        const request = objectStore.get('currentGame');
-        
-        request.onsuccess = (event) => {
-            const sessionData = event.target.result;
-            if (sessionData && sessionData.moveHistory && sessionData.moveHistory.length > 1) {
-                // There's a saved game with moves
-                console.log('[Lobby] Found saved game');
-                showResumeButton();
-            } else {
-                hideResumeButton();
-            }
-        };
-        
-        request.onerror = () => {
-            hideResumeButton();
-        };
-    }
-    
-    function showResumeButton() {
-        if (lobby.resumeSection) {
-            lobby.resumeSection.style.display = 'block';
+    // ==================== Profile Functions ====================
+    function openProfileModal() {
+        if (lobby.profileModal) {
+            lobby.profileModal.style.display = 'flex';
         }
     }
     
-    function hideResumeButton() {
-        if (lobby.resumeSection) {
-            lobby.resumeSection.style.display = 'none';
+    function closeProfileModal() {
+        if (lobby.profileModal) {
+            lobby.profileModal.style.display = 'none';
         }
     }
     
-    function resumeGame() {
-        console.log('[Lobby] Resuming saved game');
-        hideLobby();
-        // The game will auto-load from IndexedDB
+    // ==================== Filter Toggle ====================
+    function toggleFilters() {
+        lobby.filterToggleBtn?.classList.toggle('collapsed');
+        lobby.roomFilters?.classList.toggle('collapsed');
     }
 
     // ==================== Utility Functions ====================
@@ -1097,16 +1081,28 @@
             if (lobby.userDisplayName) {
                 lobby.userDisplayName.textContent = currentUser.display_name;
             }
+            if (lobby.userEloDisplay) {
+                lobby.userEloDisplay.textContent = currentUser.elo !== undefined ? currentUser.elo : '';
+            }
             if (lobby.loginBtn) {
                 lobby.loginBtn.textContent = 'Sign Out';
+            }
+            if (lobby.profileBtn) {
+                lobby.profileBtn.style.display = 'inline-block';
             }
         } else {
             // Guest
             if (lobby.userDisplayName) {
                 lobby.userDisplayName.textContent = 'Guest';
             }
+            if (lobby.userEloDisplay) {
+                lobby.userEloDisplay.textContent = '';
+            }
             if (lobby.loginBtn) {
                 lobby.loginBtn.textContent = 'Sign In';
+            }
+            if (lobby.profileBtn) {
+                lobby.profileBtn.style.display = 'none';
             }
         }
     }

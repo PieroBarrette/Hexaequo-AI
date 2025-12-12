@@ -36,11 +36,6 @@
             </div>
             
             <div class="lobby-menu">
-                <!-- Resume Game (shown if there's a saved game) -->
-                <div class="lobby-section resume-section" id="resumeSection" style="display: none;">
-                    <button class="lobby-btn resume-btn" id="resumeGameBtn">Resume Game</button>
-                </div>
-                
                 <!-- Game Mode Selection -->
                 <div class="lobby-section mode-selection">
                     <button class="lobby-btn" id="playLocalBtn">Local Game</button>
@@ -66,7 +61,9 @@
                     <!-- User Status -->
                     <div id="userStatus" class="user-status">
                         <span id="userDisplayName" class="user-name">Guest</span>
+                        <span id="userEloDisplay" class="user-elo"></span>
                         <button id="loginBtn" class="user-action-btn">Sign In</button>
+                        <button id="profileBtn" class="user-action-btn profile-btn" style="display: none;">Profile</button>
                     </div>
                     
                     <div id="lobbyConnectionStatus" class="lobby-connection-status">
@@ -94,8 +91,12 @@
                                 <button class="refresh-btn" id="refreshRoomsBtn" title="Refresh">↻</button>
                             </div>
                             
-                            <!-- Filters -->
-                            <div class="room-filters">
+                            <!-- Filters (collapsible) -->
+                            <button class="filter-toggle" id="filterToggleBtn">
+                                <span>Filters</span>
+                                <span class="toggle-icon">▼</span>
+                            </button>
+                            <div class="room-filters" id="roomFilters">
                                 <div class="filter-group">
                                     <span class="filter-label">Time:</span>
                                     <div class="filter-checkboxes">
@@ -229,6 +230,18 @@
                         </label>
                     </div>
                     <button class="lobby-btn secondary" id="backFromSettingsBtn">Back</button>
+                </div>
+                
+                <!-- Profile Modal -->
+                <div class="profile-modal" id="profileModal" style="display: none;">
+                    <div class="profile-modal-content">
+                        <button class="profile-close-btn" id="profileCloseBtn">&times;</button>
+                        <h2 class="profile-title">Profile</h2>
+                        <div class="profile-coming-soon">
+                            <p>🚧 Coming Soon 🚧</p>
+                            <p class="coming-soon-hint">Statistics, password change, and more features will be available here.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -962,14 +975,12 @@
 
         // Leave game
         leaveGameBtn.addEventListener('click', async () => {
-            if (confirm('Are you sure you want to leave the game?')) {
-                await window.Multiplayer.leaveRoom();
-                window.Multiplayer.setOnlineMode(false);
-                window.resetGame();
-                gameModeSelect.value = '2player';
-                window.toggleGameMode(false);
-                closeOnlineModal();
-            }
+            await window.Multiplayer.leaveRoom();
+            window.Multiplayer.setOnlineMode(false);
+            window.resetGame();
+            gameModeSelect.value = '2player';
+            window.toggleGameMode(false);
+            closeOnlineModal();
         });
 
         // Theme Toggle
@@ -1008,10 +1019,8 @@
 
         // New Game Button
         newGameBtn.addEventListener('click', () => {
-            if (confirm('Are you sure you want to start a new game? Current progress will be lost.')) {
-                window.resetGame();
-                toggleMenu();
-            }
+            window.resetGame();
+            toggleMenu();
         });
 
         // Initialize settings on load

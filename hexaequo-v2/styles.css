@@ -1339,8 +1339,9 @@ select {
     background: var(--bg-body);
     z-index: 9999;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
+    overflow-y: auto;
     transition: opacity 0.3s ease, visibility 0.3s ease, background 0.3s ease;
 }
 
@@ -1354,10 +1355,12 @@ select {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 40px;
-    padding: 40px;
-    max-width: 320px;
+    gap: 20px;
+    padding: 20px 40px 40px;
+    max-width: 400px;
     width: 90%;
+    min-height: 100vh;
+    box-sizing: border-box;
 }
 
 .lobby-logo {
@@ -1972,17 +1975,32 @@ select {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 10px;
     padding: 10px 14px;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid var(--border-color);
     border-radius: 8px;
     margin-bottom: 15px;
+    flex-wrap: wrap;
 }
 
 .user-name {
     color: var(--text-primary);
     font-weight: 500;
     font-size: 0.95rem;
+}
+
+.user-elo {
+    color: var(--accent-color);
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 2px 8px;
+    background: rgba(74, 158, 255, 0.1);
+    border-radius: 4px;
+}
+
+.user-elo:empty {
+    display: none;
 }
 
 .user-action-btn {
@@ -2078,4 +2096,113 @@ select {
 
 #backFromAuthBtn {
     margin-top: 15px;
+}
+
+/* Profile Button */
+.profile-btn {
+    background: transparent;
+    border: 1px solid var(--text-secondary);
+    color: var(--text-secondary);
+}
+
+.profile-btn:hover {
+    background: var(--text-secondary);
+    color: var(--bg-body);
+}
+
+/* Profile Modal */
+.profile-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10001;
+}
+
+.profile-modal-content {
+    background: var(--bg-body);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 30px;
+    max-width: 350px;
+    width: 90%;
+    position: relative;
+    text-align: center;
+}
+
+.profile-close-btn {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.8rem;
+    cursor: pointer;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+.profile-close-btn:hover {
+    color: var(--text-primary);
+}
+
+.profile-title {
+    font-size: 1.4rem;
+    color: var(--text-primary);
+    margin: 0 0 20px;
+}
+
+.profile-coming-soon {
+    color: var(--text-secondary);
+}
+
+.profile-coming-soon p:first-child {
+    font-size: 1.2rem;
+    margin-bottom: 10px;
+}
+
+.coming-soon-hint {
+    font-size: 0.85rem;
+    opacity: 0.7;
+}
+
+/* Filter Toggle Button */
+.filter-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 8px;
+}
+
+.filter-toggle:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+}
+
+.toggle-icon {
+    font-size: 0.7rem;
+    transition: transform 0.2s;
+}
+
+.filter-toggle.collapsed .toggle-icon {
+    transform: rotate(-90deg);
+}
+
+.room-filters.collapsed {
+    display: none;
 }
