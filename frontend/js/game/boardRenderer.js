@@ -50,9 +50,19 @@ export function mountBoardRenderer(options = {}) {
 
 		if (queueResult.events.length > 0) {
 			playQueueWithGraphics(queueResult, graphicsApi);
+			// Only render the final state after animations complete
+			if (typeof graphicsApi.onAllAnimationsComplete === 'function') {
+				graphicsApi.onAllAnimationsComplete(() => {
+					graphicsApi.renderStatic?.(nextState);
+				});
+			} else {
+				// Fallback if no animation support
+				graphicsApi.renderStatic?.(nextState);
+			}
+		} else {
+			// No animations, render immediately
+			graphicsApi.renderStatic?.(nextState);
 		}
-
-		graphicsApi.renderStatic?.(nextState);
 
 		previousState = nextState;
 	});

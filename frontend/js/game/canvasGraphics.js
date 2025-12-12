@@ -188,23 +188,34 @@ export function createCanvasGraphics(canvas, options = {}) {
         ctx.save();
         ctx.translate(layout.translateX, layout.translateY);
         
-        // Draw static board elements
-        drawTiles(ctx, lastState.tiles, size, palette);
-        
-        // Draw pieces (excluding those being animated)
-        const animatedPositions = new Set();
+        // Collect positions that are being animated
+        const animatedPiecePositions = new Set();
+        const animatedTilePositions = new Set();
         activeAnimations.forEach(anim => {
             if (anim.type === 'move' || anim.type === 'jump') {
-                animatedPositions.add(`${anim.fromQ},${anim.fromR}`);
+                animatedPiecePositions.add(`${anim.fromQ},${anim.fromR}`);
             }
-            if (anim.type === 'capture') {
-                animatedPositions.add(`${anim.q},${anim.r}`);
+            if (anim.type === 'capture' || anim.type === 'placement') {
+                animatedPiecePositions.add(`${anim.q},${anim.r}`);
+            }
+            if (anim.type === 'tilePlacement') {
+                animatedTilePositions.add(`${anim.q},${anim.r}`);
             }
         });
         
+        // Draw static tiles (excluding those being animated)
+        const visibleTiles = {};
+        Object.entries(lastState.tiles || {}).forEach(([key, color]) => {
+            if (!animatedTilePositions.has(key)) {
+                visibleTiles[key] = color;
+            }
+        });
+        drawTiles(ctx, visibleTiles, size, palette);
+        
+        // Draw pieces (excluding those being animated)
         const visiblePieces = {};
         Object.entries(lastState.pieces || {}).forEach(([key, piece]) => {
-            if (!animatedPositions.has(key)) {
+            if (!animatedPiecePositions.has(key)) {
                 visiblePieces[key] = piece;
             }
         });
