@@ -607,6 +607,30 @@ io.on('connection', (socket) => {
     socket.on('create-room', (data, callback) => {
         try {
             const { playerId, userInfo, timeControl } = data;
+            
+            // Check if this player already has a room in waiting status
+            const existingPlayer = statements.getPlayer.get(playerId);
+            if (existingPlayer) {
+                const existingRoom = statements.getRoom.get(existingPlayer.room_code);
+                if (existingRoom && existingRoom.status === 'waiting') {
+                    // Player already has a waiting room - clean it up first
+                    const oldRoomCode = existingPlayer.room_code;
+                    db.prepare(`DELETE FROM players WHERE player_id = ?`).run(playerId);
+                    const remainingPlayers = statements.getPlayersInRoom.all(oldRoomCode);
+                    if (remainingPlayers.length === 0) {
+                        statements.deleteRoom.run(oldRoomCode);
+                        roomTimers.delete(oldRoomCode);
+                        roomPlayerInfo.delete(`${oldRoomCode}:black`);
+                        roomPlayerInfo.delete(`${oldRoomCode}:white`);
+                        io.emit('room-cancelled', { roomCode: oldRoomCode });
+                        console.log(`Cleaned up existing room ${oldRoomCode} for player ${playerId}`);
+                    }
+                } else if (existingRoom && existingRoom.status === 'playing') {
+                    // Player is in an active game - don't allow creating a new room
+                    return callback({ success: false, error: 'You are already in an active game' });
+                }
+            }
+            
             const roomCode = getUniqueRoomCode();
             const initialState = getInitialGameState();
             const roomTimeControl = timeControl || 'classic';
@@ -963,12 +987,30 @@ io.on('connection', (socket) => {
         try {
             const player = statements.getPlayerBySocket.get(socket.id);
             if (player) {
+                const roomCode = player.room_code;
+                const room = statements.getRoom.get(roomCode);
+                
+                // Mark player as disconnected
                 statements.disconnectPlayer.run(socket.id);
                 
-                // Notify opponent
-                socket.to(player.room_code).emit('opponent-disconnected');
+                // If room was waiting (no opponent yet), clean it up completely
+                if (room && room.status === 'waiting') {
+                    db.prepare(`DELETE FROM players WHERE player_id = ?`).run(player.player_id);
+                    const remainingPlayers = statements.getPlayersInRoom.all(roomCode);
+                    if (remainingPlayers.length === 0) {
+                        statements.deleteRoom.run(roomCode);
+                        roomTimers.delete(roomCode);
+                        roomPlayerInfo.delete(`${roomCode}:black`);
+                        roomPlayerInfo.delete(`${roomCode}:white`);
+                        io.emit('room-cancelled', { roomCode });
+                        console.log(`Room ${roomCode} cancelled - creator disconnected while waiting`);
+                    }
+                } else {
+                    // Notify opponent of disconnect (for active games)
+                    socket.to(roomCode).emit('opponent-disconnected');
+                }
                 
-                console.log(`Player ${player.player_id} disconnected from room ${player.room_code}`);
+                console.log(`Player ${player.player_id} disconnected from room ${roomCode}`);
             }
         } catch (err) {
             console.error('Disconnect error:', err);

@@ -2002,7 +2002,7 @@ window.onload = function () {
                 await window.Multiplayer.resign();
                 // End game with us as loser
                 const myColor = window.Multiplayer.playerColor;
-                const winnerColor = myColor === 'black' ? 'white' : 'black';
+                const winnerColor = myColor === 'black' ? 'White' : 'Black';
                 endGame(winnerColor, 'abandonment');
             } catch (err) {
                 console.error('Failed to resign:', err);
@@ -2062,13 +2062,14 @@ window.onload = function () {
         console.log('Opponent resigned');
         // End game with us as winner
         const myColor = window.Multiplayer.playerColor;
-        endGame(myColor, 'abandonment');
+        const winner = myColor === 'black' ? 'Black' : 'White';
+        endGame(winner, 'abandonment');
     }
     
     // Handler for when opponent proposes a draw
     function onDrawProposed(data) {
-        console.log('Opponent proposes draw');
-        const opponentName = opponentInfo?.name || 'Opponent';
+        console.log('Opponent proposes draw', data);
+        const opponentName = data?.proposerName || opponentInfo?.name || 'Opponent';
         showDrawProposalNotification(opponentName);
     }
     

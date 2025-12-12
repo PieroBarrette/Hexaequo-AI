@@ -2350,3 +2350,14 @@ select {
         opacity: 0;
     }
 }
+
+/* Light theme adjustments for draw notification */
+[data-theme="light"] .draw-proposal-notification {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: #ccc;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] #drawProposalText {
+    color: #333;
+}
