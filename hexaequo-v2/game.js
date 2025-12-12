@@ -2078,7 +2078,7 @@ window.onload = function () {
         console.log('Draw accepted');
         hideDrawProposalNotification();
         pendingDrawProposal = false;
-        endGame('draw', 'by agreement');
+        endGame('draw', 'agreement');
     }
     
     // Handler for when opponent declines our draw proposal
