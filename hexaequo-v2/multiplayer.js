@@ -171,7 +171,7 @@ const Multiplayer = (function () {
     }
 
     // Create a new room
-    function createRoom() {
+    function createRoom(timeControl) {
         return new Promise((resolve, reject) => {
             if (!socket || !socket.connected) {
                 reject(new Error('Not connected to server'));
@@ -179,8 +179,8 @@ const Multiplayer = (function () {
             }
 
             const userInfo = getUserInfo();
-            console.log('[Multiplayer] Creating room with userInfo:', userInfo);
-            socket.emit('create-room', { playerId, userInfo }, (response) => {
+            console.log('[Multiplayer] Creating room with userInfo:', userInfo, 'timeControl:', timeControl);
+            socket.emit('create-room', { playerId, userInfo, timeControl: timeControl || 'classic' }, (response) => {
                 if (response.success) {
                     roomCode = response.roomCode;
                     playerColor = response.color;
@@ -193,7 +193,8 @@ const Multiplayer = (function () {
                         roomCode: response.roomCode,
                         color: response.color,
                         gameState: response.gameState,
-                        waiting: response.waiting
+                        waiting: response.waiting,
+                        timeControl: response.timeControl
                     });
                 } else {
                     reject(new Error(response.error || 'Failed to create room'));
@@ -229,7 +230,8 @@ const Multiplayer = (function () {
                         waiting: response.waiting,
                         reconnected: response.reconnected,
                         opponentConnected: response.opponentConnected,
-                        opponentInfo: response.opponentInfo
+                        opponentInfo: response.opponentInfo,
+                        timeControl: response.timeControl
                     });
                 } else {
                     reject(new Error(response.error || 'Failed to join room'));

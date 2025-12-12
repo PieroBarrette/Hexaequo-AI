@@ -566,11 +566,11 @@
         }
         
         hideError();
-        console.log('[Lobby] Creating room...');
+        console.log('[Lobby] Creating room with time control:', selectedTimeControl);
         
         // Use Multiplayer module's createRoom which handles the protocol correctly
-        window.Multiplayer.createRoom().then((result) => {
-            console.log('[Lobby] Room created:', result.roomCode);
+        window.Multiplayer.createRoom(selectedTimeControl).then((result) => {
+            console.log('[Lobby] Room created:', result.roomCode, 'timeControl:', result.timeControl);
             currentRoomCode = result.roomCode;
             showWaitingForOpponent(result.roomCode);
         }).catch((err) => {
@@ -596,7 +596,7 @@
         
         // Use Multiplayer module's joinRoom
         window.Multiplayer.joinRoom(code).then((result) => {
-            console.log('[Lobby] Joined room:', result.roomCode);
+            console.log('[Lobby] Joined room:', result.roomCode, 'timeControl:', result.timeControl);
             currentRoomCode = result.roomCode;
             if (result.waiting) {
                 showWaitingForOpponent(result.roomCode);
@@ -607,7 +607,8 @@
                 startOnlineGame({ 
                     playerColor: result.color, 
                     gameState: result.gameState,
-                    opponentInfo: currentOpponent 
+                    opponentInfo: currentOpponent,
+                    timeControl: result.timeControl  // Use server's time control
                 });
             }
         }).catch((err) => {

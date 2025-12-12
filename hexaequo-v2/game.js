@@ -1526,10 +1526,27 @@ window.onload = function () {
 
         const winnerText = document.createElement('p');
         let messageText;
+        let displayWinner = winner;
+        
+        // In online mode, convert color-based winner to actual player name
+        if (isOnlineMode && window.Lobby && (winner === 'Black' || winner === 'White')) {
+            const winnerColor = winner.toLowerCase();
+            // Get player names from the lobby
+            const currentPlayerColor = onlinePlayerColor;
+            const currentUserName = window.Lobby.getCurrentUser()?.pseudo || 'You';
+            const opponentName = getOpponentName();
+            
+            if (winnerColor === currentPlayerColor) {
+                displayWinner = currentUserName;
+            } else {
+                displayWinner = opponentName;
+            }
+        }
+        
         if (winner === 'Ex Aequo') {
             messageText = 'Ex Aequo!';
         } else {
-            messageText = `${winner} wins!`;
+            messageText = `${displayWinner} wins!`;
         }
         winnerText.textContent = messageText;
         winnerText.style.fontSize = '24px';
@@ -1542,7 +1559,10 @@ window.onload = function () {
         // Add reason text
         if (reason) {
             const reasonText = document.createElement('p');
-            if (winner === 'Ex Aequo') {
+            // Format reason text based on the reason type
+            if (reason === 'on time') {
+                reasonText.textContent = 'on time';
+            } else if (winner === 'Ex Aequo') {
                 reasonText.textContent = `by ${reason}`;
             } else {
                 reasonText.textContent = `by ${reason}`;

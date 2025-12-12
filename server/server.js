@@ -103,6 +103,13 @@ try {
     // Column likely already exists
 }
 
+// Add time_control column if it doesn't exist
+try {
+    db.exec(`ALTER TABLE rooms ADD COLUMN time_control TEXT DEFAULT 'classic'`);
+} catch (e) {
+    // Column likely already exists
+}
+
 // Prepared statements for better performance
 const statements = {
     createRoom: db.prepare(`
@@ -394,12 +401,16 @@ io.on('connection', (socket) => {
     // Create a new room
     socket.on('create-room', (data, callback) => {
         try {
-            const { playerId, userInfo } = data;
+            const { playerId, userInfo, timeControl } = data;
             const roomCode = getUniqueRoomCode();
             const initialState = getInitialGameState();
+            const roomTimeControl = timeControl || 'classic';
 
-            // Create room in database
+            // Create room in database with time control
             statements.createRoom.run(roomCode, playerId, JSON.stringify(initialState));
+            
+            // Update time control
+            db.prepare('UPDATE rooms SET time_control = ? WHERE room_code = ?').run(roomTimeControl, roomCode);
             
             // Create player record
             statements.createPlayer.run(playerId, socket.id, roomCode, 'black');
@@ -410,13 +421,14 @@ io.on('connection', (socket) => {
             // Join socket room
             socket.join(roomCode);
 
-            console.log(`Room ${roomCode} created by player ${playerId}`);
+            console.log(`Room ${roomCode} created by player ${playerId} with time control ${roomTimeControl}`);
 
             callback({
                 success: true,
                 roomCode,
                 color: 'black',
                 gameState: initialState,
+                timeControl: roomTimeControl,
                 waiting: true
             });
         } catch (err) {
@@ -460,7 +472,8 @@ io.on('connection', (socket) => {
                     gameState,
                     reconnected: true,
                     opponentConnected: room.status === 'playing',
-                    opponentInfo
+                    opponentInfo,
+                    timeControl: room.time_control || 'classic'
                 });
             }
 
@@ -490,7 +503,7 @@ io.on('connection', (socket) => {
                 opponentInfo: whiteUserInfo
             });
 
-            console.log(`Player ${playerId} joined room ${roomCode} as white`);
+            console.log(`Player ${playerId} joined room ${roomCode} as white with time control ${room.time_control}`);
 
             callback({
                 success: true,
@@ -498,7 +511,8 @@ io.on('connection', (socket) => {
                 color: 'white',
                 gameState,
                 waiting: false,
-                opponentInfo: blackPlayerInfo
+                opponentInfo: blackPlayerInfo,
+                timeControl: room.time_control || 'classic'
             });
         } catch (err) {
             console.error('Join room error:', err);
