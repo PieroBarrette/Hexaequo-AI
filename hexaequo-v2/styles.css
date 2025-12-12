@@ -1562,6 +1562,259 @@ select {
     padding: 12px 20px;
 }
 
+/* Room Browser Section */
+.room-browser-section {
+    margin-top: 15px;
+    width: 100%;
+}
+
+.room-browser-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.room-browser-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.refresh-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: auto;
+    margin: 0;
+}
+
+.refresh-btn:hover {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+    color: #fff;
+}
+
+.refresh-btn.spinning {
+    animation: spin 0.5s linear;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Room Filters */
+.room-filters {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    margin-bottom: 10px;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.filter-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    min-width: 45px;
+}
+
+.filter-checkboxes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.filter-checkboxes label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.7rem;
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 3px 6px;
+    background: var(--bg-container);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.filter-checkboxes label:hover {
+    border-color: var(--accent-color);
+}
+
+.filter-checkboxes input[type="checkbox"] {
+    width: 12px;
+    height: 12px;
+    margin: 0;
+    accent-color: var(--accent-color);
+}
+
+.elo-filter .elo-range {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.elo-input {
+    width: 55px;
+    padding: 4px 6px;
+    background: var(--bg-container);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 0.75rem;
+    text-align: center;
+}
+
+.elo-input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}
+
+.elo-range span {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+}
+
+/* Room List Table */
+.room-list-container {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--input-bg);
+}
+
+.room-list-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+}
+
+.room-list-table thead {
+    position: sticky;
+    top: 0;
+    background: var(--bg-container);
+    z-index: 1;
+}
+
+.room-list-table th {
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+}
+
+.room-list-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.2s ease;
+}
+
+.room-list-table th.sortable:hover {
+    color: var(--accent-color);
+}
+
+.room-list-table th .sort-arrow {
+    margin-left: 4px;
+    font-size: 0.6rem;
+}
+
+.room-list-table th.sort-asc .sort-arrow::after {
+    content: '▲';
+}
+
+.room-list-table th.sort-desc .sort-arrow::after {
+    content: '▼';
+}
+
+.room-list-table tbody tr {
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.room-list-table tbody tr:hover {
+    background: var(--accent-color);
+}
+
+.room-list-table tbody tr:hover td {
+    color: #fff;
+}
+
+.room-list-table td {
+    padding: 10px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.room-list-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.room-list-empty {
+    display: none;
+    padding: 30px 15px;
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.room-list-empty p {
+    margin: 0;
+}
+
+.room-list-empty .empty-hint {
+    font-size: 0.75rem;
+    margin-top: 5px;
+    opacity: 0.7;
+}
+
+.room-list-container:has(tbody:empty) .room-list-table {
+    display: none;
+}
+
+.room-list-container:has(tbody:empty) .room-list-empty {
+    display: block;
+}
+
+/* Time control badge in room list */
+.time-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.time-badge.none { background: #6b7280; color: #fff; }
+.time-badge.classic { background: #3b82f6; color: #fff; }
+.time-badge.rapid { background: #10b981; color: #fff; }
+.time-badge.blitz { background: #f59e0b; color: #fff; }
+.time-badge.bullet { background: #ef4444; color: #fff; }
+
 /* Waiting Section */
 .lobby-waiting {
     text-align: center;

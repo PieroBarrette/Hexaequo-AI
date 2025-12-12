@@ -20,6 +20,12 @@
     let currentUser = null;
     let sessionToken = null;
     let currentOpponent = null; // Stores opponent info for online games
+    
+    // Room list state
+    let allRooms = []; // All rooms from server
+    let filteredRooms = []; // Rooms after filtering
+    let sortColumn = null;
+    let sortDirection = 'asc'; // 'asc' or 'desc'
 
     // ==================== DOM Elements ====================
     const lobby = {
@@ -131,6 +137,21 @@
         // Time control
         lobby.timeControlSelect = document.getElementById('timeControlSelect');
         
+        // Room browser
+        lobby.refreshRoomsBtn = document.getElementById('refreshRoomsBtn');
+        lobby.roomListBody = document.getElementById('roomListBody');
+        lobby.roomListEmpty = document.getElementById('roomListEmpty');
+        lobby.filterNone = document.getElementById('filterNone');
+        lobby.filterClassic = document.getElementById('filterClassic');
+        lobby.filterRapid = document.getElementById('filterRapid');
+        lobby.filterBlitz = document.getElementById('filterBlitz');
+        lobby.filterBullet = document.getElementById('filterBullet');
+        lobby.filterGuests = document.getElementById('filterGuests');
+        lobby.filterUsers = document.getElementById('filterUsers');
+        lobby.eloMin = document.getElementById('eloMin');
+        lobby.eloMax = document.getElementById('eloMax');
+        lobby.sortableHeaders = document.querySelectorAll('.room-list-table th.sortable');
+        
         // Resume button
         lobby.resumeSection = document.getElementById('resumeSection');
         lobby.resumeGameBtn = document.getElementById('resumeGameBtn');
@@ -166,13 +187,24 @@
         
         // Online options
         lobby.createRoomBtn?.addEventListener('click', createRoom);
-        lobby.joinRoomBtn?.addEventListener('click', joinRoom);
-        lobby.roomCodeInput?.addEventListener('keyup', (e) => {
-            if (e.key === 'Enter') joinRoom();
-        });
         lobby.copyCodeBtn?.addEventListener('click', copyRoomCode);
         lobby.cancelBtn?.addEventListener('click', cancelWaiting);
         lobby.backFromOnlineBtn?.addEventListener('click', showMainMenu);
+        
+        // Room browser
+        lobby.refreshRoomsBtn?.addEventListener('click', refreshRoomList);
+        lobby.filterNone?.addEventListener('change', applyFiltersAndRender);
+        lobby.filterClassic?.addEventListener('change', applyFiltersAndRender);
+        lobby.filterRapid?.addEventListener('change', applyFiltersAndRender);
+        lobby.filterBlitz?.addEventListener('change', applyFiltersAndRender);
+        lobby.filterBullet?.addEventListener('change', applyFiltersAndRender);
+        lobby.filterGuests?.addEventListener('change', applyFiltersAndRender);
+        lobby.filterUsers?.addEventListener('change', applyFiltersAndRender);
+        lobby.eloMin?.addEventListener('input', debounce(applyFiltersAndRender, 300));
+        lobby.eloMax?.addEventListener('input', debounce(applyFiltersAndRender, 300));
+        lobby.sortableHeaders?.forEach(th => {
+            th.addEventListener('click', () => handleSortClick(th.dataset.sort));
+        });
         
         // User status / auth
         lobby.loginBtn?.addEventListener('click', handleLoginBtnClick);
@@ -546,6 +578,12 @@
         }
         
         lobby.roomActions?.style.setProperty('display', 'flex');
+        
+        // Set up real-time room list updates
+        setupRoomListListeners();
+        
+        // Fetch initial room list
+        fetchRoomList();
     }
 
     function onConnectionError(message) {
@@ -584,15 +622,15 @@
         });
     }
 
-    function joinRoom() {
+    function joinRoom(roomCode) {
         if (!isConnected) {
             showError('Not connected to server');
             return;
         }
         
-        const code = lobby.roomCodeInput?.value?.trim().toUpperCase();
+        const code = roomCode || '';
         if (!code || code.length !== 4) {
-            showError('Enter a 4-character code');
+            showError('Invalid room code');
             return;
         }
         
@@ -620,6 +658,226 @@
         }).catch((err) => {
             console.error('[Lobby] Failed to join room:', err);
             showError(err.message || 'Failed to join room');
+        });
+    }
+
+    // ==================== Room List Functions ====================
+    
+    // Debounce helper
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+    
+    // Fetch room list from server
+    function fetchRoomList() {
+        if (!socket || !socket.connected) {
+            console.log('[Lobby] Cannot fetch rooms - not connected');
+            return;
+        }
+        
+        socket.emit('get-room-list', (response) => {
+            if (response.success) {
+                allRooms = response.rooms || [];
+                console.log('[Lobby] Fetched', allRooms.length, 'rooms');
+                applyFiltersAndRender();
+            } else {
+                console.error('[Lobby] Failed to fetch rooms:', response.error);
+                allRooms = [];
+                renderRoomList();
+            }
+        });
+    }
+    
+    // Refresh room list with animation
+    function refreshRoomList() {
+        const btn = lobby.refreshRoomsBtn;
+        if (btn) {
+            btn.classList.add('spinning');
+            setTimeout(() => btn.classList.remove('spinning'), 500);
+        }
+        fetchRoomList();
+    }
+    
+    // Apply filters to the room list
+    function applyFiltersAndRender() {
+        const filters = {
+            timeControls: {
+                none: lobby.filterNone?.checked ?? true,
+                classic: lobby.filterClassic?.checked ?? true,
+                rapid: lobby.filterRapid?.checked ?? true,
+                blitz: lobby.filterBlitz?.checked ?? true,
+                bullet: lobby.filterBullet?.checked ?? true
+            },
+            showGuests: lobby.filterGuests?.checked ?? true,
+            showUsers: lobby.filterUsers?.checked ?? true,
+            eloMin: parseInt(lobby.eloMin?.value) || 0,
+            eloMax: parseInt(lobby.eloMax?.value) || Infinity
+        };
+        
+        filteredRooms = allRooms.filter(room => {
+            // Time control filter
+            if (!filters.timeControls[room.timeControl]) return false;
+            
+            // Guest/User filter
+            if (room.isGuest && !filters.showGuests) return false;
+            if (!room.isGuest && !filters.showUsers) return false;
+            
+            // ELO filter (only applies to non-guests with ELO)
+            if (room.creatorElo !== null) {
+                if (room.creatorElo < filters.eloMin) return false;
+                if (room.creatorElo > filters.eloMax) return false;
+            }
+            
+            return true;
+        });
+        
+        // Apply sorting
+        if (sortColumn) {
+            sortRooms();
+        }
+        
+        renderRoomList();
+    }
+    
+    // Handle sort header click
+    function handleSortClick(column) {
+        // Toggle direction if same column, else set to asc
+        if (sortColumn === column) {
+            sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            sortColumn = column;
+            sortDirection = 'asc';
+        }
+        
+        // Update header UI
+        lobby.sortableHeaders?.forEach(th => {
+            th.classList.remove('sort-asc', 'sort-desc');
+            if (th.dataset.sort === sortColumn) {
+                th.classList.add(sortDirection === 'asc' ? 'sort-asc' : 'sort-desc');
+            }
+        });
+        
+        sortRooms();
+        renderRoomList();
+    }
+    
+    // Sort the filtered rooms
+    function sortRooms() {
+        const timeControlOrder = { none: 0, bullet: 1, blitz: 2, rapid: 3, classic: 4 };
+        
+        filteredRooms.sort((a, b) => {
+            let comparison = 0;
+            
+            switch (sortColumn) {
+                case 'timeControl':
+                    comparison = timeControlOrder[a.timeControl] - timeControlOrder[b.timeControl];
+                    break;
+                case 'creatorName':
+                    comparison = (a.creatorName || '').localeCompare(b.creatorName || '');
+                    break;
+                case 'creatorElo':
+                    const eloA = a.creatorElo ?? -1;
+                    const eloB = b.creatorElo ?? -1;
+                    comparison = eloA - eloB;
+                    break;
+            }
+            
+            return sortDirection === 'desc' ? -comparison : comparison;
+        });
+    }
+    
+    // Render room list to DOM
+    function renderRoomList() {
+        const tbody = lobby.roomListBody;
+        const emptyMsg = lobby.roomListEmpty;
+        
+        if (!tbody) return;
+        
+        // Clear existing rows
+        tbody.innerHTML = '';
+        
+        if (filteredRooms.length === 0) {
+            emptyMsg?.style.setProperty('display', 'block');
+            return;
+        }
+        
+        emptyMsg?.style.setProperty('display', 'none');
+        
+        // Time control labels
+        const timeLabels = {
+            none: 'None',
+            classic: '15|0',
+            rapid: '10|5',
+            blitz: '5|3',
+            bullet: '2|1'
+        };
+        
+        filteredRooms.forEach(room => {
+            const tr = document.createElement('tr');
+            tr.dataset.roomCode = room.roomCode;
+            tr.addEventListener('click', () => joinRoom(room.roomCode));
+            
+            // Time control cell
+            const tdTime = document.createElement('td');
+            const badge = document.createElement('span');
+            badge.className = `time-badge ${room.timeControl}`;
+            badge.textContent = timeLabels[room.timeControl] || room.timeControl;
+            tdTime.appendChild(badge);
+            tr.appendChild(tdTime);
+            
+            // Player name cell
+            const tdName = document.createElement('td');
+            tdName.textContent = room.creatorName || 'Guest';
+            tr.appendChild(tdName);
+            
+            // ELO cell
+            const tdElo = document.createElement('td');
+            tdElo.textContent = room.creatorElo !== null ? room.creatorElo : '-';
+            tr.appendChild(tdElo);
+            
+            tbody.appendChild(tr);
+        });
+    }
+    
+    // Set up real-time room list updates
+    function setupRoomListListeners() {
+        if (!socket) return;
+        
+        // Remove existing listeners
+        socket.off('room-created');
+        socket.off('room-filled');
+        socket.off('room-cancelled');
+        
+        // New room created
+        socket.on('room-created', (room) => {
+            console.log('[Lobby] Room created:', room.roomCode);
+            // Add to list if not already present
+            if (!allRooms.find(r => r.roomCode === room.roomCode)) {
+                allRooms.push(room);
+                applyFiltersAndRender();
+            }
+        });
+        
+        // Room was joined (no longer available)
+        socket.on('room-filled', (data) => {
+            console.log('[Lobby] Room filled:', data.roomCode);
+            allRooms = allRooms.filter(r => r.roomCode !== data.roomCode);
+            applyFiltersAndRender();
+        });
+        
+        // Room was cancelled
+        socket.on('room-cancelled', (data) => {
+            console.log('[Lobby] Room cancelled:', data.roomCode);
+            allRooms = allRooms.filter(r => r.roomCode !== data.roomCode);
+            applyFiltersAndRender();
         });
     }
 

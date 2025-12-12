@@ -168,6 +168,14 @@ const statements = {
         WHERE s.token = ? AND s.expires_at > datetime('now')
     `),
     deleteSession: db.prepare(`DELETE FROM sessions WHERE token = ?`),
+    
+    // Room list - get all waiting rooms
+    getWaitingRooms: db.prepare(`
+        SELECT room_code, black_player_id, time_control, created_at 
+        FROM rooms 
+        WHERE status = 'waiting'
+        ORDER BY created_at DESC
+    `),
     cleanupSessions: db.prepare(`DELETE FROM sessions WHERE expires_at < datetime('now')`),
     
     // Cleanup old rooms (older than 24 hours)
@@ -491,6 +499,32 @@ function processTimerMove(roomCode, playerColor) {
 io.on('connection', (socket) => {
     console.log(`Client connected: ${socket.id}`);
 
+    // Get list of waiting rooms for the lobby
+    socket.on('get-room-list', (callback) => {
+        try {
+            const waitingRooms = statements.getWaitingRooms.all();
+            
+            // Enrich room data with player info
+            const roomList = waitingRooms.map(room => {
+                const creatorInfo = roomPlayerInfo.get(`${room.room_code}:black`) || { name: 'Guest', elo: null, isGuest: true };
+                return {
+                    roomCode: room.room_code,
+                    timeControl: room.time_control || 'classic',
+                    creatorName: creatorInfo.name || 'Guest',
+                    creatorElo: creatorInfo.elo,
+                    isGuest: creatorInfo.isGuest !== false,
+                    createdAt: room.created_at
+                };
+            });
+            
+            console.log(`[Room List] Returning ${roomList.length} waiting rooms`);
+            callback({ success: true, rooms: roomList });
+        } catch (err) {
+            console.error('Get room list error:', err);
+            callback({ success: false, error: err.message, rooms: [] });
+        }
+    });
+
     // Create a new room
     socket.on('create-room', (data, callback) => {
         try {
@@ -520,7 +554,20 @@ io.on('connection', (socket) => {
             // Get initial timer state
             const timerState = getRoomTimerState(roomCode);
 
+            // Get creator info for the room-created broadcast
+            const creatorInfo = roomPlayerInfo.get(`${roomCode}:black`);
+
             console.log(`Room ${roomCode} created by player ${playerId} with time control ${roomTimeControl}`);
+
+            // Broadcast to all clients that a new room is available
+            socket.broadcast.emit('room-created', {
+                roomCode,
+                timeControl: roomTimeControl,
+                creatorName: creatorInfo?.name || 'Guest',
+                creatorElo: creatorInfo?.elo,
+                isGuest: creatorInfo?.isGuest !== false,
+                createdAt: new Date().toISOString()
+            });
 
             callback({
                 success: true,
@@ -610,6 +657,9 @@ io.on('connection', (socket) => {
                 opponentInfo: whiteUserInfo,
                 timerState
             });
+
+            // Broadcast to all clients that this room is no longer available
+            io.emit('room-filled', { roomCode: roomCode.toUpperCase() });
 
             console.log(`Player ${playerId} joined room ${roomCode} as white with time control ${room.time_control}`);
 
@@ -719,10 +769,13 @@ io.on('connection', (socket) => {
             const player = statements.getPlayer.get(playerId);
             
             if (player && player.room_code === roomCode) {
+                // Check if room was in waiting status (to broadcast room-cancelled)
+                const room = statements.getRoom.get(roomCode);
+                const wasWaiting = room && room.status === 'waiting';
+                
                 // Remove player
                 db.prepare(`DELETE FROM players WHERE player_id = ?`).run(playerId);
                 
-                const room = statements.getRoom.get(roomCode);
                 if (room) {
                     // If both players left, delete room
                     const remainingPlayers = statements.getPlayersInRoom.all(roomCode);
@@ -732,6 +785,12 @@ io.on('connection', (socket) => {
                         roomTimers.delete(roomCode);
                         roomPlayerInfo.delete(`${roomCode}:black`);
                         roomPlayerInfo.delete(`${roomCode}:white`);
+                        
+                        // Broadcast that room is no longer available
+                        if (wasWaiting) {
+                            io.emit('room-cancelled', { roomCode });
+                        }
+                        
                         console.log(`Room ${roomCode} deleted - no players remaining`);
                     } else {
                         // Notify remaining player

@@ -86,13 +86,61 @@
                             </select>
                         </div>
                         <button class="lobby-btn primary" id="lobbyCreateRoomBtn">Create Room</button>
-                        <div class="join-section">
-                            <div class="join-divider">or</div>
-                            <div class="join-input-group">
-                                <input type="text" id="lobbyRoomCodeInput" 
-                                       class="room-input" placeholder="CODE" 
-                                       maxlength="4" autocomplete="off" autocapitalize="characters">
-                                <button class="lobby-btn" id="lobbyJoinRoomBtn">Join</button>
+                        
+                        <!-- Room Browser Section -->
+                        <div class="room-browser-section">
+                            <div class="room-browser-header">
+                                <span class="room-browser-title">Available Rooms</span>
+                                <button class="refresh-btn" id="refreshRoomsBtn" title="Refresh">↻</button>
+                            </div>
+                            
+                            <!-- Filters -->
+                            <div class="room-filters">
+                                <div class="filter-group">
+                                    <span class="filter-label">Time:</span>
+                                    <div class="filter-checkboxes">
+                                        <label><input type="checkbox" id="filterNone" checked> None</label>
+                                        <label><input type="checkbox" id="filterClassic" checked> Classic</label>
+                                        <label><input type="checkbox" id="filterRapid" checked> Rapid</label>
+                                        <label><input type="checkbox" id="filterBlitz" checked> Blitz</label>
+                                        <label><input type="checkbox" id="filterBullet" checked> Bullet</label>
+                                    </div>
+                                </div>
+                                <div class="filter-group">
+                                    <span class="filter-label">Player:</span>
+                                    <div class="filter-checkboxes">
+                                        <label><input type="checkbox" id="filterGuests" checked> Guests</label>
+                                        <label><input type="checkbox" id="filterUsers" checked> Users</label>
+                                    </div>
+                                </div>
+                                <div class="filter-group elo-filter">
+                                    <span class="filter-label">ELO:</span>
+                                    <div class="elo-range">
+                                        <input type="number" id="eloMin" class="elo-input" placeholder="Min" min="0" max="3000">
+                                        <span>-</span>
+                                        <input type="number" id="eloMax" class="elo-input" placeholder="Max" min="0" max="3000">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Room List Table -->
+                            <div class="room-list-container">
+                                <table class="room-list-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="sortable" data-sort="timeControl">Time <span class="sort-arrow"></span></th>
+                                            <th class="sortable" data-sort="creatorName">Player <span class="sort-arrow"></span></th>
+                                            <th class="sortable" data-sort="creatorElo">ELO <span class="sort-arrow"></span></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="roomListBody">
+                                        <!-- Rooms will be populated here -->
+                                    </tbody>
+                                </table>
+                                <div class="room-list-empty" id="roomListEmpty">
+                                    <p>No rooms available</p>
+                                    <p class="empty-hint">Create a room or wait for others to join</p>
+                                </div>
                             </div>
                         </div>
                     </div>
