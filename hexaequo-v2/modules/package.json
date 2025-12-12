@@ -1,0 +1,10 @@
+{
+  "name": "hexaequo-modules",
+  "version": "1.0.0",
+  "description": "Hexaequo game engine modules",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test.js"
+  }
+}
