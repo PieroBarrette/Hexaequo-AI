@@ -33,6 +33,7 @@ export function initGameController(canvas, options = {}) {
 		: null;
 
 	const handleClick = (event) => {
+		if (isGameFrozen()) return;
 		const { q, r } = extractBoardCoordinates(event, canvas, currentLayout, fallbackHexSize);
 		handleBoardInteraction(q, r);
 	};
@@ -40,6 +41,7 @@ export function initGameController(canvas, options = {}) {
 	const handleTouchEnd = (event) => {
 		event.preventDefault();
 		if (!event.changedTouches?.length) return;
+		if (isGameFrozen()) return;
 		const { q, r } = extractBoardCoordinates(event.changedTouches[0], canvas, currentLayout, fallbackHexSize);
 		handleBoardInteraction(q, r);
 	};
@@ -52,6 +54,11 @@ export function initGameController(canvas, options = {}) {
 		canvas.removeEventListener('touchend', handleTouchEnd);
 		unsubscribeLayout?.();
 	};
+}
+
+function isGameFrozen() {
+	const state = getGameState();
+	return Boolean(state.metadata?.gameOver);
 }
 
 function handleBoardInteraction(q, r) {

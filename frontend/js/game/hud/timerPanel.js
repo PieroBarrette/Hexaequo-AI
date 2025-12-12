@@ -54,9 +54,10 @@ function renderSummary(root, color, cache) {
     const showTimer = timerMode !== 'none';
     if (timerEl) {
         timerEl.dataset.visible = showTimer ? 'true' : 'false';
-        if (showTimer && timerValueEl) {
-            const remaining = resolveRemainingMilliseconds(cache.game, color);
-            timerValueEl.textContent = formatTime(remaining);
+        const remaining = resolveRemainingMilliseconds(cache.game, color);
+        const displayValue = cache.app.gameFrozen ? '--:--' : formatTime(remaining);
+        if (timerValueEl) {
+            timerValueEl.textContent = showTimer ? displayValue : '--:--';
         }
     }
 }

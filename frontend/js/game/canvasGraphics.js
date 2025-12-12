@@ -147,11 +147,13 @@ function drawTiles(ctx, tiles = {}, size, palette) {
         const { x, y } = axialToPixel(q, r, size);
         ctx.save();
         ctx.translate(x, y);
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
+        ctx.shadowBlur = size * 0.05;
         ctx.beginPath();
         hexPath(ctx, size);
         ctx.fillStyle = color === 'black' ? palette.tileDark : palette.tileLight;
         ctx.strokeStyle = palette.outline;
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 2;
         ctx.fill();
         ctx.stroke();
         ctx.restore();
@@ -165,6 +167,8 @@ function drawPieces(ctx, pieces = {}, tiles = {}, size, palette) {
         const { x, y } = axialToPixel(q, r, size);
         ctx.save();
         ctx.translate(x, y);
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+        ctx.shadowBlur = size * 0.06;
         ctx.beginPath();
         if (piece.type === 'ring') {
             const ringColor = piece.color === 'black' ? palette.ringDark : palette.ringLight;
@@ -176,8 +180,8 @@ function drawPieces(ctx, pieces = {}, tiles = {}, size, palette) {
             const discColor = piece.color === 'black' ? palette.discDark : palette.discLight;
             ctx.fillStyle = discColor;
             ctx.strokeStyle = palette.outline;
-            ctx.lineWidth = 1.5;
-            ctx.arc(0, 0, size * 0.32, 0, Math.PI * 2);
+            ctx.lineWidth = 2;
+            ctx.arc(0, 0, size * 0.34, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
         }

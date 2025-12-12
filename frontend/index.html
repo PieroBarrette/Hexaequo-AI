@@ -25,11 +25,11 @@
 				</div>
 			</div>
 			<nav class="nav-rail__menu" aria-label="Primary">
-				<button type="button" class="nav-rail__item is-active" data-flyout-trigger="play">
+				<button type="button" class="nav-rail__item is-active" data-flyout-trigger="play" data-view-target="game">
 					<span class="nav-rail__icon" aria-hidden="true">&#9671;</span>
 					<span class="nav-rail__label">Play</span>
 				</button>
-				<button type="button" class="nav-rail__item" data-flyout-trigger="learn">
+				<button type="button" class="nav-rail__item" data-flyout-trigger="learn" data-view-target="learn">
 					<span class="nav-rail__icon" aria-hidden="true">?</span>
 					<span class="nav-rail__label">Learn</span>
 				</button>
@@ -70,6 +70,54 @@
 						</button>
 					</li>
 				</ul>
+				<section class="local-panel local-panel--flyout" data-local-panel="flyout">
+					<header class="local-panel__header">
+						<div>
+							<p class="local-panel__eyebrow">Local duel</p>
+							<h2>Pass-and-play</h2>
+							<p>Swap names, pick a clock, and share this device.</p>
+						</div>
+						<div class="local-panel__actions">
+							<button type="button" class="ghost-btn" data-local-swap>Swap</button>
+							<button type="button" class="ghost-btn" data-local-reset>Reset</button>
+						</div>
+					</header>
+					<form class="local-panel__form" data-local-form>
+						<div class="local-panel__grid">
+							<label>
+								<span>Player Black</span>
+								<input type="text" name="localBlackName" maxlength="18" placeholder="Player Black" autocomplete="off" />
+							</label>
+							<label>
+								<span>Player White</span>
+								<input type="text" name="localWhiteName" maxlength="18" placeholder="Player White" autocomplete="off" />
+							</label>
+						</div>
+						<fieldset class="timer-fieldset local-panel__timers">
+							<legend>Timer</legend>
+							<label class="timer-option">
+								<input type="radio" name="localTimer" value="none" />
+								<span>No timer</span>
+							</label>
+							<label class="timer-option">
+								<input type="radio" name="localTimer" value="classic" />
+								<span>Classic 15 | 0</span>
+							</label>
+							<label class="timer-option">
+								<input type="radio" name="localTimer" value="rapid" />
+								<span>Rapid 10 | 5</span>
+							</label>
+							<label class="timer-option">
+								<input type="radio" name="localTimer" value="blitz" />
+								<span>Blitz 5 | 3</span>
+							</label>
+						</fieldset>
+						<div class="local-panel__footer">
+							<button type="submit" class="lobby-btn">Start local match</button>
+							<p class="form-status" data-local-status>Ready when you are.</p>
+						</div>
+					</form>
+				</section>
 			</article>
 			<article class="flyout-card" data-flyout="learn">
 				<header class="flyout-card__header">
@@ -79,6 +127,16 @@
 					</div>
 				</header>
 				<p class="flyout-placeholder">Tutorial missions and move explainers return soon.</p>
+				<div class="learn-actions">
+					<button type="button" class="mode-card" data-learn-view="rules">
+						<strong class="mode-card__title">Rules</strong>
+						<p>Open the latest official PDF.</p>
+					</button>
+					<button type="button" class="mode-card" data-learn-view="tutorial">
+						<strong class="mode-card__title">Tutorial</strong>
+						<p>Interactive lessons are coming soon.</p>
+					</button>
+				</div>
 			</article>
 			<article class="flyout-card" data-flyout="settings">
 				<header class="flyout-card__header">
@@ -157,7 +215,7 @@
 				<span aria-hidden="true">&#9776;</span>
 			</button>
 			<section class="view-stage" data-view-panel="game">
-				<div class="local-panel" data-local-panel>
+				<section class="local-panel local-panel--stage" data-local-panel="stage">
 					<header class="local-panel__header">
 						<div>
 							<p class="local-panel__eyebrow">Local duel</p>
@@ -204,7 +262,7 @@
 							<p class="form-status" data-local-status>Ready when you are.</p>
 						</div>
 					</form>
-				</div>
+				</section>
 				<section class="board-stage">
 					<div class="inventory-row">
 						<div class="inventory-column">
@@ -247,6 +305,7 @@
 					<div class="canvas-shell">
 						<canvas id="modernGameCanvas" width="1080" height="540"></canvas>
 						<div class="inline-prompts" data-inline-prompts></div>
+						<div class="game-over-banner" data-game-over hidden></div>
 					</div>
 				</section>
 			</section>
@@ -368,9 +427,7 @@
 				</div>
 			</section>
 		</main>
-	</div>
-
-	<div class="game-over-overlay" data-game-over hidden></div>
+		</div>
 
 	<script type="module" src="./js/app.js"></script>
 </body>

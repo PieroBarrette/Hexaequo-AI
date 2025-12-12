@@ -34,7 +34,8 @@ const DEFAULT_STATE = {
 	activeFlyout: '',
 	lobby: { ...DEFAULT_LOBBY_PREFS },
 	matchSettings: { ...DEFAULT_MATCH_SETTINGS },
-	players: { ...DEFAULT_PLAYERS }
+	players: { ...DEFAULT_PLAYERS },
+	learnView: 'tutorial'
 };
 
 let appState = applyStateGuards({

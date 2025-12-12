@@ -1,3 +1,8 @@
+.learn-actions {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+	gap: 12px;
+}
 :root {
 	--font-base: 'Space Grotesk', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 	--color-bg: #0d1014;
@@ -18,8 +23,8 @@
 	--board-tile-light: #b6bcc9;
 	--board-disc-dark: #17191d;
 	--board-disc-light: #f6f7f8;
-	--board-ring-dark: #d4d7de;
-	--board-ring-light: #3a3e46;
+	--board-ring-dark: #2d2f36;
+	--board-ring-light: #dde0e7;
 	--board-outline: rgba(255, 255, 255, 0.18);
 	--board-highlight: rgba(255, 255, 255, 0.45);
 	--board-move-dot: rgba(255, 255, 255, 0.28);
@@ -55,8 +60,8 @@ body[data-theme='light'] {
 	--board-tile-light: #f5e1bf;
 	--board-disc-dark: #2a2018;
 	--board-disc-light: #fffaf0;
-	--board-ring-dark: #f7e7c9;
-	--board-ring-light: #59402c;
+	--board-ring-dark: #4b3627;
+	--board-ring-light: #fcead0;
 	--board-outline: rgba(64, 43, 25, 0.55);
 	--board-highlight: rgba(64, 43, 25, 0.65);
 	--board-move-dot: rgba(82, 56, 31, 0.45);
@@ -661,7 +666,6 @@ input:focus {
 }
 
 body[data-view='game'] [data-view-panel='game'],
-body[data-view='local'] [data-view-panel='game'],
 body[data-view='play-online'] [data-view-panel='play-online'],
 body[data-view='vs-ai'] [data-view-panel='vs-ai'] {
 	display: flex;
@@ -699,8 +703,16 @@ body[data-view='vs-ai'] [data-view-panel='vs-ai'] {
 	display: none;
 }
 
-body[data-view='local'] [data-local-panel] {
+[data-local-panel="flyout"] {
 	display: flex;
+}
+
+body[data-view='local'] [data-local-panel="stage"] {
+	display: flex;
+}
+
+body:not([data-view='local']) [data-local-panel="stage"] {
+	display: none;
 }
 
 .local-panel {
@@ -714,8 +726,11 @@ body[data-view='local'] [data-local-panel] {
 	animation: fade-in 0.25s ease;
 }
 
-.app-shell[data-nav-expanded='false'] .local-panel {
-	display: none;
+
+.local-panel--flyout {
+	background: var(--color-panel-soft);
+	box-shadow: none;
+	margin-top: 18px;
 }
 
 .local-panel__header {

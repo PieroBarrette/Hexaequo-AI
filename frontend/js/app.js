@@ -355,11 +355,16 @@ function initializeNavigationPanels() {
 }
 
 function initLocalPanel() {
-	const panel = document.querySelector('[data-local-panel]');
-	if (!panel) {
+	const panels = Array.from(document.querySelectorAll('[data-local-panel]'));
+	if (panels.length === 0) {
 		return () => {};
 	}
 
+	const disposers = panels.map((panel) => mountLocalPanelInstance(panel));
+	return () => disposers.forEach((dispose) => dispose?.());
+}
+
+function mountLocalPanelInstance(panel) {
 	const form = panel.querySelector('[data-local-form]');
 	const statusEl = panel.querySelector('[data-local-status]');
 	const swapBtn = panel.querySelector('[data-local-swap]');
