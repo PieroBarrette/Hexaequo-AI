@@ -13,6 +13,7 @@
 
     // ==================== State ====================
     let selectedDifficulty = 3;
+    let selectedTimeControl = 'classic'; // Default time control for online games
     let socket = null;
     let isConnected = false;
     let currentRoomCode = null;
@@ -127,6 +128,13 @@
         lobby.previousMoveToggle = document.getElementById('lobbyPreviousMoveToggle');
         lobby.animationsToggle = document.getElementById('lobbyAnimationsToggle');
         
+        // Time control
+        lobby.timeControlSelect = document.getElementById('timeControlSelect');
+        
+        // Resume button
+        lobby.resumeSection = document.getElementById('resumeSection');
+        lobby.resumeGameBtn = document.getElementById('resumeGameBtn');
+        
         lobby.rulesBtn = document.getElementById('lobbyRulesBtn');
         lobby.settingsBtn = document.getElementById('lobbySettingsBtn');
 
@@ -186,8 +194,20 @@
         lobby.previousMoveToggle?.addEventListener('change', handlePreviousMoveChange);
         lobby.animationsToggle?.addEventListener('change', handleAnimationsChange);
         
+        // Time control select
+        lobby.timeControlSelect?.addEventListener('change', (e) => {
+            selectedTimeControl = e.target.value;
+            console.log('[Lobby] Time control changed to:', selectedTimeControl);
+        });
+        
+        // Resume game button
+        lobby.resumeGameBtn?.addEventListener('click', resumeGame);
+        
         // Footer
         lobby.rulesBtn?.addEventListener('click', openRules);
+        
+        // Check for saved game on init
+        checkForSavedGame();
     }
 
     // ==================== Settings Sync ====================
@@ -414,6 +434,11 @@
             gameModeSelect.dispatchEvent(new Event('change'));
         }
         
+        // No timer for local games (friendly)
+        if (window.GameTimer) {
+            window.GameTimer.setTimeControl('none');
+        }
+        
         // Update player displays
         updatePlayerInfoDisplays('2player');
         
@@ -439,6 +464,11 @@
         if (difficultySelect) {
             difficultySelect.value = selectedDifficulty.toString();
             difficultySelect.dispatchEvent(new Event('change'));
+        }
+        
+        // No timer for AI games
+        if (window.GameTimer) {
+            window.GameTimer.setTimeControl('none');
         }
         
         // Update player displays
@@ -626,6 +656,10 @@
         const playerColor = data.playerColor || window.Multiplayer.playerColor;
         const opponentInfo = data.opponentInfo || currentOpponent;
         
+        console.log('[Lobby] playerColor:', playerColor);
+        console.log('[Lobby] opponentInfo:', opponentInfo);
+        console.log('[Lobby] currentUser:', currentUser);
+        
         // Set online mode directly in game.js (don't trigger gameModeSelect change which opens old modal)
         if (window.setOnlineMode) {
             window.setOnlineMode(true, playerColor);
@@ -651,11 +685,64 @@
         // Update player info displays with online mode data
         updatePlayerInfoDisplays('online', null, playerColor, opponentInfo);
         
+        // Set the time control from the selection (or from server data if available)
+        const timeControl = data.timeControl || selectedTimeControl;
+        if (window.GameTimer) {
+            window.GameTimer.setTimeControl(timeControl);
+        }
+        
         // Hide lobby
         hideLobby();
         
         // Trigger new game
         triggerNewGame();
+    }
+
+    // ==================== Resume Game Functions ====================
+    function checkForSavedGame() {
+        // Check IndexedDB for saved game
+        if (!window.hexaequoDb) {
+            // DB not initialized yet, try again later
+            setTimeout(checkForSavedGame, 500);
+            return;
+        }
+        
+        const transaction = window.hexaequoDb.transaction(['gameSession'], 'readonly');
+        const objectStore = transaction.objectStore('gameSession');
+        const request = objectStore.get('currentGame');
+        
+        request.onsuccess = (event) => {
+            const sessionData = event.target.result;
+            if (sessionData && sessionData.moveHistory && sessionData.moveHistory.length > 1) {
+                // There's a saved game with moves
+                console.log('[Lobby] Found saved game');
+                showResumeButton();
+            } else {
+                hideResumeButton();
+            }
+        };
+        
+        request.onerror = () => {
+            hideResumeButton();
+        };
+    }
+    
+    function showResumeButton() {
+        if (lobby.resumeSection) {
+            lobby.resumeSection.style.display = 'block';
+        }
+    }
+    
+    function hideResumeButton() {
+        if (lobby.resumeSection) {
+            lobby.resumeSection.style.display = 'none';
+        }
+    }
+    
+    function resumeGame() {
+        console.log('[Lobby] Resuming saved game');
+        hideLobby();
+        // The game will auto-load from IndexedDB
     }
 
     // ==================== Utility Functions ====================
@@ -909,8 +996,13 @@
         show: showLobby,
         hide: hideLobby,
         getUser: () => currentUser,
+        getOpponent: () => currentOpponent,
         getSessionToken: () => sessionToken,
-        updatePlayerInfoDisplays
+        updatePlayerInfoDisplays,
+        setTimeControl: (control) => {
+            selectedTimeControl = control;
+        },
+        getTimeControl: () => selectedTimeControl
     };
 
     // Initialize when DOM is ready

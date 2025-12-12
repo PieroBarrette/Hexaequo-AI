@@ -139,6 +139,14 @@ window.onload = function () {
     let lastJumpPath = null; // Stores the jump path to pass to highlightLastMove
     let jumpPathForOnline = null; // Stores jump path to send with online moves
 
+    // Set up timer timeout callback
+    if (window.GameTimer) {
+        window.GameTimer.setTimeoutCallback((player) => {
+            const winner = player === 'black' ? 'White' : 'Black';
+            endGame(winner, 'on time');
+        });
+    }
+
     // Drag and drop state
     let isDragging = false;
     let draggedPiece = null; // { q, r, piece: {type, color} } - original position and piece data
@@ -1472,6 +1480,17 @@ window.onload = function () {
         return Object.values(pieces).some(piece => piece.color === player);
     }
 
+    // Get opponent name for display in end game popup
+    function getOpponentName() {
+        if (window.GameLobby && window.GameLobby.getOpponent) {
+            const opponent = window.GameLobby.getOpponent();
+            if (opponent && opponent.name) {
+                return opponent.name;
+            }
+        }
+        return 'Guest';
+    }
+
     // End the game and display the winner
     // winner: 'Black', 'White', or 'Ex Aequo'
     // reason: explanation for why the game ended (e.g., 'capturing 6 discs', 'stalemate', 'threefold repetition')
@@ -1479,6 +1498,11 @@ window.onload = function () {
         // Prevent duplicate game over popups
         if (document.getElementById('gameOver')) {
             return;
+        }
+        
+        // Stop the timer
+        if (window.GameTimer) {
+            window.GameTimer.stop();
         }
         
         playSound('gameEnd');
@@ -1534,6 +1558,9 @@ window.onload = function () {
         if (isOnlineMode) {
             // Online mode: Play Again and Leave Room buttons with opponent status
             
+            // Get opponent name for display
+            const opponentName = getOpponentName();
+            
             // Opponent status container
             const opponentStatusDiv = document.createElement('div');
             opponentStatusDiv.id = 'endgameOpponentStatus';
@@ -1544,7 +1571,7 @@ window.onload = function () {
             opponentStatusDiv.style.borderRadius = '6px';
             opponentStatusDiv.style.fontSize = '14px';
             opponentStatusDiv.style.color = isDarkTheme ? '#ccc' : '#666';
-            opponentStatusDiv.innerHTML = '<span class="status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981; margin-right: 8px;"></span>Opponent in room';
+            opponentStatusDiv.innerHTML = `<span class="status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981; margin-right: 8px;"></span>${opponentName} in room`;
             gameOverDiv.appendChild(opponentStatusDiv);
 
             // Buttons container
@@ -1641,6 +1668,7 @@ window.onload = function () {
     function handlePlayAgainClick() {
         const playAgainBtn = document.getElementById('playAgainBtn');
         const statusDiv = document.getElementById('endgameOpponentStatus');
+        const opponentName = getOpponentName();
         
         if (!localPlayerReady) {
             localPlayerReady = true;
@@ -1662,7 +1690,7 @@ window.onload = function () {
                     // Both ready, start new game
                     startRematchGame();
                 } else {
-                    statusDiv.innerHTML = '<span class="status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; margin-right: 8px; animation: pulse 1.5s infinite;"></span>Waiting for opponent...';
+                    statusDiv.innerHTML = `<span class="status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; margin-right: 8px; animation: pulse 1.5s infinite;"></span>Waiting for ${opponentName}...`;
                 }
             }
         }
@@ -1698,13 +1726,14 @@ window.onload = function () {
         opponentReady = true;
         const statusDiv = document.getElementById('endgameOpponentStatus');
         const playAgainBtn = document.getElementById('playAgainBtn');
+        const opponentName = getOpponentName();
         
         if (statusDiv) {
             if (localPlayerReady) {
                 // Both ready, start new game
                 startRematchGame();
             } else {
-                statusDiv.innerHTML = '<span class="status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981; margin-right: 8px;"></span>Opponent is ready for next game';
+                statusDiv.innerHTML = `<span class="status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981; margin-right: 8px;"></span>${opponentName} is ready for next game`;
             }
         }
     }
@@ -1714,9 +1743,10 @@ window.onload = function () {
         opponentReady = false;
         const statusDiv = document.getElementById('endgameOpponentStatus');
         const playAgainBtn = document.getElementById('playAgainBtn');
+        const opponentName = getOpponentName();
         
         if (statusDiv) {
-            statusDiv.innerHTML = '<span class="status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ef4444; margin-right: 8px;"></span>Opponent has left the room';
+            statusDiv.innerHTML = `<span class="status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ef4444; margin-right: 8px;"></span>${opponentName} has left the room`;
         }
         
         if (playAgainBtn) {
@@ -1850,6 +1880,11 @@ window.onload = function () {
 
     // Record initial state at game start
     recordInitialState();
+    
+    // Start black's timer (black moves first)
+    if (window.GameTimer && window.GameTimer.isEnabled()) {
+        window.GameTimer.start('black');
+    }
 
     // Undo the last move(s)
     function undoMove() {
@@ -2107,6 +2142,11 @@ window.onload = function () {
         // Clear IndexedDB cache
         clearGameSession();
         
+        // Reset timer
+        if (window.GameTimer) {
+            window.GameTimer.reset();
+        }
+        
         // Clear all game state
         Object.keys(pieces).forEach(key => delete pieces[key]);
         Object.keys(tiles).forEach(key => delete tiles[key]);
@@ -2150,6 +2190,11 @@ window.onload = function () {
 
         // Re-enable interactions after game reset
         enableInteractions();
+
+        // Start black's timer (black moves first)
+        if (window.GameTimer && window.GameTimer.isEnabled()) {
+            window.GameTimer.start('black');
+        }
 
         // Record the initial state so undo can go to the start
         recordInitialState();
@@ -2270,6 +2315,11 @@ window.onload = function () {
 
         // Update active player
         activePlayer = updatedState.activePlayer;
+
+        // Switch timer to new active player
+        if (window.GameTimer && window.GameTimer.isEnabled()) {
+            window.GameTimer.start(activePlayer);
+        }
 
         // Determine the jump path to use for recording
         const pathToRecord = jumpPathParam || updatedState.lastJumpPath || null;

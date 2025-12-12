@@ -36,6 +36,11 @@
             </div>
             
             <div class="lobby-menu">
+                <!-- Resume Game (shown if there's a saved game) -->
+                <div class="lobby-section resume-section" id="resumeSection" style="display: none;">
+                    <button class="lobby-btn resume-btn" id="resumeGameBtn">Resume Game</button>
+                </div>
+                
                 <!-- Game Mode Selection -->
                 <div class="lobby-section mode-selection">
                     <button class="lobby-btn" id="playLocalBtn">Local Game</button>
@@ -70,6 +75,16 @@
                     </div>
                     
                     <div id="lobbyRoomActions" class="lobby-room-actions" style="display: none;">
+                        <div class="time-control-select">
+                            <label for="timeControlSelect">Time Control</label>
+                            <select id="timeControlSelect" class="lobby-select">
+                                <option value="none">No Timer</option>
+                                <option value="classic" selected>Classic: 15|0</option>
+                                <option value="rapid">Rapid: 10|5</option>
+                                <option value="blitz">Blitz: 5|3</option>
+                                <option value="bullet">Bullet: 2|1</option>
+                            </select>
+                        </div>
                         <button class="lobby-btn primary" id="lobbyCreateRoomBtn">Create Room</button>
                         <div class="join-section">
                             <div class="join-divider">or</div>
@@ -186,10 +201,12 @@
         <div id="blackPlayerInfo" class="player-info player-info-left">
             <span class="player-name">Black</span>
             <span class="player-rating"></span>
+            <span class="player-timer" id="blackTimer"></span>
         </div>
         <div id="whitePlayerInfo" class="player-info player-info-right">
             <span class="player-name">White</span>
             <span class="player-rating"></span>
+            <span class="player-timer" id="whiteTimer"></span>
         </div>
         
         <div id="undoRedoToolbar">
@@ -376,6 +393,7 @@
         </div>
     </div>
 
+    <script src="timer.js"></script>
     <script src="lobby.js"></script>
     <script src="multiplayer.js"></script>
     <script src="ai.js"></script>

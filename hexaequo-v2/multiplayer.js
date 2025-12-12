@@ -156,13 +156,17 @@ const Multiplayer = (function () {
     // Get current user info from lobby
     function getUserInfo() {
         const currentUser = window.GameLobby?.getUser();
+        console.log('[Multiplayer] getUserInfo - currentUser:', currentUser);
         if (currentUser) {
-            return {
+            const userInfo = {
                 name: currentUser.display_name || currentUser.displayName || currentUser.username,
                 elo: currentUser.elo || 1000,
                 isGuest: false
             };
+            console.log('[Multiplayer] Returning userInfo:', userInfo);
+            return userInfo;
         }
+        console.log('[Multiplayer] No user found, returning Guest');
         return { name: 'Guest', elo: null, isGuest: true };
     }
 
@@ -175,6 +179,7 @@ const Multiplayer = (function () {
             }
 
             const userInfo = getUserInfo();
+            console.log('[Multiplayer] Creating room with userInfo:', userInfo);
             socket.emit('create-room', { playerId, userInfo }, (response) => {
                 if (response.success) {
                     roomCode = response.roomCode;
@@ -206,7 +211,9 @@ const Multiplayer = (function () {
             }
 
             const userInfo = getUserInfo();
+            console.log('[Multiplayer] Joining room with userInfo:', userInfo);
             socket.emit('join-room', { roomCode: code.toUpperCase(), playerId, userInfo }, (response) => {
+                console.log('[Multiplayer] Join room response:', response);
                 if (response.success) {
                     roomCode = response.roomCode;
                     playerColor = response.color;

@@ -399,10 +399,23 @@ A player wins by:
 - Spectator session management
 
 #### Rating System
-- ELO calculation per time control pool
+- **Single ELO Rating**: One universal rating per player (not per time control)
+- **Time Control Multipliers**: ELO gains/losses vary by time control:
+  - Classic (15|0): Full ELO change (100%)
+  - Rapid (10|5): 80% of base ELO change
+  - Blitz (5|3): 60% of base ELO change
+  - Bullet (2|1): 40% of base ELO change
+  - No Timer: 0% (friendly game, no ELO change)
+- **Guest Games**: No ELO awarded when either player is a guest
 - K-factor adjustments for new players
-- Separate pools for different game modes
 - Rating history tracking
+
+#### Time Controls
+- **No Timer**: Unlimited time, friendly game (no ELO)
+- **Classic (15|0)**: 15 minutes per player, no increment
+- **Rapid (10|5)**: 10 minutes per player, 5 second increment per move
+- **Blitz (5|3)**: 5 minutes per player, 3 second increment per move
+- **Bullet (2|1)**: 2 minutes per player, 1 second increment per move
 
 #### Services
 

@@ -419,6 +419,80 @@ button:active {
     color: var(--text-secondary);
 }
 
+.player-info .player-timer {
+    font-size: 1.1rem;
+    font-weight: 700;
+    font-family: 'Courier New', monospace;
+    color: var(--text-primary);
+    margin-top: 4px;
+    padding: 4px 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    min-width: 60px;
+    text-align: center;
+}
+
+.player-info .player-timer.active {
+    background: var(--accent-color, #10b981);
+    color: #fff;
+}
+
+.player-info .player-timer.low-time {
+    background: #ef4444;
+    color: #fff;
+    animation: pulse-timer 0.5s ease-in-out infinite;
+}
+
+@keyframes pulse-timer {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* Time Control Select in Lobby */
+.time-control-select {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+    margin-bottom: 12px;
+}
+
+.time-control-select label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.lobby-select {
+    padding: 10px 14px;
+    font-size: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--hamburger-bg);
+    color: var(--text-primary);
+    cursor: pointer;
+    width: 100%;
+}
+
+.lobby-select:focus {
+    outline: none;
+    border-color: var(--accent-color, #10b981);
+}
+
+/* Resume Button */
+.resume-section {
+    margin-bottom: 16px;
+}
+
+.resume-btn {
+    background: linear-gradient(135deg, #10b981, #059669) !important;
+    color: #fff !important;
+    font-weight: 600;
+}
+
+.resume-btn:hover {
+    background: linear-gradient(135deg, #059669, #047857) !important;
+}
+
 /* Menu Overlay */
 #menuOverlay {
     position: fixed;
