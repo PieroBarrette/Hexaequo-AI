@@ -1,44 +1,55 @@
 /**
  * Authentication Service
  * 
- * Business logic for user authentication.
+ * Business logic for user authentication using PostgreSQL database.
  */
 
-const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { 
     JWT_SECRET, 
     JWT_EXPIRES_IN, 
-    JWT_REFRESH_EXPIRES_IN,
-    BCRYPT_ROUNDS 
+    JWT_REFRESH_EXPIRES_IN
 } = require('../config/env');
 const { AppError, conflict, unauthorized, notFound } = require('../middleware/errorHandler');
 const emailService = require('./emailService');
+const { User, RefreshToken } = require('../models');
 
-// Temporary in-memory storage (replace with database)
-const users = new Map();
-const refreshTokens = new Set();
-const verificationTokens = new Map();
-const resetTokens = new Map();
+/**
+ * Parse time string to milliseconds
+ */
+function parseExpiry(expiryString) {
+    const match = expiryString.match(/^(\d+)([smhd])$/);
+    if (!match) return 24 * 60 * 60 * 1000; // Default 24 hours
+    
+    const value = parseInt(match[1]);
+    const unit = match[2];
+    
+    switch (unit) {
+        case 's': return value * 1000;
+        case 'm': return value * 60 * 1000;
+        case 'h': return value * 60 * 60 * 1000;
+        case 'd': return value * 24 * 60 * 60 * 1000;
+        default: return 24 * 60 * 60 * 1000;
+    }
+}
 
 /**
  * Generate JWT tokens
  */
-function generateTokens(user) {
+async function generateTokens(user) {
     const accessToken = jwt.sign(
         { userId: user.id, email: user.email, pseudo: user.pseudo },
         JWT_SECRET,
         { expiresIn: JWT_EXPIRES_IN }
     );
 
-    const refreshToken = jwt.sign(
-        { userId: user.id, type: 'refresh' },
-        JWT_SECRET,
-        { expiresIn: JWT_REFRESH_EXPIRES_IN }
-    );
-
-    refreshTokens.add(refreshToken);
+    // Calculate refresh token expiry
+    const refreshExpiryMs = parseExpiry(JWT_REFRESH_EXPIRES_IN);
+    const refreshExpiresAt = new Date(Date.now() + refreshExpiryMs);
+    
+    // Store refresh token in database
+    const refreshToken = await RefreshToken.create(user.id, refreshExpiresAt);
 
     return { accessToken, refreshToken };
 }
@@ -48,50 +59,21 @@ function generateTokens(user) {
  */
 exports.createUser = async ({ email, pseudo, password }) => {
     // Check if email already exists
-    for (const user of users.values()) {
-        if (user.email === email.toLowerCase()) {
-            throw conflict('Email already registered');
-        }
-        if (user.pseudo.toLowerCase() === pseudo.toLowerCase()) {
-            throw conflict('Pseudo already taken');
-        }
+    if (await User.emailExists(email)) {
+        throw conflict('Email already registered');
+    }
+    
+    if (await User.pseudoExists(pseudo)) {
+        throw conflict('Pseudo already taken');
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
-
-    // Create user
-    const userId = crypto.randomUUID();
-    const user = {
-        id: userId,
-        email: email.toLowerCase(),
-        pseudo,
-        password: hashedPassword,
-        emailVerified: false,
-        elo: {
-            classic: 1500,
-            rapid: 1500,
-            blitz: 1500
-        },
-        stats: {
-            gamesPlayed: 0,
-            wins: 0,
-            losses: 0,
-            draws: 0
-        },
-        settings: {
-            theme: 'dark',
-            sounds: true,
-            animations: true
-        },
-        createdAt: new Date().toISOString()
-    };
-
-    users.set(userId, user);
+    // Create user (password is hashed in model)
+    const user = await User.create({ email, pseudo, password });
 
     // Generate verification token
     const verificationToken = crypto.randomBytes(32).toString('hex');
-    verificationTokens.set(verificationToken, { userId, expires: Date.now() + 24 * 60 * 60 * 1000 });
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await User.setVerificationToken(user.id, verificationToken, verificationExpires);
 
     // Send verification email (async, don't wait)
     emailService.sendVerificationEmail(email, verificationToken).catch(console.error);
@@ -104,26 +86,23 @@ exports.createUser = async ({ email, pseudo, password }) => {
  */
 exports.loginUser = async ({ email, password }) => {
     // Find user by email
-    let user = null;
-    for (const u of users.values()) {
-        if (u.email === email.toLowerCase()) {
-            user = u;
-            break;
-        }
-    }
-
+    const user = await User.findByEmail(email);
+    
     if (!user) {
         throw unauthorized('Invalid email or password');
     }
 
     // Check password
-    const isValidPassword = await bcrypt.compare(password, user.password);
+    const isValidPassword = await User.verifyPassword(user, password);
     if (!isValidPassword) {
         throw unauthorized('Invalid email or password');
     }
 
+    // Update last seen
+    await User.updateLastSeen(user.id);
+
     // Generate tokens
-    const tokens = generateTokens(user);
+    const tokens = await generateTokens(user);
 
     return {
         ...tokens,
@@ -131,7 +110,11 @@ exports.loginUser = async ({ email, password }) => {
             id: user.id,
             pseudo: user.pseudo,
             email: user.email,
-            elo: user.elo
+            elo: {
+                classic: user.elo_classic,
+                rapid: user.elo_rapid,
+                blitz: user.elo_blitz
+            }
         }
     };
 };
@@ -140,115 +123,152 @@ exports.loginUser = async ({ email, password }) => {
  * Logout user
  */
 exports.logoutUser = async (refreshToken) => {
-    refreshTokens.delete(refreshToken);
+    await RefreshToken.deleteToken(refreshToken);
+};
+
+/**
+ * Logout from all devices
+ */
+exports.logoutAllDevices = async (userId) => {
+    return await RefreshToken.deleteAllForUser(userId);
 };
 
 /**
  * Refresh access token
  */
 exports.refreshAccessToken = async (refreshToken) => {
-    if (!refreshTokens.has(refreshToken)) {
+    const tokenData = await RefreshToken.findValid(refreshToken);
+    
+    if (!tokenData) {
         throw unauthorized('Invalid refresh token');
     }
 
-    try {
-        const decoded = jwt.verify(refreshToken, JWT_SECRET);
-        const user = users.get(decoded.userId);
-
-        if (!user) {
-            throw unauthorized('User not found');
-        }
-
-        // Invalidate old refresh token
-        refreshTokens.delete(refreshToken);
-
-        // Generate new tokens
-        return generateTokens(user);
-    } catch (error) {
-        refreshTokens.delete(refreshToken);
-        throw unauthorized('Invalid refresh token');
+    const user = await User.findById(tokenData.user_id);
+    
+    if (!user) {
+        await RefreshToken.deleteToken(refreshToken);
+        throw unauthorized('User not found');
     }
+
+    // Invalidate old refresh token
+    await RefreshToken.deleteToken(refreshToken);
+
+    // Generate new tokens
+    return await generateTokens(user);
 };
 
 /**
  * Verify email
  */
 exports.verifyEmail = async (token) => {
-    const tokenData = verificationTokens.get(token);
-
-    if (!tokenData || tokenData.expires < Date.now()) {
+    const success = await User.verifyEmail(token);
+    
+    if (!success) {
         throw new AppError('Invalid or expired verification token', 400, 'INVALID_TOKEN');
     }
+};
 
-    const user = users.get(tokenData.userId);
-    if (user) {
-        user.emailVerified = true;
+/**
+ * Resend verification email
+ */
+exports.resendVerification = async (email) => {
+    const user = await User.findByEmail(email);
+    
+    if (!user) {
+        // Don't reveal if email exists
+        return;
+    }
+    
+    if (user.email_verified) {
+        throw new AppError('Email already verified', 400, 'ALREADY_VERIFIED');
     }
 
-    verificationTokens.delete(token);
+    // Generate new verification token
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await User.setVerificationToken(user.id, verificationToken, verificationExpires);
+
+    // Send verification email
+    await emailService.sendVerificationEmail(email, verificationToken);
 };
 
 /**
  * Request password reset
  */
 exports.requestPasswordReset = async (email) => {
-    let user = null;
-    for (const u of users.values()) {
-        if (u.email === email.toLowerCase()) {
-            user = u;
-            break;
-        }
-    }
-
-    if (!user) {
-        // Don't reveal if email exists
-        return;
-    }
-
     // Generate reset token
     const resetToken = crypto.randomBytes(32).toString('hex');
-    resetTokens.set(resetToken, { userId: user.id, expires: Date.now() + 60 * 60 * 1000 });
-
-    // Send reset email
-    await emailService.sendPasswordResetEmail(email, resetToken);
+    const resetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    
+    const success = await User.setResetToken(email, resetToken, resetExpires);
+    
+    if (success) {
+        // Send reset email
+        await emailService.sendPasswordResetEmail(email, resetToken);
+    }
+    // Don't reveal if email exists - same response either way
 };
 
 /**
  * Reset password
  */
 exports.resetPassword = async (token, newPassword) => {
-    const tokenData = resetTokens.get(token);
-
-    if (!tokenData || tokenData.expires < Date.now()) {
+    const success = await User.resetPassword(token, newPassword);
+    
+    if (!success) {
         throw new AppError('Invalid or expired reset token', 400, 'INVALID_TOKEN');
     }
-
-    const user = users.get(tokenData.userId);
-    if (!user) {
-        throw notFound('User');
-    }
-
-    // Hash new password
-    user.password = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
-
-    resetTokens.delete(token);
 };
 
 /**
  * Change password (authenticated)
  */
 exports.changePassword = async (userId, currentPassword, newPassword) => {
-    const user = users.get(userId);
+    const user = await User.findById(userId);
     if (!user) {
         throw notFound('User');
     }
+    
+    // Get full user with password hash
+    const fullUser = await User.findByEmail(user.email);
 
     // Verify current password
-    const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+    const isValidPassword = await User.verifyPassword(fullUser, currentPassword);
     if (!isValidPassword) {
         throw unauthorized('Current password is incorrect');
     }
 
-    // Hash new password
-    user.password = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+    // Update password
+    await User.updatePassword(userId, newPassword);
+    
+    // Optionally invalidate all other sessions
+    // await RefreshToken.deleteAllForUser(userId);
+};
+
+/**
+ * Validate token and get user
+ */
+exports.validateToken = async (token) => {
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const user = await User.findById(decoded.userId);
+        
+        if (!user) {
+            throw unauthorized('User not found');
+        }
+        
+        return {
+            userId: user.id,
+            email: user.email,
+            pseudo: user.pseudo
+        };
+    } catch (error) {
+        if (error.name === 'JsonWebTokenError') {
+            throw unauthorized('Invalid token');
+        }
+        if (error.name === 'TokenExpiredError') {
+            throw unauthorized('Token expired');
+        }
+        throw error;
+    }
 };

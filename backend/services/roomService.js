@@ -1,127 +1,52 @@
 /**
  * Room Service
  * 
- * Business logic for room operations.
+ * Business logic for room operations using PostgreSQL database.
  */
 
-const crypto = require('crypto');
 const { notFound, conflict } = require('../middleware/errorHandler');
-
-// Temporary in-memory storage (replace with database)
-const rooms = new Map();
-
-/**
- * Generate room code
- */
-function generateRoomCode() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let code = '';
-    for (let i = 0; i < 4; i++) {
-        code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return code;
-}
-
-/**
- * Get unique room code
- */
-function getUniqueRoomCode() {
-    let code;
-    let attempts = 0;
-    do {
-        code = generateRoomCode();
-        attempts++;
-        if (attempts > 100) {
-            throw new Error('Failed to generate unique room code');
-        }
-    } while (rooms.has(code));
-    return code;
-}
+const { Room, Spectator } = require('../models');
 
 /**
  * Get rooms list
  */
 exports.getRooms = async ({ status = 'waiting', timeMode, allowSpectators, page = 1, limit = 20 }) => {
-    let roomList = Array.from(rooms.values());
-
-    // Filter by status
-    if (status) {
-        roomList = roomList.filter(r => r.status === status);
-    }
-
-    // Filter by time mode
-    if (timeMode) {
-        roomList = roomList.filter(r => r.timeMode === timeMode);
-    }
-
-    // Filter by spectators
-    if (allowSpectators !== undefined) {
-        roomList = roomList.filter(r => r.allowSpectators === allowSpectators);
-    }
-
-    // Sort by created date (newest first)
-    roomList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-    // Paginate
-    const total = roomList.length;
-    const totalPages = Math.ceil(total / limit);
-    const start = (page - 1) * limit;
-    const paginatedRooms = roomList.slice(start, start + limit);
-
-    return {
-        rooms: paginatedRooms.map(r => ({
-            code: r.code,
-            host: r.host,
-            timeMode: r.timeMode,
-            allowSpectators: r.allowSpectators,
-            status: r.status,
-            createdAt: r.createdAt
-        })),
-        total,
-        page,
-        totalPages
-    };
+    return await Room.findAvailable({ status, timeMode, allowSpectators, page, limit });
 };
 
 /**
  * Get room by code
  */
 exports.getRoomByCode = async (code) => {
-    const room = rooms.get(code);
+    const room = await Room.findByCode(code);
     if (!room) {
         throw notFound('Room');
     }
-    return room;
+    
+    // Convert to external format
+    return formatRoomResponse(room);
 };
 
 /**
  * Create room
  */
-exports.createRoom = async ({ hostId, timeMode = 'none', allowSpectators = true }) => {
-    const code = getUniqueRoomCode();
-
-    const room = {
-        code,
-        host: {
-            id: hostId,
-            color: 'black'
-        },
-        guest: null,
+exports.createRoom = async ({ hostId, hostPseudo, hostSocketId, timeMode = 'none', allowSpectators = true }) => {
+    const room = await Room.create({
+        hostId,
+        hostPseudo,
+        hostSocketId,
         timeMode,
-        allowSpectators,
-        status: 'waiting',
-        createdAt: new Date().toISOString()
-    };
-
-    rooms.set(code, room);
-    return room;
+        allowSpectators
+    });
+    
+    return formatRoomResponse(room);
 };
 
 /**
- * Join room
+ * Join room as guest
  */
-exports.joinRoom = async (code, userId) => {
-    const room = rooms.get(code);
+exports.joinRoom = async (code, { guestId, guestPseudo, guestSocketId }) => {
+    const room = await Room.findByCode(code);
     if (!room) {
         throw notFound('Room');
     }
@@ -129,17 +54,21 @@ exports.joinRoom = async (code, userId) => {
     if (room.status !== 'waiting') {
         throw conflict('Room is not available');
     }
-
-    room.guest = {
-        id: userId,
-        color: 'white'
-    };
-    room.status = 'playing';
+    
+    const updatedRoom = await Room.joinAsGuest(code, {
+        guestId,
+        guestPseudo,
+        guestSocketId
+    });
+    
+    if (!updatedRoom) {
+        throw conflict('Failed to join room');
+    }
 
     return {
         roomCode: code,
         color: 'white',
-        timeMode: room.timeMode
+        timeMode: updatedRoom.time_mode
     };
 };
 
@@ -147,41 +76,155 @@ exports.joinRoom = async (code, userId) => {
  * Leave room
  */
 exports.leaveRoom = async (code, userId) => {
-    const room = rooms.get(code);
+    const room = await Room.findByCode(code);
     if (!room) {
         return; // Room already gone
     }
 
     // If host leaves, delete room
-    if (room.host?.id === userId) {
-        rooms.delete(code);
-        return;
+    if (room.host_id === userId) {
+        // Clear spectators first
+        await Spectator.clearRoom(code);
+        await Room.deleteRoom(code);
+        return { deleted: true };
     }
 
     // If guest leaves, room goes back to waiting
-    if (room.guest?.id === userId) {
-        room.guest = null;
-        room.status = 'waiting';
+    if (room.guest_id === userId) {
+        await Room.removeGuest(code);
+        return { deleted: false };
     }
+    
+    // Check if it's a spectator
+    const spectators = await Spectator.findByRoom(code);
+    const spectator = spectators.find(s => s.user_id === userId);
+    if (spectator) {
+        await Spectator.leave(spectator.socket_id);
+    }
+    
+    return { deleted: false };
 };
 
 /**
  * Delete room
  */
 exports.deleteRoom = async (code) => {
-    rooms.delete(code);
+    await Spectator.clearRoom(code);
+    await Room.deleteRoom(code);
 };
 
-// Cleanup old rooms periodically
-setInterval(() => {
-    const now = Date.now();
-    const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+/**
+ * Update game state in room
+ */
+exports.updateGameState = async (code, gameState, activePlayer) => {
+    return await Room.updateGameState(code, gameState, activePlayer);
+};
 
-    for (const [code, room] of rooms.entries()) {
-        if (now - new Date(room.createdAt).getTime() > maxAge) {
-            rooms.delete(code);
-        }
+/**
+ * Update player socket ID (for reconnection)
+ */
+exports.updateSocketId = async (code, color, socketId) => {
+    await Room.updateSocketId(code, color, socketId);
+};
+
+/**
+ * Update room status
+ */
+exports.updateStatus = async (code, status) => {
+    await Room.updateStatus(code, status);
+};
+
+/**
+ * Reset room for rematch
+ */
+exports.resetForRematch = async (code) => {
+    return await Room.resetForRematch(code);
+};
+
+/**
+ * Join room as spectator
+ */
+exports.joinAsSpectator = async (code, { userId, socketId, pseudo }) => {
+    const room = await Room.findByCode(code);
+    if (!room) {
+        throw notFound('Room');
     }
-}, 60 * 60 * 1000); // Every hour
+    
+    if (!room.allow_spectators) {
+        throw conflict('Spectators not allowed in this room');
+    }
+    
+    await Spectator.join(code, { userId, socketId, pseudo });
+    
+    return {
+        roomCode: code,
+        gameState: room.game_state,
+        host: room.host_pseudo,
+        guest: room.guest_pseudo
+    };
+};
+
+/**
+ * Leave as spectator
+ */
+exports.leaveAsSpectator = async (socketId) => {
+    return await Spectator.leave(socketId);
+};
+
+/**
+ * Get spectators in room
+ */
+exports.getSpectators = async (code) => {
+    return await Spectator.findByRoom(code);
+};
+
+/**
+ * Get spectator count
+ */
+exports.getSpectatorCount = async (code) => {
+    return await Spectator.getCount(code);
+};
+
+/**
+ * Format room response (internal -> external)
+ */
+function formatRoomResponse(room) {
+    return {
+        code: room.code,
+        host: {
+            id: room.host_id,
+            pseudo: room.host_pseudo,
+            socketId: room.host_socket_id,
+            color: 'black'
+        },
+        guest: room.guest_id ? {
+            id: room.guest_id,
+            pseudo: room.guest_pseudo,
+            socketId: room.guest_socket_id,
+            color: 'white'
+        } : null,
+        timeMode: room.time_mode,
+        allowSpectators: room.allow_spectators,
+        status: room.status,
+        gameState: room.game_state,
+        activePlayer: room.active_player,
+        createdAt: room.created_at
+    };
+}
+
+// Schedule periodic cleanup of old rooms
+// This runs when the service is loaded
+if (process.env.NODE_ENV !== 'test') {
+    setInterval(async () => {
+        try {
+            const cleaned = await Room.cleanupOld();
+            if (cleaned > 0) {
+                console.log(`Cleaned up ${cleaned} old rooms`);
+            }
+        } catch (error) {
+            console.error('Room cleanup error:', error);
+        }
+    }, 60 * 60 * 1000); // Every hour
+}
 
 module.exports = exports;

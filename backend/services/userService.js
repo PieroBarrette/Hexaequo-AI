@@ -1,40 +1,29 @@
 /**
  * User Service
  * 
- * Business logic for user operations.
+ * Business logic for user operations using PostgreSQL database.
  */
 
 const { notFound, unauthorized } = require('../middleware/errorHandler');
-const bcrypt = require('bcrypt');
-
-// Temporary in-memory storage (replace with database)
-const users = new Map();
+const { User, Game } = require('../models');
 
 /**
  * Get user by ID
  */
 exports.getUserById = async (userId) => {
-    const user = users.get(userId);
+    const user = await User.findById(userId);
     if (!user) {
         throw notFound('User');
     }
 
-    return {
-        id: user.id,
-        pseudo: user.pseudo,
-        email: user.email,
-        elo: user.elo,
-        stats: user.stats,
-        settings: user.settings,
-        createdAt: user.createdAt
-    };
+    return formatUserResponse(user);
 };
 
 /**
  * Get public profile
  */
 exports.getPublicProfile = async (userId) => {
-    const user = users.get(userId);
+    const user = await User.findById(userId);
     if (!user) {
         throw notFound('User');
     }
@@ -42,30 +31,67 @@ exports.getPublicProfile = async (userId) => {
     return {
         id: user.id,
         pseudo: user.pseudo,
-        elo: user.elo,
-        stats: user.stats,
-        createdAt: user.createdAt
+        avatarUrl: user.avatar_url,
+        countryCode: user.country_code,
+        elo: {
+            classic: user.elo_classic,
+            rapid: user.elo_rapid,
+            blitz: user.elo_blitz
+        },
+        stats: {
+            gamesPlayed: user.games_played,
+            wins: user.wins,
+            losses: user.losses,
+            draws: user.draws,
+            winRate: user.games_played > 0 
+                ? Math.round(user.wins / user.games_played * 100) 
+                : 0
+        },
+        createdAt: user.created_at
     };
 };
 
 /**
- * Update user
+ * Get user by pseudo
  */
-exports.updateUser = async (userId, updates) => {
-    const user = users.get(userId);
+exports.getUserByPseudo = async (pseudo) => {
+    const user = await User.findByPseudo(pseudo);
     if (!user) {
         throw notFound('User');
-    }
-
-    // Allowed updates
-    if (updates.pseudo) {
-        user.pseudo = updates.pseudo;
     }
 
     return {
         id: user.id,
         pseudo: user.pseudo,
-        settings: user.settings
+        elo: {
+            classic: user.elo_classic,
+            rapid: user.elo_rapid,
+            blitz: user.elo_blitz
+        },
+        stats: {
+            gamesPlayed: user.games_played,
+            wins: user.wins,
+            losses: user.losses,
+            draws: user.draws
+        },
+        createdAt: user.created_at
+    };
+};
+
+/**
+ * Update user profile
+ */
+exports.updateUser = async (userId, updates) => {
+    const user = await User.update(userId, updates);
+    if (!user) {
+        throw notFound('User');
+    }
+
+    return {
+        id: user.id,
+        pseudo: user.pseudo,
+        avatarUrl: user.avatar_url,
+        countryCode: user.country_code
     };
 };
 
@@ -73,64 +99,105 @@ exports.updateUser = async (userId, updates) => {
  * Get user settings
  */
 exports.getUserSettings = async (userId) => {
-    const user = users.get(userId);
+    const user = await User.findById(userId);
     if (!user) {
         throw notFound('User');
     }
 
-    return user.settings;
+    // Return default settings merged with user settings
+    const defaultSettings = {
+        theme: 'dark',
+        sounds: true,
+        animations: true,
+        autoSubmitMove: false,
+        showCoordinates: true,
+        highlightMoves: true
+    };
+
+    return {
+        ...defaultSettings,
+        ...(user.settings || {})
+    };
 };
 
 /**
  * Update user settings
  */
 exports.updateUserSettings = async (userId, updates) => {
-    const user = users.get(userId);
-    if (!user) {
+    const settings = await User.updateSettings(userId, updates);
+    if (!settings) {
         throw notFound('User');
     }
 
-    user.settings = {
-        ...user.settings,
-        ...updates
-    };
-
-    return user.settings;
+    return settings;
 };
 
 /**
  * Get user match history
  */
 exports.getUserMatchHistory = async (userId, { page = 1, limit = 20 }) => {
-    // TODO: Implement with database
-    return {
-        matches: [],
-        total: 0,
-        page,
-        totalPages: 0
-    };
+    return await Game.getUserMatchHistory(userId, { page, limit });
 };
 
 /**
  * Delete user account
  */
 exports.deleteUser = async (userId, password) => {
-    const user = users.get(userId);
+    const user = await User.findById(userId);
     if (!user) {
         throw notFound('User');
     }
 
+    // Get full user with password for verification
+    const fullUser = await User.findByEmail(user.email);
+    
     // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password);
+    const isValidPassword = await User.verifyPassword(fullUser, password);
     if (!isValidPassword) {
         throw unauthorized('Incorrect password');
     }
 
-    users.delete(userId);
+    await User.deleteUser(userId);
 };
 
-// Export users map for auth service (temporary)
-module.exports = {
-    ...exports,
-    _users: users
+/**
+ * Get leaderboard
+ */
+exports.getLeaderboard = async (timeMode, { page = 1, limit = 50 }) => {
+    return await User.getLeaderboard(timeMode, { page, limit });
 };
+
+/**
+ * Update user last seen (for online status)
+ */
+exports.updateLastSeen = async (userId) => {
+    await User.updateLastSeen(userId);
+};
+
+/**
+ * Format user response (internal -> external format)
+ */
+function formatUserResponse(user) {
+    return {
+        id: user.id,
+        pseudo: user.pseudo,
+        email: user.email,
+        emailVerified: user.email_verified,
+        avatarUrl: user.avatar_url,
+        countryCode: user.country_code,
+        elo: {
+            classic: user.elo_classic,
+            rapid: user.elo_rapid,
+            blitz: user.elo_blitz
+        },
+        stats: {
+            gamesPlayed: user.games_played,
+            wins: user.wins,
+            losses: user.losses,
+            draws: user.draws
+        },
+        settings: user.settings || {},
+        createdAt: user.created_at,
+        lastSeen: user.last_seen
+    };
+}

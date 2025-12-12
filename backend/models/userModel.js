@@ -1,0 +1,333 @@
+/**
+ * User Model
+ * 
+ * Database operations for users.
+ */
+
+const { query, transaction } = require('../config/database');
+const bcrypt = require('bcrypt');
+const { BCRYPT_ROUNDS } = require('../config/env');
+
+/**
+ * Create a new user
+ */
+async function create({ email, pseudo, password }) {
+    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+    
+    const result = await query(
+        `INSERT INTO users (email, pseudo, password_hash)
+         VALUES ($1, $2, $3)
+         RETURNING id, email, pseudo, created_at`,
+        [email.toLowerCase(), pseudo, passwordHash]
+    );
+    
+    return result.rows[0];
+}
+
+/**
+ * Find user by ID
+ */
+async function findById(id) {
+    const result = await query(
+        `SELECT id, email, pseudo, email_verified,
+                elo_classic, elo_rapid, elo_blitz,
+                games_played, wins, losses, draws,
+                settings, avatar_url, country_code,
+                created_at, last_seen
+         FROM users WHERE id = $1`,
+        [id]
+    );
+    
+    return result.rows[0] || null;
+}
+
+/**
+ * Find user by email
+ */
+async function findByEmail(email) {
+    const result = await query(
+        `SELECT id, email, pseudo, password_hash, email_verified,
+                elo_classic, elo_rapid, elo_blitz,
+                games_played, wins, losses, draws,
+                settings, created_at
+         FROM users WHERE email = $1`,
+        [email.toLowerCase()]
+    );
+    
+    return result.rows[0] || null;
+}
+
+/**
+ * Find user by pseudo
+ */
+async function findByPseudo(pseudo) {
+    const result = await query(
+        `SELECT id, email, pseudo, email_verified,
+                elo_classic, elo_rapid, elo_blitz,
+                games_played, wins, losses, draws,
+                settings, created_at
+         FROM users WHERE LOWER(pseudo) = LOWER($1)`,
+        [pseudo]
+    );
+    
+    return result.rows[0] || null;
+}
+
+/**
+ * Update user profile
+ */
+async function update(id, updates) {
+    const allowedFields = ['pseudo', 'avatar_url', 'country_code'];
+    const fields = [];
+    const values = [];
+    let paramIndex = 1;
+    
+    for (const [key, value] of Object.entries(updates)) {
+        if (allowedFields.includes(key)) {
+            fields.push(`${key} = $${paramIndex}`);
+            values.push(value);
+            paramIndex++;
+        }
+    }
+    
+    if (fields.length === 0) return null;
+    
+    values.push(id);
+    
+    const result = await query(
+        `UPDATE users SET ${fields.join(', ')}
+         WHERE id = $${paramIndex}
+         RETURNING id, email, pseudo, avatar_url, country_code`,
+        values
+    );
+    
+    return result.rows[0] || null;
+}
+
+/**
+ * Update user settings
+ */
+async function updateSettings(id, settings) {
+    const result = await query(
+        `UPDATE users 
+         SET settings = settings || $1::jsonb
+         WHERE id = $2
+         RETURNING settings`,
+        [JSON.stringify(settings), id]
+    );
+    
+    return result.rows[0]?.settings || null;
+}
+
+/**
+ * Update password
+ */
+async function updatePassword(id, newPassword) {
+    const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+    
+    await query(
+        `UPDATE users SET password_hash = $1 WHERE id = $2`,
+        [passwordHash, id]
+    );
+}
+
+/**
+ * Verify password
+ */
+async function verifyPassword(user, password) {
+    return bcrypt.compare(password, user.password_hash);
+}
+
+/**
+ * Set verification token
+ */
+async function setVerificationToken(id, token, expiresAt) {
+    await query(
+        `UPDATE users 
+         SET verification_token = $1, verification_expires = $2
+         WHERE id = $3`,
+        [token, expiresAt, id]
+    );
+}
+
+/**
+ * Verify email with token
+ */
+async function verifyEmail(token) {
+    const result = await query(
+        `UPDATE users 
+         SET email_verified = TRUE, verification_token = NULL, verification_expires = NULL
+         WHERE verification_token = $1 AND verification_expires > NOW()
+         RETURNING id`,
+        [token]
+    );
+    
+    return result.rowCount > 0;
+}
+
+/**
+ * Set password reset token
+ */
+async function setResetToken(email, token, expiresAt) {
+    const result = await query(
+        `UPDATE users 
+         SET reset_token = $1, reset_expires = $2
+         WHERE email = $3
+         RETURNING id`,
+        [token, expiresAt, email.toLowerCase()]
+    );
+    
+    return result.rowCount > 0;
+}
+
+/**
+ * Reset password with token
+ */
+async function resetPassword(token, newPassword) {
+    const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+    
+    const result = await query(
+        `UPDATE users 
+         SET password_hash = $1, reset_token = NULL, reset_expires = NULL
+         WHERE reset_token = $2 AND reset_expires > NOW()
+         RETURNING id`,
+        [passwordHash, token]
+    );
+    
+    return result.rowCount > 0;
+}
+
+/**
+ * Update ELO rating
+ */
+async function updateElo(id, timeMode, newElo, eloChange, gameId) {
+    return transaction(async (client) => {
+        const column = `elo_${timeMode}`;
+        
+        // Update user ELO
+        await client.query(
+            `UPDATE users SET ${column} = $1 WHERE id = $2`,
+            [newElo, id]
+        );
+        
+        // Record in history
+        await client.query(
+            `INSERT INTO elo_history (user_id, game_id, time_mode, elo_before, elo_after, elo_change)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [id, gameId, timeMode, newElo - eloChange, newElo, eloChange]
+        );
+    });
+}
+
+/**
+ * Update game statistics
+ */
+async function updateStats(id, result) {
+    const field = result === 'win' ? 'wins' : result === 'loss' ? 'losses' : 'draws';
+    
+    await query(
+        `UPDATE users 
+         SET games_played = games_played + 1, ${field} = ${field} + 1
+         WHERE id = $1`,
+        [id]
+    );
+}
+
+/**
+ * Update last seen timestamp
+ */
+async function updateLastSeen(id) {
+    await query(
+        `UPDATE users SET last_seen = NOW() WHERE id = $1`,
+        [id]
+    );
+}
+
+/**
+ * Delete user
+ */
+async function deleteUser(id) {
+    const result = await query(
+        `DELETE FROM users WHERE id = $1`,
+        [id]
+    );
+    
+    return result.rowCount > 0;
+}
+
+/**
+ * Get leaderboard
+ */
+async function getLeaderboard(timeMode, { page = 1, limit = 50 }) {
+    const column = `elo_${timeMode}`;
+    const offset = (page - 1) * limit;
+    
+    const [countResult, dataResult] = await Promise.all([
+        query(`SELECT COUNT(*) FROM users WHERE games_played > 0`),
+        query(
+            `SELECT id, pseudo, ${column} as elo, games_played, wins, losses, draws,
+                    CASE WHEN games_played > 0 THEN ROUND(wins::numeric / games_played * 100, 1) ELSE 0 END as win_rate
+             FROM users
+             WHERE games_played > 0
+             ORDER BY ${column} DESC
+             LIMIT $1 OFFSET $2`,
+            [limit, offset]
+        )
+    ]);
+    
+    const total = parseInt(countResult.rows[0].count);
+    
+    return {
+        players: dataResult.rows.map((row, index) => ({
+            rank: offset + index + 1,
+            ...row
+        })),
+        total,
+        page,
+        totalPages: Math.ceil(total / limit)
+    };
+}
+
+/**
+ * Check if email exists
+ */
+async function emailExists(email) {
+    const result = await query(
+        `SELECT 1 FROM users WHERE email = $1`,
+        [email.toLowerCase()]
+    );
+    return result.rowCount > 0;
+}
+
+/**
+ * Check if pseudo exists
+ */
+async function pseudoExists(pseudo) {
+    const result = await query(
+        `SELECT 1 FROM users WHERE LOWER(pseudo) = LOWER($1)`,
+        [pseudo]
+    );
+    return result.rowCount > 0;
+}
+
+module.exports = {
+    create,
+    findById,
+    findByEmail,
+    findByPseudo,
+    update,
+    updateSettings,
+    updatePassword,
+    verifyPassword,
+    setVerificationToken,
+    verifyEmail,
+    setResetToken,
+    resetPassword,
+    updateElo,
+    updateStats,
+    updateLastSeen,
+    deleteUser,
+    getLeaderboard,
+    emailExists,
+    pseudoExists
+};

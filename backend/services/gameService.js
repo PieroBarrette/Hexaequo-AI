@@ -1,74 +1,71 @@
 /**
  * Game Service
  * 
- * Business logic for game operations.
+ * Business logic for game operations using PostgreSQL database.
  */
 
 const { notFound } = require('../middleware/errorHandler');
-
-// Temporary in-memory storage (replace with database)
-const games = new Map();
+const { Game, Move, User } = require('../models');
 
 /**
  * Get games list
  */
-exports.getGames = async ({ status, timeMode, page = 1, limit = 20 }) => {
-    let gameList = Array.from(games.values());
-
-    // Filter by status
-    if (status) {
-        gameList = gameList.filter(g => g.status === status);
-    }
-
-    // Filter by time mode
-    if (timeMode) {
-        gameList = gameList.filter(g => g.timeMode === timeMode);
-    }
-
-    // Sort by created date (newest first)
-    gameList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-    // Paginate
-    const total = gameList.length;
-    const totalPages = Math.ceil(total / limit);
-    const start = (page - 1) * limit;
-    const paginatedGames = gameList.slice(start, start + limit);
-
-    return {
-        games: paginatedGames,
-        total,
-        page,
-        totalPages
-    };
+exports.getGames = async ({ status, timeMode, playerId, page = 1, limit = 20 }) => {
+    return await Game.findAll({ status, timeMode, playerId, page, limit });
 };
 
 /**
  * Get game by ID
  */
 exports.getGameById = async (gameId) => {
-    const game = games.get(gameId);
+    const game = await Game.findById(gameId);
     if (!game) {
         throw notFound('Game');
     }
-    return game;
+    return formatGameResponse(game);
 };
 
 /**
  * Get game replay
  */
 exports.getGameReplay = async (gameId) => {
-    const game = games.get(gameId);
-    if (!game) {
+    const replay = await Game.getReplay(gameId);
+    if (!replay) {
         throw notFound('Game');
     }
 
     return {
-        gameId: game.id,
-        players: game.players,
-        moves: game.moves || [],
-        result: game.result,
-        timeMode: game.timeMode,
-        createdAt: game.createdAt
+        gameId: replay.game.id,
+        players: {
+            black: {
+                id: replay.game.black_player_id,
+                pseudo: replay.game.black_pseudo,
+                eloBefore: replay.game.black_elo_before,
+                eloAfter: replay.game.black_elo_after
+            },
+            white: {
+                id: replay.game.white_player_id,
+                pseudo: replay.game.white_pseudo,
+                eloBefore: replay.game.white_elo_before,
+                eloAfter: replay.game.white_elo_after
+            }
+        },
+        moves: replay.moves.map(m => ({
+            moveNumber: m.move_number,
+            player: m.player,
+            type: m.move_type,
+            from: m.from_q !== null ? { q: m.from_q, r: m.from_r } : null,
+            to: { q: m.to_q, r: m.to_r },
+            captures: m.captures,
+            timestamp: m.created_at
+        })),
+        result: {
+            winner: replay.game.winner,
+            reason: replay.game.result_reason
+        },
+        timeMode: replay.game.time_mode,
+        startedAt: replay.game.started_at,
+        finishedAt: replay.game.finished_at
     };
 };
 
@@ -76,64 +73,218 @@ exports.getGameReplay = async (gameId) => {
  * Get leaderboard
  */
 exports.getLeaderboard = async ({ timeMode = 'classic', page = 1, limit = 50 }) => {
-    // TODO: Implement with database
-    return {
-        players: [],
-        total: 0,
-        page,
-        totalPages: 0
-    };
+    return await User.getLeaderboard(timeMode, { page, limit });
 };
 
 /**
  * Create game record
  */
-exports.createGame = async (data) => {
-    const gameId = `game_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+exports.createGame = async ({
+    roomCode,
+    blackPlayerId,
+    blackPseudo,
+    whitePlayerId,
+    whitePseudo,
+    timeMode
+}) => {
+    // Get player ELOs
+    const eloColumn = `elo_${timeMode === 'none' ? 'classic' : timeMode}`;
     
-    const game = {
-        id: gameId,
-        roomCode: data.roomCode,
-        players: data.players,
-        timeMode: data.timeMode,
-        status: 'playing',
-        moves: [],
-        createdAt: new Date().toISOString()
-    };
+    let blackEloBefore = 1500;
+    let whiteEloBefore = 1500;
+    
+    if (blackPlayerId) {
+        const blackPlayer = await User.findById(blackPlayerId);
+        if (blackPlayer) {
+            blackEloBefore = blackPlayer[eloColumn] || 1500;
+        }
+    }
+    
+    if (whitePlayerId) {
+        const whitePlayer = await User.findById(whitePlayerId);
+        if (whitePlayer) {
+            whiteEloBefore = whitePlayer[eloColumn] || 1500;
+        }
+    }
+    
+    const game = await Game.create({
+        roomCode,
+        blackPlayerId,
+        blackPseudo,
+        blackEloBefore,
+        whitePlayerId,
+        whitePseudo,
+        whiteEloBefore,
+        timeMode: timeMode === 'none' ? 'classic' : timeMode
+    });
 
-    games.set(gameId, game);
-    return game;
+    return { gameId: game.id };
 };
 
 /**
  * Record move
  */
-exports.recordMove = async (gameId, move) => {
-    const game = games.get(gameId);
-    if (!game) {
-        throw notFound('Game');
-    }
-
-    game.moves.push({
-        ...move,
-        timestamp: new Date().toISOString()
+exports.recordMove = async (gameId, {
+    moveNumber,
+    player,
+    moveType,
+    from,
+    to,
+    captures,
+    stateSnapshot,
+    timeRemainingBlack,
+    timeRemainingWhite,
+    moveTime
+}) => {
+    return await Move.create({
+        gameId,
+        moveNumber,
+        player,
+        moveType,
+        fromQ: from?.q,
+        fromR: from?.r,
+        toQ: to.q,
+        toR: to.r,
+        captures,
+        stateSnapshot,
+        timeRemainingBlack,
+        timeRemainingWhite,
+        moveTime
     });
+};
+
+/**
+ * Get moves for a game
+ */
+exports.getMoves = async (gameId) => {
+    return await Move.findByGameId(gameId);
 };
 
 /**
  * End game
  */
-exports.endGame = async (gameId, result) => {
-    const game = games.get(gameId);
+exports.endGame = async (gameId, {
+    winner,
+    resultReason,
+    finalState
+}) => {
+    const game = await Game.findById(gameId);
     if (!game) {
         throw notFound('Game');
     }
+    
+    // Calculate ELO changes
+    const timeMode = game.time_mode;
+    const { blackEloAfter, whiteEloAfter, blackEloChange, whiteEloChange } = 
+        calculateEloChanges(
+            game.black_elo_before,
+            game.white_elo_before,
+            winner
+        );
+    
+    // Complete the game
+    const completedGame = await Game.complete(gameId, {
+        winner,
+        resultReason,
+        finalState,
+        blackEloAfter,
+        whiteEloAfter
+    });
+    
+    // Update player ELOs and stats
+    if (game.black_player_id) {
+        const blackResult = winner === 'black' ? 'win' : winner === 'white' ? 'loss' : 'draw';
+        await User.updateElo(game.black_player_id, timeMode, blackEloAfter, blackEloChange, gameId);
+        await User.updateStats(game.black_player_id, blackResult);
+    }
+    
+    if (game.white_player_id) {
+        const whiteResult = winner === 'white' ? 'win' : winner === 'black' ? 'loss' : 'draw';
+        await User.updateElo(game.white_player_id, timeMode, whiteEloAfter, whiteEloChange, gameId);
+        await User.updateStats(game.white_player_id, whiteResult);
+    }
 
-    game.status = 'finished';
-    game.result = result;
-    game.finishedAt = new Date().toISOString();
-
-    return game;
+    return {
+        gameId,
+        winner,
+        resultReason,
+        eloChanges: {
+            black: blackEloChange,
+            white: whiteEloChange
+        }
+    };
 };
+
+/**
+ * Calculate ELO changes
+ */
+function calculateEloChanges(blackElo, whiteElo, winner) {
+    const K = 32; // K-factor
+    
+    // Expected scores
+    const expectedBlack = 1 / (1 + Math.pow(10, (whiteElo - blackElo) / 400));
+    const expectedWhite = 1 - expectedBlack;
+    
+    // Actual scores
+    let actualBlack, actualWhite;
+    if (winner === 'black') {
+        actualBlack = 1;
+        actualWhite = 0;
+    } else if (winner === 'white') {
+        actualBlack = 0;
+        actualWhite = 1;
+    } else {
+        actualBlack = 0.5;
+        actualWhite = 0.5;
+    }
+    
+    // Calculate changes
+    const blackEloChange = Math.round(K * (actualBlack - expectedBlack));
+    const whiteEloChange = Math.round(K * (actualWhite - expectedWhite));
+    
+    return {
+        blackEloAfter: blackElo + blackEloChange,
+        whiteEloAfter: whiteElo + whiteEloChange,
+        blackEloChange,
+        whiteEloChange
+    };
+}
+
+/**
+ * Get head-to-head stats
+ */
+exports.getHeadToHead = async (playerId1, playerId2) => {
+    return await Game.getHeadToHead(playerId1, playerId2);
+};
+
+/**
+ * Format game response
+ */
+function formatGameResponse(game) {
+    return {
+        id: game.id,
+        roomCode: game.room_code,
+        players: {
+            black: {
+                id: game.black_player_id,
+                pseudo: game.black_pseudo,
+                eloBefore: game.black_elo_before,
+                eloAfter: game.black_elo_after
+            },
+            white: {
+                id: game.white_player_id,
+                pseudo: game.white_pseudo,
+                eloBefore: game.white_elo_before,
+                eloAfter: game.white_elo_after
+            }
+        },
+        timeMode: game.time_mode,
+        winner: game.winner,
+        resultReason: game.result_reason,
+        moveCount: game.move_count,
+        startedAt: game.started_at,
+        finishedAt: game.finished_at
+    };
+}
 
 module.exports = exports;
