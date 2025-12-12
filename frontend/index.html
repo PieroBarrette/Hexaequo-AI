@@ -206,45 +206,47 @@
 					</form>
 				</div>
 				<section class="board-stage">
-					<div class="inventory-column">
-					<div class="player-header" data-player-summary="black">
-						<div>
-							<p class="player-header__pseudo" data-player-pseudo="black">Player Black</p>
-							<small class="player-header__elo" data-player-elo="black">ELO --</small>
+					<div class="inventory-row">
+						<div class="inventory-column">
+							<div class="player-header" data-player-summary="black">
+								<div>
+									<p class="player-header__pseudo" data-player-pseudo="black">Player Black</p>
+									<small class="player-header__elo" data-player-elo="black">ELO --</small>
+								</div>
+								<div class="player-header__timer" data-player-timer="black">
+									<span class="player-header__timer-label">Timer</span>
+									<strong class="player-header__timer-value">--:--</strong>
+								</div>
+							</div>
+							<div class="inventory-panel" data-inventory-black>
+								<div class="inventory-panel__empty">
+									<span class="hud-label">Black pieces</span>
+									<p class="hud-muted">Waiting for data…</p>
+								</div>
+							</div>
 						</div>
-						<div class="player-header__timer" data-player-timer="black">
-							<span class="player-header__timer-label">Timer</span>
-							<strong class="player-header__timer-value">--:--</strong>
-						</div>
-					</div>
-						<div class="inventory-panel" data-inventory-black>
-							<div class="inventory-panel__empty">
-								<span class="hud-label">Black pieces</span>
-								<p class="hud-muted">Waiting for data…</p>
+						<div class="inventory-column">
+							<div class="player-header" data-player-summary="white">
+								<div>
+									<p class="player-header__pseudo" data-player-pseudo="white">Player White</p>
+									<small class="player-header__elo" data-player-elo="white">ELO --</small>
+								</div>
+								<div class="player-header__timer" data-player-timer="white">
+									<span class="player-header__timer-label">Timer</span>
+									<strong class="player-header__timer-value">--:--</strong>
+								</div>
+							</div>
+							<div class="inventory-panel" data-inventory-white>
+								<div class="inventory-panel__empty">
+									<span class="hud-label">White pieces</span>
+									<p class="hud-muted">Waiting for data…</p>
+								</div>
 							</div>
 						</div>
 					</div>
 					<div class="canvas-shell">
 						<canvas id="modernGameCanvas" width="1080" height="540"></canvas>
 						<div class="inline-prompts" data-inline-prompts></div>
-					</div>
-					<div class="inventory-column">
-					<div class="player-header" data-player-summary="white">
-						<div>
-							<p class="player-header__pseudo" data-player-pseudo="white">Player White</p>
-							<small class="player-header__elo" data-player-elo="white">ELO --</small>
-						</div>
-						<div class="player-header__timer" data-player-timer="white">
-							<span class="player-header__timer-label">Timer</span>
-							<strong class="player-header__timer-value">--:--</strong>
-						</div>
-					</div>
-						<div class="inventory-panel" data-inventory-white>
-							<div class="inventory-panel__empty">
-								<span class="hud-label">White pieces</span>
-								<p class="hud-muted">Waiting for data…</p>
-							</div>
-						</div>
 					</div>
 				</section>
 			</section>

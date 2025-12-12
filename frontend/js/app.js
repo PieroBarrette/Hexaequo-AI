@@ -106,8 +106,11 @@ function initializeCanvas() {
 
 function syncCanvasSize(canvas) {
 	const rect = canvas.getBoundingClientRect();
-	const targetWidth = Math.max(1, Math.floor(rect.width));
-	const targetHeight = Math.max(1, Math.floor(rect.height));
+	const cssWidth = Math.max(1, Math.floor(rect.width));
+	const cssHeight = Math.max(1, Math.floor(rect.height));
+	const ratio = window.devicePixelRatio || 1;
+	const targetWidth = Math.max(1, Math.floor(cssWidth * ratio));
+	const targetHeight = Math.max(1, Math.floor(cssHeight * ratio));
 	const needsResize = canvas.width !== targetWidth || canvas.height !== targetHeight;
 	if (needsResize) {
 		canvas.width = targetWidth;

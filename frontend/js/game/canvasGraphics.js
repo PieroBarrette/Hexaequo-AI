@@ -359,18 +359,17 @@ function computeResponsiveLayout(state, canvas, options) {
         translateY: canvas.height / 2 + (options.offsetY ?? 0)
     };
 
-    const tiles = state?.tiles;
-    if (!tiles || Object.keys(tiles).length === 0) {
+    const referenceKeys = collectLayoutReferenceKeys(state);
+    if (referenceKeys.size === 0) {
         return fallback;
     }
 
     const coords = new Set();
-    for (const [key, owner] of Object.entries(tiles)) {
-        if (!owner) continue;
+    referenceKeys.forEach((key) => {
         coords.add(key);
         const [q, r] = parseKey(key);
         NEIGHBOR_DELTAS.forEach(([dq, dr]) => coords.add(`${q + dq},${r + dr}`));
-    }
+    });
 
     if (coords.size === 0) {
         return fallback;
@@ -422,4 +421,31 @@ function computeResponsiveLayout(state, canvas, options) {
 
 function clamp(value, min, max) {
     return Math.min(Math.max(value, min), max);
+}
+
+function collectLayoutReferenceKeys(state) {
+    const references = new Set();
+    const tiles = state?.tiles ?? {};
+    Object.entries(tiles).forEach(([key, owner]) => {
+        if (owner) {
+            references.add(key);
+        }
+    });
+
+    if (!state) {
+        return references;
+    }
+
+    const highlights = calculateAllValidMoves(state, buildMoveContext(state)) || [];
+    highlights.forEach((hint) => {
+        if (hint.type !== 'tile') {
+            return;
+        }
+        if (!Number.isFinite(hint.q) || !Number.isFinite(hint.r)) {
+            return;
+        }
+        references.add(`${hint.q},${hint.r}`);
+    });
+
+    return references;
 }
