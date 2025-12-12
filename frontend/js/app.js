@@ -424,8 +424,6 @@ function initLocalPanel() {
 function mountLocalPanelInstance(panel) {
 	const form = panel.querySelector('[data-local-form]');
 	const statusEl = panel.querySelector('[data-local-status]');
-	const swapBtn = panel.querySelector('[data-local-swap]');
-	const resetBtn = panel.querySelector('[data-local-reset]');
 	const inputs = {
 		black: panel.querySelector('[name="localBlackName"]'),
 		white: panel.querySelector('[name="localWhiteName"]')
@@ -463,35 +461,11 @@ function mountLocalPanelInstance(panel) {
 		}
 	};
 
-	const handleSwap = () => {
-		const currentBlack = inputs.black?.value;
-		const currentWhite = inputs.white?.value;
-		if (inputs.black && typeof currentWhite === 'string') {
-			inputs.black.value = currentWhite;
-			updatePlayerProfile('black', { pseudo: currentWhite.trim() || 'Player Black' });
-		}
-		if (inputs.white && typeof currentBlack === 'string') {
-			inputs.white.value = currentBlack;
-			updatePlayerProfile('white', { pseudo: currentBlack.trim() || 'Player White' });
-		}
-	};
-
-	const handleReset = () => {
-		resetGameState(createInitialState());
-		if (statusEl) {
-			statusEl.textContent = 'Board reset for a fresh game.';
-		}
-	};
-
 	form?.addEventListener('submit', handleSubmit);
-	swapBtn?.addEventListener('click', handleSwap);
-	resetBtn?.addEventListener('click', handleReset);
 
 	return () => {
 		unsubscribe?.();
 		form?.removeEventListener('submit', handleSubmit);
-		swapBtn?.removeEventListener('click', handleSwap);
-		resetBtn?.removeEventListener('click', handleReset);
 	};
 }
 

@@ -242,10 +242,11 @@ function applyMove(state, move) {
 				if (newState.inventory[move.color]) {
 					newState.inventory[move.color].rings--;
 				}
-				// Return captured disc if placing ring
-				if (move.returnDisc && newState.captured) {
+				// Return captured disc to opponent (player must have captured at least one)
+				if (newState.captured) {
 					const opponentColor = move.color === 'black' ? 'white' : 'black';
-					newState.captured[`${opponentColor}_discs`] = Math.max(0, (newState.captured[`${opponentColor}_discs`] || 0) - 1);
+					// Decrease player's captured discs (giving back to opponent)
+					newState.captured[`${move.color}_discs`] = Math.max(0, (newState.captured[`${move.color}_discs`] || 0) - 1);
 					if (newState.inventory[opponentColor]) {
 						newState.inventory[opponentColor].discs++;
 					}

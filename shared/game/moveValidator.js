@@ -71,9 +71,7 @@ export function calculateAllValidMoves(state, context = {}) {
                     if (!pieces[jumpKey] || !tiles[landingKey] || pieces[landingKey]) {
                         return false;
                     }
-                    if (pieces[jumpKey].color === player && hasVisitedJump(jumpHistory, jq, jr)) {
-                        return false;
-                    }
+                    // Removed restriction: discs CAN revisit positions (jump over same piece twice) in a chain
                     if (
                         multiJumping &&
                         context.turnStartPiecePos &&
@@ -180,9 +178,7 @@ export function calculateValidMovesForPiece(state, q, r, context = {}) {
                 continue;
             }
 
-            if (pieces[jumpKey].color === player && hasVisitedJump(jumpHistory, jq, jr)) {
-                continue;
-            }
+            // Removed restriction: discs CAN revisit positions (jump over same piece twice) in a chain
 
             if (
                 multiJumping &&

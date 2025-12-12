@@ -52,7 +52,7 @@ export function createCanvasGraphics(canvas, options = {}) {
     let activeAnimations = [];
     let animationCallbacks = [];
     let animationLoopRunning = false;
-    const ANIMATION_DURATION = 350; // milliseconds
+    const ANIMATION_DURATION = 250; // milliseconds
 
     function renderStatic(state) {
         if (!ctx || !state) return;
@@ -523,6 +523,10 @@ export function createCanvasGraphics(canvas, options = {}) {
         }
     };
 
+    // Layout animation state
+    let layoutAnimation = null;
+    const LAYOUT_ANIMATION_DURATION = 300; // milliseconds
+
     function updateLayout(state) {
         const next = computeResponsiveLayout(state, canvas, {
             fallbackHexSize,
@@ -536,17 +540,65 @@ export function createCanvasGraphics(canvas, options = {}) {
             Math.abs(next.hexSize - currentLayout.hexSize) > 0.25 ||
             Math.abs(next.translateX - currentLayout.translateX) > 0.5 ||
             Math.abs(next.translateY - currentLayout.translateY) > 0.5;
-        currentLayout = next;
+        
         if (changed) {
-            const snapshot = { ...currentLayout };
-            layoutSubscribers.forEach((listener) => {
-                try {
-                    listener(snapshot);
-                } catch (err) {
-                    console.error('[CanvasGraphics] layout listener error', err);
+            // Animate layout transition smoothly
+            const startLayout = { ...currentLayout };
+            const startTime = performance.now();
+            
+            // Cancel any existing layout animation
+            if (layoutAnimation) {
+                cancelAnimationFrame(layoutAnimation);
+                layoutAnimation = null;
+            }
+            
+            const animateLayout = (timestamp) => {
+                const elapsed = timestamp - startTime;
+                const progress = Math.min(elapsed / LAYOUT_ANIMATION_DURATION, 1);
+                const eased = easeOutCubic(progress);
+                
+                currentLayout = {
+                    hexSize: lerp(startLayout.hexSize, next.hexSize, eased),
+                    translateX: lerp(startLayout.translateX, next.translateX, eased),
+                    translateY: lerp(startLayout.translateY, next.translateY, eased)
+                };
+                
+                // Notify subscribers of layout change
+                const snapshot = { ...currentLayout };
+                layoutSubscribers.forEach((listener) => {
+                    try {
+                        listener(snapshot);
+                    } catch (err) {
+                        console.error('[CanvasGraphics] layout listener error', err);
+                    }
+                });
+                
+                // Re-render with new layout
+                if (lastState) {
+                    renderStatic(lastState);
                 }
-            });
+                
+                if (progress < 1) {
+                    layoutAnimation = requestAnimationFrame(animateLayout);
+                } else {
+                    layoutAnimation = null;
+                }
+            };
+            
+            layoutAnimation = requestAnimationFrame(animateLayout);
+        } else {
+            currentLayout = next;
         }
+    }
+    
+    // Easing function for smooth animation
+    function easeOutCubic(t) {
+        return 1 - Math.pow(1 - t, 3);
+    }
+    
+    // Linear interpolation
+    function lerp(start, end, t) {
+        return start + (end - start) * t;
     }
 }
 

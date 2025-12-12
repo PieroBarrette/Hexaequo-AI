@@ -179,18 +179,16 @@ function generateChildren(state) {
 		}
 	}
 
-	// Ring placements
-	if ((state.inventory[player]?.rings || 0) > 0) {
+	// Ring placements (requires having captured at least one opponent disc)
+	if ((state.inventory[player]?.rings || 0) > 0 && (state.captured[`${player}_discs`] || 0) > 0) {
 		for (const key in state.tiles) {
 			if (state.tiles[key] === player && !(key in state.pieces)) {
 				const child = cloneGameState(state);
 				child.pieces[key] = { type: 'ring', color: player };
 				child.inventory[player].rings--;
-				// Return captured disc
-				if ((child.captured[`${opponent}_discs`] || 0) > 0) {
-					child.captured[`${opponent}_discs`]--;
-					child.inventory[opponent].discs++;
-				}
+				// Return captured disc to opponent
+				child.captured[`${player}_discs`]--;
+				child.inventory[opponent].discs++;
 				child.activePlayer = opponent;
 				children.push(child);
 			}
@@ -295,7 +293,8 @@ function findJumps(state, q, r, player, visited) {
 
 		if (midKey in state.pieces && jumpKey in state.tiles && !(jumpKey in state.pieces)) {
 			const midPiece = state.pieces[midKey];
-			if (midPiece.color !== player && !visited.has(midKey)) {
+			// Removed restriction: discs CAN jump over the same piece multiple times
+			if (midPiece.color !== player) {
 				jumps.push({
 					q: jq,
 					r: jr,
