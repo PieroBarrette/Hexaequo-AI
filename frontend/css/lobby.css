@@ -1,0 +1,322 @@
+/**
+ * Hexaequo - Lobby Styles
+ * Styles for the online lobby, room list, and matchmaking UI
+ */
+
+/* === Lobby Container === */
+.lobby-container {
+    flex: 1;
+    padding: var(--space-xl);
+    max-width: 800px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.lobby-container h2 {
+    margin-bottom: var(--space-lg);
+}
+
+/* === Lobby Actions === */
+.lobby-actions {
+    display: flex;
+    gap: var(--space-md);
+    margin-bottom: var(--space-xl);
+}
+
+.lobby-actions .btn {
+    flex: 1;
+    padding: var(--space-md);
+}
+
+/* === Room List === */
+.room-list {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.room-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-md) var(--space-lg);
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 600;
+}
+
+.room-list-content {
+    min-height: 200px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.no-rooms {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    color: var(--text-muted);
+}
+
+/* === Room Item === */
+.room-item {
+    display: flex;
+    align-items: center;
+    padding: var(--space-md) var(--space-lg);
+    border-bottom: 1px solid var(--border-color);
+    transition: background var(--transition-fast);
+}
+
+.room-item:last-child {
+    border-bottom: none;
+}
+
+.room-item:hover {
+    background: var(--bg-hover);
+}
+
+.room-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.room-host {
+    font-weight: 600;
+}
+
+.room-details {
+    display: flex;
+    gap: var(--space-md);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.room-detail {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.room-detail svg {
+    width: 14px;
+    height: 14px;
+}
+
+.room-code {
+    font-family: monospace;
+    font-size: var(--font-size-md);
+    font-weight: 600;
+    color: var(--accent-primary);
+    padding: var(--space-xs) var(--space-sm);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    margin-right: var(--space-md);
+}
+
+.room-join-btn {
+    padding: var(--space-sm) var(--space-lg);
+}
+
+/* === Room Filters === */
+.room-filters {
+    display: flex;
+    gap: var(--space-md);
+    margin-bottom: var(--space-lg);
+    padding: var(--space-md);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.filter-group label {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.filter-group select {
+    padding: var(--space-xs) var(--space-sm);
+    font-size: var(--font-size-sm);
+}
+
+/* === Connection Banner === */
+.connection-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    padding: var(--space-md);
+    margin-bottom: var(--space-lg);
+    border-radius: var(--radius-md);
+}
+
+.connection-banner.connecting {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid var(--accent-warning);
+    color: var(--accent-warning);
+}
+
+.connection-banner.connected {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid var(--accent-success);
+    color: var(--accent-success);
+}
+
+.connection-banner.disconnected {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid var(--accent-danger);
+    color: var(--accent-danger);
+}
+
+.connection-banner button {
+    margin-left: var(--space-md);
+    padding: var(--space-xs) var(--space-md);
+    font-size: var(--font-size-sm);
+}
+
+/* === Spectator List === */
+.spectator-section {
+    margin-top: var(--space-xl);
+}
+
+.spectator-section h3 {
+    margin-bottom: var(--space-md);
+    font-size: var(--font-size-md);
+    color: var(--text-secondary);
+}
+
+.spectator-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--space-md);
+}
+
+.spectator-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-md);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.spectator-item:hover {
+    border-color: var(--accent-primary);
+}
+
+.spectator-players {
+    flex: 1;
+}
+
+.spectator-vs {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    font-size: var(--font-size-sm);
+}
+
+.spectator-vs .player-black {
+    color: var(--text-primary);
+}
+
+.spectator-vs .vs {
+    color: var(--text-muted);
+}
+
+.spectator-vs .player-white {
+    color: var(--text-secondary);
+}
+
+.spectator-status {
+    font-size: var(--font-size-xs);
+    color: var(--accent-success);
+}
+
+/* === Waiting Room === */
+.waiting-room {
+    text-align: center;
+    padding: var(--space-2xl);
+}
+
+.waiting-room h3 {
+    margin-bottom: var(--space-lg);
+}
+
+.waiting-spinner {
+    width: 48px;
+    height: 48px;
+    border: 3px solid var(--border-color);
+    border-top-color: var(--accent-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: var(--space-lg) auto;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.waiting-code {
+    font-size: var(--font-size-3xl);
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    color: var(--accent-primary);
+    margin: var(--space-lg) 0;
+}
+
+.waiting-info {
+    color: var(--text-secondary);
+    margin-bottom: var(--space-lg);
+}
+
+.waiting-actions {
+    display: flex;
+    gap: var(--space-md);
+    justify-content: center;
+}
+
+.copy-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.copy-btn.copied {
+    color: var(--accent-success);
+}
+
+/* === Responsive === */
+@media (max-width: 768px) {
+    .lobby-container {
+        padding: var(--space-md);
+    }
+
+    .lobby-actions {
+        flex-direction: column;
+    }
+
+    .room-filters {
+        flex-wrap: wrap;
+    }
+
+    .room-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-md);
+    }
+
+    .room-join-btn {
+        width: 100%;
+    }
+}

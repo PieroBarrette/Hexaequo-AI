@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="description" content="Hexaequo - Strategic hexagonal board game. Play against AI or online with friends.">
+    <meta name="theme-color" content="#1a1a2e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Hexaequo">
+    
+    <title>Hexaequo</title>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/game.css">
+    <link rel="stylesheet" href="css/lobby.css">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Favicon -->
+    <link rel="icon" href="assets/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="assets/icons/icon-192.png">
+</head>
+<body data-theme="dark">
+    <!-- App Container -->
+    <div id="app">
+        <!-- Navigation Rail -->
+        <nav id="navRail" class="nav-rail">
+            <div class="nav-brand">
+                <span class="brand-text">HEXAEQUO</span>
+            </div>
+            
+            <div class="nav-section">
+                <button class="nav-btn" data-nav="menu" title="Menu">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <polygon points="10,8 16,12 10,16"/>
+                    </svg>
+                    <span>Play</span>
+                </button>
+                
+                <button class="nav-btn" data-nav="lobby" title="Online Lobby">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                    <span>Lobby</span>
+                </button>
+                
+                <button class="nav-btn" data-nav="settings" title="Settings">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                    <span>Settings</span>
+                </button>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main id="mainContent">
+            <!-- Menu View -->
+            <section data-view="menu" class="view active">
+                <div class="menu-container">
+                    <h1 class="menu-title">HEXAEQUO</h1>
+                    <p class="menu-subtitle">Strategic Hexagonal Board Game</p>
+                    
+                    <div class="mode-buttons">
+                        <button class="mode-btn" data-mode="local">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                <circle cx="9" cy="7" r="4"/>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                            </svg>
+                            <span>Local Game</span>
+                            <small>Play on the same device</small>
+                        </button>
+                        
+                        <button class="mode-btn" data-mode="online">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="2" y1="12" x2="22" y2="12"/>
+                                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                            </svg>
+                            <span>Online</span>
+                            <small>Play with a friend</small>
+                        </button>
+                        
+                        <button class="mode-btn" data-mode="ai">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="11" width="18" height="10" rx="2"/>
+                                <circle cx="12" cy="5" r="3"/>
+                                <path d="M12 8v3"/>
+                            </svg>
+                            <span>vs AI</span>
+                            <small>Challenge the computer</small>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Game View -->
+            <section data-view="game" class="view">
+                <div class="game-container">
+                    <!-- Top HUD -->
+                    <div id="topHUD" class="hud top-hud">
+                        <div class="player-info opponent">
+                            <span class="player-name">Opponent</span>
+                            <div class="player-timer" id="opponentTimer">--:--</div>
+                        </div>
+                        <div class="turn-indicator" id="turnIndicator">
+                            <span class="turn-color black"></span>
+                            <span class="turn-text">Black's Turn</span>
+                        </div>
+                    </div>
+
+                    <!-- Game Canvas -->
+                    <div class="canvas-container">
+                        <canvas id="gameCanvas"></canvas>
+                    </div>
+
+                    <!-- Bottom HUD -->
+                    <div id="bottomHUD" class="hud bottom-hud">
+                        <div class="player-info self">
+                            <span class="player-name">You</span>
+                            <div class="player-timer" id="selfTimer">--:--</div>
+                        </div>
+                        <div class="inventory-display" id="inventoryDisplay">
+                            <div class="inv-item tiles">
+                                <span class="inv-icon">◆</span>
+                                <span class="inv-count" id="tileCount">7</span>
+                            </div>
+                            <div class="inv-item discs">
+                                <span class="inv-icon">●</span>
+                                <span class="inv-count" id="discCount">5</span>
+                            </div>
+                            <div class="inv-item rings">
+                                <span class="inv-icon">◯</span>
+                                <span class="inv-count" id="ringCount">3</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="game-actions" id="gameActions">
+                        <button class="action-btn" id="undoBtn" title="Undo">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M3 10h13a5 5 0 0 1 0 10H3"/>
+                                <polyline points="7 6 3 10 7 14"/>
+                            </svg>
+                        </button>
+                        <button class="action-btn" id="redoBtn" title="Redo">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 10H8a5 5 0 0 0 0 10h13"/>
+                                <polyline points="17 6 21 10 17 14"/>
+                            </svg>
+                        </button>
+                        <button class="action-btn danger" id="surrenderBtn" title="Surrender">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M4 22V4a2 2 0 0 1 2-2h14l-4 6 4 6H6"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Lobby View -->
+            <section data-view="lobby" class="view">
+                <div class="lobby-container">
+                    <h2>Online Lobby</h2>
+                    
+                    <div class="lobby-actions">
+                        <button class="btn primary" id="createRoomBtn">Create Room</button>
+                        <button class="btn secondary" id="joinRoomBtn">Join Room</button>
+                    </div>
+
+                    <div class="room-list" id="roomList">
+                        <div class="room-list-header">
+                            <span>Available Rooms</span>
+                            <button class="btn-icon" id="refreshRoomsBtn" title="Refresh">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="23 4 23 10 17 10"/>
+                                    <polyline points="1 20 1 14 7 14"/>
+                                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="room-list-content" id="roomListContent">
+                            <p class="no-rooms">No rooms available. Create one!</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings View -->
+            <section data-view="settings" class="view">
+                <div class="settings-container">
+                    <h2>Settings</h2>
+                    
+                    <div class="settings-group">
+                        <h3>Display</h3>
+                        <label class="setting-row">
+                            <span>Theme</span>
+                            <select id="themeSelect">
+                                <option value="dark">Dark</option>
+                                <option value="light">Light</option>
+                            </select>
+                        </label>
+                        <label class="setting-row">
+                            <span>Show Valid Moves</span>
+                            <input type="checkbox" id="showMovesCheck" checked>
+                        </label>
+                        <label class="setting-row">
+                            <span>Show Previous Move</span>
+                            <input type="checkbox" id="showPrevMoveCheck" checked>
+                        </label>
+                        <label class="setting-row">
+                            <span>Animations</span>
+                            <input type="checkbox" id="animationsCheck" checked>
+                        </label>
+                    </div>
+
+                    <div class="settings-group">
+                        <h3>Sound</h3>
+                        <label class="setting-row">
+                            <span>Sound Effects</span>
+                            <input type="checkbox" id="soundCheck" checked>
+                        </label>
+                    </div>
+
+                    <div class="settings-group">
+                        <h3>AI</h3>
+                        <label class="setting-row">
+                            <span>Difficulty</span>
+                            <select id="aiDifficultySelect">
+                                <option value="1">Easy</option>
+                                <option value="2" selected>Medium</option>
+                                <option value="3">Hard</option>
+                            </select>
+                        </label>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="modalContainer" class="modal-container hidden">
+        <!-- Create Room Modal -->
+        <div id="createRoomModal" class="modal hidden">
+            <div class="modal-content">
+                <h3>Create Room</h3>
+                <form id="createRoomForm">
+                    <label>
+                        <span>Your Name</span>
+                        <input type="text" id="createRoomName" maxlength="20" placeholder="Enter your name">
+                    </label>
+                    <label>
+                        <span>Time Mode</span>
+                        <select id="createRoomTimer">
+                            <option value="none">No Timer</option>
+                            <option value="classic">Classic (15 min)</option>
+                            <option value="rapid">Rapid (10 min + 5s)</option>
+                            <option value="blitz">Blitz (5 min + 3s)</option>
+                        </select>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="createRoomSpectators" checked>
+                        <span>Allow Spectators</span>
+                    </label>
+                    <div class="modal-actions">
+                        <button type="button" class="btn secondary" data-close-modal>Cancel</button>
+                        <button type="submit" class="btn primary">Create</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Join Room Modal -->
+        <div id="joinRoomModal" class="modal hidden">
+            <div class="modal-content">
+                <h3>Join Room</h3>
+                <form id="joinRoomForm">
+                    <label>
+                        <span>Your Name</span>
+                        <input type="text" id="joinRoomName" maxlength="20" placeholder="Enter your name">
+                    </label>
+                    <label>
+                        <span>Room Code</span>
+                        <input type="text" id="joinRoomCode" maxlength="4" placeholder="XXXX" class="room-code-input">
+                    </label>
+                    <div class="modal-actions">
+                        <button type="button" class="btn secondary" data-close-modal>Cancel</button>
+                        <button type="submit" class="btn primary">Join</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Waiting Modal -->
+        <div id="waitingModal" class="modal hidden">
+            <div class="modal-content">
+                <h3>Waiting for Opponent</h3>
+                <p>Share this room code:</p>
+                <div class="room-code-display" id="waitingRoomCode">----</div>
+                <div class="modal-actions">
+                    <button type="button" class="btn secondary" id="cancelWaitingBtn">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Over Modal -->
+        <div id="gameOverModal" class="modal hidden">
+            <div class="modal-content">
+                <h3 id="gameOverTitle">Game Over</h3>
+                <p id="gameOverMessage"></p>
+                <div class="modal-actions">
+                    <button type="button" class="btn secondary" data-close-modal>Close</button>
+                    <button type="button" class="btn primary" id="rematchBtn">Rematch</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Application Script -->
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>

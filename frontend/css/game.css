@@ -1,0 +1,427 @@
+/**
+ * Hexaequo - Game Styles
+ * Styles for the game board, HUD, and gameplay UI
+ */
+
+/* === Game Container === */
+.game-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    position: relative;
+    background: var(--bg-primary);
+}
+
+/* === Canvas Container === */
+.canvas-container {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+}
+
+#gameCanvas {
+    max-width: 100%;
+    max-height: 100%;
+    touch-action: none;
+}
+
+/* === HUD (Heads-Up Display) === */
+.hud {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-md) var(--space-lg);
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    z-index: 10;
+}
+
+.top-hud {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.bottom-hud {
+    border-top: 1px solid var(--border-color);
+    border-bottom: none;
+}
+
+/* === Player Info === */
+.player-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.player-name {
+    font-weight: 600;
+    font-size: var(--font-size-sm);
+}
+
+.player-timer {
+    font-family: 'Space Grotesk', monospace;
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.player-timer.warning {
+    color: var(--accent-warning);
+}
+
+.player-timer.danger {
+    color: var(--accent-danger);
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* === Turn Indicator === */
+.turn-indicator {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-full);
+}
+
+.turn-color {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid var(--border-light);
+}
+
+.turn-color.black {
+    background: var(--player-black);
+}
+
+.turn-color.white {
+    background: var(--player-white);
+}
+
+.turn-text {
+    font-weight: 500;
+    font-size: var(--font-size-sm);
+}
+
+/* === Inventory Display === */
+.inventory-display {
+    display: flex;
+    gap: var(--space-lg);
+}
+
+.inv-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.inv-icon {
+    font-size: var(--font-size-lg);
+    opacity: 0.8;
+}
+
+.inv-count {
+    font-weight: 600;
+    font-size: var(--font-size-md);
+}
+
+.inv-item.tiles .inv-icon {
+    color: var(--accent-primary);
+}
+
+.inv-item.discs .inv-icon {
+    color: var(--accent-success);
+}
+
+.inv-item.rings .inv-icon {
+    color: var(--accent-warning);
+}
+
+/* === Game Actions === */
+.game-actions {
+    position: absolute;
+    bottom: 80px;
+    right: var(--space-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    z-index: 20;
+}
+
+.action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    transition: all var(--transition-fast);
+}
+
+.action-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.action-btn.danger:hover {
+    background: var(--accent-danger);
+    color: white;
+    border-color: var(--accent-danger);
+}
+
+.action-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* === Multi-Jump Overlay === */
+.multi-jump-overlay {
+    position: absolute;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: var(--space-md);
+    padding: var(--space-md);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    z-index: 30;
+}
+
+.multi-jump-overlay .btn {
+    min-width: 100px;
+}
+
+/* === Game Over Banner === */
+.game-over-banner {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 100;
+    backdrop-filter: blur(4px);
+}
+
+.game-over-content {
+    text-align: center;
+    padding: var(--space-2xl);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
+}
+
+.game-over-content h2 {
+    font-size: var(--font-size-2xl);
+    margin-bottom: var(--space-sm);
+}
+
+.game-over-content.winner h2 {
+    color: var(--accent-success);
+}
+
+.game-over-content.loser h2 {
+    color: var(--accent-danger);
+}
+
+.game-over-content p {
+    color: var(--text-secondary);
+    margin-bottom: var(--space-lg);
+}
+
+.game-over-actions {
+    display: flex;
+    gap: var(--space-md);
+    justify-content: center;
+}
+
+/* === Thinking Indicator (AI) === */
+.thinking-indicator {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-md) var(--space-lg);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    z-index: 50;
+}
+
+.thinking-dots {
+    display: flex;
+    gap: 4px;
+}
+
+.thinking-dots span {
+    width: 8px;
+    height: 8px;
+    background: var(--accent-primary);
+    border-radius: 50%;
+    animation: thinking 1.4s ease-in-out infinite both;
+}
+
+.thinking-dots span:nth-child(1) { animation-delay: 0s; }
+.thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+.thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes thinking {
+    0%, 80%, 100% {
+        transform: scale(0);
+        opacity: 0.5;
+    }
+    40% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* === Connection Status === */
+.connection-status {
+    position: absolute;
+    top: var(--space-md);
+    right: var(--space-md);
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    padding: var(--space-xs) var(--space-sm);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-xs);
+    z-index: 20;
+}
+
+.connection-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.connection-dot.connected {
+    background: var(--accent-success);
+}
+
+.connection-dot.disconnected {
+    background: var(--accent-danger);
+}
+
+.connection-dot.connecting {
+    background: var(--accent-warning);
+    animation: pulse 1s infinite;
+}
+
+/* === Piece Placement Buttons === */
+.piece-placement-btns {
+    position: absolute;
+    display: flex;
+    gap: var(--space-sm);
+    padding: var(--space-sm);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    z-index: 40;
+}
+
+.piece-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-xs);
+    padding: var(--space-sm);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    transition: all var(--transition-fast);
+}
+
+.piece-btn:hover {
+    background: var(--bg-hover);
+}
+
+.piece-btn .piece-icon {
+    font-size: var(--font-size-xl);
+}
+
+/* === Valid Move Highlights === */
+.valid-move-hint {
+    position: absolute;
+    pointer-events: none;
+}
+
+.valid-move-hint.tile {
+    border: 2px dashed var(--accent-primary);
+    opacity: 0.5;
+}
+
+.valid-move-hint.move {
+    border: 2px solid var(--accent-success);
+    opacity: 0.6;
+}
+
+/* === Previous Move Highlight === */
+.previous-move-highlight {
+    position: absolute;
+    pointer-events: none;
+    border: 3px solid var(--accent-warning);
+    opacity: 0.7;
+}
+
+/* === Responsive Adjustments === */
+@media (max-width: 768px) {
+    .hud {
+        padding: var(--space-sm) var(--space-md);
+    }
+
+    .player-timer {
+        font-size: var(--font-size-lg);
+    }
+
+    .inventory-display {
+        gap: var(--space-md);
+    }
+
+    .game-actions {
+        bottom: 70px;
+        right: var(--space-md);
+    }
+
+    .action-btn {
+        width: 40px;
+        height: 40px;
+    }
+}
+
+@media (max-width: 480px) {
+    .turn-indicator {
+        display: none;
+    }
+
+    .inventory-display {
+        gap: var(--space-sm);
+    }
+
+    .inv-icon {
+        font-size: var(--font-size-md);
+    }
+}
