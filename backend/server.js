@@ -72,26 +72,67 @@ app.use(errorHandler);
 // Create HTTP server
 const httpServer = createServer(app);
 
-// Start server
-const startServer = async () => {
-    try {
-        // Future: Initialize database connection here
-        // await database.connect();
+// Initialize Socket.IO
+const { initializeSocket } = require('./socket/socketHandler');
+const io = initializeSocket(httpServer);
 
-        httpServer.listen(PORT, () => {
-            console.log(`Hexaequo Backend Server running on port ${PORT}`);
-            console.log(`Environment: ${NODE_ENV}`);
-            console.log(`Frontend URL: ${FRONTEND_URL}`);
-        });
-    } catch (error) {
-        console.error('Failed to start server:', error);
+// Handle uncaught errors
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+// Start server
+const startServer = () => {
+    // Test database connection (optional - will work without DB in dev)
+    (async () => {
+        try {
+            const { testConnection } = require('./config/database');
+            const dbConnected = await testConnection();
+            if (dbConnected) {
+                console.log('✅ Database connected');
+            } else {
+                console.log('⚠️  Database not connected (running in memory mode)');
+            }
+        } catch (dbError) {
+            console.log('⚠️  Database not configured (running in memory mode)');
+        }
+    })();
+
+    // Start HTTP server (synchronous - keeps event loop alive)
+    httpServer.listen(PORT, () => {
+        console.log(`\n🎮 Hexaequo Backend Server running on port ${PORT}`);
+        console.log(`   Environment: ${NODE_ENV}`);
+        console.log(`   Frontend URL: ${FRONTEND_URL}`);
+        console.log(`   WebSocket: enabled`);
+        console.log(`   Server is ready and listening...\n`);
+    });
+
+    httpServer.on('error', (error) => {
+        console.error('Server error:', error);
+        if (error.code === 'EADDRINUSE') {
+            console.error(`Port ${PORT} is already in use`);
+        }
         process.exit(1);
-    }
+    });
 };
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
     console.log('SIGTERM received. Shutting down gracefully...');
+    io.close();
+    httpServer.close(() => {
+        console.log('Server closed');
+        process.exit(0);
+    });
+});
+
+process.on('SIGINT', () => {
+    console.log('\nSIGINT received. Shutting down...');
+    io.close();
     httpServer.close(() => {
         console.log('Server closed');
         process.exit(0);
@@ -100,4 +141,4 @@ process.on('SIGTERM', () => {
 
 startServer();
 
-module.exports = { app, httpServer };
+module.exports = { app, httpServer, io };

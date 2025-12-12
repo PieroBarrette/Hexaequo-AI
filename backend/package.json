@@ -22,6 +22,7 @@
         "jsonwebtoken": "^9.0.2",
         "nodemailer": "^6.9.8",
         "pg": "^8.11.3",
+        "socket.io": "^4.8.1",
         "uuid": "^9.0.1"
     },
     "devDependencies": {
@@ -32,6 +33,11 @@
     "engines": {
         "node": ">=18.0.0"
     },
-    "keywords": ["hexaequo", "game", "api", "backend"],
+    "keywords": [
+        "hexaequo",
+        "game",
+        "api",
+        "backend"
+    ],
     "license": "MIT"
 }

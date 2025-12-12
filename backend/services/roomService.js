@@ -1,24 +1,60 @@
 /**
  * Room Service
  * 
- * Business logic for room operations using PostgreSQL database.
+ * Business logic for room operations.
+ * Uses PostgreSQL when available, falls back to in-memory storage.
  */
 
 const { notFound, conflict } = require('../middleware/errorHandler');
-const { Room, Spectator } = require('../models');
+
+// Try to use database models, fall back to memory store
+let Room, Spectator;
+let useMemoryStore = false;
+
+try {
+    const models = require('../models');
+    Room = models.Room;
+    Spectator = models.Spectator;
+} catch (err) {
+    useMemoryStore = true;
+}
+
+// Use memory store if database queries fail
+const memoryStore = require('../models/memoryStore');
+
+// Wrapper to try database first, then memory store
+async function withFallback(dbOperation, memoryOperation) {
+    if (useMemoryStore) {
+        return memoryOperation();
+    }
+    try {
+        return await dbOperation();
+    } catch (err) {
+        // If database fails, use memory store
+        console.log('Database unavailable, using memory store');
+        useMemoryStore = true;
+        return memoryOperation();
+    }
+}
 
 /**
  * Get rooms list
  */
 exports.getRooms = async ({ status = 'waiting', timeMode, allowSpectators, page = 1, limit = 20 }) => {
-    return await Room.findAvailable({ status, timeMode, allowSpectators, page, limit });
+    return withFallback(
+        () => Room.findAvailable({ status, timeMode, allowSpectators, page, limit }),
+        () => memoryStore.findAvailable({ status, timeMode, allowSpectators, page, limit })
+    );
 };
 
 /**
  * Get room by code
  */
 exports.getRoomByCode = async (code) => {
-    const room = await Room.findByCode(code);
+    const room = await withFallback(
+        () => Room.findByCode(code),
+        () => memoryStore.findByCode(code)
+    );
     if (!room) {
         throw notFound('Room');
     }
@@ -31,13 +67,10 @@ exports.getRoomByCode = async (code) => {
  * Create room
  */
 exports.createRoom = async ({ hostId, hostPseudo, hostSocketId, timeMode = 'none', allowSpectators = true }) => {
-    const room = await Room.create({
-        hostId,
-        hostPseudo,
-        hostSocketId,
-        timeMode,
-        allowSpectators
-    });
+    const room = await withFallback(
+        () => Room.create({ hostId, hostPseudo, hostSocketId, timeMode, allowSpectators }),
+        () => memoryStore.create({ hostId, hostPseudo, hostSocketId, timeMode, allowSpectators })
+    );
     
     return formatRoomResponse(room);
 };
@@ -46,7 +79,10 @@ exports.createRoom = async ({ hostId, hostPseudo, hostSocketId, timeMode = 'none
  * Join room as guest
  */
 exports.joinRoom = async (code, { guestId, guestPseudo, guestSocketId }) => {
-    const room = await Room.findByCode(code);
+    const room = await withFallback(
+        () => Room.findByCode(code),
+        () => memoryStore.findByCode(code)
+    );
     if (!room) {
         throw notFound('Room');
     }
@@ -55,11 +91,10 @@ exports.joinRoom = async (code, { guestId, guestPseudo, guestSocketId }) => {
         throw conflict('Room is not available');
     }
     
-    const updatedRoom = await Room.joinAsGuest(code, {
-        guestId,
-        guestPseudo,
-        guestSocketId
-    });
+    const updatedRoom = await withFallback(
+        () => Room.joinAsGuest(code, { guestId, guestPseudo, guestSocketId }),
+        () => memoryStore.joinAsGuest(code, { guestId, guestPseudo, guestSocketId })
+    );
     
     if (!updatedRoom) {
         throw conflict('Failed to join room');
@@ -76,30 +111,47 @@ exports.joinRoom = async (code, { guestId, guestPseudo, guestSocketId }) => {
  * Leave room
  */
 exports.leaveRoom = async (code, userId) => {
-    const room = await Room.findByCode(code);
+    const room = await withFallback(
+        () => Room.findByCode(code),
+        () => memoryStore.findByCode(code)
+    );
     if (!room) {
         return; // Room already gone
     }
 
     // If host leaves, delete room
     if (room.host_id === userId) {
-        // Clear spectators first
-        await Spectator.clearRoom(code);
-        await Room.deleteRoom(code);
+        await withFallback(
+            () => Spectator.clearRoom(code),
+            () => memoryStore.clearRoomSpectators(code)
+        );
+        await withFallback(
+            () => Room.deleteRoom(code),
+            () => memoryStore.deleteRoom(code)
+        );
         return { deleted: true };
     }
 
     // If guest leaves, room goes back to waiting
     if (room.guest_id === userId) {
-        await Room.removeGuest(code);
+        await withFallback(
+            () => Room.removeGuest(code),
+            () => memoryStore.removeGuest(code)
+        );
         return { deleted: false };
     }
     
     // Check if it's a spectator
-    const spectators = await Spectator.findByRoom(code);
-    const spectator = spectators.find(s => s.user_id === userId);
+    const spectators = await withFallback(
+        () => Spectator.findByRoom(code),
+        () => memoryStore.findSpectatorsByRoom(code)
+    );
+    const spectator = spectators.find(s => s.user_id === userId || s.userId === userId);
     if (spectator) {
-        await Spectator.leave(spectator.socket_id);
+        await withFallback(
+            () => Spectator.leave(spectator.socket_id || spectator.socketId),
+            () => memoryStore.leaveSpectator(spectator.socket_id || spectator.socketId)
+        );
     }
     
     return { deleted: false };
@@ -109,43 +161,64 @@ exports.leaveRoom = async (code, userId) => {
  * Delete room
  */
 exports.deleteRoom = async (code) => {
-    await Spectator.clearRoom(code);
-    await Room.deleteRoom(code);
+    await withFallback(
+        () => Spectator.clearRoom(code),
+        () => memoryStore.clearRoomSpectators(code)
+    );
+    await withFallback(
+        () => Room.deleteRoom(code),
+        () => memoryStore.deleteRoom(code)
+    );
 };
 
 /**
  * Update game state in room
  */
 exports.updateGameState = async (code, gameState, activePlayer) => {
-    return await Room.updateGameState(code, gameState, activePlayer);
+    return withFallback(
+        () => Room.updateGameState(code, gameState, activePlayer),
+        () => memoryStore.updateGameState(code, gameState, activePlayer)
+    );
 };
 
 /**
  * Update player socket ID (for reconnection)
  */
 exports.updateSocketId = async (code, color, socketId) => {
-    await Room.updateSocketId(code, color, socketId);
+    await withFallback(
+        () => Room.updateSocketId(code, color, socketId),
+        () => memoryStore.updateSocketId(code, color, socketId)
+    );
 };
 
 /**
  * Update room status
  */
 exports.updateStatus = async (code, status) => {
-    await Room.updateStatus(code, status);
+    await withFallback(
+        () => Room.updateStatus(code, status),
+        () => memoryStore.updateStatus(code, status)
+    );
 };
 
 /**
  * Reset room for rematch
  */
 exports.resetForRematch = async (code) => {
-    return await Room.resetForRematch(code);
+    return withFallback(
+        () => Room.resetForRematch(code),
+        () => memoryStore.resetForRematch(code)
+    );
 };
 
 /**
  * Join room as spectator
  */
 exports.joinAsSpectator = async (code, { userId, socketId, pseudo }) => {
-    const room = await Room.findByCode(code);
+    const room = await withFallback(
+        () => Room.findByCode(code),
+        () => memoryStore.findByCode(code)
+    );
     if (!room) {
         throw notFound('Room');
     }
@@ -154,7 +227,10 @@ exports.joinAsSpectator = async (code, { userId, socketId, pseudo }) => {
         throw conflict('Spectators not allowed in this room');
     }
     
-    await Spectator.join(code, { userId, socketId, pseudo });
+    await withFallback(
+        () => Spectator.join(code, { userId, socketId, pseudo }),
+        () => memoryStore.joinSpectator(code, { userId, socketId, pseudo })
+    );
     
     return {
         roomCode: code,
@@ -168,21 +244,30 @@ exports.joinAsSpectator = async (code, { userId, socketId, pseudo }) => {
  * Leave as spectator
  */
 exports.leaveAsSpectator = async (socketId) => {
-    return await Spectator.leave(socketId);
+    return withFallback(
+        () => Spectator.leave(socketId),
+        () => memoryStore.leaveSpectator(socketId)
+    );
 };
 
 /**
  * Get spectators in room
  */
 exports.getSpectators = async (code) => {
-    return await Spectator.findByRoom(code);
+    return withFallback(
+        () => Spectator.findByRoom(code),
+        () => memoryStore.findSpectatorsByRoom(code)
+    );
 };
 
 /**
  * Get spectator count
  */
 exports.getSpectatorCount = async (code) => {
-    return await Spectator.getCount(code);
+    return withFallback(
+        () => Spectator.getCount(code),
+        () => memoryStore.getSpectatorCount(code)
+    );
 };
 
 /**
@@ -217,7 +302,10 @@ function formatRoomResponse(room) {
 if (process.env.NODE_ENV !== 'test') {
     setInterval(async () => {
         try {
-            const cleaned = await Room.cleanupOld();
+            const cleaned = await withFallback(
+                () => Room.cleanupOld(),
+                () => memoryStore.cleanupOld()
+            );
             if (cleaned > 0) {
                 console.log(`Cleaned up ${cleaned} old rooms`);
             }

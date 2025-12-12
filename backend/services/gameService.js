@@ -1,24 +1,59 @@
 /**
  * Game Service
  * 
- * Business logic for game operations using PostgreSQL database.
+ * Business logic for game operations.
+ * Uses PostgreSQL when available, falls back to in-memory storage.
  */
 
 const { notFound } = require('../middleware/errorHandler');
-const { Game, Move, User } = require('../models');
+
+// Try to use database models, fall back to memory store
+let Game, Move, User;
+let useMemoryStore = false;
+
+try {
+    const models = require('../models');
+    Game = models.Game;
+    Move = models.Move;
+    User = models.User;
+} catch (err) {
+    useMemoryStore = true;
+}
+
+const memoryGameStore = require('../models/memoryGameStore');
+
+// Wrapper to try database first, then memory store
+async function withFallback(dbOperation, memoryOperation) {
+    if (useMemoryStore) {
+        return memoryOperation();
+    }
+    try {
+        return await dbOperation();
+    } catch (err) {
+        console.log('Database unavailable for games, using memory store');
+        useMemoryStore = true;
+        return memoryOperation();
+    }
+}
 
 /**
  * Get games list
  */
 exports.getGames = async ({ status, timeMode, playerId, page = 1, limit = 20 }) => {
-    return await Game.findAll({ status, timeMode, playerId, page, limit });
+    return withFallback(
+        () => Game.findAll({ status, timeMode, playerId, page, limit }),
+        () => memoryGameStore.findAll({ status, timeMode, playerId, page, limit })
+    );
 };
 
 /**
  * Get game by ID
  */
 exports.getGameById = async (gameId) => {
-    const game = await Game.findById(gameId);
+    const game = await withFallback(
+        () => Game.findById(gameId),
+        () => memoryGameStore.findById(gameId)
+    );
     if (!game) {
         throw notFound('Game');
     }
@@ -29,7 +64,10 @@ exports.getGameById = async (gameId) => {
  * Get game replay
  */
 exports.getGameReplay = async (gameId) => {
-    const replay = await Game.getReplay(gameId);
+    const replay = await withFallback(
+        () => Game.getReplay(gameId),
+        () => memoryGameStore.getReplay(gameId)
+    );
     if (!replay) {
         throw notFound('Game');
     }
@@ -73,7 +111,15 @@ exports.getGameReplay = async (gameId) => {
  * Get leaderboard
  */
 exports.getLeaderboard = async ({ timeMode = 'classic', page = 1, limit = 50 }) => {
-    return await User.getLeaderboard(timeMode, { page, limit });
+    // Leaderboard requires database - return empty if not available
+    if (useMemoryStore) {
+        return { players: [], total: 0, page, totalPages: 0 };
+    }
+    try {
+        return await User.getLeaderboard(timeMode, { page, limit });
+    } catch (err) {
+        return { players: [], total: 0, page, totalPages: 0 };
+    }
 };
 
 /**
@@ -87,36 +133,54 @@ exports.createGame = async ({
     whitePseudo,
     timeMode
 }) => {
-    // Get player ELOs
-    const eloColumn = `elo_${timeMode === 'none' ? 'classic' : timeMode}`;
-    
+    // Get player ELOs (only if database available)
     let blackEloBefore = 1500;
     let whiteEloBefore = 1500;
     
-    if (blackPlayerId) {
-        const blackPlayer = await User.findById(blackPlayerId);
-        if (blackPlayer) {
-            blackEloBefore = blackPlayer[eloColumn] || 1500;
+    if (!useMemoryStore) {
+        try {
+            const eloColumn = `elo_${timeMode === 'none' ? 'classic' : timeMode}`;
+            
+            if (blackPlayerId && User) {
+                const blackPlayer = await User.findById(blackPlayerId);
+                if (blackPlayer) {
+                    blackEloBefore = blackPlayer[eloColumn] || 1500;
+                }
+            }
+            
+            if (whitePlayerId && User) {
+                const whitePlayer = await User.findById(whitePlayerId);
+                if (whitePlayer) {
+                    whiteEloBefore = whitePlayer[eloColumn] || 1500;
+                }
+            }
+        } catch (err) {
+            // Use default ELO
         }
     }
     
-    if (whitePlayerId) {
-        const whitePlayer = await User.findById(whitePlayerId);
-        if (whitePlayer) {
-            whiteEloBefore = whitePlayer[eloColumn] || 1500;
-        }
-    }
-    
-    const game = await Game.create({
-        roomCode,
-        blackPlayerId,
-        blackPseudo,
-        blackEloBefore,
-        whitePlayerId,
-        whitePseudo,
-        whiteEloBefore,
-        timeMode: timeMode === 'none' ? 'classic' : timeMode
-    });
+    const game = await withFallback(
+        () => Game.create({
+            roomCode,
+            blackPlayerId,
+            blackPseudo,
+            blackEloBefore,
+            whitePlayerId,
+            whitePseudo,
+            whiteEloBefore,
+            timeMode: timeMode === 'none' ? 'classic' : timeMode
+        }),
+        () => memoryGameStore.create({
+            roomCode,
+            blackPlayerId,
+            blackPseudo,
+            blackEloBefore,
+            whitePlayerId,
+            whitePseudo,
+            whiteEloBefore,
+            timeMode: timeMode === 'none' ? 'classic' : timeMode
+        })
+    );
 
     return { gameId: game.id };
 };
@@ -136,28 +200,48 @@ exports.recordMove = async (gameId, {
     timeRemainingWhite,
     moveTime
 }) => {
-    return await Move.create({
-        gameId,
-        moveNumber,
-        player,
-        moveType,
-        fromQ: from?.q,
-        fromR: from?.r,
-        toQ: to.q,
-        toR: to.r,
-        captures,
-        stateSnapshot,
-        timeRemainingBlack,
-        timeRemainingWhite,
-        moveTime
-    });
+    return withFallback(
+        () => Move.create({
+            gameId,
+            moveNumber,
+            player,
+            moveType,
+            fromQ: from?.q,
+            fromR: from?.r,
+            toQ: to.q,
+            toR: to.r,
+            captures,
+            stateSnapshot,
+            timeRemainingBlack,
+            timeRemainingWhite,
+            moveTime
+        }),
+        () => memoryGameStore.createMove({
+            gameId,
+            moveNumber,
+            player,
+            moveType,
+            fromQ: from?.q,
+            fromR: from?.r,
+            toQ: to.q,
+            toR: to.r,
+            captures,
+            stateSnapshot,
+            timeRemainingBlack,
+            timeRemainingWhite,
+            moveTime
+        })
+    );
 };
 
 /**
  * Get moves for a game
  */
 exports.getMoves = async (gameId) => {
-    return await Move.findByGameId(gameId);
+    return withFallback(
+        () => Move.findByGameId(gameId),
+        () => memoryGameStore.findMovesByGameId(gameId)
+    );
 };
 
 /**
@@ -168,7 +252,10 @@ exports.endGame = async (gameId, {
     resultReason,
     finalState
 }) => {
-    const game = await Game.findById(gameId);
+    const game = await withFallback(
+        () => Game.findById(gameId),
+        () => memoryGameStore.findById(gameId)
+    );
     if (!game) {
         throw notFound('Game');
     }
@@ -183,25 +270,40 @@ exports.endGame = async (gameId, {
         );
     
     // Complete the game
-    const completedGame = await Game.complete(gameId, {
-        winner,
-        resultReason,
-        finalState,
-        blackEloAfter,
-        whiteEloAfter
-    });
+    await withFallback(
+        () => Game.complete(gameId, {
+            winner,
+            resultReason,
+            finalState,
+            blackEloAfter,
+            whiteEloAfter
+        }),
+        () => memoryGameStore.complete(gameId, {
+            winner,
+            resultReason,
+            finalState,
+            blackEloAfter,
+            whiteEloAfter
+        })
+    );
     
-    // Update player ELOs and stats
-    if (game.black_player_id) {
-        const blackResult = winner === 'black' ? 'win' : winner === 'white' ? 'loss' : 'draw';
-        await User.updateElo(game.black_player_id, timeMode, blackEloAfter, blackEloChange, gameId);
-        await User.updateStats(game.black_player_id, blackResult);
-    }
-    
-    if (game.white_player_id) {
-        const whiteResult = winner === 'white' ? 'win' : winner === 'black' ? 'loss' : 'draw';
-        await User.updateElo(game.white_player_id, timeMode, whiteEloAfter, whiteEloChange, gameId);
-        await User.updateStats(game.white_player_id, whiteResult);
+    // Update player ELOs and stats (only if database available)
+    if (!useMemoryStore && User) {
+        try {
+            if (game.black_player_id) {
+                const blackResult = winner === 'black' ? 'win' : winner === 'white' ? 'loss' : 'draw';
+                await User.updateElo(game.black_player_id, timeMode, blackEloAfter, blackEloChange, gameId);
+                await User.updateStats(game.black_player_id, blackResult);
+            }
+            
+            if (game.white_player_id) {
+                const whiteResult = winner === 'white' ? 'win' : winner === 'black' ? 'loss' : 'draw';
+                await User.updateElo(game.white_player_id, timeMode, whiteEloAfter, whiteEloChange, gameId);
+                await User.updateStats(game.white_player_id, whiteResult);
+            }
+        } catch (err) {
+            console.error('Failed to update player stats:', err.message);
+        }
     }
 
     return {
@@ -254,7 +356,10 @@ function calculateEloChanges(blackElo, whiteElo, winner) {
  * Get head-to-head stats
  */
 exports.getHeadToHead = async (playerId1, playerId2) => {
-    return await Game.getHeadToHead(playerId1, playerId2);
+    return withFallback(
+        () => Game.getHeadToHead(playerId1, playerId2),
+        () => memoryGameStore.getHeadToHead(playerId1, playerId2)
+    );
 };
 
 /**

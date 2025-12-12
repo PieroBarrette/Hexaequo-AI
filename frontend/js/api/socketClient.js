@@ -2,8 +2,12 @@
  * Socket Client - WebSocket communication for multiplayer
  */
 
+// Backend URL configuration
+// Port 3001: New backend with REST API + Socket.IO
+// Port 3000: Legacy Socket.IO-only server (fallback)
+const BACKEND_PORT = 3001;
 const SERVER_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:3000'
+    ? `http://localhost:${BACKEND_PORT}`
     : 'https://hexaequo-server.onrender.com';
 
 /**
@@ -75,13 +79,19 @@ export class SocketClient {
     initializeSocket(resolve, reject) {
         try {
             this.playerId = this.getPlayerId();
+            
+            // Get auth token if available
+            const authToken = localStorage.getItem('hexaequoAuthToken');
 
             this.socket = io(SERVER_URL, {
                 transports: ['websocket', 'polling'],
                 timeout: 10000,
                 reconnection: true,
                 reconnectionAttempts: this.maxReconnectAttempts,
-                reconnectionDelay: 1000
+                reconnectionDelay: 1000,
+                auth: {
+                    token: authToken || null
+                }
             });
 
             this.socket.on('connect', () => {
