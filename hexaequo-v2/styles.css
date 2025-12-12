@@ -1768,6 +1768,21 @@ select {
     color: #fff;
 }
 
+/* Own room styling - not clickable */
+.room-list-table tbody tr.own-room {
+    cursor: default;
+    background: rgba(102, 170, 255, 0.1);
+    border-left: 3px solid #66aaff;
+}
+
+.room-list-table tbody tr.own-room:hover {
+    background: rgba(102, 170, 255, 0.15);
+}
+
+.room-list-table tbody tr.own-room:hover td {
+    color: var(--text-primary);
+}
+
 .room-list-table td {
     padding: 10px;
     border-bottom: 1px solid var(--border-color);

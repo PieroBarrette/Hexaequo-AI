@@ -325,6 +325,11 @@
 
     // ==================== Menu Navigation ====================
     function showMainMenu() {
+        // Cancel any waiting room before going back
+        if (currentRoomCode) {
+            cancelWaiting();
+        }
+        
         // Hide all sections
         document.querySelector('.mode-selection')?.style.setProperty('display', 'flex');
         lobby.aiOptions?.style.setProperty('display', 'none');
@@ -334,11 +339,6 @@
         
         // Show footer
         document.querySelector('.lobby-footer')?.style.setProperty('display', 'flex');
-        
-        // Disconnect socket if in waiting state
-        if (currentRoomCode && !isConnected) {
-            currentRoomCode = null;
-        }
         
         hideError();
         hideAuthError();
@@ -641,6 +641,12 @@
             return;
         }
         
+        // Prevent joining own room (client-side check)
+        if (currentRoomCode && code.toUpperCase() === currentRoomCode.toUpperCase()) {
+            showError("Can't join your own room");
+            return;
+        }
+        
         hideError();
         console.log('[Lobby] Joining room:', code);
         
@@ -830,7 +836,16 @@
         filteredRooms.forEach(room => {
             const tr = document.createElement('tr');
             tr.dataset.roomCode = room.roomCode;
-            tr.addEventListener('click', () => joinRoom(room.roomCode));
+            
+            // Check if this is the user's own room
+            const isOwnRoom = currentRoomCode && room.roomCode.toUpperCase() === currentRoomCode.toUpperCase();
+            
+            if (isOwnRoom) {
+                tr.classList.add('own-room');
+                tr.title = 'Your room';
+            } else {
+                tr.addEventListener('click', () => joinRoom(room.roomCode));
+            }
             
             // Time control cell
             const tdTime = document.createElement('td');
@@ -843,6 +858,9 @@
             // Player name cell
             const tdName = document.createElement('td');
             tdName.textContent = room.creatorName || 'Guest';
+            if (isOwnRoom) {
+                tdName.textContent += ' (You)';
+            }
             tr.appendChild(tdName);
             
             // ELO cell
@@ -902,8 +920,13 @@
     }
 
     function cancelWaiting() {
-        if (socket && currentRoomCode) {
-            socket.emit('leaveRoom');
+        if (currentRoomCode) {
+            // Use Multiplayer.leaveRoom which handles the protocol correctly
+            if (window.Multiplayer && window.Multiplayer.leaveRoom) {
+                window.Multiplayer.leaveRoom().catch(err => {
+                    console.error('[Lobby] Failed to leave room:', err);
+                });
+            }
         }
         currentRoomCode = null;
         
@@ -1211,6 +1234,11 @@
     }
     
     async function handleLogout() {
+        // Cancel any waiting room first
+        if (currentRoomCode) {
+            cancelWaiting();
+        }
+        
         if (sessionToken) {
             try {
                 await fetch(`${API_BASE}/auth/logout`, {
