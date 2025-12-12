@@ -2206,3 +2206,147 @@ select {
 .room-filters.collapsed {
     display: none;
 }
+
+/* Online Game Actions (Resign / Ex Aequo buttons) */
+.online-game-actions {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 12px;
+    z-index: 20;
+}
+
+.online-game-actions.hidden {
+    display: none;
+}
+
+.game-action-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid var(--border-color);
+    background: var(--bg-container);
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    opacity: 0.7;
+}
+
+.game-action-btn:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.game-action-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.resign-btn:hover {
+    border-color: #ff6666;
+    color: #ff6666;
+}
+
+.draw-btn:hover {
+    border-color: #66aaff;
+    color: #66aaff;
+}
+
+/* Draw Proposal Notification */
+.draw-proposal-notification {
+    position: absolute;
+    top: 110px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    z-index: 25;
+    animation: slideDown 0.3s ease;
+}
+
+.draw-proposal-notification.hidden {
+    display: none;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+#drawProposalText {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.draw-response-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.accept-btn {
+    background: #4CAF50;
+    color: white;
+}
+
+.accept-btn:hover {
+    background: #5CBF60;
+    transform: scale(1.1);
+}
+
+.decline-btn {
+    background: #f44336;
+    color: white;
+}
+
+.decline-btn:hover {
+    background: #ff5246;
+    transform: scale(1.1);
+}
+
+/* Toast notification for declined draw */
+.draw-declined-toast {
+    position: absolute;
+    top: 110px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 8px 16px;
+    background: rgba(244, 67, 54, 0.9);
+    color: white;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    z-index: 25;
+    animation: toastFade 3s ease forwards;
+}
+
+@keyframes toastFade {
+    0%, 70% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}

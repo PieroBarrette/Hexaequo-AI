@@ -35,6 +35,11 @@ const Multiplayer = (function () {
     let onEloUpdated = null;
     let onConnectionStatusChange = null;
     let onError = null;
+    // Resign and draw callbacks
+    let onOpponentResigned = null;
+    let onDrawProposed = null;
+    let onDrawAccepted = null;
+    let onDrawDeclined = null;
 
     // Get or create player ID (persisted in localStorage)
     function getPlayerId() {
@@ -172,6 +177,27 @@ const Multiplayer = (function () {
             socket.on('elo-updated', (data) => {
                 console.log('ELO updated:', data);
                 if (onEloUpdated) onEloUpdated(data);
+            });
+
+            // Resign and draw events
+            socket.on('opponent-resigned', (data) => {
+                console.log('Opponent resigned');
+                if (onOpponentResigned) onOpponentResigned(data);
+            });
+
+            socket.on('draw-proposed', (data) => {
+                console.log('Draw proposed by opponent');
+                if (onDrawProposed) onDrawProposed(data);
+            });
+
+            socket.on('draw-accepted', (data) => {
+                console.log('Draw accepted');
+                if (onDrawAccepted) onDrawAccepted(data);
+            });
+
+            socket.on('draw-declined', (data) => {
+                console.log('Draw declined');
+                if (onDrawDeclined) onDrawDeclined(data);
             });
 
         } catch (err) {
@@ -417,6 +443,63 @@ const Multiplayer = (function () {
         });
     }
 
+    // Resign the game
+    function resign() {
+        return new Promise((resolve, reject) => {
+            if (!socket || !socket.connected || !roomCode) {
+                reject(new Error('Not connected to a game'));
+                return;
+            }
+            socket.emit('resign', { roomCode, playerId }, (response) => {
+                if (response && response.success) {
+                    console.log('[Multiplayer] Resigned successfully');
+                    resolve(response);
+                } else {
+                    console.error('[Multiplayer] Failed to resign:', response?.error);
+                    reject(new Error(response?.error || 'Failed to resign'));
+                }
+            });
+        });
+    }
+
+    // Propose a draw (Ex Aequo)
+    function proposeDraw() {
+        return new Promise((resolve, reject) => {
+            if (!socket || !socket.connected || !roomCode) {
+                reject(new Error('Not connected to a game'));
+                return;
+            }
+            socket.emit('propose-draw', { roomCode, playerId }, (response) => {
+                if (response && response.success) {
+                    console.log('[Multiplayer] Draw proposed successfully');
+                    resolve(response);
+                } else {
+                    console.error('[Multiplayer] Failed to propose draw:', response?.error);
+                    reject(new Error(response?.error || 'Failed to propose draw'));
+                }
+            });
+        });
+    }
+
+    // Respond to a draw proposal
+    function respondDraw(accepted) {
+        return new Promise((resolve, reject) => {
+            if (!socket || !socket.connected || !roomCode) {
+                reject(new Error('Not connected to a game'));
+                return;
+            }
+            socket.emit('respond-draw', { roomCode, playerId, accepted }, (response) => {
+                if (response && response.success) {
+                    console.log('[Multiplayer] Draw response sent:', accepted ? 'accepted' : 'declined');
+                    resolve(response);
+                } else {
+                    console.error('[Multiplayer] Failed to respond to draw:', response?.error);
+                    reject(new Error(response?.error || 'Failed to respond to draw'));
+                }
+            });
+        });
+    }
+
     // Disconnect from server
     function disconnect() {
         if (socket) {
@@ -477,6 +560,9 @@ const Multiplayer = (function () {
         startRematch,
         leaveEndgame,
         reportGameResult,
+        resign,
+        proposeDraw,
+        respondDraw,
         disconnect,
         clearRoomInfo,
         loadRoomInfo,
@@ -503,6 +589,10 @@ const Multiplayer = (function () {
         set onGameReset(fn) { onGameReset = fn; },
         set onGameTimeout(fn) { onGameTimeout = fn; },
         set onEloUpdated(fn) { onEloUpdated = fn; },
+        set onOpponentResigned(fn) { onOpponentResigned = fn; },
+        set onDrawProposed(fn) { onDrawProposed = fn; },
+        set onDrawAccepted(fn) { onDrawAccepted = fn; },
+        set onDrawDeclined(fn) { onDrawDeclined = fn; },
         set onConnectionStatusChange(fn) { onConnectionStatusChange = fn; },
         set onError(fn) { onError = fn; },
         

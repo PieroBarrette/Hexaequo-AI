@@ -288,6 +288,36 @@
         </div> -->
         <canvas id="gameCanvas" width="800" height="600"></canvas>
         <canvas id="inventoryCanvas" width="800" height="600"></canvas>
+        
+        <!-- Online Game Actions (Resign / Ex Aequo) -->
+        <div id="onlineGameActions" class="online-game-actions hidden">
+            <button id="resignBtn" class="game-action-btn resign-btn" title="Resign">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M5 4h2v16H5V4zm4 0h2v8h6l-3-3 1.5-1.5L20 12l-4.5 4.5L14 15l3-3H9V4z"/>
+                </svg>
+            </button>
+            <button id="proposeDrawBtn" class="game-action-btn draw-btn" title="Propose Ex Aequo">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.18l6.9 3.45L12 11.09 5.1 7.63 12 4.18zM4 8.82l7 3.5v7.36l-7-3.5V8.82zm9 10.86v-7.36l7-3.5v7.36l-7 3.5z"/>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Draw Proposal Notification -->
+        <div id="drawProposalNotification" class="draw-proposal-notification hidden">
+            <span id="drawProposalText">Opponent proposes Ex Aequo</span>
+            <button id="acceptDrawBtn" class="draw-response-btn accept-btn" title="Accept">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+            </button>
+            <button id="declineDrawBtn" class="draw-response-btn decline-btn" title="Decline">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
     </div>
 
     <!-- Back to Menu Button -->
@@ -877,6 +907,31 @@
                 // Server reports ELO update after game
                 if (window.onEloUpdated) {
                     window.onEloUpdated(data);
+                }
+            };
+
+            // Resign and draw callbacks
+            window.Multiplayer.onOpponentResigned = (data) => {
+                if (window.onOpponentResigned) {
+                    window.onOpponentResigned(data);
+                }
+            };
+
+            window.Multiplayer.onDrawProposed = (data) => {
+                if (window.onDrawProposed) {
+                    window.onDrawProposed(data);
+                }
+            };
+
+            window.Multiplayer.onDrawAccepted = (data) => {
+                if (window.onDrawAccepted) {
+                    window.onDrawAccepted(data);
+                }
+            };
+
+            window.Multiplayer.onDrawDeclined = (data) => {
+                if (window.onDrawDeclined) {
+                    window.onDrawDeclined(data);
                 }
             };
 

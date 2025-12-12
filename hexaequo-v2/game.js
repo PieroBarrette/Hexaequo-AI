@@ -50,6 +50,10 @@ function setOnlineMode(enabled, playerColor = null) {
         onlinePlayerColor = null;
         console.log('Online Mode disabled');
     }
+    // Update resign/draw buttons visibility
+    if (window.updateOnlineGameActionsVisibility) {
+        window.updateOnlineGameActionsVisibility();
+    }
 }
 
 // Check if it's the local player's turn in online mode
@@ -1505,6 +1509,14 @@ window.onload = function () {
             window.GameTimer.stop();
         }
         
+        // Hide resign/draw buttons and any pending notification
+        if (window.updateOnlineGameActionsVisibility) {
+            window.updateOnlineGameActionsVisibility();
+        }
+        if (window.hideDrawProposalNotification) {
+            window.hideDrawProposalNotification();
+        }
+        
         // Report game result to server for ELO calculation (online mode only)
         if (isOnlineMode && window.Multiplayer) {
             const isDraw = winner === 'Ex Aequo';
@@ -1825,6 +1837,20 @@ window.onload = function () {
         if (data && data.gameState) {
             applyOnlineMove(data.gameState, null);
         }
+        
+        // Reset draw proposal state for new game
+        canProposeDraw = true;
+        lastProposalTurn = null;
+        pendingDrawProposal = false;
+        if (proposeDrawBtn) {
+            proposeDrawBtn.disabled = false;
+            proposeDrawBtn.title = 'Propose Ex Aequo';
+        }
+        
+        // Show resign/draw buttons for new game
+        if (window.updateOnlineGameActionsVisibility) {
+            window.updateOnlineGameActionsVisibility();
+        }
     }
 
     // Handle game timeout from server
@@ -1877,6 +1903,199 @@ window.onload = function () {
     window.onGameReset = onGameReset;
     window.onGameTimeout = onGameTimeout;
     window.onEloUpdated = onEloUpdated;
+
+    // ===== Resign and Draw Proposal Handling =====
+    
+    // State for draw proposals
+    let pendingDrawProposal = false; // Whether we have a pending draw proposal
+    let canProposeDraw = true; // Anti-spam: only one proposal per turn
+    let lastProposalTurn = null; // Track the turn when we last proposed
+    
+    // Get UI elements
+    const onlineGameActions = document.getElementById('onlineGameActions');
+    const resignBtn = document.getElementById('resignBtn');
+    const proposeDrawBtn = document.getElementById('proposeDrawBtn');
+    const drawProposalNotification = document.getElementById('drawProposalNotification');
+    const drawProposalText = document.getElementById('drawProposalText');
+    const acceptDrawBtn = document.getElementById('acceptDrawBtn');
+    const declineDrawBtn = document.getElementById('declineDrawBtn');
+    
+    // Show/hide online game actions
+    function updateOnlineGameActionsVisibility() {
+        if (onlineGameActions) {
+            if (isOnlineMode && !isGameOver()) {
+                onlineGameActions.classList.remove('hidden');
+            } else {
+                onlineGameActions.classList.add('hidden');
+            }
+        }
+    }
+    
+    // Update propose draw button state (anti-spam)
+    function updateProposeDrawButton() {
+        if (proposeDrawBtn) {
+            proposeDrawBtn.disabled = !canProposeDraw || pendingDrawProposal;
+            proposeDrawBtn.title = !canProposeDraw 
+                ? 'You already proposed Ex Aequo this turn' 
+                : pendingDrawProposal 
+                    ? 'Waiting for opponent response'
+                    : 'Propose Ex Aequo';
+        }
+    }
+    
+    // Reset draw proposal state when turn changes
+    function resetDrawProposalOnTurnChange(newActivePlayer) {
+        // If it's now our turn and we had proposed last turn, allow new proposal
+        if (isMyTurn(newActivePlayer) && lastProposalTurn !== null && lastProposalTurn !== newActivePlayer) {
+            canProposeDraw = true;
+            lastProposalTurn = null;
+            updateProposeDrawButton();
+        }
+        // Clear pending proposal notification if opponent made a move (implicit decline)
+        if (pendingDrawProposal) {
+            hideDrawProposalNotification();
+            pendingDrawProposal = false;
+        }
+    }
+    
+    // Show draw proposal notification from opponent
+    function showDrawProposalNotification(opponentName) {
+        if (drawProposalNotification && drawProposalText) {
+            drawProposalText.textContent = `${opponentName} proposes Ex Aequo`;
+            drawProposalNotification.classList.remove('hidden');
+            pendingDrawProposal = true;
+        }
+    }
+    
+    // Hide draw proposal notification
+    function hideDrawProposalNotification() {
+        if (drawProposalNotification) {
+            drawProposalNotification.classList.add('hidden');
+        }
+    }
+    
+    // Show toast when opponent declines draw
+    function showDrawDeclinedToast(opponentName) {
+        // Remove any existing toast
+        const existingToast = document.querySelector('.draw-declined-toast');
+        if (existingToast) {
+            existingToast.remove();
+        }
+        
+        const toast = document.createElement('div');
+        toast.className = 'draw-declined-toast';
+        toast.textContent = `${opponentName} refuses Ex Aequo`;
+        document.getElementById('gameContainer').appendChild(toast);
+        
+        // Remove toast after animation
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
+    }
+    
+    // Handle resign button click
+    if (resignBtn) {
+        resignBtn.addEventListener('click', async () => {
+            if (!isOnlineMode || isGameOver()) return;
+            
+            try {
+                await window.Multiplayer.resign();
+                // End game with us as loser
+                const myColor = window.Multiplayer.playerColor;
+                const winnerColor = myColor === 'black' ? 'white' : 'black';
+                endGame(winnerColor, 'by abandonment');
+            } catch (err) {
+                console.error('Failed to resign:', err);
+            }
+        });
+    }
+    
+    // Handle propose draw button click
+    if (proposeDrawBtn) {
+        proposeDrawBtn.addEventListener('click', async () => {
+            if (!isOnlineMode || isGameOver() || !canProposeDraw) return;
+            
+            try {
+                await window.Multiplayer.proposeDraw();
+                canProposeDraw = false;
+                lastProposalTurn = activePlayer;
+                updateProposeDrawButton();
+            } catch (err) {
+                console.error('Failed to propose draw:', err);
+            }
+        });
+    }
+    
+    // Handle accept draw button click
+    if (acceptDrawBtn) {
+        acceptDrawBtn.addEventListener('click', async () => {
+            if (!isOnlineMode || !pendingDrawProposal) return;
+            
+            try {
+                await window.Multiplayer.respondDraw(true);
+                hideDrawProposalNotification();
+                pendingDrawProposal = false;
+                // Game will end via draw-accepted event
+            } catch (err) {
+                console.error('Failed to accept draw:', err);
+            }
+        });
+    }
+    
+    // Handle decline draw button click
+    if (declineDrawBtn) {
+        declineDrawBtn.addEventListener('click', async () => {
+            if (!isOnlineMode || !pendingDrawProposal) return;
+            
+            try {
+                await window.Multiplayer.respondDraw(false);
+                hideDrawProposalNotification();
+                pendingDrawProposal = false;
+            } catch (err) {
+                console.error('Failed to decline draw:', err);
+            }
+        });
+    }
+    
+    // Handler for when opponent resigns
+    function onOpponentResigned(data) {
+        console.log('Opponent resigned');
+        // End game with us as winner
+        const myColor = window.Multiplayer.playerColor;
+        endGame(myColor, 'by abandonment');
+    }
+    
+    // Handler for when opponent proposes a draw
+    function onDrawProposed(data) {
+        console.log('Opponent proposes draw');
+        const opponentName = opponentInfo?.name || 'Opponent';
+        showDrawProposalNotification(opponentName);
+    }
+    
+    // Handler for when draw is accepted (by either player)
+    function onDrawAccepted(data) {
+        console.log('Draw accepted');
+        hideDrawProposalNotification();
+        pendingDrawProposal = false;
+        endGame('draw', 'by agreement');
+    }
+    
+    // Handler for when opponent declines our draw proposal
+    function onDrawDeclined(data) {
+        console.log('Draw declined');
+        pendingDrawProposal = false;
+        const opponentName = opponentInfo?.name || 'Opponent';
+        showDrawDeclinedToast(opponentName);
+    }
+    
+    // Expose handlers for index.html to wire up
+    window.onOpponentResigned = onOpponentResigned;
+    window.onDrawProposed = onDrawProposed;
+    window.onDrawAccepted = onDrawAccepted;
+    window.onDrawDeclined = onDrawDeclined;
+    window.updateOnlineGameActionsVisibility = updateOnlineGameActionsVisibility;
+    window.resetDrawProposalOnTurnChange = resetDrawProposalOnTurnChange;
+    window.hideDrawProposalNotification = hideDrawProposalNotification;
 
     // Generate a hash string representing the current game state
     // Used for threefold repetition detection (like in chess)
@@ -2844,6 +3063,11 @@ window.onload = function () {
             drawGrid();
         }
         
+        // Reset draw proposal state when opponent moves (implicit decline if we proposed)
+        if (window.resetDrawProposalOnTurnChange) {
+            window.resetDrawProposalOnTurnChange(gameState.activePlayer);
+        }
+        
         // Check if game ended after opponent's move
         checkGameEnd();
     }
@@ -2854,6 +3078,11 @@ window.onload = function () {
         // Apply the initial game state
         if (gameState) {
             applyOnlineMove(gameState, null);
+        }
+        
+        // Show resign/draw buttons
+        if (window.updateOnlineGameActionsVisibility) {
+            window.updateOnlineGameActionsVisibility();
         }
         
         console.log('Online game started');

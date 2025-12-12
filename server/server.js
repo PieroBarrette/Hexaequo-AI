@@ -869,6 +869,95 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Handle resign
+    socket.on('resign', (data, callback) => {
+        try {
+            const { roomCode, playerId } = data;
+            const player = statements.getPlayer.get(playerId);
+            
+            if (!player || player.room_code !== roomCode) {
+                return callback({ success: false, error: 'Invalid player' });
+            }
+            
+            const winnerColor = player.color === 'black' ? 'white' : 'black';
+            
+            // Notify opponent that player resigned
+            socket.to(roomCode).emit('opponent-resigned', {
+                resignedColor: player.color,
+                winnerColor
+            });
+            
+            console.log(`Player ${playerId} (${player.color}) resigned in room ${roomCode}`);
+            
+            callback({ success: true, winnerColor });
+        } catch (err) {
+            console.error('Resign error:', err);
+            callback({ success: false, error: err.message });
+        }
+    });
+
+    // Handle draw proposal
+    socket.on('propose-draw', (data, callback) => {
+        try {
+            const { roomCode, playerId } = data;
+            const player = statements.getPlayer.get(playerId);
+            
+            if (!player || player.room_code !== roomCode) {
+                return callback({ success: false, error: 'Invalid player' });
+            }
+            
+            // Get proposer's name
+            const proposerInfo = roomPlayerInfo.get(`${roomCode}:${player.color}`);
+            const proposerName = proposerInfo?.name || 'Opponent';
+            
+            // Notify opponent of draw proposal
+            socket.to(roomCode).emit('draw-proposed', {
+                proposerColor: player.color,
+                proposerName
+            });
+            
+            console.log(`Player ${playerId} (${player.color}) proposed draw in room ${roomCode}`);
+            
+            callback({ success: true });
+        } catch (err) {
+            console.error('Propose draw error:', err);
+            callback({ success: false, error: err.message });
+        }
+    });
+
+    // Handle draw response (accept or decline)
+    socket.on('respond-draw', (data, callback) => {
+        try {
+            const { roomCode, playerId, accepted } = data;
+            const player = statements.getPlayer.get(playerId);
+            
+            if (!player || player.room_code !== roomCode) {
+                return callback({ success: false, error: 'Invalid player' });
+            }
+            
+            if (accepted) {
+                // Notify both players that draw was accepted
+                io.to(roomCode).emit('draw-accepted');
+                console.log(`Draw accepted in room ${roomCode}`);
+            } else {
+                // Get decliner's name
+                const declinerInfo = roomPlayerInfo.get(`${roomCode}:${player.color}`);
+                const declinerName = declinerInfo?.name || 'Opponent';
+                
+                // Notify proposer that draw was declined
+                socket.to(roomCode).emit('draw-declined', {
+                    declinerName
+                });
+                console.log(`Draw declined by ${player.color} in room ${roomCode}`);
+            }
+            
+            callback({ success: true });
+        } catch (err) {
+            console.error('Respond draw error:', err);
+            callback({ success: false, error: err.message });
+        }
+    });
+
     // Handle disconnect
     socket.on('disconnect', () => {
         try {
