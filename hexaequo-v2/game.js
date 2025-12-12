@@ -1979,17 +1979,78 @@ window.onload = function () {
         // Determine the effective jump path (from param or from AI's lastJumpPath)
         const effectiveJumpPath = jumpPathParam || updatedState.lastJumpPath || null;
         
+        // Function to update the actual game state
+        const updateGameState = () => {
+            // Update the game state
+            tiles = updatedState.tiles;
+            pieces = updatedState.pieces;
+            inventory = {
+                black: updatedState.inventory.black.tiles,
+                white: updatedState.inventory.white.tiles
+            };
+            discInventory = {
+                black: updatedState.inventory.black.discs,
+                white: updatedState.inventory.white.discs
+            };
+            ringInventory = {
+                black: updatedState.inventory.black.rings,
+                white: updatedState.inventory.white.rings
+            };
+            captured = {
+                black: {
+                    disc: updatedState.captured.black_discs,
+                    ring: updatedState.captured.black_rings
+                },
+                white: {
+                    disc: updatedState.captured.white_discs,
+                    ring: updatedState.captured.white_rings
+                }
+            };
+
+            // Update active player
+            activePlayer = updatedState.activePlayer;
+
+            // Determine the jump path to use for recording
+            const pathToRecord = jumpPathParam || updatedState.lastJumpPath || null;
+
+            //recordMove player's move only when the game state changed
+            if (JSON.stringify(previousState) !== JSON.stringify(updatedState)) {
+                recordMove('move', pathToRecord, isOpponentMove);
+            }
+
+            updateDynamicLayout(); // Update targets based on new state
+
+            const prevEntry = historyManager.getEntryRelative(-1);
+            const currentEntry = historyManager.getCurrentEntry();
+            if (prevEntry && currentEntry) {
+                highlightLastMove(prevEntry.gameState, currentEntry.gameState, pathToRecord);
+            }
+
+            // Redraw the grid
+            drawGrid();
+
+            // Check if the game has ended (unless caller wants to handle it)
+            if (!skipGameEndCheck) {
+                checkGameEnd();
+            }
+        };
+        
         // Queue animations if enabled
         if (animationsEnabled && GameGraphics && GameGraphics.queueMoveAnimation) {
             // Disable interactions while animations are playing
             disableInteractions();
             queueAnimationsForStateChange(previousState, updatedState, effectiveJumpPath, animateMultiJumps, manuallyEndedTurn, skipMoveAnimation);
-            // Re-enable interactions after all animations complete
+            // Update state and redraw AFTER all animations complete
             GameGraphics.onAllAnimationsComplete(() => {
+                updateGameState();
                 enableInteractions();
             });
+        } else {
+            // No animations, update state immediately
+            updateGameState();
         }
 
+        // Play sounds immediately (before state update)
         // Play sound for tile placement
         for (const key in updatedState.tiles) {
             if (!previousState.tiles[key] && updatedState.tiles[key]) {
@@ -2020,59 +2081,6 @@ window.onload = function () {
             if (previousState.pieces[key] && !updatedState.pieces[key]) {
                 playSound('move');
             }
-        }
-
-        // Update the game state
-        tiles = updatedState.tiles;
-        pieces = updatedState.pieces;
-        inventory = {
-            black: updatedState.inventory.black.tiles,
-            white: updatedState.inventory.white.tiles
-        };
-        discInventory = {
-            black: updatedState.inventory.black.discs,
-            white: updatedState.inventory.white.discs
-        };
-        ringInventory = {
-            black: updatedState.inventory.black.rings,
-            white: updatedState.inventory.white.rings
-        };
-        captured = {
-            black: {
-                disc: updatedState.captured.black_discs,
-                ring: updatedState.captured.black_rings
-            },
-            white: {
-                disc: updatedState.captured.white_discs,
-                ring: updatedState.captured.white_rings
-            }
-        };
-
-        // Update active player
-        activePlayer = updatedState.activePlayer;
-
-        // Determine the jump path to use for recording
-        const pathToRecord = jumpPathParam || updatedState.lastJumpPath || null;
-
-        //recordMove player's move only when the game state changed
-        if (JSON.stringify(previousState) !== JSON.stringify(updatedState)) {
-            recordMove('move', pathToRecord, isOpponentMove);
-        }
-
-        updateDynamicLayout(); // Update targets based on new state
-
-        const prevEntry = historyManager.getEntryRelative(-1);
-        const currentEntry = historyManager.getCurrentEntry();
-        if (prevEntry && currentEntry) {
-            highlightLastMove(prevEntry.gameState, currentEntry.gameState, pathToRecord);
-        }
-
-        // Redraw the grid
-        drawGrid();
-
-        // Check if the game has ended (unless caller wants to handle it)
-        if (!skipGameEndCheck) {
-            checkGameEnd();
         }
     }
 
@@ -2433,6 +2441,8 @@ window.onload = function () {
         }
         // Initialize button states
         updateUndoRedoButtons();
+        // Draw initial grid to ensure board is visible
+        drawGrid();
     })();
 
 };
