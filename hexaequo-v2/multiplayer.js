@@ -400,6 +400,9 @@ const Multiplayer = (function () {
         get playerColor() { return playerColor; },
         get playerId() { return playerId; },
         
+        // Get raw socket for lobby
+        getSocket() { return socket; },
+        
         // Setters for callbacks
         set onOpponentJoined(fn) { onOpponentJoined = fn; },
         set onOpponentMoved(fn) { onOpponentMoved = fn; },
@@ -422,5 +425,6 @@ const Multiplayer = (function () {
     };
 })();
 
-// Export for use in game.js
+// Export for use in game.js and lobby.js
 window.Multiplayer = Multiplayer;
+window.GameMultiplayer = Multiplayer;

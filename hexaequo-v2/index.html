@@ -28,6 +28,108 @@
 
 <body>
 
+    <!-- Main Lobby Overlay (shown on load) -->
+    <div id="lobbyOverlay" class="lobby-overlay">
+        <div class="lobby-content">
+            <div class="lobby-logo">
+                <h1 class="lobby-title">HEXAEQUO</h1>
+                <p class="lobby-subtitle">Strategic Hexagonal Board Game</p>
+            </div>
+            
+            <div class="lobby-menu">
+                <!-- Game Mode Selection -->
+                <div class="lobby-section mode-selection">
+                    <button class="lobby-btn primary" id="playLocalBtn">
+                        <span class="btn-icon">👥</span>
+                        <span class="btn-text">
+                            <span class="btn-title">Local Game</span>
+                            <span class="btn-desc">Play with a friend</span>
+                        </span>
+                    </button>
+                    
+                    <button class="lobby-btn" id="playAiBtn">
+                        <span class="btn-icon">🤖</span>
+                        <span class="btn-text">
+                            <span class="btn-title">vs Computer</span>
+                            <span class="btn-desc">Challenge the AI</span>
+                        </span>
+                    </button>
+                    
+                    <button class="lobby-btn accent" id="playOnlineBtn">
+                        <span class="btn-icon">🌐</span>
+                        <span class="btn-text">
+                            <span class="btn-title">Play Online</span>
+                            <span class="btn-desc">Challenge others worldwide</span>
+                        </span>
+                    </button>
+                </div>
+                
+                <!-- AI Difficulty (hidden by default) -->
+                <div class="lobby-section ai-options" id="aiOptions" style="display: none;">
+                    <h3 class="section-title">Select Difficulty</h3>
+                    <div class="difficulty-buttons">
+                        <button class="diff-btn" data-level="1">Easy</button>
+                        <button class="diff-btn" data-level="2">Normal</button>
+                        <button class="diff-btn selected" data-level="3">Hard</button>
+                        <button class="diff-btn" data-level="4">Expert</button>
+                    </div>
+                    <button class="lobby-btn primary start-btn" id="startAiGameBtn">Start Game</button>
+                    <button class="lobby-btn back-btn" id="backFromAiBtn">← Back</button>
+                </div>
+                
+                <!-- Online Options (hidden by default) -->
+                <div class="lobby-section online-options" id="onlineOptions" style="display: none;">
+                    <div id="lobbyConnectionStatus" class="lobby-connection-status">
+                        <span class="status-dot connecting"></span>
+                        <span class="status-text">Connecting to server...</span>
+                    </div>
+                    
+                    <div id="lobbyRoomActions" class="lobby-room-actions" style="display: none;">
+                        <button class="lobby-btn primary" id="lobbyCreateRoomBtn">
+                            <span class="btn-icon">➕</span>
+                            <span class="btn-text">
+                                <span class="btn-title">Create Room</span>
+                                <span class="btn-desc">Host a new game</span>
+                            </span>
+                        </button>
+                        
+                        <div class="join-section">
+                            <span class="join-label">— or join existing —</span>
+                            <div class="join-input-group">
+                                <input type="text" id="lobbyRoomCodeInput" 
+                                       class="room-input" placeholder="ROOM" 
+                                       maxlength="4" autocomplete="off" autocapitalize="characters">
+                                <button class="lobby-btn" id="lobbyJoinRoomBtn">Join</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Waiting for opponent -->
+                    <div id="lobbyWaitingSection" class="lobby-waiting" style="display: none;">
+                        <div class="room-code-box">
+                            <span class="code-label">Share this code:</span>
+                            <span id="lobbyRoomCode" class="code-value">----</span>
+                            <button id="lobbyCopyCodeBtn" class="copy-btn" title="Copy">📋</button>
+                        </div>
+                        <div class="waiting-animation">
+                            <div class="spinner"></div>
+                            <p>Waiting for opponent...</p>
+                        </div>
+                        <button class="lobby-btn danger" id="lobbyCancelBtn">Cancel</button>
+                    </div>
+                    
+                    <button class="lobby-btn back-btn" id="backFromOnlineBtn">← Back</button>
+                    <div id="lobbyError" class="lobby-error" style="display: none;"></div>
+                </div>
+            </div>
+            
+            <div class="lobby-footer">
+                <button class="footer-btn" id="lobbyRulesBtn">📖 Rules</button>
+                <button class="footer-btn" id="lobbySettingsBtn">⚙️ Settings</button>
+            </div>
+        </div>
+    </div>
+
     <h1 style="display: none;">Hexaequo</h1> <!-- Hidden for accessibility -->
     <button id="toggleCoordsBtn" style="display: none;">Coordinates</button>
     <button id="toggleColorSchemeBtn" style="display: none;">Color</button>
@@ -218,6 +320,7 @@
         </div>
     </div>
 
+    <script src="lobby.js"></script>
     <script src="multiplayer.js"></script>
     <script src="ai.js"></script>
     <script src="graphics.js"></script>
