@@ -29,21 +29,15 @@
 					<span class="nav-rail__icon" aria-hidden="true">&#9671;</span>
 					<span class="nav-rail__label">Play</span>
 				</button>
-				<button type="button" class="nav-rail__item" data-flyout-trigger="lobby">
-					<span class="nav-rail__icon" aria-hidden="true">&#9678;</span>
-					<span class="nav-rail__label">Lobby</span>
-				</button>
 				<button type="button" class="nav-rail__item" data-flyout-trigger="learn">
 					<span class="nav-rail__icon" aria-hidden="true">?</span>
 					<span class="nav-rail__label">Learn</span>
 				</button>
-			</nav>
-			<div class="nav-rail__footer">
-				<button type="button" class="nav-rail__item" data-flyout-trigger="settings">
+				<button type="button" class="nav-rail__item" data-nav-placement="footer" data-flyout-trigger="settings">
 					<span class="nav-rail__icon" aria-hidden="true">&#9881;</span>
 					<span class="nav-rail__label">Settings</span>
 				</button>
-			</div>
+			</nav>
 		</aside>
 		<section class="nav-flyouts" data-flyout-panel>
 			<article class="flyout-card" data-flyout="play">
@@ -53,115 +47,29 @@
 						<h2>Choose a way to play</h2>
 					</div>
 				</header>
-				<ul class="flyout-list">
+				<ul class="mode-grid" role="list">
 					<li>
-						<strong>Local Duel</strong>
-						<p>Share a device and swap turns quickly.</p>
+						<button type="button" class="mode-card" data-view-target="play-online">
+							<span class="mode-card__eyebrow">Play online</span>
+							<strong class="mode-card__title">Challenge live players</strong>
+							<p>Browse public rooms, filter by timer, and jump in instantly.</p>
+						</button>
 					</li>
 					<li>
-						<strong>Vs AI</strong>
-						<p>Warm up against the classic Hexaequo bot.</p>
+						<button type="button" class="mode-card" data-view-target="vs-ai">
+							<span class="mode-card__eyebrow">Vs AI</span>
+							<strong class="mode-card__title">Practice runs</strong>
+							<p>Train against our rebuilt bot while we finalize ranked play.</p>
+						</button>
 					</li>
 					<li>
-						<strong>Online Room</strong>
-						<p>Use Render-hosted rooms while we rebuild the SPA.</p>
+						<button type="button" class="mode-card" data-view-target="local">
+							<span class="mode-card__eyebrow">Local</span>
+							<strong class="mode-card__title">Pass-and-play</strong>
+							<p>Share a single board for friendly matches on one device.</p>
+						</button>
 					</li>
 				</ul>
-			</article>
-			<article class="flyout-card lobby-card" data-flyout="lobby">
-				<header class="flyout-card__header">
-					<div>
-						<p class="flyout-card__eyebrow">Live Rooms</p>
-						<h2>Host or join</h2>
-					</div>
-				</header>
-				<div class="lobby-grid">
-					<section class="lobby-stack">
-						<h3>Create room</h3>
-						<form class="lobby-form" data-create-room-form>
-							<label class="lobby-field">
-								<span>Display name</span>
-								<input type="text" name="playerPseudo" maxlength="18" placeholder="Guest Hexer" autocomplete="off" />
-							</label>
-							<fieldset class="timer-fieldset">
-								<legend>Timer mode</legend>
-								<label class="timer-option">
-									<input type="radio" name="timeMode" value="none" />
-									<span>No timer</span>
-								</label>
-								<label class="timer-option">
-									<input type="radio" name="timeMode" value="classic" />
-									<span>Classic 15 | 0</span>
-								</label>
-								<label class="timer-option">
-									<input type="radio" name="timeMode" value="rapid" />
-									<span>Rapid 10 | 5</span>
-								</label>
-								<label class="timer-option">
-									<input type="radio" name="timeMode" value="blitz" />
-									<span>Blitz 5 | 3</span>
-								</label>
-							</fieldset>
-							<label class="toggle-pill toggle-pill--inline">
-								<input type="checkbox" name="allowSpectators" checked />
-								<span>Allow spectators when room opens</span>
-							</label>
-							<p class="form-hint" data-spectator-label>Spectators allowed</p>
-							<p class="form-hint" data-timer-summary>Rapid clocks 10 | 5</p>
-							<button type="submit" class="lobby-btn">Create room</button>
-							<p class="form-status" data-create-room-status>Host a room to copy its code.</p>
-						</form>
-					</section>
-					<section class="lobby-stack">
-						<h3>Join room</h3>
-						<form class="lobby-form" data-join-room-form>
-							<label class="lobby-field">
-								<span>Room code</span>
-								<input type="text" name="roomCode" maxlength="4" placeholder="ABCD" autocapitalize="characters" />
-							</label>
-							<label class="lobby-field">
-								<span>Display name</span>
-								<input type="text" name="joinPseudo" maxlength="18" placeholder="Guest Hexer" autocomplete="off" />
-							</label>
-							<button type="submit" class="lobby-btn" data-join-room-submit>Join room</button>
-							<p class="form-status" data-join-room-status>Paste a code or pick one from the browser.</p>
-						</form>
-					</section>
-					<section class="lobby-stack">
-						<h3>Room browser</h3>
-						<form class="lobby-filter-row" data-room-filters>
-							<label>
-								<span>Timer</span>
-								<select name="timeFilter">
-									<option value="any">All modes</option>
-									<option value="none">No timer</option>
-									<option value="classic">Classic</option>
-									<option value="rapid">Rapid</option>
-									<option value="blitz">Blitz</option>
-								</select>
-							</label>
-							<label>
-								<span>Spectators</span>
-								<select name="spectatorFilter">
-									<option value="any">Any policy</option>
-									<option value="yes">Spectators allowed</option>
-									<option value="no">Spectators blocked</option>
-								</select>
-							</label>
-						</form>
-						<p class="lobby-placeholder" data-room-empty>Refreshing featured rooms…</p>
-						<div class="room-list" data-room-list></div>
-					</section>
-					<section class="lobby-stack">
-						<h3>Session highlights</h3>
-						<div class="spectator-summary" data-spectator-summary>
-							<div class="spectator-pill">
-								<span>Spectators allowed</span>
-							</div>
-							<p class="spectator-copy">Rapid clocks 10 | 5</p>
-						</div>
-					</section>
-				</div>
 			</article>
 			<article class="flyout-card" data-flyout="learn">
 				<header class="flyout-card__header">
@@ -248,27 +156,57 @@
 			<button type="button" class="nav-peek" data-nav-peek aria-label="Open navigation">
 				<span aria-hidden="true">&#9776;</span>
 			</button>
-			<header class="status-bar">
-				<div class="status-chip">
-					<span class="status-chip__label">Server</span>
-					<strong data-connection-status>disconnected</strong>
+			<section class="view-stage" data-view-panel="game">
+				<div class="local-panel" data-local-panel>
+					<header class="local-panel__header">
+						<div>
+							<p class="local-panel__eyebrow">Local duel</p>
+							<h2>Pass-and-play setup</h2>
+							<p>Share the board below, set your names, and pick a timer before starting.</p>
+						</div>
+						<div class="local-panel__actions">
+							<button type="button" class="ghost-btn" data-local-swap>Swap colors</button>
+							<button type="button" class="ghost-btn" data-local-reset>Reset board</button>
+						</div>
+					</header>
+					<form class="local-panel__form" data-local-form>
+						<div class="local-panel__grid">
+							<label>
+								<span>Player Black</span>
+								<input type="text" name="localBlackName" maxlength="18" placeholder="Player Black" autocomplete="off" />
+							</label>
+							<label>
+								<span>Player White</span>
+								<input type="text" name="localWhiteName" maxlength="18" placeholder="Player White" autocomplete="off" />
+							</label>
+						</div>
+						<fieldset class="timer-fieldset local-panel__timers">
+							<legend>Timer</legend>
+							<label class="timer-option">
+								<input type="radio" name="localTimer" value="none" />
+								<span>No timer</span>
+							</label>
+							<label class="timer-option">
+								<input type="radio" name="localTimer" value="classic" />
+								<span>Classic 15 | 0</span>
+							</label>
+							<label class="timer-option">
+								<input type="radio" name="localTimer" value="rapid" />
+								<span>Rapid 10 | 5</span>
+							</label>
+							<label class="timer-option">
+								<input type="radio" name="localTimer" value="blitz" />
+								<span>Blitz 5 | 3</span>
+							</label>
+						</fieldset>
+						<div class="local-panel__footer">
+							<button type="submit" class="lobby-btn">Start local match</button>
+							<p class="form-status" data-local-status>Ready when you are.</p>
+						</div>
+					</form>
 				</div>
-				<div class="status-chip">
-					<span class="status-chip__label">Room</span>
-					<strong data-room-code>----</strong>
-				</div>
-				<div class="status-actions">
-					<button type="button" id="connectServerBtn">Connect</button>
-					<button type="button" id="createRoomDevBtn">Create</button>
-					<input id="roomCodeInput" placeholder="Room code" maxlength="4" autocapitalize="characters" />
-					<button type="button" id="joinRoomDevBtn">Join</button>
-					<button type="button" id="leaveRoomDevBtn">Leave</button>
-					<button type="button" id="sendStateBtn">Sync</button>
-				</div>
-			</header>
-			<p class="status-error" data-error-msg></p>
-			<section class="board-stage">
-				<div class="inventory-column">
+				<section class="board-stage">
+					<div class="inventory-column">
 					<div class="player-header" data-player-summary="black">
 						<div>
 							<p class="player-header__pseudo" data-player-pseudo="black">Player Black</p>
@@ -279,16 +217,18 @@
 							<strong class="player-header__timer-value">--:--</strong>
 						</div>
 					</div>
-					<div class="inventory-panel" data-inventory-black>
-						<span class="hud-label">Black Inventory</span>
-						<p class="hud-muted">Waiting for data…</p>
+						<div class="inventory-panel" data-inventory-black>
+							<div class="inventory-panel__empty">
+								<span class="hud-label">Black pieces</span>
+								<p class="hud-muted">Waiting for data…</p>
+							</div>
+						</div>
 					</div>
-				</div>
-				<div class="canvas-shell">
-					<canvas id="modernGameCanvas" width="1080" height="540"></canvas>
-					<div class="inline-prompts" data-inline-prompts></div>
-				</div>
-				<div class="inventory-column">
+					<div class="canvas-shell">
+						<canvas id="modernGameCanvas" width="1080" height="540"></canvas>
+						<div class="inline-prompts" data-inline-prompts></div>
+					</div>
+					<div class="inventory-column">
 					<div class="player-header" data-player-summary="white">
 						<div>
 							<p class="player-header__pseudo" data-player-pseudo="white">Player White</p>
@@ -299,10 +239,130 @@
 							<strong class="player-header__timer-value">--:--</strong>
 						</div>
 					</div>
-					<div class="inventory-panel" data-inventory-white>
-						<span class="hud-label">White Inventory</span>
-						<p class="hud-muted">Waiting for data…</p>
+						<div class="inventory-panel" data-inventory-white>
+							<div class="inventory-panel__empty">
+								<span class="hud-label">White pieces</span>
+								<p class="hud-muted">Waiting for data…</p>
+							</div>
+						</div>
 					</div>
+				</section>
+			</section>
+			<section class="view-stage room-browser" data-view-panel="play-online">
+				<div class="room-browser__header">
+					<div>
+						<p class="room-browser__eyebrow">Live rooms</p>
+						<h1>Play online</h1>
+						<p>Browse community lobbies, filter them, or host your own table.</p>
+					</div>
+					<div class="room-browser__status">
+						<div class="status-chip">
+							<span class="status-chip__label">Server</span>
+							<strong data-connection-status>disconnected</strong>
+						</div>
+						<div class="status-chip">
+							<span class="status-chip__label">Room</span>
+							<strong data-room-code>----</strong>
+						</div>
+					</div>
+				</div>
+				<p class="status-error" data-error-msg></p>
+				<section class="room-browser__card lobby-stack">
+					<h3>Create room</h3>
+					<form class="lobby-form" data-create-room-form>
+						<label class="lobby-field">
+							<span>Display name</span>
+							<input type="text" name="playerPseudo" maxlength="18" placeholder="Guest Hexer" autocomplete="off" />
+						</label>
+						<fieldset class="timer-fieldset">
+							<legend>Timer mode</legend>
+							<label class="timer-option">
+								<input type="radio" name="timeMode" value="none" />
+								<span>No timer</span>
+							</label>
+							<label class="timer-option">
+								<input type="radio" name="timeMode" value="classic" />
+								<span>Classic 15 | 0</span>
+							</label>
+							<label class="timer-option">
+								<input type="radio" name="timeMode" value="rapid" />
+								<span>Rapid 10 | 5</span>
+							</label>
+							<label class="timer-option">
+								<input type="radio" name="timeMode" value="blitz" />
+								<span>Blitz 5 | 3</span>
+							</label>
+						</fieldset>
+						<label class="toggle-pill toggle-pill--inline">
+							<input type="checkbox" name="allowSpectators" checked />
+							<span>Allow spectators when room opens</span>
+						</label>
+						<p class="form-hint" data-spectator-label>Spectators allowed</p>
+						<p class="form-hint" data-timer-summary>Rapid clocks 10 | 5</p>
+						<button type="submit" class="lobby-btn">Create room</button>
+						<p class="form-status" data-create-room-status>Host a room to copy its code.</p>
+					</form>
+				</section>
+				<div class="room-browser__controls">
+					<form class="lobby-filter-row" data-room-filters>
+						<label>
+							<span>Timer</span>
+							<select name="timeFilter">
+								<option value="any">All modes</option>
+								<option value="none">No timer</option>
+								<option value="classic">Classic</option>
+								<option value="rapid">Rapid</option>
+								<option value="blitz">Blitz</option>
+							</select>
+						</label>
+						<label>
+							<span>Spectators</span>
+							<select name="spectatorFilter">
+								<option value="any">Any policy</option>
+								<option value="yes">Spectators allowed</option>
+								<option value="no">Spectators blocked</option>
+							</select>
+						</label>
+						<label>
+							<span>Sort</span>
+							<select name="sortOrder">
+								<option value="recent">Newest first</option>
+								<option value="players">Most players</option>
+								<option value="az">A → Z</option>
+							</select>
+						</label>
+					</form>
+					<form class="join-inline" data-join-room-form>
+						<label>
+							<span>Room code</span>
+							<input type="text" name="roomCode" maxlength="4" placeholder="ABCD" autocapitalize="characters" />
+						</label>
+						<label>
+							<span>Display name</span>
+							<input type="text" name="joinPseudo" maxlength="18" placeholder="Guest Hexer" autocomplete="off" />
+						</label>
+						<button type="submit" class="lobby-btn" data-join-room-submit>Join</button>
+						<p class="form-status" data-join-room-status>Paste a code or pick one from the browser.</p>
+					</form>
+				</div>
+				<div class="room-browser__summary" data-spectator-summary>
+					<div class="spectator-pill">
+						<span>Spectators allowed</span>
+					</div>
+					<p class="spectator-copy">Rapid clocks 10 | 5</p>
+				</div>
+				<section class="room-browser__results">
+					<div class="room-browser__scroll">
+						<p class="lobby-placeholder" data-room-empty>Refreshing featured rooms…</p>
+						<div class="room-list" data-room-list></div>
+					</div>
+				</section>
+			</section>
+			<section class="view-stage placeholder-view" data-view-panel="vs-ai">
+				<div class="placeholder-card">
+					<p class="placeholder-eyebrow">Vs AI</p>
+					<h2>Practice mode returns shortly</h2>
+					<p>We are re-tuning the modern bot. Check back soon for adaptive sparring partners.</p>
 				</div>
 			</section>
 		</main>

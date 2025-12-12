@@ -19,7 +19,7 @@ const DEFAULT_PLAYERS = {
 };
 
 const DEFAULT_STATE = {
-	view: 'splash',
+	view: 'game',
 	connectionStatus: 'disconnected',
 	roomCode: null,
 	playerColor: null,

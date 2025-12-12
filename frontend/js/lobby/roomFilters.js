@@ -9,7 +9,8 @@ export function initRoomFilters({ onChange } = {}) {
 		const data = new FormData(form);
 		onChange?.({
 			timeMode: data.get('timeFilter') ?? 'any',
-			allowSpectators: data.get('spectatorFilter') ?? 'any'
+			allowSpectators: data.get('spectatorFilter') ?? 'any',
+			sortOrder: data.get('sortOrder') ?? 'recent'
 		});
 	};
 

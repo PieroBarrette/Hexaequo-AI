@@ -24,9 +24,9 @@ function renderInventory(element, state, color) {
 
     element.dataset.player = color;
     element.innerHTML = `
-        <div class="inventory-track">
-            ${renderTokenRow('disc', discs, captured.disc ?? 0, losses.disc ?? 0)}
-            ${renderTokenRow('ring', rings, captured.ring ?? 0, losses.ring ?? 0)}
+        <div class="inventory-grid">
+            ${renderStatRow('disc', discs, captured.disc ?? 0, losses.disc ?? 0)}
+            ${renderStatRow('ring', rings, captured.ring ?? 0, losses.ring ?? 0)}
         </div>
         <div class="inventory-footer">
             <div class="inventory-pool">
@@ -42,21 +42,19 @@ function renderInventory(element, state, color) {
     `;
 }
 
-function renderTokenRow(kind, remaining, captured, lost) {
+function renderStatRow(kind, remaining, captured, lost) {
     const label = kind === 'disc' ? 'Discs' : 'Rings';
     const piecesLabel = remaining === 1 ? 'piece ready' : 'pieces ready';
     return `
-        <article class="inventory-token inventory-token--${kind}">
-            <div class="inventory-token__left">
-                <span class="inventory-token__icon" aria-hidden="true"></span>
-                <div class="inventory-token__copy">
-                    <p class="inventory-token__label">${label}</p>
-                    <p class="inventory-token__meta">${captured} captured · ${lost} lost</p>
-                </div>
+        <article class="inventory-stat" data-kind="${kind}">
+            <span class="inventory-stat__chip" aria-hidden="true"></span>
+            <div class="inventory-stat__copy">
+                <p class="inventory-stat__label">${label}</p>
+                <p class="inventory-stat__meta">${captured} captured · ${lost} lost</p>
             </div>
-            <div class="inventory-token__counts">
+            <div class="inventory-stat__value">
                 <strong>${remaining}</strong>
-                <small>${piecesLabel}</small>
+                <span>${piecesLabel}</span>
             </div>
         </article>
     `;

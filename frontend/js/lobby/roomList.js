@@ -9,14 +9,15 @@ export function initRoomList({ onRoomSelect } = {}) {
 		return { dispose() {} };
 	}
 
-	let filters = { timeMode: 'any', allowSpectators: 'any' };
+	let filters = { timeMode: 'any', allowSpectators: 'any', sortOrder: 'recent' };
 	let isDisposed = false;
 	let refreshTimer = null;
 
 	const loadRooms = async () => {
 		try {
-			const rooms = await fetchRooms(filters);
-			renderRoomList(listEl, emptyEl, rooms, onRoomSelect);
+			const rooms = await fetchRooms({ timeMode: filters.timeMode, allowSpectators: filters.allowSpectators });
+			const sorted = sortRooms(rooms, filters.sortOrder);
+			renderRoomList(listEl, emptyEl, sorted, onRoomSelect);
 		} catch (err) {
 			console.error('Failed to load rooms', err);
 			if (emptyEl) {
@@ -75,6 +76,19 @@ function renderRoomList(target, emptyEl, rooms, onRoomSelect) {
 			onRoomSelect?.(code);
 		});
 	});
+}
+
+function sortRooms(rooms = [], order = 'recent') {
+	const list = [...rooms];
+	switch (order) {
+		case 'players':
+			return list.sort((a, b) => (b.players ?? 0) - (a.players ?? 0));
+		case 'az':
+			return list.sort((a, b) => (a.host || '').localeCompare(b.host || ''));
+		case 'recent':
+		default:
+			return list.sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
+	}
 }
 
 function createRoomRow(room) {

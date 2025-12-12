@@ -4,10 +4,17 @@ import {
 	applySerializedState,
 	serializeCurrentState,
 	subscribeToGameState,
-	getPreviousGameState
+	getPreviousGameState,
+	resetGameState
 } from './store/gameStore.js';
-import { getAppState, setAppState, subscribeToAppState } from './store/appStore.js';
-import { serializeState } from './game/gameState.js';
+import {
+	getAppState,
+	setAppState,
+	subscribeToAppState,
+	updateMatchSettings,
+	updatePlayerProfile
+} from './store/appStore.js';
+import { serializeState, createInitialState } from './game/gameState.js';
 import { SocketClient } from './utils/socketClient.js';
 import { mountHud } from './game/hud/index.js';
 import { initGameController } from './game/gameController.js';
@@ -20,6 +27,7 @@ let disposeHud = () => {};
 let disposeController = () => {};
 let disposeEndgame = () => {};
 let disposeLobby = () => {};
+let disposeLocalPanel = () => {};
 let boardGraphicsApi = null;
 let canvasResizeHandler = null;
 
@@ -38,6 +46,7 @@ function initializeApp() {
 		onHydrateGameState: hydrateFromServerState,
 		onNavigateToGame: setAppView
 	});
+ 	disposeLocalPanel = initLocalPanel();
 	wireStatusPanel();
 	observeMultiplayer();
 	exposeDebugHelpers();
@@ -213,6 +222,7 @@ function initializeNavigationPanels() {
 	const flyoutPanel = document.querySelector('[data-flyout-panel]');
 	const flyoutCloseBtn = document.querySelector('[data-flyout-close]');
 	const flyoutTriggers = document.querySelectorAll('[data-flyout-trigger]');
+	const viewButtons = document.querySelectorAll('[data-view-target]');
 	const themeToggle = document.querySelector('[data-theme-toggle]');
 	const animationToggle = document.querySelector('[data-animation-toggle]');
 	const soundToggles = document.querySelectorAll('[data-sound-toggle]');
@@ -262,6 +272,15 @@ function initializeNavigationPanels() {
 		});
 	});
 
+	viewButtons.forEach((button) => {
+		const targetView = button.getAttribute('data-view-target');
+		if (!targetView) return;
+		button.addEventListener('click', () => {
+			emitUiSound();
+			setAppView(targetView, { nav: 'collapse' });
+		});
+	});
+
 	if (supportsHover && flyoutPanel) {
 		flyoutPanel.addEventListener('mouseleave', () => {
 			setAppState({ activeFlyout: '' });
@@ -304,6 +323,85 @@ function initializeNavigationPanels() {
 		const current = getAppState();
 		setAppState({ showPreviousMove: !current.showPreviousMove });
 	});
+}
+
+function initLocalPanel() {
+	const panel = document.querySelector('[data-local-panel]');
+	if (!panel) {
+		return () => {};
+	}
+
+	const form = panel.querySelector('[data-local-form]');
+	const statusEl = panel.querySelector('[data-local-status]');
+	const swapBtn = panel.querySelector('[data-local-swap]');
+	const resetBtn = panel.querySelector('[data-local-reset]');
+	const inputs = {
+		black: panel.querySelector('[name="localBlackName"]'),
+		white: panel.querySelector('[name="localWhiteName"]')
+	};
+	const timerRadios = Array.from(panel.querySelectorAll('input[name="localTimer"]'));
+
+	const hydrate = (state) => {
+		const blackName = state.players?.black?.pseudo ?? 'Player Black';
+		const whiteName = state.players?.white?.pseudo ?? 'Player White';
+		if (inputs.black && !inputs.black.matches(':focus')) {
+			inputs.black.value = blackName;
+		}
+		if (inputs.white && !inputs.white.matches(':focus')) {
+			inputs.white.value = whiteName;
+		}
+		const timerMode = state.matchSettings?.timerMode ?? 'none';
+		timerRadios.forEach((radio) => {
+			radio.checked = radio.value === timerMode;
+		});
+	};
+
+	const unsubscribe = subscribeToAppState(hydrate, { emitInitial: true });
+
+	const handleSubmit = (event) => {
+		event.preventDefault();
+		const blackName = inputs.black?.value?.trim() || 'Player Black';
+		const whiteName = inputs.white?.value?.trim() || 'Player White';
+		const timerMode = getSelectedTimer(timerRadios);
+		updatePlayerProfile('black', { pseudo: blackName });
+		updatePlayerProfile('white', { pseudo: whiteName });
+		updateMatchSettings({ timerMode });
+		setAppView('local', { nav: 'collapse' });
+		if (statusEl) {
+			statusEl.textContent = 'Local match ready. Use the board below.';
+		}
+	};
+
+	const handleSwap = () => {
+		const currentBlack = inputs.black?.value;
+		const currentWhite = inputs.white?.value;
+		if (inputs.black && typeof currentWhite === 'string') {
+			inputs.black.value = currentWhite;
+			updatePlayerProfile('black', { pseudo: currentWhite.trim() || 'Player Black' });
+		}
+		if (inputs.white && typeof currentBlack === 'string') {
+			inputs.white.value = currentBlack;
+			updatePlayerProfile('white', { pseudo: currentBlack.trim() || 'Player White' });
+		}
+	};
+
+	const handleReset = () => {
+		resetGameState(createInitialState());
+		if (statusEl) {
+			statusEl.textContent = 'Board reset for a fresh game.';
+		}
+	};
+
+	form?.addEventListener('submit', handleSubmit);
+	swapBtn?.addEventListener('click', handleSwap);
+	resetBtn?.addEventListener('click', handleReset);
+
+	return () => {
+		unsubscribe?.();
+		form?.removeEventListener('submit', handleSubmit);
+		swapBtn?.removeEventListener('click', handleSwap);
+		resetBtn?.removeEventListener('click', handleReset);
+	};
 }
 
 function observeLayoutChrome() {
@@ -394,6 +492,11 @@ function queueCanvasResize() {
 	});
 }
 
+function getSelectedTimer(radios = []) {
+	const checked = radios.find((radio) => radio.checked);
+	return checked ? checked.value : 'none';
+}
+
 function observeMultiplayer() {
 	socketClient.on('connection-status', (status) => {
 		setAppState({ connectionStatus: status });
@@ -450,13 +553,17 @@ function exposeDebugHelpers() {
 	};
 }
 
-function setAppView(view) {
-	const current = getAppState();
+function setAppView(view, options = {}) {
 	const patch = { view };
-	if (view === 'game' && current.view !== 'game' && current.navExpanded) {
+	if (options.closeFlyout !== false) {
+		patch.activeFlyout = '';
+	}
+	if (options.nav === 'collapse') {
 		patch.navExpanded = false;
-	} else if (view !== 'game' && current.view === 'game' && !current.navExpanded) {
+	} else if (options.nav === 'expand') {
 		patch.navExpanded = true;
+	} else if (view === 'game') {
+		patch.navExpanded = false;
 	}
 	setAppState(patch);
 }
