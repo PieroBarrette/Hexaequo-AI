@@ -182,6 +182,16 @@
     <button id="toggleGridBtn" style="display: none;">Grid</button>
 
     <div id="gameContainer">
+        <!-- Player Info Displays -->
+        <div id="blackPlayerInfo" class="player-info player-info-left">
+            <span class="player-name">Black</span>
+            <span class="player-rating"></span>
+        </div>
+        <div id="whitePlayerInfo" class="player-info player-info-right">
+            <span class="player-name">White</span>
+            <span class="player-rating"></span>
+        </div>
+        
         <div id="undoRedoToolbar">
             <button id="undoBtn" class="undo-redo-btn" title="Undo">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
@@ -202,12 +212,12 @@
         <canvas id="inventoryCanvas" width="800" height="600"></canvas>
     </div>
 
-    <!-- Hamburger Menu Button -->
-    <div id="hamburgerBtn">
-        <span></span>
-        <span></span>
-        <span></span>
-    </div>
+    <!-- Back to Menu Button -->
+    <button id="backToMenuBtn" class="back-to-menu-btn" title="Back to Menu">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+    </button>
 
     <!-- Menu Overlay -->
     <div id="menuOverlay">
@@ -437,10 +447,14 @@
                 updatePageIndicator();
             }
         });
+        
+        // Expose PDF viewer for lobby.js
+        window.pdfDoc = pdfDoc;
+        window.initializePdfViewer = initializePdfViewer;
     </script>
     <script>
         // Menu Logic
-        const hamburgerBtn = document.getElementById('hamburgerBtn');
+        const backToMenuBtn = document.getElementById('backToMenuBtn');
         const menuOverlay = document.getElementById('menuOverlay');
         const closeMenuBtn = document.getElementById('closeMenuBtn');
         const rulesBtn = document.getElementById('rulesBtn');
@@ -456,13 +470,12 @@
         const animationsToggle = document.getElementById('animationsToggle');
         const difficultyContainer = document.getElementById('difficultyContainer');
 
-        function toggleMenu() {
-            hamburgerBtn.classList.toggle('open');
-            menuOverlay.classList.toggle('open');
-        }
-
-        hamburgerBtn.addEventListener('click', toggleMenu);
-        closeMenuBtn.addEventListener('click', toggleMenu);
+        // Back to Menu button - shows lobby
+        backToMenuBtn.addEventListener('click', () => {
+            if (window.GameLobby) {
+                window.GameLobby.show();
+            }
+        });
 
         // Rules Menu
         function openRules() {
@@ -483,13 +496,6 @@
         rulesOverlay.addEventListener('click', (e) => {
             if (e.target === rulesOverlay) {
                 closeRules();
-            }
-        });
-
-        // Close menu when clicking outside
-        menuOverlay.addEventListener('click', (e) => {
-            if (e.target === menuOverlay) {
-                toggleMenu();
             }
         });
 

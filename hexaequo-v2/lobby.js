@@ -339,6 +339,51 @@
     }
 
     // ==================== Game Start Functions ====================
+    const difficultyNames = {
+        1: 'Easy',
+        2: 'Normal',
+        3: 'Hard',
+        4: 'Expert'
+    };
+    
+    function updatePlayerInfoDisplays(mode, aiLevel = null) {
+        const blackInfo = document.getElementById('blackPlayerInfo');
+        const whiteInfo = document.getElementById('whitePlayerInfo');
+        
+        if (!blackInfo || !whiteInfo) return;
+        
+        const blackName = blackInfo.querySelector('.player-name');
+        const blackRating = blackInfo.querySelector('.player-rating');
+        const whiteName = whiteInfo.querySelector('.player-name');
+        const whiteRating = whiteInfo.querySelector('.player-rating');
+        
+        if (mode === 'ai') {
+            // Black player is the user, White is AI
+            if (currentUser) {
+                // Use display_name or displayName depending on API response format
+                const userName = currentUser.display_name || currentUser.displayName || currentUser.username || 'Player';
+                blackName.textContent = userName;
+                blackRating.textContent = `ELO: ${currentUser.elo || 1000}`;
+            } else {
+                blackName.textContent = 'Player';
+                blackRating.textContent = '';
+            }
+            
+            whiteName.textContent = 'AI';
+            whiteRating.textContent = difficultyNames[aiLevel] || 'Hard';
+        } else if (mode === '2player') {
+            blackName.textContent = 'Black';
+            blackRating.textContent = '';
+            whiteName.textContent = 'White';
+            whiteRating.textContent = '';
+        } else if (mode === 'online') {
+            // Will be updated when game starts with opponent info
+            if (currentUser) {
+                // We'll set this when we know which color we're playing
+            }
+        }
+    }
+    
     function startLocalGame() {
         console.log('[Lobby] Starting local 2-player game');
         
@@ -348,6 +393,9 @@
             gameModeSelect.value = '2player';
             gameModeSelect.dispatchEvent(new Event('change'));
         }
+        
+        // Update player displays
+        updatePlayerInfoDisplays('2player');
         
         // Hide lobby and start game
         hideLobby();
@@ -372,6 +420,9 @@
             difficultySelect.value = selectedDifficulty.toString();
             difficultySelect.dispatchEvent(new Event('change'));
         }
+        
+        // Update player displays
+        updatePlayerInfoDisplays('ai', selectedDifficulty);
         
         hideLobby();
         triggerNewGame();
@@ -404,25 +455,15 @@
         if (!socket) return;
         
         // Remove existing listeners to prevent duplicates
-        socket.off('roomCreated');
-        socket.off('roomJoined');
-        socket.off('gameStart');
+        socket.off('opponent-joined');
         socket.off('roomError');
         
-        socket.on('roomCreated', (data) => {
-            console.log('[Lobby] Room created:', data.roomCode);
-            currentRoomCode = data.roomCode;
-            showWaitingForOpponent(data.roomCode);
-        });
-        
-        socket.on('roomJoined', (data) => {
-            console.log('[Lobby] Joined room:', data.roomCode);
-            currentRoomCode = data.roomCode;
-        });
-        
-        socket.on('gameStart', (data) => {
-            console.log('[Lobby] Game starting! Playing as:', data.playerColor);
-            startOnlineGame(data);
+        // When opponent joins our room, start the game
+        socket.on('opponent-joined', (data) => {
+            console.log('[Lobby] Opponent joined!', data);
+            // Get our color from Multiplayer module
+            const playerColor = window.Multiplayer.playerColor;
+            startOnlineGame({ playerColor, gameState: data.gameState });
         });
         
         socket.on('roomError', (data) => {
@@ -467,18 +508,27 @@
     }
 
     function createRoom() {
-        if (!socket || !isConnected) {
+        if (!isConnected) {
             showError('Not connected to server');
             return;
         }
         
         hideError();
         console.log('[Lobby] Creating room...');
-        socket.emit('createRoom');
+        
+        // Use Multiplayer module's createRoom which handles the protocol correctly
+        window.Multiplayer.createRoom().then((result) => {
+            console.log('[Lobby] Room created:', result.roomCode);
+            currentRoomCode = result.roomCode;
+            showWaitingForOpponent(result.roomCode);
+        }).catch((err) => {
+            console.error('[Lobby] Failed to create room:', err);
+            showError(err.message || 'Failed to create room');
+        });
     }
 
     function joinRoom() {
-        if (!socket || !isConnected) {
+        if (!isConnected) {
             showError('Not connected to server');
             return;
         }
@@ -491,7 +541,21 @@
         
         hideError();
         console.log('[Lobby] Joining room:', code);
-        socket.emit('joinRoom', { roomCode: code });
+        
+        // Use Multiplayer module's joinRoom
+        window.Multiplayer.joinRoom(code).then((result) => {
+            console.log('[Lobby] Joined room:', result.roomCode);
+            currentRoomCode = result.roomCode;
+            if (result.waiting) {
+                showWaitingForOpponent(result.roomCode);
+            } else {
+                // Game is starting
+                startOnlineGame(result);
+            }
+        }).catch((err) => {
+            console.error('[Lobby] Failed to join room:', err);
+            showError(err.message || 'Failed to join room');
+        });
     }
 
     function showWaitingForOpponent(roomCode) {
@@ -574,10 +638,14 @@
     }
 
     function openRules() {
-        // Open the rules overlay directly
+        // Open the rules overlay and initialize PDF viewer if needed
         const rulesOverlay = document.getElementById('rulesOverlay');
         if (rulesOverlay) {
-            rulesOverlay.classList.add('active');
+            rulesOverlay.classList.add('open');
+            // Trigger PDF initialization if available
+            if (window.initializePdfViewer && !window.pdfDoc) {
+                window.initializePdfViewer();
+            }
         }
     }
 
@@ -789,7 +857,8 @@
         show: showLobby,
         hide: hideLobby,
         getUser: () => currentUser,
-        getSessionToken: () => sessionToken
+        getSessionToken: () => sessionToken,
+        updatePlayerInfoDisplays
     };
 
     // Initialize when DOM is ready

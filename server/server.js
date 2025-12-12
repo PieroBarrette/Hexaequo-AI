@@ -59,6 +59,7 @@ db.exec(`
         username TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
         display_name TEXT,
+        elo INTEGER DEFAULT 1000,
         games_played INTEGER DEFAULT 0,
         games_won INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -94,6 +95,13 @@ db.exec(`
         FOREIGN KEY (room_code) REFERENCES rooms(room_code)
     );
 `);
+
+// Add ELO column if it doesn't exist (for existing databases)
+try {
+    db.exec(`ALTER TABLE users ADD COLUMN elo INTEGER DEFAULT 1000`);
+} catch (e) {
+    // Column likely already exists
+}
 
 // Prepared statements for better performance
 const statements = {
@@ -139,7 +147,7 @@ const statements = {
         VALUES (?, ?, ?)
     `),
     getUserByUsername: db.prepare(`SELECT * FROM users WHERE username = ?`),
-    getUserById: db.prepare(`SELECT id, username, display_name, games_played, games_won, created_at FROM users WHERE id = ?`),
+    getUserById: db.prepare(`SELECT id, username, display_name, elo, games_played, games_won, created_at FROM users WHERE id = ?`),
     updateUserLogin: db.prepare(`UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?`),
     updateUserStats: db.prepare(`
         UPDATE users SET games_played = games_played + 1, games_won = games_won + ? WHERE id = ?
@@ -267,7 +275,11 @@ app.post('/api/auth/register', (req, res) => {
             user: {
                 id: result.lastInsertRowid,
                 username: username.toLowerCase(),
-                displayName: displayName || username
+                display_name: displayName || username,
+                displayName: displayName || username,
+                elo: 1000,
+                gamesPlayed: 0,
+                gamesWon: 0
             }
         });
     } catch (err) {
@@ -308,7 +320,9 @@ app.post('/api/auth/login', (req, res) => {
             user: {
                 id: user.id,
                 username: user.username,
+                display_name: user.display_name,
                 displayName: user.display_name,
+                elo: user.elo || 1000,
                 gamesPlayed: user.games_played,
                 gamesWon: user.games_won
             }
@@ -352,7 +366,9 @@ app.get('/api/auth/me', (req, res) => {
             user: {
                 id: user.id,
                 username: user.username,
+                display_name: user.display_name,
                 displayName: user.display_name,
+                elo: user.elo || 1000,
                 gamesPlayed: user.games_played,
                 gamesWon: user.games_won
             }
