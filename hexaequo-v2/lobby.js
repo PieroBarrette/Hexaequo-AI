@@ -8,11 +8,16 @@
 (function() {
     'use strict';
 
+    // ==================== Configuration ====================
+    const API_BASE = 'http://localhost:3000/api';
+
     // ==================== State ====================
     let selectedDifficulty = 3;
     let socket = null;
     let isConnected = false;
     let currentRoomCode = null;
+    let currentUser = null;
+    let sessionToken = null;
 
     // ==================== DOM Elements ====================
     const lobby = {
@@ -39,6 +44,30 @@
         cancelBtn: null,
         backFromOnlineBtn: null,
         errorDisplay: null,
+        // User status (in online section)
+        userStatus: null,
+        userDisplayName: null,
+        loginBtn: null,
+        // Auth section
+        authSection: null,
+        authTabs: null,
+        loginForm: null,
+        registerForm: null,
+        loginUsername: null,
+        loginPassword: null,
+        registerUsername: null,
+        registerDisplayName: null,
+        registerPassword: null,
+        authError: null,
+        backFromAuthBtn: null,
+        // Settings section
+        settingsSection: null,
+        backFromSettingsBtn: null,
+        themeToggle: null,
+        soundToggle: null,
+        validMovesToggle: null,
+        previousMoveToggle: null,
+        animationsToggle: null,
         // Footer
         rulesBtn: null,
         settingsBtn: null
@@ -70,11 +99,44 @@
         lobby.backFromOnlineBtn = document.getElementById('backFromOnlineBtn');
         lobby.errorDisplay = document.getElementById('lobbyError');
         
+        // User status
+        lobby.userStatus = document.getElementById('userStatus');
+        lobby.userDisplayName = document.getElementById('userDisplayName');
+        lobby.loginBtn = document.getElementById('loginBtn');
+        
+        // Auth section
+        lobby.authSection = document.getElementById('authSection');
+        lobby.authTabs = document.querySelectorAll('.auth-tab');
+        lobby.loginForm = document.getElementById('loginForm');
+        lobby.registerForm = document.getElementById('registerForm');
+        lobby.loginUsername = document.getElementById('loginUsername');
+        lobby.loginPassword = document.getElementById('loginPassword');
+        lobby.registerUsername = document.getElementById('registerUsername');
+        lobby.registerDisplayName = document.getElementById('registerDisplayName');
+        lobby.registerPassword = document.getElementById('registerPassword');
+        lobby.authError = document.getElementById('authError');
+        lobby.backFromAuthBtn = document.getElementById('backFromAuthBtn');
+        
+        // Settings
+        lobby.settingsSection = document.getElementById('lobbySettingsSection');
+        lobby.backFromSettingsBtn = document.getElementById('backFromSettingsBtn');
+        lobby.themeToggle = document.getElementById('lobbyThemeToggle');
+        lobby.soundToggle = document.getElementById('lobbySoundToggle');
+        lobby.validMovesToggle = document.getElementById('lobbyValidMovesToggle');
+        lobby.previousMoveToggle = document.getElementById('lobbyPreviousMoveToggle');
+        lobby.animationsToggle = document.getElementById('lobbyAnimationsToggle');
+        
         lobby.rulesBtn = document.getElementById('lobbyRulesBtn');
         lobby.settingsBtn = document.getElementById('lobbySettingsBtn');
 
         // Set up event listeners
         setupEventListeners();
+        
+        // Sync settings with existing toggles
+        syncSettingsFromGame();
+        
+        // Check for existing session
+        checkExistingSession();
         
         console.log('[Lobby] Initialized');
     }
@@ -103,9 +165,102 @@
         lobby.cancelBtn?.addEventListener('click', cancelWaiting);
         lobby.backFromOnlineBtn?.addEventListener('click', showMainMenu);
         
+        // User status / auth
+        lobby.loginBtn?.addEventListener('click', handleLoginBtnClick);
+        
+        // Auth section
+        lobby.authTabs?.forEach(tab => {
+            tab.addEventListener('click', () => switchAuthTab(tab.dataset.tab));
+        });
+        lobby.loginForm?.addEventListener('submit', handleLogin);
+        lobby.registerForm?.addEventListener('submit', handleRegister);
+        lobby.backFromAuthBtn?.addEventListener('click', showOnlineOptions);
+        
+        // Settings
+        lobby.settingsBtn?.addEventListener('click', showSettings);
+        lobby.backFromSettingsBtn?.addEventListener('click', showMainMenu);
+        lobby.themeToggle?.addEventListener('change', handleThemeChange);
+        lobby.soundToggle?.addEventListener('change', handleSoundChange);
+        lobby.validMovesToggle?.addEventListener('change', handleValidMovesChange);
+        lobby.previousMoveToggle?.addEventListener('change', handlePreviousMoveChange);
+        lobby.animationsToggle?.addEventListener('change', handleAnimationsChange);
+        
         // Footer
         lobby.rulesBtn?.addEventListener('click', openRules);
-        lobby.settingsBtn?.addEventListener('click', openSettings);
+    }
+
+    // ==================== Settings Sync ====================
+    function syncSettingsFromGame() {
+        // Sync theme
+        const isLightTheme = document.body.getAttribute('data-theme') === 'light';
+        if (lobby.themeToggle) lobby.themeToggle.checked = isLightTheme;
+        
+        // Sync with game settings toggles if they exist
+        const gameThemeToggle = document.getElementById('themeToggle');
+        const gameSoundToggle = document.getElementById('soundToggle');
+        const gameValidMovesToggle = document.getElementById('validMovesToggle');
+        const gamePreviousMoveToggle = document.getElementById('previousMoveToggle');
+        const gameAnimationsToggle = document.getElementById('animationsToggle');
+        
+        if (gameThemeToggle && lobby.themeToggle) {
+            lobby.themeToggle.checked = gameThemeToggle.checked;
+        }
+        if (gameSoundToggle && lobby.soundToggle) {
+            lobby.soundToggle.checked = gameSoundToggle.checked;
+        }
+        if (gameValidMovesToggle && lobby.validMovesToggle) {
+            lobby.validMovesToggle.checked = gameValidMovesToggle.checked;
+        }
+        if (gamePreviousMoveToggle && lobby.previousMoveToggle) {
+            lobby.previousMoveToggle.checked = gamePreviousMoveToggle.checked;
+        }
+        if (gameAnimationsToggle && lobby.animationsToggle) {
+            lobby.animationsToggle.checked = gameAnimationsToggle.checked;
+        }
+    }
+
+    function handleThemeChange() {
+        const isLight = lobby.themeToggle?.checked;
+        document.body.setAttribute('data-theme', isLight ? 'light' : 'dark');
+        
+        // Sync with game toggle
+        const gameToggle = document.getElementById('themeToggle');
+        if (gameToggle) {
+            gameToggle.checked = isLight;
+            gameToggle.dispatchEvent(new Event('change'));
+        }
+    }
+
+    function handleSoundChange() {
+        const gameToggle = document.getElementById('soundToggle');
+        if (gameToggle) {
+            gameToggle.checked = lobby.soundToggle?.checked;
+            gameToggle.dispatchEvent(new Event('change'));
+        }
+    }
+
+    function handleValidMovesChange() {
+        const gameToggle = document.getElementById('validMovesToggle');
+        if (gameToggle) {
+            gameToggle.checked = lobby.validMovesToggle?.checked;
+            gameToggle.dispatchEvent(new Event('change'));
+        }
+    }
+
+    function handlePreviousMoveChange() {
+        const gameToggle = document.getElementById('previousMoveToggle');
+        if (gameToggle) {
+            gameToggle.checked = lobby.previousMoveToggle?.checked;
+            gameToggle.dispatchEvent(new Event('change'));
+        }
+    }
+
+    function handleAnimationsChange() {
+        const gameToggle = document.getElementById('animationsToggle');
+        if (gameToggle) {
+            gameToggle.checked = lobby.animationsToggle?.checked;
+            gameToggle.dispatchEvent(new Event('change'));
+        }
     }
 
     // ==================== Menu Navigation ====================
@@ -114,33 +269,73 @@
         document.querySelector('.mode-selection')?.style.setProperty('display', 'flex');
         lobby.aiOptions?.style.setProperty('display', 'none');
         lobby.onlineOptions?.style.setProperty('display', 'none');
+        lobby.settingsSection?.style.setProperty('display', 'none');
+        lobby.authSection?.style.setProperty('display', 'none');
         
-        // Disconnect socket if connected
-        if (socket && currentRoomCode) {
-            socket.emit('leaveRoom');
+        // Show footer
+        document.querySelector('.lobby-footer')?.style.setProperty('display', 'flex');
+        
+        // Disconnect socket if in waiting state
+        if (currentRoomCode && !isConnected) {
             currentRoomCode = null;
         }
         
         hideError();
+        hideAuthError();
     }
 
     function showAiOptions() {
         document.querySelector('.mode-selection')?.style.setProperty('display', 'none');
         lobby.aiOptions?.style.setProperty('display', 'flex');
         lobby.onlineOptions?.style.setProperty('display', 'none');
+        lobby.settingsSection?.style.setProperty('display', 'none');
+        lobby.authSection?.style.setProperty('display', 'none');
+        document.querySelector('.lobby-footer')?.style.setProperty('display', 'none');
     }
 
     function showOnlineOptions() {
         document.querySelector('.mode-selection')?.style.setProperty('display', 'none');
         lobby.aiOptions?.style.setProperty('display', 'none');
         lobby.onlineOptions?.style.setProperty('display', 'flex');
+        lobby.settingsSection?.style.setProperty('display', 'none');
+        lobby.authSection?.style.setProperty('display', 'none');
+        document.querySelector('.lobby-footer')?.style.setProperty('display', 'none');
         
         // Reset online UI state
         lobby.roomActions?.style.setProperty('display', 'none');
         lobby.waitingSection?.style.setProperty('display', 'none');
         
+        // Update user status display
+        updateUserStatusUI();
+        
         // Connect to server
         connectToServer();
+    }
+
+    function showSettings() {
+        document.querySelector('.mode-selection')?.style.setProperty('display', 'none');
+        lobby.aiOptions?.style.setProperty('display', 'none');
+        lobby.onlineOptions?.style.setProperty('display', 'none');
+        lobby.settingsSection?.style.setProperty('display', 'flex');
+        lobby.authSection?.style.setProperty('display', 'none');
+        document.querySelector('.lobby-footer')?.style.setProperty('display', 'none');
+        
+        // Sync settings
+        syncSettingsFromGame();
+    }
+    
+    function showAuthSection() {
+        document.querySelector('.mode-selection')?.style.setProperty('display', 'none');
+        lobby.aiOptions?.style.setProperty('display', 'none');
+        lobby.onlineOptions?.style.setProperty('display', 'none');
+        lobby.settingsSection?.style.setProperty('display', 'none');
+        lobby.authSection?.style.setProperty('display', 'flex');
+        document.querySelector('.lobby-footer')?.style.setProperty('display', 'none');
+        
+        // Clear forms
+        lobby.loginForm?.reset();
+        lobby.registerForm?.reset();
+        hideAuthError();
     }
 
     // ==================== Game Start Functions ====================
@@ -190,32 +385,16 @@
 
     // ==================== Online Functions ====================
     function connectToServer() {
-        // Use existing multiplayer connection if available
-        if (typeof window.GameMultiplayer !== 'undefined' && window.GameMultiplayer.getSocket) {
-            socket = window.GameMultiplayer.getSocket();
-            if (socket && socket.connected) {
+        // Use existing multiplayer module
+        if (typeof window.Multiplayer !== 'undefined') {
+            window.Multiplayer.connect().then(() => {
+                socket = window.Multiplayer.getSocket();
+                setupSocketListeners();
                 onConnected();
-                return;
-            }
-        }
-        
-        // Initialize multiplayer connection
-        if (typeof window.GameMultiplayer !== 'undefined' && window.GameMultiplayer.connect) {
-            window.GameMultiplayer.connect();
-            
-            // Wait for connection with timeout
-            let attempts = 0;
-            const checkConnection = setInterval(() => {
-                socket = window.GameMultiplayer.getSocket();
-                if (socket && socket.connected) {
-                    clearInterval(checkConnection);
-                    setupSocketListeners();
-                    onConnected();
-                } else if (attempts++ > 50) { // 5 seconds timeout
-                    clearInterval(checkConnection);
-                    onConnectionError('Could not connect to server');
-                }
-            }, 100);
+            }).catch((err) => {
+                console.error('[Lobby] Connection error:', err);
+                onConnectionError('Could not connect to server');
+            });
         } else {
             onConnectionError('Multiplayer not available');
         }
@@ -223,6 +402,12 @@
 
     function setupSocketListeners() {
         if (!socket) return;
+        
+        // Remove existing listeners to prevent duplicates
+        socket.off('roomCreated');
+        socket.off('roomJoined');
+        socket.off('gameStart');
+        socket.off('roomError');
         
         socket.on('roomCreated', (data) => {
             console.log('[Lobby] Room created:', data.roomCode);
@@ -247,13 +432,6 @@
             lobby.waitingSection?.style.setProperty('display', 'none');
             lobby.roomActions?.style.setProperty('display', 'flex');
         });
-        
-        socket.on('disconnect', () => {
-            console.log('[Lobby] Disconnected from server');
-            if (lobby.onlineOptions?.style.display !== 'none') {
-                onConnectionError('Disconnected from server');
-            }
-        });
     }
 
     function onConnected() {
@@ -266,7 +444,7 @@
             statusDot.classList.add('connected');
         }
         if (statusText) {
-            statusText.textContent = 'Connected to server';
+            statusText.textContent = 'Connected';
         }
         
         lobby.roomActions?.style.setProperty('display', 'flex');
@@ -307,7 +485,7 @@
         
         const code = lobby.roomCodeInput?.value?.trim().toUpperCase();
         if (!code || code.length !== 4) {
-            showError('Please enter a valid 4-character room code');
+            showError('Enter a 4-character code');
             return;
         }
         
@@ -330,10 +508,11 @@
         if (code && code !== '----') {
             navigator.clipboard.writeText(code).then(() => {
                 // Visual feedback
-                const originalText = lobby.copyCodeBtn.textContent;
-                lobby.copyCodeBtn.textContent = '✓';
+                const btn = lobby.copyCodeBtn;
+                const originalText = btn.textContent;
+                btn.textContent = 'Copied!';
                 setTimeout(() => {
-                    lobby.copyCodeBtn.textContent = originalText;
+                    btn.textContent = originalText;
                 }, 1500);
             });
         }
@@ -395,18 +574,212 @@
     }
 
     function openRules() {
-        // Use existing rules button
-        const rulesBtn = document.getElementById('rulesBtn');
-        if (rulesBtn) {
-            rulesBtn.click();
+        // Open the rules overlay directly
+        const rulesOverlay = document.getElementById('rulesOverlay');
+        if (rulesOverlay) {
+            rulesOverlay.classList.add('active');
         }
     }
 
-    function openSettings() {
-        // Show hamburger menu
-        const hamburgerBtn = document.getElementById('hamburgerBtn');
-        if (hamburgerBtn) {
-            hamburgerBtn.click();
+    // ==================== Authentication Functions ====================
+    async function checkExistingSession() {
+        // Check for stored session token
+        sessionToken = localStorage.getItem('hexaequo_session');
+        if (!sessionToken) {
+            currentUser = null;
+            return;
+        }
+        
+        try {
+            const response = await fetch(`${API_BASE}/auth/me`, {
+                headers: {
+                    'Authorization': `Bearer ${sessionToken}`
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                currentUser = data.user;
+                console.log('[Lobby] Session restored for:', currentUser.display_name);
+            } else {
+                // Invalid session, clear it
+                localStorage.removeItem('hexaequo_session');
+                sessionToken = null;
+                currentUser = null;
+            }
+        } catch (err) {
+            console.error('[Lobby] Session check failed:', err);
+            currentUser = null;
+        }
+    }
+    
+    function updateUserStatusUI() {
+        if (currentUser) {
+            // Logged in
+            if (lobby.userDisplayName) {
+                lobby.userDisplayName.textContent = currentUser.display_name;
+            }
+            if (lobby.loginBtn) {
+                lobby.loginBtn.textContent = 'Sign Out';
+            }
+        } else {
+            // Guest
+            if (lobby.userDisplayName) {
+                lobby.userDisplayName.textContent = 'Guest';
+            }
+            if (lobby.loginBtn) {
+                lobby.loginBtn.textContent = 'Sign In';
+            }
+        }
+    }
+    
+    function handleLoginBtnClick() {
+        if (currentUser) {
+            // Already logged in - log out
+            handleLogout();
+        } else {
+            // Not logged in - show auth section
+            showAuthSection();
+        }
+    }
+    
+    function switchAuthTab(tab) {
+        lobby.authTabs?.forEach(t => {
+            t.classList.toggle('active', t.dataset.tab === tab);
+        });
+        
+        if (tab === 'login') {
+            lobby.loginForm?.style.setProperty('display', 'flex');
+            lobby.registerForm?.style.setProperty('display', 'none');
+        } else {
+            lobby.loginForm?.style.setProperty('display', 'none');
+            lobby.registerForm?.style.setProperty('display', 'flex');
+        }
+        
+        hideAuthError();
+    }
+    
+    async function handleLogin(e) {
+        e.preventDefault();
+        
+        const username = lobby.loginUsername?.value?.trim();
+        const password = lobby.loginPassword?.value;
+        
+        if (!username || !password) {
+            showAuthError('Please enter username and password');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`${API_BASE}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                sessionToken = data.token;
+                currentUser = data.user;
+                localStorage.setItem('hexaequo_session', sessionToken);
+                console.log('[Lobby] Logged in as:', currentUser.display_name);
+                
+                // Go back to online options
+                showOnlineOptions();
+            } else {
+                showAuthError(data.error || 'Login failed');
+            }
+        } catch (err) {
+            console.error('[Lobby] Login error:', err);
+            showAuthError('Connection failed');
+        }
+    }
+    
+    async function handleRegister(e) {
+        e.preventDefault();
+        
+        const username = lobby.registerUsername?.value?.trim();
+        const displayName = lobby.registerDisplayName?.value?.trim();
+        const password = lobby.registerPassword?.value;
+        
+        if (!username || !password) {
+            showAuthError('Please enter username and password');
+            return;
+        }
+        
+        if (username.length < 3) {
+            showAuthError('Username must be at least 3 characters');
+            return;
+        }
+        
+        if (password.length < 4) {
+            showAuthError('Password must be at least 4 characters');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`${API_BASE}/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    username, 
+                    password,
+                    displayName: displayName || username
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                sessionToken = data.token;
+                currentUser = data.user;
+                localStorage.setItem('hexaequo_session', sessionToken);
+                console.log('[Lobby] Registered and logged in as:', currentUser.display_name);
+                
+                // Go back to online options
+                showOnlineOptions();
+            } else {
+                showAuthError(data.error || 'Registration failed');
+            }
+        } catch (err) {
+            console.error('[Lobby] Registration error:', err);
+            showAuthError('Connection failed');
+        }
+    }
+    
+    async function handleLogout() {
+        if (sessionToken) {
+            try {
+                await fetch(`${API_BASE}/auth/logout`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${sessionToken}`
+                    }
+                });
+            } catch (err) {
+                console.error('[Lobby] Logout error:', err);
+            }
+        }
+        
+        localStorage.removeItem('hexaequo_session');
+        sessionToken = null;
+        currentUser = null;
+        
+        updateUserStatusUI();
+        console.log('[Lobby] Logged out');
+    }
+    
+    function showAuthError(message) {
+        if (lobby.authError) {
+            lobby.authError.textContent = message;
+            lobby.authError.style.display = 'block';
+        }
+    }
+    
+    function hideAuthError() {
+        if (lobby.authError) {
+            lobby.authError.style.display = 'none';
         }
     }
 
@@ -414,7 +787,9 @@
     window.GameLobby = {
         init,
         show: showLobby,
-        hide: hideLobby
+        hide: hideLobby,
+        getUser: () => currentUser,
+        getSessionToken: () => sessionToken
     };
 
     // Initialize when DOM is ready

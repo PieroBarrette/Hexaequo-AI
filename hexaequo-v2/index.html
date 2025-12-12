@@ -33,71 +33,49 @@
         <div class="lobby-content">
             <div class="lobby-logo">
                 <h1 class="lobby-title">HEXAEQUO</h1>
-                <p class="lobby-subtitle">Strategic Hexagonal Board Game</p>
             </div>
             
             <div class="lobby-menu">
                 <!-- Game Mode Selection -->
                 <div class="lobby-section mode-selection">
-                    <button class="lobby-btn primary" id="playLocalBtn">
-                        <span class="btn-icon">👥</span>
-                        <span class="btn-text">
-                            <span class="btn-title">Local Game</span>
-                            <span class="btn-desc">Play with a friend</span>
-                        </span>
-                    </button>
-                    
-                    <button class="lobby-btn" id="playAiBtn">
-                        <span class="btn-icon">🤖</span>
-                        <span class="btn-text">
-                            <span class="btn-title">vs Computer</span>
-                            <span class="btn-desc">Challenge the AI</span>
-                        </span>
-                    </button>
-                    
-                    <button class="lobby-btn accent" id="playOnlineBtn">
-                        <span class="btn-icon">🌐</span>
-                        <span class="btn-text">
-                            <span class="btn-title">Play Online</span>
-                            <span class="btn-desc">Challenge others worldwide</span>
-                        </span>
-                    </button>
+                    <button class="lobby-btn" id="playLocalBtn">Local Game</button>
+                    <button class="lobby-btn" id="playAiBtn">vs Computer</button>
+                    <button class="lobby-btn" id="playOnlineBtn">Play Online</button>
                 </div>
                 
                 <!-- AI Difficulty (hidden by default) -->
                 <div class="lobby-section ai-options" id="aiOptions" style="display: none;">
-                    <h3 class="section-title">Select Difficulty</h3>
+                    <div class="section-title">Difficulty</div>
                     <div class="difficulty-buttons">
                         <button class="diff-btn" data-level="1">Easy</button>
                         <button class="diff-btn" data-level="2">Normal</button>
                         <button class="diff-btn selected" data-level="3">Hard</button>
                         <button class="diff-btn" data-level="4">Expert</button>
                     </div>
-                    <button class="lobby-btn primary start-btn" id="startAiGameBtn">Start Game</button>
-                    <button class="lobby-btn back-btn" id="backFromAiBtn">← Back</button>
+                    <button class="lobby-btn primary" id="startAiGameBtn">Start</button>
+                    <button class="lobby-btn secondary" id="backFromAiBtn">Back</button>
                 </div>
                 
                 <!-- Online Options (hidden by default) -->
                 <div class="lobby-section online-options" id="onlineOptions" style="display: none;">
+                    <!-- User Status -->
+                    <div id="userStatus" class="user-status">
+                        <span id="userDisplayName" class="user-name">Guest</span>
+                        <button id="loginBtn" class="user-action-btn">Sign In</button>
+                    </div>
+                    
                     <div id="lobbyConnectionStatus" class="lobby-connection-status">
                         <span class="status-dot connecting"></span>
-                        <span class="status-text">Connecting to server...</span>
+                        <span class="status-text">Connecting...</span>
                     </div>
                     
                     <div id="lobbyRoomActions" class="lobby-room-actions" style="display: none;">
-                        <button class="lobby-btn primary" id="lobbyCreateRoomBtn">
-                            <span class="btn-icon">➕</span>
-                            <span class="btn-text">
-                                <span class="btn-title">Create Room</span>
-                                <span class="btn-desc">Host a new game</span>
-                            </span>
-                        </button>
-                        
+                        <button class="lobby-btn primary" id="lobbyCreateRoomBtn">Create Room</button>
                         <div class="join-section">
-                            <span class="join-label">— or join existing —</span>
+                            <div class="join-divider">or</div>
                             <div class="join-input-group">
                                 <input type="text" id="lobbyRoomCodeInput" 
-                                       class="room-input" placeholder="ROOM" 
+                                       class="room-input" placeholder="CODE" 
                                        maxlength="4" autocomplete="off" autocapitalize="characters">
                                 <button class="lobby-btn" id="lobbyJoinRoomBtn">Join</button>
                             </div>
@@ -107,25 +85,93 @@
                     <!-- Waiting for opponent -->
                     <div id="lobbyWaitingSection" class="lobby-waiting" style="display: none;">
                         <div class="room-code-box">
-                            <span class="code-label">Share this code:</span>
+                            <span class="code-label">Room Code</span>
                             <span id="lobbyRoomCode" class="code-value">----</span>
-                            <button id="lobbyCopyCodeBtn" class="copy-btn" title="Copy">📋</button>
+                            <button id="lobbyCopyCodeBtn" class="copy-btn" title="Copy">Copy</button>
                         </div>
                         <div class="waiting-animation">
                             <div class="spinner"></div>
                             <p>Waiting for opponent...</p>
                         </div>
-                        <button class="lobby-btn danger" id="lobbyCancelBtn">Cancel</button>
+                        <button class="lobby-btn secondary" id="lobbyCancelBtn">Cancel</button>
                     </div>
                     
-                    <button class="lobby-btn back-btn" id="backFromOnlineBtn">← Back</button>
+                    <button class="lobby-btn secondary" id="backFromOnlineBtn">Back</button>
                     <div id="lobbyError" class="lobby-error" style="display: none;"></div>
+                </div>
+                
+                <!-- Auth Section (hidden by default) -->
+                <div class="lobby-section auth-section" id="authSection" style="display: none;">
+                    <div class="auth-tabs">
+                        <button class="auth-tab active" data-tab="login">Sign In</button>
+                        <button class="auth-tab" data-tab="register">Register</button>
+                    </div>
+                    
+                    <form id="loginForm" class="auth-form">
+                        <input type="text" id="loginUsername" placeholder="Username" autocomplete="username">
+                        <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password">
+                        <button type="submit" class="lobby-btn primary">Sign In</button>
+                    </form>
+                    
+                    <form id="registerForm" class="auth-form" style="display: none;">
+                        <input type="text" id="registerUsername" placeholder="Username" autocomplete="username">
+                        <input type="text" id="registerDisplayName" placeholder="Display Name (optional)">
+                        <input type="password" id="registerPassword" placeholder="Password" autocomplete="new-password">
+                        <button type="submit" class="lobby-btn primary">Create Account</button>
+                    </form>
+                    
+                    <div id="authError" class="lobby-error" style="display: none;"></div>
+                    <button class="lobby-btn secondary" id="backFromAuthBtn">Back</button>
+                </div>
+                
+                <!-- Settings Section (hidden by default) -->
+                <div class="lobby-section settings-section" id="lobbySettingsSection" style="display: none;">
+                    <div class="settings-item">
+                        <span>Theme</span>
+                        <div class="theme-toggle">
+                            <span class="theme-label">Dark</span>
+                            <label class="switch">
+                                <input type="checkbox" id="lobbyThemeToggle">
+                                <span class="slider"></span>
+                            </label>
+                            <span class="theme-label">Light</span>
+                        </div>
+                    </div>
+                    <div class="settings-item">
+                        <span>Sound</span>
+                        <label class="switch">
+                            <input type="checkbox" id="lobbySoundToggle" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="settings-item">
+                        <span>Show Valid Moves</span>
+                        <label class="switch">
+                            <input type="checkbox" id="lobbyValidMovesToggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="settings-item">
+                        <span>Show Previous Move</span>
+                        <label class="switch">
+                            <input type="checkbox" id="lobbyPreviousMoveToggle" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="settings-item">
+                        <span>Animations</span>
+                        <label class="switch">
+                            <input type="checkbox" id="lobbyAnimationsToggle" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <button class="lobby-btn secondary" id="backFromSettingsBtn">Back</button>
                 </div>
             </div>
             
             <div class="lobby-footer">
-                <button class="footer-btn" id="lobbyRulesBtn">📖 Rules</button>
-                <button class="footer-btn" id="lobbySettingsBtn">⚙️ Settings</button>
+                <button class="footer-btn" id="lobbyRulesBtn">Rules</button>
+                <button class="footer-btn" id="lobbySettingsBtn">Settings</button>
             </div>
         </div>
     </div>

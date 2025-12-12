@@ -41,8 +41,38 @@ const io = new Server(httpServer, {
 const dbPath = process.env.DATABASE_PATH || path.join(__dirname, 'hexaequo.db');
 const db = new Database(dbPath);
 
+// Simple password hashing (for production, use bcrypt)
+const crypto = require('crypto');
+function hashPassword(password) {
+    return crypto.createHash('sha256').update(password + 'hexaequo_salt').digest('hex');
+}
+
+// Generate session token
+function generateSessionToken() {
+    return crypto.randomBytes(32).toString('hex');
+}
+
 // Create tables
 db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        display_name TEXT,
+        games_played INTEGER DEFAULT 0,
+        games_won INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        last_login DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    
+    CREATE TABLE IF NOT EXISTS sessions (
+        token TEXT PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        expires_at DATETIME DEFAULT (datetime('now', '+7 days')),
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+
     CREATE TABLE IF NOT EXISTS rooms (
         room_code TEXT PRIMARY KEY,
         black_player_id TEXT,
@@ -102,6 +132,28 @@ const statements = {
         WHERE socket_id = ?
     `),
     deletePlayersInRoom: db.prepare(`DELETE FROM players WHERE room_code = ?`),
+    
+    // Auth statements
+    createUser: db.prepare(`
+        INSERT INTO users (username, password_hash, display_name)
+        VALUES (?, ?, ?)
+    `),
+    getUserByUsername: db.prepare(`SELECT * FROM users WHERE username = ?`),
+    getUserById: db.prepare(`SELECT id, username, display_name, games_played, games_won, created_at FROM users WHERE id = ?`),
+    updateUserLogin: db.prepare(`UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?`),
+    updateUserStats: db.prepare(`
+        UPDATE users SET games_played = games_played + 1, games_won = games_won + ? WHERE id = ?
+    `),
+    createSession: db.prepare(`
+        INSERT INTO sessions (token, user_id) VALUES (?, ?)
+    `),
+    getSession: db.prepare(`
+        SELECT s.*, u.username, u.display_name 
+        FROM sessions s JOIN users u ON s.user_id = u.id 
+        WHERE s.token = ? AND s.expires_at > datetime('now')
+    `),
+    deleteSession: db.prepare(`DELETE FROM sessions WHERE token = ?`),
+    cleanupSessions: db.prepare(`DELETE FROM sessions WHERE expires_at < datetime('now')`),
     
     // Cleanup old rooms (older than 24 hours)
     cleanupOldRooms: db.prepare(`
@@ -166,10 +218,155 @@ setInterval(() => {
     try {
         statements.cleanupOldRooms.run();
         statements.cleanupOldPlayers.run();
+        statements.cleanupSessions.run();
     } catch (err) {
         console.error('Cleanup error:', err);
     }
 }, 60 * 60 * 1000); // Every hour
+
+// ==================== AUTH API ENDPOINTS ====================
+
+// Register new user
+app.post('/api/auth/register', (req, res) => {
+    try {
+        const { username, password, displayName } = req.body;
+        
+        if (!username || !password) {
+            return res.status(400).json({ error: 'Username and password required' });
+        }
+        
+        if (username.length < 3 || username.length > 20) {
+            return res.status(400).json({ error: 'Username must be 3-20 characters' });
+        }
+        
+        if (password.length < 4) {
+            return res.status(400).json({ error: 'Password must be at least 4 characters' });
+        }
+        
+        // Check if username exists
+        const existing = statements.getUserByUsername.get(username.toLowerCase());
+        if (existing) {
+            return res.status(409).json({ error: 'Username already taken' });
+        }
+        
+        // Create user
+        const passwordHash = hashPassword(password);
+        const result = statements.createUser.run(
+            username.toLowerCase(),
+            passwordHash,
+            displayName || username
+        );
+        
+        // Create session
+        const token = generateSessionToken();
+        statements.createSession.run(token, result.lastInsertRowid);
+        
+        res.json({
+            success: true,
+            token,
+            user: {
+                id: result.lastInsertRowid,
+                username: username.toLowerCase(),
+                displayName: displayName || username
+            }
+        });
+    } catch (err) {
+        console.error('Register error:', err);
+        res.status(500).json({ error: 'Registration failed' });
+    }
+});
+
+// Login
+app.post('/api/auth/login', (req, res) => {
+    try {
+        const { username, password } = req.body;
+        
+        if (!username || !password) {
+            return res.status(400).json({ error: 'Username and password required' });
+        }
+        
+        const user = statements.getUserByUsername.get(username.toLowerCase());
+        if (!user) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+        
+        const passwordHash = hashPassword(password);
+        if (user.password_hash !== passwordHash) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+        
+        // Update last login
+        statements.updateUserLogin.run(user.id);
+        
+        // Create session
+        const token = generateSessionToken();
+        statements.createSession.run(token, user.id);
+        
+        res.json({
+            success: true,
+            token,
+            user: {
+                id: user.id,
+                username: user.username,
+                displayName: user.display_name,
+                gamesPlayed: user.games_played,
+                gamesWon: user.games_won
+            }
+        });
+    } catch (err) {
+        console.error('Login error:', err);
+        res.status(500).json({ error: 'Login failed' });
+    }
+});
+
+// Logout
+app.post('/api/auth/logout', (req, res) => {
+    try {
+        const token = req.headers.authorization?.replace('Bearer ', '');
+        if (token) {
+            statements.deleteSession.run(token);
+        }
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Logout error:', err);
+        res.status(500).json({ error: 'Logout failed' });
+    }
+});
+
+// Get current user (validate session)
+app.get('/api/auth/me', (req, res) => {
+    try {
+        const token = req.headers.authorization?.replace('Bearer ', '');
+        if (!token) {
+            return res.status(401).json({ error: 'No token provided' });
+        }
+        
+        const session = statements.getSession.get(token);
+        if (!session) {
+            return res.status(401).json({ error: 'Invalid or expired session' });
+        }
+        
+        const user = statements.getUserById.get(session.user_id);
+        res.json({
+            success: true,
+            user: {
+                id: user.id,
+                username: user.username,
+                displayName: user.display_name,
+                gamesPlayed: user.games_played,
+                gamesWon: user.games_won
+            }
+        });
+    } catch (err) {
+        console.error('Auth check error:', err);
+        res.status(500).json({ error: 'Auth check failed' });
+    }
+});
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
