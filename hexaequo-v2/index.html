@@ -146,16 +146,11 @@
                         </div>
                     </div>
                     
-                    <!-- Waiting for opponent -->
+                    <!-- Waiting for opponent (shows above room list when active) -->
                     <div id="lobbyWaitingSection" class="lobby-waiting" style="display: none;">
-                        <div class="room-code-box">
-                            <span class="code-label">Room Code</span>
-                            <span id="lobbyRoomCode" class="code-value">----</span>
-                            <button id="lobbyCopyCodeBtn" class="copy-btn" title="Copy">Copy</button>
-                        </div>
                         <div class="waiting-animation">
                             <div class="spinner"></div>
-                            <p>Waiting for opponent...</p>
+                            <span>Waiting for opponent...</span>
                         </div>
                         <button class="lobby-btn secondary" id="lobbyCancelBtn">Cancel</button>
                     </div>
@@ -451,11 +446,6 @@
                 
                 <!-- Waiting for opponent (visible after creating room) -->
                 <div id="waitingSection" class="waiting-section" style="display: none;">
-                    <div class="room-code-display">
-                        <span class="room-code-label">Room Code</span>
-                        <span id="roomCodeDisplay" class="room-code-value">----</span>
-                        <button id="copyRoomCodeBtn" class="copy-btn" title="Copy code">📋</button>
-                    </div>
                     <p class="waiting-text">Waiting for opponent to join...</p>
                     <div class="loading-spinner"></div>
                     <button id="cancelWaitingBtn" class="online-btn secondary">Cancel</button>
@@ -733,8 +723,6 @@
         const createRoomBtn = document.getElementById('createRoomBtn');
         const joinRoomBtn = document.getElementById('joinRoomBtn');
         const roomCodeInput = document.getElementById('roomCodeInput');
-        const roomCodeDisplay = document.getElementById('roomCodeDisplay');
-        const copyRoomCodeBtn = document.getElementById('copyRoomCodeBtn');
         const cancelWaitingBtn = document.getElementById('cancelWaitingBtn');
         const leaveGameBtn = document.getElementById('leaveGameBtn');
         const playerColorDisplay = document.getElementById('playerColorDisplay');
@@ -950,7 +938,6 @@
 
             try {
                 const result = await window.Multiplayer.createRoom();
-                roomCodeDisplay.textContent = result.roomCode;
                 showSection(waitingSection);
                 
                 // Reset game for new online match
@@ -1008,17 +995,6 @@
             opponentStatus.className = 'opponent-status connected';
             opponentStatus.querySelector('.opponent-text').textContent = 'Opponent connected';
         }
-
-        // Copy room code
-        copyRoomCodeBtn.addEventListener('click', () => {
-            const code = roomCodeDisplay.textContent;
-            navigator.clipboard.writeText(code).then(() => {
-                copyRoomCodeBtn.textContent = '✓';
-                setTimeout(() => {
-                    copyRoomCodeBtn.textContent = '📋';
-                }, 2000);
-            });
-        });
 
         // Room code input - auto uppercase and allow Enter to join
         roomCodeInput.addEventListener('input', (e) => {

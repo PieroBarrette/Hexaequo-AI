@@ -47,8 +47,6 @@
         roomCodeInput: null,
         joinRoomBtn: null,
         waitingSection: null,
-        roomCodeDisplay: null,
-        copyCodeBtn: null,
         cancelBtn: null,
         backFromOnlineBtn: null,
         errorDisplay: null,
@@ -101,8 +99,6 @@
         lobby.roomCodeInput = document.getElementById('lobbyRoomCodeInput');
         lobby.joinRoomBtn = document.getElementById('lobbyJoinRoomBtn');
         lobby.waitingSection = document.getElementById('lobbyWaitingSection');
-        lobby.roomCodeDisplay = document.getElementById('lobbyRoomCode');
-        lobby.copyCodeBtn = document.getElementById('lobbyCopyCodeBtn');
         lobby.cancelBtn = document.getElementById('lobbyCancelBtn');
         lobby.backFromOnlineBtn = document.getElementById('backFromOnlineBtn');
         lobby.errorDisplay = document.getElementById('lobbyError');
@@ -195,7 +191,6 @@
         
         // Online options
         lobby.createRoomBtn?.addEventListener('click', createRoom);
-        lobby.copyCodeBtn?.addEventListener('click', copyRoomCode);
         lobby.cancelBtn?.addEventListener('click', cancelWaiting);
         lobby.backFromOnlineBtn?.addEventListener('click', showMainMenu);
         
@@ -894,26 +889,15 @@
     }
 
     function showWaitingForOpponent(roomCode) {
-        lobby.roomActions?.style.setProperty('display', 'none');
-        lobby.waitingSection?.style.setProperty('display', 'block');
+        // Show waiting section but keep room browser visible
+        lobby.waitingSection?.style.setProperty('display', 'flex');
         
-        if (lobby.roomCodeDisplay) {
-            lobby.roomCodeDisplay.textContent = roomCode;
-        }
-    }
-
-    function copyRoomCode() {
-        const code = lobby.roomCodeDisplay?.textContent;
-        if (code && code !== '----') {
-            navigator.clipboard.writeText(code).then(() => {
-                // Visual feedback
-                const btn = lobby.copyCodeBtn;
-                const originalText = btn.textContent;
-                btn.textContent = 'Copied!';
-                setTimeout(() => {
-                    btn.textContent = originalText;
-                }, 1500);
-            });
+        // Store current room code for own-room detection
+        currentRoomCode = roomCode;
+        
+        // Hide the create room button while waiting
+        if (lobby.createRoomBtn) {
+            lobby.createRoomBtn.style.display = 'none';
         }
     }
 
@@ -924,7 +908,11 @@
         currentRoomCode = null;
         
         lobby.waitingSection?.style.setProperty('display', 'none');
-        lobby.roomActions?.style.setProperty('display', 'flex');
+        
+        // Show create room button again
+        if (lobby.createRoomBtn) {
+            lobby.createRoomBtn.style.display = '';
+        }
     }
 
     function startOnlineGame(data) {

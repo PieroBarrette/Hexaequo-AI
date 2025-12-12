@@ -1820,7 +1820,43 @@ select {
 
 /* Waiting Section */
 .lobby-waiting {
-    text-align: center;
+    display: none;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    padding: 12px 20px;
+    background: rgba(102, 170, 255, 0.1);
+    border: 1px solid rgba(102, 170, 255, 0.3);
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.lobby-waiting .waiting-animation {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+}
+
+.lobby-waiting .waiting-animation .spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border-color);
+    border-top-color: #66aaff;
+    border-radius: 50%;
+    margin: 0;
+    animation: spin 1s linear infinite;
+}
+
+.lobby-waiting .waiting-animation span {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.lobby-waiting .lobby-btn {
+    padding: 6px 16px;
+    font-size: 0.85rem;
 }
 
 .room-code-box {

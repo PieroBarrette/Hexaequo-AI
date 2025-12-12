@@ -608,26 +608,31 @@ io.on('connection', (socket) => {
         try {
             const { playerId, userInfo, timeControl } = data;
             
-            // Check if this player already has a room in waiting status
+            // Check if this player already has a room - clean it up first
             const existingPlayer = statements.getPlayer.get(playerId);
             if (existingPlayer) {
                 const existingRoom = statements.getRoom.get(existingPlayer.room_code);
-                if (existingRoom && existingRoom.status === 'waiting') {
-                    // Player already has a waiting room - clean it up first
+                if (existingRoom) {
+                    // Clean up any existing room (waiting or playing)
                     const oldRoomCode = existingPlayer.room_code;
+                    const wasWaiting = existingRoom.status === 'waiting';
+                    
                     db.prepare(`DELETE FROM players WHERE player_id = ?`).run(playerId);
                     const remainingPlayers = statements.getPlayersInRoom.all(oldRoomCode);
+                    
                     if (remainingPlayers.length === 0) {
                         statements.deleteRoom.run(oldRoomCode);
                         roomTimers.delete(oldRoomCode);
                         roomPlayerInfo.delete(`${oldRoomCode}:black`);
                         roomPlayerInfo.delete(`${oldRoomCode}:white`);
-                        io.emit('room-cancelled', { roomCode: oldRoomCode });
+                        if (wasWaiting) {
+                            io.emit('room-cancelled', { roomCode: oldRoomCode });
+                        }
                         console.log(`Cleaned up existing room ${oldRoomCode} for player ${playerId}`);
+                    } else {
+                        // Notify remaining player that opponent left
+                        socket.to(oldRoomCode).emit('opponent-left');
                     }
-                } else if (existingRoom && existingRoom.status === 'playing') {
-                    // Player is in an active game - don't allow creating a new room
-                    return callback({ success: false, error: 'You are already in an active game' });
                 }
             }
             
@@ -696,6 +701,11 @@ io.on('connection', (socket) => {
                 return callback({ success: false, error: 'Room not found' });
             }
 
+            // Check if player is trying to join their own room
+            if (room.created_by === playerId) {
+                return callback({ success: false, error: "Can't join your own room" });
+            }
+
             // Check if player is reconnecting
             const existingPlayer = statements.getPlayer.get(playerId);
             if (existingPlayer && existingPlayer.room_code === roomCode.toUpperCase()) {
@@ -728,6 +738,25 @@ io.on('connection', (socket) => {
                     timeControl: room.time_control || 'classic',
                     timerState
                 });
+            }
+            
+            // If player has an existing waiting room, cancel it before joining another
+            if (existingPlayer) {
+                const existingRoom = statements.getRoom.get(existingPlayer.room_code);
+                if (existingRoom && existingRoom.status === 'waiting') {
+                    const oldRoomCode = existingPlayer.room_code;
+                    db.prepare(`DELETE FROM players WHERE player_id = ?`).run(playerId);
+                    const remainingPlayers = statements.getPlayersInRoom.all(oldRoomCode);
+                    if (remainingPlayers.length === 0) {
+                        statements.deleteRoom.run(oldRoomCode);
+                        roomTimers.delete(oldRoomCode);
+                        roomPlayerInfo.delete(`${oldRoomCode}:black`);
+                        roomPlayerInfo.delete(`${oldRoomCode}:white`);
+                        io.emit('room-cancelled', { roomCode: oldRoomCode });
+                        console.log(`Cancelled room ${oldRoomCode} - player ${playerId} joining another room`);
+                    }
+                    socket.leave(oldRoomCode);
+                }
             }
 
             // Check if room is full
