@@ -1269,8 +1269,18 @@
         setTimeControl: (control) => {
             selectedTimeControl = control;
         },
-        getTimeControl: () => selectedTimeControl
+        getTimeControl: () => selectedTimeControl,
+        updateUserElo: (newElo) => {
+            if (currentUser) {
+                currentUser.elo = newElo;
+                updateUserStatusUI();
+                console.log('[Lobby] Updated user ELO to:', newElo);
+            }
+        }
     };
+
+    // Also expose as window.Lobby for compatibility
+    window.Lobby = window.GameLobby;
 
     // Initialize when DOM is ready
     if (document.readyState === 'loading') {

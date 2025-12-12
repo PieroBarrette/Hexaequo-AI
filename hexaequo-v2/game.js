@@ -1505,6 +1505,15 @@ window.onload = function () {
             window.GameTimer.stop();
         }
         
+        // Report game result to server for ELO calculation (online mode only)
+        if (isOnlineMode && window.Multiplayer) {
+            const isDraw = winner === 'Ex Aequo';
+            const winnerColor = isDraw ? null : winner.toLowerCase();
+            window.Multiplayer.reportGameResult(winnerColor, reason, isDraw).catch(err => {
+                console.error('[Game] Failed to report game result:', err);
+            });
+        }
+        
         playSound('gameEnd');
         const gameOverDiv = document.createElement('div');
         gameOverDiv.id = 'gameOver';
@@ -1570,8 +1579,22 @@ window.onload = function () {
             reasonText.style.fontSize = '16px';
             reasonText.style.color = isDarkTheme ? '#aaa' : '#555';
             reasonText.style.marginTop = '0';
-            reasonText.style.marginBottom = '16px';
+            reasonText.style.marginBottom = '12px';
             gameOverDiv.appendChild(reasonText);
+        }
+
+        // ELO display placeholder (only shown in online mode for logged-in users)
+        if (isOnlineMode) {
+            const eloDisplayDiv = document.createElement('div');
+            eloDisplayDiv.id = 'eloUpdateDisplay';
+            eloDisplayDiv.style.padding = '10px 16px';
+            eloDisplayDiv.style.marginBottom = '16px';
+            eloDisplayDiv.style.backgroundColor = isDarkTheme ? '#1a3a1a' : '#e8f5e8';
+            eloDisplayDiv.style.borderRadius = '6px';
+            eloDisplayDiv.style.fontSize = '15px';
+            eloDisplayDiv.style.fontWeight = '500';
+            eloDisplayDiv.style.display = 'none'; // Hidden until ELO update arrives
+            gameOverDiv.appendChild(eloDisplayDiv);
         }
 
         // Different UI for online mode vs local modes
@@ -1812,11 +1835,46 @@ window.onload = function () {
         endGame(winner, 'on time');
     }
 
+    // Handle ELO update from server
+    function onEloUpdated(data) {
+        console.log('[Game] ELO updated:', data);
+        const eloDisplay = document.getElementById('eloUpdateDisplay');
+        if (!eloDisplay) return;
+        
+        // Don't show ELO update for guests
+        if (data.isGuest) {
+            eloDisplay.style.display = 'none';
+            return;
+        }
+        
+        const isDarkTheme = !document.body.classList.contains('light-theme');
+        const changeText = data.change >= 0 ? `+${data.change}` : `${data.change}`;
+        const changeColor = data.change >= 0 ? '#10b981' : '#ef4444';
+        
+        eloDisplay.innerHTML = `
+            <span style="color: ${isDarkTheme ? '#ccc' : '#666'};">ELO: </span>
+            <span style="color: ${isDarkTheme ? '#fff' : '#000'};">${data.oldElo}</span>
+            <span style="color: ${changeColor}; font-weight: bold;"> ${changeText}</span>
+            <span style="color: ${isDarkTheme ? '#ccc' : '#666'};"> = </span>
+            <span style="color: ${isDarkTheme ? '#fff' : '#000'}; font-weight: bold;">${data.newElo}</span>
+        `;
+        eloDisplay.style.display = 'block';
+        eloDisplay.style.backgroundColor = data.change >= 0 
+            ? (isDarkTheme ? '#1a3a1a' : '#e8f5e8')
+            : (isDarkTheme ? '#3a1a1a' : '#f5e8e8');
+        
+        // Update current user's ELO in the lobby
+        if (window.Lobby && window.Lobby.updateUserElo) {
+            window.Lobby.updateUserElo(data.newElo);
+        }
+    }
+
     // Expose rematch handlers for use in index.html
     window.onOpponentReadyForRematch = onOpponentReadyForRematch;
     window.onOpponentLeftEndgame = onOpponentLeftEndgame;
     window.onGameReset = onGameReset;
     window.onGameTimeout = onGameTimeout;
+    window.onEloUpdated = onEloUpdated;
 
     // Generate a hash string representing the current game state
     // Used for threefold repetition detection (like in chess)

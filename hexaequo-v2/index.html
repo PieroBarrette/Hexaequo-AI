@@ -873,6 +873,13 @@
                 }
             };
 
+            window.Multiplayer.onEloUpdated = (data) => {
+                // Server reports ELO update after game
+                if (window.onEloUpdated) {
+                    window.onEloUpdated(data);
+                }
+            };
+
             window.Multiplayer.onError = (message) => {
                 showError(message);
             };

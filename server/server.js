@@ -177,8 +177,11 @@ const statements = {
         ORDER BY created_at DESC
     `),
     cleanupSessions: db.prepare(`DELETE FROM sessions WHERE expires_at < datetime('now')`),
-    
-    // Cleanup old rooms (older than 24 hours)
+        // ELO updates
+    updateUserElo: db.prepare(`
+        UPDATE users SET elo = ?, games_played = games_played + 1, games_won = games_won + ? WHERE id = ?
+    `),
+        // Cleanup old rooms (older than 24 hours)
     cleanupOldRooms: db.prepare(`
         DELETE FROM rooms 
         WHERE updated_at < datetime('now', '-24 hours')
@@ -197,6 +200,77 @@ function generateRoomCode() {
         code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return code;
+}
+
+// ==================== ELO Calculation ====================
+// Standard ELO rating system
+// K-factor: 32 (standard for most players)
+// Formula: Rnew = Rold + K * (S - E)
+// where E = 1 / (1 + 10^((Ropponent - Rplayer) / 400))
+// S = 1 for win, 0.5 for draw, 0 for loss
+
+function calculateEloChange(playerElo, opponentElo, result) {
+    // result: 1 = win, 0.5 = draw, 0 = loss
+    const K = 32;
+    
+    // Expected score based on rating difference
+    const expectedScore = 1 / (1 + Math.pow(10, (opponentElo - playerElo) / 400));
+    
+    // ELO change (rounded to nearest integer)
+    const change = Math.round(K * (result - expectedScore));
+    
+    return change;
+}
+
+function processGameResult(roomCode, winnerColor, isDraw) {
+    const blackInfo = roomPlayerInfo.get(`${roomCode}:black`);
+    const whiteInfo = roomPlayerInfo.get(`${roomCode}:white`);
+    
+    const result = {
+        black: { oldElo: null, newElo: null, change: 0, isGuest: true },
+        white: { oldElo: null, newElo: null, change: 0, isGuest: true }
+    };
+    
+    // Get current ELOs (default 1000 for guests who don't have stored ELO)
+    const blackElo = blackInfo?.elo || 1000;
+    const whiteElo = whiteInfo?.elo || 1000;
+    
+    result.black.oldElo = blackElo;
+    result.white.oldElo = whiteElo;
+    result.black.isGuest = blackInfo?.isGuest !== false;
+    result.white.isGuest = whiteInfo?.isGuest !== false;
+    
+    if (isDraw) {
+        // Draw: both get 0.5 result
+        result.black.change = calculateEloChange(blackElo, whiteElo, 0.5);
+        result.white.change = calculateEloChange(whiteElo, blackElo, 0.5);
+    } else if (winnerColor === 'black') {
+        // Black wins
+        result.black.change = calculateEloChange(blackElo, whiteElo, 1);
+        result.white.change = calculateEloChange(whiteElo, blackElo, 0);
+    } else {
+        // White wins
+        result.white.change = calculateEloChange(whiteElo, blackElo, 1);
+        result.black.change = calculateEloChange(blackElo, whiteElo, 0);
+    }
+    
+    result.black.newElo = blackElo + result.black.change;
+    result.white.newElo = whiteElo + result.white.change;
+    
+    // Update database for non-guest users
+    if (!result.black.isGuest && blackInfo?.oderId) {
+        const won = winnerColor === 'black' ? 1 : 0;
+        statements.updateUserElo.run(result.black.newElo, won, blackInfo.oderId);
+        console.log(`[ELO] Updated black player (${blackInfo.name}): ${blackElo} -> ${result.black.newElo}`);
+    }
+    
+    if (!result.white.isGuest && whiteInfo?.oderId) {
+        const won = winnerColor === 'white' ? 1 : 0;
+        statements.updateUserElo.run(result.white.newElo, won, whiteInfo.oderId);
+        console.log(`[ELO] Updated white player (${whiteInfo.name}): ${whiteElo} -> ${result.white.newElo}`);
+    }
+    
+    return result;
 }
 
 // Generate unique room code
@@ -741,6 +815,52 @@ io.on('connection', (socket) => {
             callback({ success: true, timerState });
         } catch (err) {
             console.error('Move error:', err);
+            callback({ success: false, error: err.message });
+        }
+    });
+
+    // Handle game ended - process ELO changes
+    socket.on('game-ended', (data, callback) => {
+        try {
+            const { roomCode, winnerColor, reason, isDraw } = data;
+            
+            console.log(`[ELO] Game ended in room ${roomCode}: winner=${winnerColor}, isDraw=${isDraw}, reason=${reason}`);
+            
+            // Process ELO changes
+            const eloResult = processGameResult(roomCode, winnerColor, isDraw);
+            
+            // Get player info to identify who is who
+            const blackInfo = roomPlayerInfo.get(`${roomCode}:black`);
+            const whiteInfo = roomPlayerInfo.get(`${roomCode}:white`);
+            
+            // Emit ELO updates to each player individually
+            // Each player only sees their own ELO change
+            const blackPlayer = statements.getPlayersInRoom.all(roomCode).find(p => p.color === 'black');
+            const whitePlayer = statements.getPlayersInRoom.all(roomCode).find(p => p.color === 'white');
+            
+            if (blackPlayer) {
+                io.to(blackPlayer.socket_id).emit('elo-updated', {
+                    oldElo: eloResult.black.oldElo,
+                    newElo: eloResult.black.newElo,
+                    change: eloResult.black.change,
+                    isGuest: eloResult.black.isGuest
+                });
+            }
+            
+            if (whitePlayer) {
+                io.to(whitePlayer.socket_id).emit('elo-updated', {
+                    oldElo: eloResult.white.oldElo,
+                    newElo: eloResult.white.newElo,
+                    change: eloResult.white.change,
+                    isGuest: eloResult.white.isGuest
+                });
+            }
+            
+            console.log(`[ELO] Results - Black: ${eloResult.black.oldElo} -> ${eloResult.black.newElo} (${eloResult.black.change > 0 ? '+' : ''}${eloResult.black.change}), White: ${eloResult.white.oldElo} -> ${eloResult.white.newElo} (${eloResult.white.change > 0 ? '+' : ''}${eloResult.white.change})`);
+            
+            callback({ success: true });
+        } catch (err) {
+            console.error('Game ended error:', err);
             callback({ success: false, error: err.message });
         }
     });

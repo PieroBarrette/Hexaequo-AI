@@ -32,6 +32,7 @@ const Multiplayer = (function () {
     let onOpponentLeftEndgame = null;
     let onGameReset = null;
     let onGameTimeout = null;
+    let onEloUpdated = null;
     let onConnectionStatusChange = null;
     let onError = null;
 
@@ -167,6 +168,12 @@ const Multiplayer = (function () {
                 if (onGameReset) onGameReset(data);
             });
 
+            // ELO update after game end
+            socket.on('elo-updated', (data) => {
+                console.log('ELO updated:', data);
+                if (onEloUpdated) onEloUpdated(data);
+            });
+
         } catch (err) {
             reject(err);
         }
@@ -178,6 +185,7 @@ const Multiplayer = (function () {
         console.log('[Multiplayer] getUserInfo - currentUser:', currentUser);
         if (currentUser) {
             const userInfo = {
+                oderId: currentUser.id,  // User ID for ELO updates
                 name: currentUser.display_name || currentUser.displayName || currentUser.username,
                 elo: currentUser.elo || 1000,
                 isGuest: false
@@ -366,6 +374,36 @@ const Multiplayer = (function () {
         });
     }
 
+    // Report game result to server for ELO calculation
+    // winnerColor: 'black', 'white', or null for draw
+    // reason: 'capturing 6 discs', 'on time', 'stalemate', etc.
+    function reportGameResult(winnerColor, reason, isDraw = false) {
+        return new Promise((resolve, reject) => {
+            if (!socket || !socket.connected || !roomCode) {
+                console.log('[Multiplayer] Cannot report game result - not in a room');
+                resolve({ success: false });
+                return;
+            }
+            
+            console.log(`[Multiplayer] Reporting game result: winner=${winnerColor}, reason=${reason}, isDraw=${isDraw}`);
+            
+            socket.emit('game-ended', {
+                roomCode,
+                winnerColor,
+                reason,
+                isDraw
+            }, (response) => {
+                if (response.success) {
+                    console.log('[Multiplayer] Game result reported successfully');
+                    resolve(response);
+                } else {
+                    console.error('[Multiplayer] Failed to report game result:', response.error);
+                    reject(new Error(response.error));
+                }
+            });
+        });
+    }
+
     // Notify opponent that player is leaving the endgame screen (before leaving room)
     function leaveEndgame() {
         return new Promise((resolve) => {
@@ -438,6 +476,7 @@ const Multiplayer = (function () {
         requestRematch,
         startRematch,
         leaveEndgame,
+        reportGameResult,
         disconnect,
         clearRoomInfo,
         loadRoomInfo,
@@ -463,6 +502,7 @@ const Multiplayer = (function () {
         set onOpponentLeftEndgame(fn) { onOpponentLeftEndgame = fn; },
         set onGameReset(fn) { onGameReset = fn; },
         set onGameTimeout(fn) { onGameTimeout = fn; },
+        set onEloUpdated(fn) { onEloUpdated = fn; },
         set onConnectionStatusChange(fn) { onConnectionStatusChange = fn; },
         set onError(fn) { onError = fn; },
         
