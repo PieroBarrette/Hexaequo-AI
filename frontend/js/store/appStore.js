@@ -18,6 +18,8 @@ const DEFAULT_PLAYERS = {
 	white: { pseudo: 'Player White', elo: null }
 };
 
+const ALLOWED_LEARN_VIEWS = new Set(['tutorial', 'rules']);
+
 const DEFAULT_STATE = {
 	view: 'game',
 	connectionStatus: 'disconnected',
@@ -131,6 +133,9 @@ function applyStateGuards(state, previous = null) {
 	next.animationsEnabled = next.animationsEnabled !== false;
 	next.showValidMoves = Boolean(next.showValidMoves);
 	next.showPreviousMove = next.showPreviousMove !== false;
+	if (!ALLOWED_LEARN_VIEWS.has(next.learnView)) {
+		next.learnView = 'tutorial';
+	}
 	next.lobby = mergeStructured(next.lobby, DEFAULT_LOBBY_PREFS, previous?.lobby);
 	next.matchSettings = mergeStructured(next.matchSettings, DEFAULT_MATCH_SETTINGS, previous?.matchSettings);
 	next.players = mergeStructured(next.players, DEFAULT_PLAYERS, previous?.players);
@@ -179,7 +184,8 @@ function loadPersistedPreferences() {
 			showPreviousMove: parsed.showPreviousMove,
 			lobby: parsed.lobby,
 			matchSettings: parsed.matchSettings,
-			players: parsed.players
+			players: parsed.players,
+			learnView: parsed.learnView
 		};
 	} catch (err) {
 		console.warn('Failed to load stored preferences', err);
@@ -200,7 +206,8 @@ function persistPreferences(state) {
 		showPreviousMove: state.showPreviousMove,
 		lobby: state.lobby,
 		matchSettings: state.matchSettings,
-		players: state.players
+		players: state.players,
+		learnView: state.learnView
 	};
 	try {
 		window.localStorage.setItem(PREF_STORAGE_KEY, JSON.stringify(payload));

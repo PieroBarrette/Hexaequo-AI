@@ -28,6 +28,7 @@ let disposeController = () => {};
 let disposeEndgame = () => {};
 let disposeLobby = () => {};
 let disposeLocalPanel = () => {};
+let disposeLearnPanel = () => {};
 let boardGraphicsApi = null;
 let canvasResizeHandler = null;
 
@@ -40,6 +41,7 @@ function initializeApp() {
 	disposeHud = mountHud();
 	disposeEndgame = initEndgameWatcher();
 	initializeNavigationPanels();
+	disposeLearnPanel = initLearnPanel();
 	observeLayoutChrome();
 	disposeLobby = initLobbyPanel({
 		socketClient,
@@ -352,6 +354,56 @@ function initializeNavigationPanels() {
 		const current = getAppState();
 		setAppState({ showPreviousMove: !current.showPreviousMove });
 	});
+}
+
+function initLearnPanel() {
+	const buttons = Array.from(document.querySelectorAll('[data-learn-view]'));
+	const docView = document.querySelector('[data-learn-doc]');
+	const tutorialView = document.querySelector('[data-learn-placeholder]');
+	const summary = document.querySelector('[data-learn-summary]');
+	if (buttons.length === 0 && !docView && !tutorialView) {
+		return () => {};
+	}
+
+	const handleSelect = (event) => {
+		const target = event.currentTarget?.getAttribute('data-learn-view');
+		if (!target) return;
+		soundManager.playUiClick();
+		setAppState({ learnView: target });
+		setAppView('learn', { nav: 'collapse' });
+	};
+
+	buttons.forEach((button) => button.addEventListener('click', handleSelect));
+
+	const unsubscribe = subscribeToAppState(
+		(state) => {
+			const selected = state.learnView;
+			buttons.forEach((button) => {
+				const viewId = button.getAttribute('data-learn-view');
+				const isActive = viewId === selected;
+				button.classList.toggle('is-selected', isActive);
+				button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+			});
+			if (docView) {
+				docView.hidden = selected !== 'rules';
+			}
+			if (tutorialView) {
+				tutorialView.hidden = selected === 'rules';
+			}
+			if (summary) {
+				summary.textContent =
+					selected === 'rules'
+						? 'Browse and zoom through the official Hexaequo rulebook.'
+						: 'Interactive walkthroughs are in progress—hang tight!';
+			}
+		},
+		{ emitInitial: true }
+	);
+
+	return () => {
+		unsubscribe?.();
+		buttons.forEach((button) => button.removeEventListener('click', handleSelect));
+	};
 }
 
 function initLocalPanel() {

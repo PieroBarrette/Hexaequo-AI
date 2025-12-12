@@ -2,26 +2,48 @@
 
 ## 🎉 Migration Complétée!
 
-Votre jeu Hexaequo a été migré avec succès d'une architecture Python/Flask vers une application web JavaScript pure avec PWA!
+Hexaequo a été migré avec succès vers une architecture moderne avec Progressive Web App (PWA), système d'authentification, ELO rating, et client-side AI!
 
 ## 📁 Structure du Projet
 
 ```
 /
-├── index.html              # Page d'accueil (redirige vers Hexaequo V2)
+├── index.html              # Page d'accueil (redirige vers frontend/)
+├── manifest.json           # Manifeste PWA global
+├── service-worker.js       # Service Worker pour offline
 ├── CNAME                   # Configuration du domaine hexaequo.com
 ├── .nojekyll              # Désactive Jekyll pour GitHub Pages
-└── Hexaequo V2/
-    ├── index.html          # Page principale du jeu
-    ├── game.js             # Logique du jeu
-    ├── ai.js               # IA Minimax en JavaScript
-    ├── ai-worker.js        # Web Worker pour l'IA
-    ├── styles.css          # Styles responsive
-    ├── manifest.json       # Manifeste PWA
-    ├── service-worker.js   # Service Worker pour offline
-    ├── logo.png            # Logo du jeu
-    ├── icons/              # Icônes PWA (192x192, 512x512)
-    └── sounds/             # Effets sonores
+├── frontend/               # Application principale (SPA moderne)
+│   ├── index.html          # Point d'entrée de l'app
+│   ├── css/                # Styles (base, auth, game, lobby, profile)
+│   ├── js/
+│   │   ├── app.js          # Shell de l'application
+│   │   ├── main.js         # Point d'entrée
+│   │   ├── api/            # Clients REST API
+│   │   ├── auth/           # Authentification (login, signup, reset)
+│   │   ├── game/           # Logique de jeu et rendering
+│   │   │   ├── ai/         # **Client-side AI avec Web Worker**
+│   │   │   │   ├── aiEngine.js           # Minimax avec alpha-beta
+│   │   │   │   ├── aiWorkerStandalone.js # Web Worker standalone
+│   │   │   │   └── aiClient.js           # Interface haut niveau
+│   │   │   ├── canvasGraphics.js         # Rendering canvas avancé
+│   │   │   ├── boardRenderer.js          # Orchestration animations
+│   │   │   └── ...
+│   │   ├── lobby/          # Gestion des rooms multijoueur
+│   │   ├── profile/        # Profils utilisateurs et stats
+│   │   └── store/          # State management
+│   └── assets/             # Icons, sounds, flags, docs
+├── backend/                # API Node.js (Express + Socket.IO)
+│   ├── server.js           # Serveur principal
+│   ├── controllers/        # Logique métier (auth, game, rooms, etc.)
+│   ├── services/           # Services (AI, ELO, email, replay, etc.)
+│   ├── sockets/            # Événements temps-réel
+│   ├── models/             # Modèles de données
+│   └── middleware/         # Auth, validation, error handling
+├── shared/                 # Logique partagée client/serveur
+│   └── game/               # GameState, MoveValidator, History, etc.
+└── server/                 # Serveur multiplayer legacy (Render.com)
+    └── server.js           # Socket.IO + SQLite (actuellement en prod)
 ```
 
 ## 🚀 Déploiement sur GitHub Pages
@@ -127,11 +149,15 @@ Pendant que GitHub Pages distribue le client, toutes les parties en ligne passen
 
 ## 🧪 Tests Locaux
 
-### Tester en Local
+### Tester l'Application Principale
 
 ```bash
-cd "/Users/blaise/Documents/GitHub/Hexaequo-AI/Hexaequo V2"
-python3 -m http.server 8000
+cd "c:\Users\ebarp018\Documents\GitHub\Hexaequo-AI"
+# Avec Python
+python -m http.server 8000
+
+# OU avec Node.js (si http-server installé)
+npx http-server -p 8000
 ```
 
 Puis ouvrez: http://localhost:8000
@@ -142,36 +168,66 @@ Puis ouvrez: http://localhost:8000
 2. Allez sur http://localhost:8000
 3. Ouvrez DevTools (F12)
 4. Onglet "Application" > "Service Workers"
-5. Vérifiez que le SW est enregistré
+5. Vérifiez que le SW est enregistré (`hexaequo-v1.0.9`)
 6. Onglet "Manifest" pour vérifier le manifeste
 7. Testez l'installation (icône + dans la barre d'adresse)
+8. Mode hors ligne: DevTools > Network > Offline, rechargez la page
+
+### Test AI Local (Client-Side)
+
+```javascript
+// Dans la console DevTools
+import { createAIClient, AI_DIFFICULTY } from '/frontend/js/game/ai/aiClient.js';
+
+const ai = createAIClient();
+console.log('Using Web Worker:', ai.usingWorker);
+
+// Tester avec un état de jeu
+const result = await ai.computeMove(gameState, AI_DIFFICULTY.MEDIUM);
+console.log('AI move:', result);
+```
 
 ### Test Mobile
 
 1. Connectez votre téléphone au même réseau
-2. Trouvez votre IP locale: `ifconfig | grep "inet "`
+2. Trouvez votre IP locale: `ipconfig` (Windows) ou `ifconfig` (Mac/Linux)
 3. Ouvrez sur mobile: http://[votre-ip]:8000
 4. Testez les interactions tactiles
 
-## 🔧 Modifications Techniques
+## 🔧 Architecture Technique
 
-### Python → JavaScript
+### Client-Side AI (2025-12-11)
 
-| Python | JavaScript |
-|--------|-----------|
-| `dict` | `Object` ou `Map` |
-| `float('inf')` | `Infinity` |
-| `copy.deepcopy()` | `JSON.parse(JSON.stringify())` |
-| Flask API | Web Worker |
-| `@app.route()` | `worker.postMessage()` |
+**Migration de hexaequo-v2 → frontend/js/game/ai/**
 
-### Algorithme IA
+L'IA Minimax avec alpha-beta pruning maintenant disponible côté client:
+- **Web Worker**: Calculs en arrière-plan (pas de blocage UI)
+- **Profondeur configurable**: 2 (facile), 3 (moyen), 4 (difficile)
+- **Fallback automatique**: Si Worker échoue, utilise le thread principal
+- **Performance**: ~200ms (depth 3) sur hardware moderne
 
-L'algorithme Minimax avec alpha-beta pruning a été fidèlement traduit:
-- Même profondeur (2)
-- Même fonction d'évaluation
-- Mêmes règles de jeu
-- Performance similaire
+Exemple d'utilisation:
+```javascript
+import { getAIClient, AI_DIFFICULTY } from '/frontend/js/game/ai/aiClient.js';
+
+const ai = getAIClient();
+const nextState = await ai.computeMove(currentGameState, AI_DIFFICULTY.HARD);
+```
+
+### PWA Features (Service Worker)
+
+**Stratégies de cache:**
+- **Static assets**: Cache-first (CSS, JS, HTML)
+- **API calls**: Network-first, cache fallback
+- **Dynamic content**: Stale-while-revalidate
+- **Version management**: `hexaequo-v1.0.9` (auto-cleanup old versions)
+
+### Theme System
+
+**Unifié sous CSS Variables** (`frontend/css/base.css`):
+- Variables CSS pour dark/light themes
+- Toggle dynamique via `body[data-theme='light']`
+- Plus maintenable que multiple color schemes hardcodés
 
 ## 📱 Installation PWA
 

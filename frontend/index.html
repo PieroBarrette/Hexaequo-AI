@@ -128,11 +128,11 @@
 				</header>
 				<p class="flyout-placeholder">Tutorial missions and move explainers return soon.</p>
 				<div class="learn-actions">
-					<button type="button" class="mode-card" data-learn-view="rules">
+					<button type="button" class="mode-card" data-learn-view="rules" aria-pressed="false">
 						<strong class="mode-card__title">Rules</strong>
 						<p>Open the latest official PDF.</p>
 					</button>
-					<button type="button" class="mode-card" data-learn-view="tutorial">
+					<button type="button" class="mode-card" data-learn-view="tutorial" aria-pressed="true">
 						<strong class="mode-card__title">Tutorial</strong>
 						<p>Interactive lessons are coming soon.</p>
 					</button>
@@ -425,6 +425,28 @@
 					<h2>Practice mode returns shortly</h2>
 					<p>We are re-tuning the modern bot. Check back soon for adaptive sparring partners.</p>
 				</div>
+			</section>
+			<section class="view-stage learn-view" data-view-panel="learn">
+				<article class="learn-card">
+					<header class="learn-card__header">
+						<div>
+							<p class="learn-card__eyebrow">Guides</p>
+							<h1>Learn Hexaequo</h1>
+							<p class="learn-card__summary" data-learn-summary>Interactive walkthroughs are in progress—hang tight!</p>
+						</div>
+					</header>
+					<div class="learn-card__body">
+						<div class="learn-doc" data-learn-doc hidden>
+							<iframe src="./assets/docs/rules.pdf" title="Hexaequo Rules" loading="lazy"></iframe>
+							<p class="learn-doc__fallback">Having trouble loading the PDF? <a href="./assets/docs/rules.pdf" target="_blank" rel="noreferrer noopener">Download it directly</a>.</p>
+						</div>
+						<div class="learn-placeholder" data-learn-placeholder>
+							<h3>Interactive tutorial</h3>
+							<p>We're rebuilding the onboarding missions so new players can master swaps and captures quickly.</p>
+							<button type="button" class="ghost-btn" disabled>Coming soon</button>
+						</div>
+					</div>
+				</article>
 			</section>
 		</main>
 		</div>

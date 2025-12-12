@@ -2,6 +2,11 @@
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 	gap: 12px;
+	margin-top: 12px;
+}
+
+.learn-actions .mode-card {
+	min-height: 0;
 }
 :root {
 	--font-base: 'Space Grotesk', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -350,6 +355,12 @@ input:focus {
 	box-shadow: 0 14px 36px rgba(3, 7, 21, 0.35);
 }
 
+.mode-card.is-selected,
+.mode-card[aria-pressed='true'] {
+	border-color: var(--color-accent);
+	box-shadow: 0 20px 46px rgba(4, 9, 20, 0.5);
+}
+
 .mode-card__eyebrow {
 	display: block;
 	font-size: 0.75rem;
@@ -666,8 +677,10 @@ input:focus {
 }
 
 body[data-view='game'] [data-view-panel='game'],
+body[data-view='local'] [data-view-panel='game'],
 body[data-view='play-online'] [data-view-panel='play-online'],
-body[data-view='vs-ai'] [data-view-panel='vs-ai'] {
+body[data-view='vs-ai'] [data-view-panel='vs-ai'],
+body[data-view='learn'] [data-view-panel='learn'] {
 	display: flex;
 }
 
@@ -689,6 +702,93 @@ body[data-view='vs-ai'] [data-view-panel='vs-ai'] {
 	background: var(--color-panel);
 	padding: 32px;
 	box-shadow: 0 30px 60px rgba(3, 5, 22, 0.45);
+}
+
+.learn-view {
+	flex-direction: column;
+	gap: 18px;
+}
+
+.learn-card {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 18px;
+	border-radius: 28px;
+	border: 1px solid var(--color-border);
+	background: var(--color-panel);
+	padding: clamp(20px, 3vw, 32px);
+	box-shadow: 0 36px 64px rgba(3, 5, 18, 0.45);
+}
+
+.learn-card__header h1 {
+	margin: 6px 0 0;
+	font-size: clamp(1.6rem, 4vw, 2.4rem);
+}
+
+.learn-card__eyebrow {
+	margin: 0;
+	font-size: 0.8rem;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--color-text-muted);
+}
+
+.learn-card__summary {
+	margin: 8px 0 0;
+	color: var(--color-text-muted);
+	max-width: 720px;
+}
+
+.learn-card__body {
+	flex: 1;
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 18px;
+}
+
+.learn-doc,
+.learn-placeholder {
+	border: 1px dashed var(--color-border-strong);
+	border-radius: 22px;
+	padding: clamp(16px, 2.5vw, 28px);
+	background: var(--color-panel-soft);
+	box-shadow: inset 0 0 30px rgba(2, 6, 18, 0.35);
+}
+
+.learn-doc {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.learn-doc iframe {
+	width: 100%;
+	min-height: 60vh;
+	border: none;
+	border-radius: 14px;
+	background: #fff;
+}
+
+.learn-doc__fallback {
+	margin: 0;
+	font-size: 0.85rem;
+	color: var(--color-text-muted);
+}
+
+.learn-placeholder {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.learn-placeholder h3 {
+	margin: 0;
+}
+
+.learn-placeholder p {
+	margin: 0;
+	color: var(--color-text-muted);
 }
 
 .placeholder-eyebrow {

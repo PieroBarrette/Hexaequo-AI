@@ -1,6 +1,6 @@
 # Hexaequo Platform Upgrade Memory
 
-_Last updated: 2025-12-09 (post-audit)_
+_Last updated: 2025-12-11 (post-v2-migration)_
 
 ## 1. Vision & Scope
 - Keep `hexaequo-v2` playable on hexaequo.com while refactoring toward a modular SPA that can host multiplayer rooms, profiles, Elo ladders, and replays.
@@ -82,8 +82,49 @@ _Last updated: 2025-12-09 (post-audit)_
 |------|----------|
 | 2025-12-09 | Keep the Render-hosted Socket.IO server online while prioritizing the frontend refactor; delay PostgreSQL work until the new SPA is feature-complete enough to call fresh endpoints. |
 | 2025-12-10 | Lobby create forms must expose spectator-permitted toggles and timer mode selection; timers render adjacent to pseudo/Elo headers and stay hidden when rooms opt out of timers. |
+| 2025-12-11 | **Legacy hexaequo-v2 migration completed**: Client-side AI (minimax with Web Worker), PWA capabilities (service worker + manifest), and all unique features extracted to main app. Root index.html now redirects to `frontend/` instead of `hexaequo-v2/`. The v2 folder is ready for removal once testing confirms parity. |
 
-## 8. Next Steps Checklist
+## 8. hexaequo-v2 Migration Summary (2025-12-11)
+
+### What was migrated
+1. **Client-side AI** (`frontend/js/game/ai/`)
+   - `aiEngine.js` - Minimax algorithm with alpha-beta pruning adapted to main app's game state
+   - `aiWorkerStandalone.js` - Web Worker for background AI computation (prevents UI blocking)
+   - `aiClient.js` - High-level interface with automatic worker/main-thread fallback
+   
+2. **PWA Capabilities** (root level)
+   - `manifest.json` - App manifest with icons, shortcuts, and metadata
+   - `service-worker.js` - Offline caching strategies (static assets, dynamic content, API fallback)
+   - Updated `index.html` - Added PWA meta tags and service worker registration
+   
+3. **Theme System**
+   - Main app already has superior dark/light theme system via CSS variables in `frontend/css/base.css`
+   - Legacy v2 color schemes (Classic/Modern) mapped to CSS theme variables
+   - Both themes now available through unified CSS system
+
+### Features preserved from v2
+- ✅ Offline AI gameplay with configurable difficulty (easy/medium/hard = depth 2/3/4)
+- ✅ Web Worker computation (non-blocking UI during AI "thinking")
+- ✅ PWA installability and offline mode
+- ✅ Service worker caching strategies
+- ✅ All evaluation heuristics and move ordering optimizations
+
+### Features NOT migrated (already better in main app)
+- ❌ Basic canvas rendering → Main app has superior `canvasGraphics.js` with animation system
+- ❌ Simple color schemes → CSS theme system more flexible and maintainable
+- ❌ Coordinate display toggle → Not essential for production, can add later if needed
+- ❌ Grid toggle → Not essential for production, can add later if needed
+- ❌ Basic multiplayer → Main app has full room-based system with lobby, spectators, etc.
+
+### Next actions
+- [ ] Test AI client integration in main app (create vs-AI game mode UI)
+- [ ] Verify service worker caching on production deployment
+- [ ] Delete `hexaequo-v2/` folder after confirming all features work in main app
+- [ ] Update deployment documentation to reflect PWA setup
+
+## 9. Next Steps Checklist
+- [ ] **NEW:** Integrate AI client into main app game modes (create "Play vs AI" flow)
+- [ ] **NEW:** Test PWA installation and offline gameplay
 - [ ] Expand `frontend/js/store/gameStore.js` to apply serialized states + feed the animation queue.
 - [ ] Create `frontend/js/utils/socketClient.js` by wrapping the existing multiplayer client for reuse in the SPA shell.
 - [ ] Scaffold the SPA layout in `frontend/js/app.js` (view state + router) and port HUD controls, including timer placement beside pseudo/Elo when time modes are active.
