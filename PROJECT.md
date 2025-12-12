@@ -245,10 +245,7 @@ A player wins by:
 - Players can only move their own pieces
 - Tile placement requires 2+ adjacent tiles
 - Ring placement requires capturing at least 1 disc 
-/**Placing a ring requires a captured disc because to place a ring you must give back a disc to your opponent, local play seems to work but AI logic is not : It seems to be placing a ring without giving back a disc right at the start of the game. In fact verify all the AI logic and modify it so it respects the rules of the game.**/
-
 - Disc jumps cannot revisit positions in the same chain 
-/**That is not true, modify the code to reflect that**/
 - Circular jump paths without captures are invalid
 
 ---
@@ -264,15 +261,14 @@ A player wins by:
 #### 1. **Canvas Graphics Engine** (`game/canvasGraphics.js`)
 - Hardware-accelerated rendering
 - Dynamic hex size calculation with zoom support
-- Automatic layout updates on resize /**Not fluid it should resize with an animated translation**/
+- Automatic layout updates on resize
 - CSS custom property integration for theming
-- Animation system with configurable durations /**Accelerate to 250ms**/
+- Animation system with configurable durations
 - Drag-and-drop support with visual feedback
 
 **Features**:
 - Static board rendering
 - Tile placement animations
-/**Include piece placement animations**/
 - Piece movement animations
 - Jump sequence animations with captures
 - Multi-capture visual effects
@@ -313,9 +309,7 @@ A player wins by:
 - Web Worker integration for non-blocking computation
 - Difficulty level configuration (Easy/Medium/Hard)
 - Automatic move triggering on AI turn
-- Thinking indicator management /**Ai thinking loader not shown, please show it**/
-
-
+- Thinking indicator management
 
 ### Game Modes
 
@@ -323,7 +317,7 @@ A player wins by:
 - Two players on one device
 - Configurable player names
 - Timer options: None, Classic (15|0), Rapid (10|5), Blitz (5|3)
-- Name swap and reset utilities /**Not useful, remove**/
+- Name swap and reset utilities
 
 #### Online Mode (Multiplayer)
 - Create/join rooms with 4-letter codes
@@ -831,7 +825,7 @@ pixelToAxial(x, y, hexSize) → { q, r }
 ```
 
 **Timing**:
-- Default duration: 350ms per animation /**Like said before change to 250ms**/
+- Default duration: 350ms per animation
 
 - Sequential playback
 - Callback on completion

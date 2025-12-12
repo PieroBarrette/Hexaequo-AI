@@ -5,7 +5,8 @@ import {
 	serializeCurrentState,
 	subscribeToGameState,
 	getPreviousGameState,
-	resetGameState
+	resetGameState,
+	getGameState
 } from './store/gameStore.js';
 import {
 	getAppState,
@@ -110,6 +111,11 @@ function initializeCanvas() {
 		subscribeToLayout: graphicsApi.subscribeLayout,
 		isAnimating: () => graphicsApi.isAnimating?.() ?? false
 	});
+	
+	// Force an initial render of the board
+	setTimeout(() => {
+		graphicsApi.renderStatic?.(getGameState());
+	}, 100);
 }
 
 function readBoardPalette() {
