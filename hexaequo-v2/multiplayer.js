@@ -186,7 +186,7 @@ const Multiplayer = (function () {
         if (currentUser) {
             const userInfo = {
                 oderId: currentUser.id,  // User ID for ELO updates
-                name: currentUser.display_name || currentUser.displayName || currentUser.username,
+                name: currentUser.pseudo || currentUser.username,
                 elo: currentUser.elo || 1000,
                 isGuest: false
             };

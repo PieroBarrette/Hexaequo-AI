@@ -58,7 +58,7 @@ db.exec(`
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
-        display_name TEXT,
+        pseudo TEXT,
         elo INTEGER DEFAULT 1000,
         games_played INTEGER DEFAULT 0,
         games_won INTEGER DEFAULT 0,
@@ -101,6 +101,13 @@ try {
     db.exec(`ALTER TABLE users ADD COLUMN elo INTEGER DEFAULT 1000`);
 } catch (e) {
     // Column likely already exists
+}
+
+// Rename display_name to pseudo if needed (migration)
+try {
+    db.exec(`ALTER TABLE users RENAME COLUMN display_name TO pseudo`);
+} catch (e) {
+    // Column likely already renamed or doesn't exist
 }
 
 // Add time_control column if it doesn't exist
@@ -150,11 +157,11 @@ const statements = {
     
     // Auth statements
     createUser: db.prepare(`
-        INSERT INTO users (username, password_hash, display_name)
+        INSERT INTO users (username, password_hash, pseudo)
         VALUES (?, ?, ?)
     `),
     getUserByUsername: db.prepare(`SELECT * FROM users WHERE username = ?`),
-    getUserById: db.prepare(`SELECT id, username, display_name, elo, games_played, games_won, created_at FROM users WHERE id = ?`),
+    getUserById: db.prepare(`SELECT id, username, pseudo, elo, games_played, games_won, created_at FROM users WHERE id = ?`),
     updateUserLogin: db.prepare(`UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?`),
     updateUserStats: db.prepare(`
         UPDATE users SET games_played = games_played + 1, games_won = games_won + ? WHERE id = ?
@@ -163,7 +170,7 @@ const statements = {
         INSERT INTO sessions (token, user_id) VALUES (?, ?)
     `),
     getSession: db.prepare(`
-        SELECT s.*, u.username, u.display_name 
+        SELECT s.*, u.username, u.pseudo 
         FROM sessions s JOIN users u ON s.user_id = u.id 
         WHERE s.token = ? AND s.expires_at > datetime('now')
     `),
@@ -364,8 +371,7 @@ app.post('/api/auth/register', (req, res) => {
             user: {
                 id: result.lastInsertRowid,
                 username: username.toLowerCase(),
-                display_name: displayName || username,
-                displayName: displayName || username,
+                pseudo: displayName || username,
                 elo: 1000,
                 gamesPlayed: 0,
                 gamesWon: 0
@@ -409,8 +415,7 @@ app.post('/api/auth/login', (req, res) => {
             user: {
                 id: user.id,
                 username: user.username,
-                display_name: user.display_name,
-                displayName: user.display_name,
+                pseudo: user.pseudo,
                 elo: user.elo || 1000,
                 gamesPlayed: user.games_played,
                 gamesWon: user.games_won
@@ -455,8 +460,7 @@ app.get('/api/auth/me', (req, res) => {
             user: {
                 id: user.id,
                 username: user.username,
-                display_name: user.display_name,
-                displayName: user.display_name,
+                pseudo: user.pseudo,
                 elo: user.elo || 1000,
                 gamesPlayed: user.games_played,
                 gamesWon: user.games_won

@@ -425,8 +425,8 @@
         if (mode === 'ai') {
             // Black player is the user, White is AI
             if (currentUser) {
-                // Use display_name or displayName depending on API response format
-                const userName = currentUser.display_name || currentUser.displayName || currentUser.username || 'Player';
+                // Use pseudo for display name
+                const userName = currentUser.pseudo || currentUser.username || 'Player';
                 blackName.textContent = userName;
                 blackRating.textContent = `ELO: ${currentUser.elo || 1000}`;
             } else {
@@ -445,7 +445,7 @@
             // Determine which player is local and which is opponent based on playerColor
             const localUser = currentUser;
             const localIsGuest = !localUser;
-            const localName = localUser ? (localUser.display_name || localUser.displayName || localUser.username) : 'Guest';
+            const localName = localUser ? (localUser.pseudo || localUser.username) : 'Guest';
             const localElo = localIsGuest ? '?' : (localUser.elo || 1000);
             
             const opponentIsGuest = !opponentInfo || opponentInfo.isGuest;
@@ -1062,7 +1062,7 @@
             if (response.ok) {
                 const data = await response.json();
                 currentUser = data.user;
-                console.log('[Lobby] Session restored for:', currentUser.display_name);
+                console.log('[Lobby] Session restored for:', currentUser.pseudo);
             } else {
                 // Invalid session, clear it
                 localStorage.removeItem('hexaequo_session');
@@ -1079,7 +1079,7 @@
         if (currentUser) {
             // Logged in
             if (lobby.userDisplayName) {
-                lobby.userDisplayName.textContent = currentUser.display_name;
+                lobby.userDisplayName.textContent = currentUser.pseudo;
             }
             if (lobby.userEloDisplay) {
                 lobby.userEloDisplay.textContent = currentUser.elo !== undefined ? currentUser.elo : '';
@@ -1157,7 +1157,7 @@
                 sessionToken = data.token;
                 currentUser = data.user;
                 localStorage.setItem('hexaequo_session', sessionToken);
-                console.log('[Lobby] Logged in as:', currentUser.display_name);
+                console.log('[Lobby] Logged in as:', currentUser.pseudo);
                 
                 // Go back to online options
                 showOnlineOptions();
@@ -1209,7 +1209,7 @@
                 sessionToken = data.token;
                 currentUser = data.user;
                 localStorage.setItem('hexaequo_session', sessionToken);
-                console.log('[Lobby] Registered and logged in as:', currentUser.display_name);
+                console.log('[Lobby] Registered and logged in as:', currentUser.pseudo);
                 
                 // Go back to online options
                 showOnlineOptions();

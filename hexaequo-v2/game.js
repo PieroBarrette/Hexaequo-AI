@@ -1542,7 +1542,8 @@ window.onload = function () {
             const winnerColor = winner.toLowerCase();
             // Get player names from the lobby
             const currentPlayerColor = onlinePlayerColor;
-            const currentUserName = window.Lobby.getCurrentUser()?.pseudo || 'You';
+            const currentUser = window.Lobby.getUser();
+            const currentUserName = currentUser?.pseudo || currentUser?.username || 'You';
             const opponentName = getOpponentName();
             
             if (winnerColor === currentPlayerColor) {
