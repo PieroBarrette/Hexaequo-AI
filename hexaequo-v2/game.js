@@ -2003,7 +2003,7 @@ window.onload = function () {
                 // End game with us as loser
                 const myColor = window.Multiplayer.playerColor;
                 const winnerColor = myColor === 'black' ? 'white' : 'black';
-                endGame(winnerColor, 'by abandonment');
+                endGame(winnerColor, 'abandonment');
             } catch (err) {
                 console.error('Failed to resign:', err);
             }
@@ -2062,7 +2062,7 @@ window.onload = function () {
         console.log('Opponent resigned');
         // End game with us as winner
         const myColor = window.Multiplayer.playerColor;
-        endGame(myColor, 'by abandonment');
+        endGame(myColor, 'abandonment');
     }
     
     // Handler for when opponent proposes a draw
