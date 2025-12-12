@@ -6,9 +6,8 @@
 
 const Multiplayer = (function () {
     // Configuration
-    // Port 3001: New backend with REST API + Socket.IO
-    // Port 3000: Legacy Socket.IO-only server (fallback)
-    const BACKEND_PORT = 3001;
+    // Port 3000: Backend with REST API + Socket.IO
+    const BACKEND_PORT = 3000;
     const SERVER_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
         ? `http://localhost:${BACKEND_PORT}`
         : 'https://hexaequo-server.onrender.com'; // Update this after deployment
