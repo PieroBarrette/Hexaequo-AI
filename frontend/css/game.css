@@ -78,6 +78,7 @@
 	min-width: 160px;
 }
 
+.inventory-panel {
 	display: flex;
 	flex-direction: column;
 	gap: 16px;
@@ -178,8 +179,13 @@
 	font-size: 0.85rem;
 	color: var(--color-text-muted);
 }
+
+.inventory-stat--highlighted {
 	border-color: var(--color-accent);
 	box-shadow: 0 0 20px rgba(16, 185, 129, 0.35);
+}
+
+.inventory-footer {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
@@ -246,18 +252,6 @@
 
 [data-player-timer][data-visible='false'] {
 	visibility: hidden;
-}
-
-
-.inventory-panel {
-	display: flex;
-	flex-direction: column;
-	gap: 12px;
-	padding: 18px;
-	border-radius: 18px;
-	border: 1px solid var(--color-border);
-	background: var(--color-panel-soft, var(--color-panel));
-	transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .inventory-panel[data-active='true'] {
@@ -493,5 +487,106 @@ body[data-theme='light'] [data-game-over] {
 @media (max-width: 640px) {
 	.timer-row {
 		flex-direction: column;
+	}
+}
+
+/* ===========================
+   VS AI Panel Styles
+   =========================== */
+
+.ai-panel {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+	max-width: 520px;
+}
+
+.ai-panel__header {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.ai-panel__header h2 {
+	margin: 0;
+	font-size: 1.8rem;
+	color: var(--color-text);
+}
+
+.ai-panel__description {
+	color: var(--color-text-muted);
+	margin: 0;
+}
+
+.ai-panel__content {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+}
+
+.difficulty-selector {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.difficulty-label {
+	font-weight: 600;
+	color: var(--color-text);
+	font-size: 0.9rem;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.difficulty-options {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 12px;
+}
+
+.difficulty-btn {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 4px;
+	padding: 16px 12px;
+	border-radius: 12px;
+	border: 2px solid var(--color-border);
+	background: var(--color-panel);
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.difficulty-btn:hover {
+	border-color: var(--color-primary);
+	background: var(--color-panel-soft);
+}
+
+.difficulty-btn.is-active {
+	border-color: var(--color-primary);
+	background: var(--color-primary-soft);
+}
+
+.difficulty-name {
+	font-weight: 600;
+	font-size: 1rem;
+	color: var(--color-text);
+}
+
+.difficulty-desc {
+	font-size: 0.75rem;
+	color: var(--color-text-muted);
+}
+
+.start-ai-btn {
+	width: 100%;
+	padding: 16px 24px;
+	font-size: 1.1rem;
+	font-weight: 600;
+}
+
+@media (max-width: 480px) {
+	.difficulty-options {
+		grid-template-columns: 1fr;
 	}
 }

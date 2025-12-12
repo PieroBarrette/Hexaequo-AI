@@ -48,6 +48,12 @@ export function createCanvasGraphics(canvas, options = {}) {
     };
     const layoutSubscribers = new Set();
 
+    // Animation system
+    let activeAnimations = [];
+    let animationCallbacks = [];
+    let animationLoopRunning = false;
+    const ANIMATION_DURATION = 350; // milliseconds
+
     function renderStatic(state) {
         if (!ctx || !state) return;
         lastState = state;
@@ -61,11 +67,60 @@ export function createCanvasGraphics(canvas, options = {}) {
         ctx.save();
         ctx.translate(layout.translateX, layout.translateY);
         drawTiles(ctx, state.tiles, size, palette);
-        drawPieces(ctx, state.pieces, state.tiles, size, palette);
+        
+        // Filter out dragged piece if actively dragging
+        const dragState = state.metadata?.dragState;
+        const isDraggingPiece = dragState?.isDragging && dragState?.thresholdMet;
+        let piecesToDraw = state.pieces;
+        
+        if (isDraggingPiece && state.metadata?.selection) {
+            const dragKey = `${state.metadata.selection.q},${state.metadata.selection.r}`;
+            piecesToDraw = { ...state.pieces };
+            delete piecesToDraw[dragKey];
+        }
+        
+        drawPieces(ctx, piecesToDraw, state.tiles, size, palette);
         drawGlobalMoveHints(ctx, state, size, preferences, palette);
         drawSelection(ctx, state.metadata, size, palette);
         drawValidMoves(ctx, state.metadata, size, palette);
         drawLastMoveHighlight(ctx, state.metadata, size, preferences, palette);
+        ctx.restore();
+        
+        // Draw dragged piece at cursor position (outside transformed context)
+        if (isDraggingPiece && dragState.piece && dragState.position) {
+            drawDraggedPiece(ctx, dragState, size, palette, layout);
+        }
+    }
+    
+    function drawDraggedPiece(ctx, dragState, size, palette, layout) {
+        const { piece, position } = dragState;
+        const scaledX = position.x * (canvas.width / canvas.getBoundingClientRect().width);
+        const scaledY = position.y * (canvas.height / canvas.getBoundingClientRect().height);
+        
+        ctx.save();
+        ctx.translate(scaledX, scaledY);
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+        ctx.shadowBlur = size * 0.15;
+        ctx.shadowOffsetY = size * 0.1;
+        ctx.globalAlpha = 0.9;
+        
+        if (piece.type === 'ring') {
+            const ringColor = piece.color === 'black' ? palette.ringDark : palette.ringLight;
+            ctx.strokeStyle = ringColor;
+            ctx.lineWidth = size * 0.12;
+            ctx.beginPath();
+            ctx.arc(0, 0, size * 0.42, 0, Math.PI * 2);
+            ctx.stroke();
+        } else {
+            const discColor = piece.color === 'black' ? palette.discDark : palette.discLight;
+            ctx.fillStyle = discColor;
+            ctx.strokeStyle = palette.outline;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(0, 0, size * 0.34, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        }
         ctx.restore();
     }
 
@@ -74,6 +129,218 @@ export function createCanvasGraphics(canvas, options = {}) {
             console.log(`[CanvasGraphics] ${type}`, payload);
         }
     };
+
+    function startAnimationLoop() {
+        if (animationLoopRunning) return;
+        animationLoopRunning = true;
+        
+        function loop() {
+            if (activeAnimations.length > 0 || animationCallbacks.length > 0) {
+                updateAndRenderAnimations();
+                requestAnimationFrame(loop);
+            } else {
+                animationLoopRunning = false;
+            }
+        }
+        
+        requestAnimationFrame(loop);
+    }
+
+    function updateAndRenderAnimations() {
+        if (!lastState) return;
+        
+        const now = performance.now();
+        const layout = currentLayout;
+        const preferences = getPreferences ? getPreferences() : {};
+        const palette = resolvePalette(getPalette ? getPalette() : null);
+        const size = layout.hexSize;
+
+        // Update animation progress
+        for (let i = activeAnimations.length - 1; i >= 0; i--) {
+            const anim = activeAnimations[i];
+            const elapsed = now - anim.startTime;
+            const progress = Math.min(elapsed / anim.duration, 1);
+            anim.progress = easeInOutQuad(progress);
+
+            if (progress >= 1) {
+                activeAnimations.splice(i, 1);
+                if (typeof anim.onComplete === 'function') {
+                    anim.onComplete();
+                }
+            }
+        }
+
+        // Check if all animations completed
+        if (activeAnimations.length === 0 && animationCallbacks.length > 0) {
+            const callbacks = [...animationCallbacks];
+            animationCallbacks = [];
+            callbacks.forEach(cb => {
+                try {
+                    cb();
+                } catch (err) {
+                    console.error('[CanvasGraphics] Animation callback error:', err);
+                }
+            });
+        }
+
+        // Render
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.save();
+        ctx.translate(layout.translateX, layout.translateY);
+        
+        // Draw static board elements
+        drawTiles(ctx, lastState.tiles, size, palette);
+        
+        // Draw pieces (excluding those being animated)
+        const animatedPositions = new Set();
+        activeAnimations.forEach(anim => {
+            if (anim.type === 'move' || anim.type === 'jump') {
+                animatedPositions.add(`${anim.fromQ},${anim.fromR}`);
+            }
+            if (anim.type === 'capture') {
+                animatedPositions.add(`${anim.q},${anim.r}`);
+            }
+        });
+        
+        const visiblePieces = {};
+        Object.entries(lastState.pieces || {}).forEach(([key, piece]) => {
+            if (!animatedPositions.has(key)) {
+                visiblePieces[key] = piece;
+            }
+        });
+        drawPieces(ctx, visiblePieces, lastState.tiles, size, palette);
+        
+        // Draw animated elements
+        activeAnimations.forEach(anim => {
+            drawAnimation(ctx, anim, size, palette);
+        });
+        
+        // Draw overlays
+        drawGlobalMoveHints(ctx, lastState, size, preferences, palette);
+        drawSelection(ctx, lastState.metadata, size, palette);
+        drawValidMoves(ctx, lastState.metadata, size, palette);
+        drawLastMoveHighlight(ctx, lastState.metadata, size, preferences, palette);
+        
+        ctx.restore();
+    }
+
+    function drawAnimation(ctx, anim, size, palette) {
+        const { type, progress } = anim;
+
+        if (type === 'move' || type === 'jump') {
+            const from = axialToPixel(anim.fromQ, anim.fromR, size);
+            const to = axialToPixel(anim.toQ, anim.toR, size);
+            const x = from.x + (to.x - from.x) * progress;
+            const y = from.y + (to.y - from.y) * progress;
+            
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+            ctx.shadowBlur = size * 0.08;
+            
+            if (anim.piece.type === 'ring') {
+                const ringColor = anim.piece.color === 'black' ? palette.ringDark : palette.ringLight;
+                ctx.strokeStyle = ringColor;
+                ctx.lineWidth = size * 0.12;
+                ctx.beginPath();
+                ctx.arc(0, 0, size * 0.42, 0, Math.PI * 2);
+                ctx.stroke();
+            } else {
+                const discColor = anim.piece.color === 'black' ? palette.discDark : palette.discLight;
+                ctx.fillStyle = discColor;
+                ctx.strokeStyle = palette.outline;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(0, 0, size * 0.34, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            }
+            ctx.restore();
+        } else if (type === 'capture') {
+            const pos = axialToPixel(anim.q, anim.r, size);
+            const opacity = 1 - progress;
+            const scale = 1 - progress * 0.3;
+            
+            ctx.save();
+            ctx.translate(pos.x, pos.y);
+            ctx.globalAlpha = opacity;
+            ctx.scale(scale, scale);
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+            ctx.shadowBlur = size * 0.06;
+            
+            if (anim.piece.type === 'ring') {
+                const ringColor = anim.piece.color === 'black' ? palette.ringDark : palette.ringLight;
+                ctx.strokeStyle = ringColor;
+                ctx.lineWidth = size * 0.12;
+                ctx.beginPath();
+                ctx.arc(0, 0, size * 0.42, 0, Math.PI * 2);
+                ctx.stroke();
+            } else {
+                const discColor = anim.piece.color === 'black' ? palette.discDark : palette.discLight;
+                ctx.fillStyle = discColor;
+                ctx.strokeStyle = palette.outline;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(0, 0, size * 0.34, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            }
+            ctx.restore();
+        } else if (type === 'placement') {
+            const pos = axialToPixel(anim.q, anim.r, size);
+            const scale = progress;
+            const opacity = progress;
+            
+            ctx.save();
+            ctx.translate(pos.x, pos.y);
+            ctx.globalAlpha = opacity;
+            ctx.scale(scale, scale);
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+            ctx.shadowBlur = size * 0.06;
+            
+            if (anim.piece.type === 'ring') {
+                const ringColor = anim.piece.color === 'black' ? palette.ringDark : palette.ringLight;
+                ctx.strokeStyle = ringColor;
+                ctx.lineWidth = size * 0.12;
+                ctx.beginPath();
+                ctx.arc(0, 0, size * 0.42, 0, Math.PI * 2);
+                ctx.stroke();
+            } else {
+                const discColor = anim.piece.color === 'black' ? palette.discDark : palette.discLight;
+                ctx.fillStyle = discColor;
+                ctx.strokeStyle = palette.outline;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(0, 0, size * 0.34, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            }
+            ctx.restore();
+        } else if (type === 'tilePlacement') {
+            const pos = axialToPixel(anim.q, anim.r, size);
+            const scale = 0.5 + progress * 0.5;
+            const opacity = progress;
+            
+            ctx.save();
+            ctx.translate(pos.x, pos.y);
+            ctx.globalAlpha = opacity;
+            ctx.scale(scale, scale);
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
+            ctx.shadowBlur = size * 0.05;
+            ctx.beginPath();
+            hexPath(ctx, size);
+            ctx.fillStyle = anim.color === 'black' ? palette.tileDark : palette.tileLight;
+            ctx.strokeStyle = palette.outline;
+            ctx.lineWidth = 2;
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+
+    function easeInOutQuad(t) {
+        return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    }
 
     return {
         renderStatic,
@@ -95,21 +362,153 @@ export function createCanvasGraphics(canvas, options = {}) {
         },
         queueTilePlacementAnimation(q, r, color) {
             logEvent('tile-placement', { q, r, color });
+            activeAnimations.push({
+                type: 'tilePlacement',
+                q,
+                r,
+                color,
+                startTime: performance.now(),
+                duration: ANIMATION_DURATION,
+                progress: 0
+            });
+            startAnimationLoop();
         },
         queuePiecePlacementAnimation(q, r, piece) {
             logEvent('piece-placement', { q, r, piece });
+            activeAnimations.push({
+                type: 'placement',
+                q,
+                r,
+                piece: { ...piece },
+                startTime: performance.now(),
+                duration: ANIMATION_DURATION,
+                progress: 0
+            });
+            startAnimationLoop();
         },
         queueJumpSequenceWithCaptures(path, piece, captures = []) {
             logEvent('jump-sequence', { path, piece, captures });
+            if (!Array.isArray(path) || path.length < 2) return;
+            
+            let segmentIndex = 0;
+            
+            function animateNextSegment() {
+                if (segmentIndex >= path.length - 1) {
+                    // All segments done, now animate captures
+                    captures.forEach((cap, index) => {
+                        setTimeout(() => {
+                            activeAnimations.push({
+                                type: 'capture',
+                                q: cap.q,
+                                r: cap.r,
+                                piece: { ...cap.piece },
+                                startTime: performance.now(),
+                                duration: ANIMATION_DURATION * 0.6,
+                                progress: 0
+                            });
+                            startAnimationLoop();
+                        }, index * 50);
+                    });
+                    return;
+                }
+                
+                const from = path[segmentIndex];
+                const to = path[segmentIndex + 1];
+                
+                activeAnimations.push({
+                    type: 'jump',
+                    fromQ: from.q,
+                    fromR: from.r,
+                    toQ: to.q,
+                    toR: to.r,
+                    piece: { ...piece },
+                    startTime: performance.now(),
+                    duration: ANIMATION_DURATION,
+                    progress: 0,
+                    onComplete: () => {
+                        segmentIndex++;
+                        animateNextSegment();
+                    }
+                });
+                startAnimationLoop();
+            }
+            
+            animateNextSegment();
         },
         queueSingleMoveWithCapture(fromQ, fromR, toQ, toR, piece, captures = []) {
             logEvent('move-with-captures', { fromQ, fromR, toQ, toR, piece, captures });
+            
+            activeAnimations.push({
+                type: 'move',
+                fromQ,
+                fromR,
+                toQ,
+                toR,
+                piece: { ...piece },
+                startTime: performance.now(),
+                duration: ANIMATION_DURATION,
+                progress: 0,
+                onComplete: () => {
+                    captures.forEach((cap, index) => {
+                        setTimeout(() => {
+                            activeAnimations.push({
+                                type: 'capture',
+                                q: cap.q,
+                                r: cap.r,
+                                piece: { ...cap.piece },
+                                startTime: performance.now(),
+                                duration: ANIMATION_DURATION * 0.6,
+                                progress: 0
+                            });
+                            startAnimationLoop();
+                        }, index * 50);
+                    });
+                }
+            });
+            startAnimationLoop();
         },
         queueMoveAnimation(fromQ, fromR, toQ, toR, piece) {
             logEvent('move', { fromQ, fromR, toQ, toR, piece });
+            activeAnimations.push({
+                type: 'move',
+                fromQ,
+                fromR,
+                toQ,
+                toR,
+                piece: { ...piece },
+                startTime: performance.now(),
+                duration: ANIMATION_DURATION,
+                progress: 0
+            });
+            startAnimationLoop();
         },
         queueCaptureAnimation(q, r, piece) {
             logEvent('capture', { q, r, piece });
+            activeAnimations.push({
+                type: 'capture',
+                q,
+                r,
+                piece: { ...piece },
+                startTime: performance.now(),
+                duration: ANIMATION_DURATION * 0.6,
+                progress: 0
+            });
+            startAnimationLoop();
+        },
+        onAllAnimationsComplete(callback) {
+            if (typeof callback !== 'function') return;
+            if (activeAnimations.length === 0) {
+                callback();
+            } else {
+                animationCallbacks.push(callback);
+            }
+        },
+        isAnimating() {
+            return activeAnimations.length > 0;
+        },
+        clearAnimations() {
+            activeAnimations = [];
+            animationCallbacks = [];
         }
     };
 

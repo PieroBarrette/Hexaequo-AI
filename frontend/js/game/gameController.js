@@ -13,8 +13,17 @@ const controllerState = {
 	multiJumping: false,
 	lastClicked: null,
 	turnStartPiecePos: null,
-	sequenceCapturedSnapshot: null
+	sequenceCapturedSnapshot: null,
+	// Drag & Drop state
+	isDragging: false,
+	draggedPiece: null,
+	dragStartPos: null,
+	dragCurrentPos: null,
+	dragThresholdMet: false,
+	dragJustCompleted: false
 };
+
+const DRAG_THRESHOLD = 8; // pixels
 
 export function initGameController(canvas, options = {}) {
 	if (!canvas) {
@@ -25,6 +34,8 @@ export function initGameController(canvas, options = {}) {
 	const fallbackHexSize = options.hexSize ?? 40;
 	const getLayout = typeof options.getLayout === 'function' ? options.getLayout : null;
 	const subscribeToLayout = typeof options.subscribeToLayout === 'function' ? options.subscribeToLayout : null;
+	const isAnimating = typeof options.isAnimating === 'function' ? options.isAnimating : () => false;
+	
 	let currentLayout = normalizeLayoutSnapshot(getLayout?.(), canvas, fallbackHexSize);
 	const unsubscribeLayout = subscribeToLayout
 		? subscribeToLayout((nextLayout) => {
@@ -33,27 +44,189 @@ export function initGameController(canvas, options = {}) {
 		: null;
 
 	const handleClick = (event) => {
-		if (isGameFrozen()) return;
+		if (controllerState.dragJustCompleted) {
+			controllerState.dragJustCompleted = false;
+			return;
+		}
+		if (isGameFrozen() || isAnimating()) return;
 		const { q, r } = extractBoardCoordinates(event, canvas, currentLayout, fallbackHexSize);
 		handleBoardInteraction(q, r);
 	};
 
 	const handleTouchEnd = (event) => {
+		if (controllerState.isDragging) {
+			handleDragEnd(event);
+			return;
+		}
 		event.preventDefault();
 		if (!event.changedTouches?.length) return;
-		if (isGameFrozen()) return;
+		if (controllerState.dragJustCompleted) {
+			controllerState.dragJustCompleted = false;
+			return;
+		}
+		if (isGameFrozen() || isAnimating()) return;
 		const { q, r } = extractBoardCoordinates(event.changedTouches[0], canvas, currentLayout, fallbackHexSize);
 		handleBoardInteraction(q, r);
 	};
 
+	// Drag & Drop handlers
+	const handleDragStart = (event) => {
+		if (isGameFrozen() || isAnimating()) return;
+		
+		const pointer = event.touches ? event.touches[0] : event;
+		const { q, r } = extractBoardCoordinates(pointer, canvas, currentLayout, fallbackHexSize);
+		const state = getGameState();
+		
+		if (!canPieceBeDragged(q, r, state)) return;
+		
+		const rect = canvas.getBoundingClientRect();
+		const startX = pointer.clientX - rect.left;
+		const startY = pointer.clientY - rect.top;
+		
+		controllerState.isDragging = true;
+		controllerState.draggedPiece = { q, r, piece: { ...state.pieces[`${q},${r}`] } };
+		controllerState.dragStartPos = { x: startX, y: startY };
+		controllerState.dragCurrentPos = { x: startX, y: startY };
+		controllerState.dragThresholdMet = false;
+		
+		// Select the piece
+		selectPiece(q, r, state);
+		
+		canvas.style.cursor = 'grabbing';
+		event.preventDefault();
+	};
+
+	const handleDragMove = (event) => {
+		if (!controllerState.isDragging || !controllerState.draggedPiece) return;
+		
+		const pointer = event.touches ? event.touches[0] : event;
+		const rect = canvas.getBoundingClientRect();
+		const currentX = pointer.clientX - rect.left;
+		const currentY = pointer.clientY - rect.top;
+		
+		// Check threshold
+		if (!controllerState.dragThresholdMet) {
+			const dx = currentX - controllerState.dragStartPos.x;
+			const dy = currentY - controllerState.dragStartPos.y;
+			const distance = Math.sqrt(dx * dx + dy * dy);
+			
+			if (distance >= DRAG_THRESHOLD) {
+				controllerState.dragThresholdMet = true;
+			}
+		}
+		
+		controllerState.dragCurrentPos = { x: currentX, y: currentY };
+		
+		// Update metadata to trigger visual update
+		updateMetadata({
+			dragState: {
+				isDragging: true,
+				piece: controllerState.draggedPiece.piece,
+				position: { ...controllerState.dragCurrentPos },
+				thresholdMet: controllerState.dragThresholdMet
+			}
+		});
+		
+		event.preventDefault();
+	};
+
+	const handleDragEnd = (event) => {
+		if (!controllerState.isDragging || !controllerState.draggedPiece) {
+			canvas.style.cursor = 'default';
+			return;
+		}
+		
+		const pointer = event.changedTouches ? event.changedTouches[0] : event;
+		const { q, r } = extractBoardCoordinates(pointer, canvas, currentLayout, fallbackHexSize);
+		
+		canvas.style.cursor = 'default';
+		
+		// If threshold wasn't met, treat as click
+		if (!controllerState.dragThresholdMet) {
+			controllerState.isDragging = false;
+			controllerState.draggedPiece = null;
+			updateMetadata({ dragState: null });
+			event.preventDefault();
+			return;
+		}
+		
+		// Threshold met - this was a real drag
+		controllerState.dragJustCompleted = true;
+		
+		const draggedFrom = controllerState.draggedPiece;
+		controllerState.isDragging = false;
+		controllerState.draggedPiece = null;
+		controllerState.dragThresholdMet = false;
+		
+		updateMetadata({ dragState: null });
+		
+		// Try to execute the move
+		const state = getGameState();
+		const moved = tryMoveSelectedPiece(q, r, state);
+		
+		if (!moved) {
+			// Invalid drop - piece returns to original position
+			clearSelection();
+		}
+		
+		event.preventDefault();
+	};
+
+	const handleDragCancel = () => {
+		if (controllerState.isDragging) {
+			controllerState.isDragging = false;
+			controllerState.draggedPiece = null;
+			controllerState.dragThresholdMet = false;
+			canvas.style.cursor = 'default';
+			updateMetadata({ dragState: null });
+		}
+	};
+
+	// Mouse events
+	canvas.addEventListener('mousedown', handleDragStart);
+	canvas.addEventListener('mousemove', handleDragMove);
+	canvas.addEventListener('mouseup', handleDragEnd);
+	canvas.addEventListener('mouseleave', handleDragCancel);
+	
+	// Touch events
+	canvas.addEventListener('touchstart', handleDragStart, { passive: false });
+	canvas.addEventListener('touchmove', handleDragMove, { passive: false });
+	canvas.addEventListener('touchcancel', handleDragCancel);
+	
+	// Click/tap events (for when not dragging)
 	canvas.addEventListener('click', handleClick);
 	canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
 
 	return () => {
+		canvas.removeEventListener('mousedown', handleDragStart);
+		canvas.removeEventListener('mousemove', handleDragMove);
+		canvas.removeEventListener('mouseup', handleDragEnd);
+		canvas.removeEventListener('mouseleave', handleDragCancel);
+		canvas.removeEventListener('touchstart', handleDragStart);
+		canvas.removeEventListener('touchmove', handleDragMove);
+		canvas.removeEventListener('touchcancel', handleDragCancel);
 		canvas.removeEventListener('click', handleClick);
 		canvas.removeEventListener('touchend', handleTouchEnd);
 		unsubscribeLayout?.();
 	};
+}
+
+function canPieceBeDragged(q, r, state) {
+	const key = `${q},${r}`;
+	const piece = state.pieces?.[key];
+	
+	if (!piece || piece.color !== state.activePlayer) {
+		return false;
+	}
+	
+	// In multi-jump mode, only the jumping piece can be moved
+	if (state.metadata?.multiJumping && state.metadata?.selection) {
+		return q === state.metadata.selection.q && r === state.metadata.selection.r;
+	}
+	
+	// Check if the piece has any valid moves
+	const moves = calculateValidMovesForPiece(state, q, r, buildMoveContext(state)) || [];
+	return moves.length > 0;
 }
 
 function isGameFrozen() {

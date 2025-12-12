@@ -19,6 +19,7 @@ import { SocketClient } from './utils/socketClient.js';
 import { mountHud } from './game/hud/index.js';
 import { initGameController } from './game/gameController.js';
 import { initEndgameWatcher } from './game/endgameWatcher.js';
+import { initAIGameController } from './game/aiGameController.js';
 import { soundManager } from './utils/soundManager.js';
 import { initLobbyPanel } from './lobby/panel.js';
 
@@ -29,6 +30,7 @@ let disposeEndgame = () => {};
 let disposeLobby = () => {};
 let disposeLocalPanel = () => {};
 let disposeLearnPanel = () => {};
+let disposeAIController = () => {};
 let boardGraphicsApi = null;
 let canvasResizeHandler = null;
 
@@ -40,6 +42,7 @@ function initializeApp() {
 	initializeCanvas();
 	disposeHud = mountHud();
 	disposeEndgame = initEndgameWatcher();
+	disposeAIController = initAIGameController();
 	initializeNavigationPanels();
 	disposeLearnPanel = initLearnPanel();
 	observeLayoutChrome();
@@ -51,6 +54,7 @@ function initializeApp() {
  	disposeLocalPanel = initLocalPanel();
 	wireStatusPanel();
 	observeMultiplayer();
+	initializeVsAIPanel();
 	exposeDebugHelpers();
 	setAppView('game');
 }
@@ -103,7 +107,8 @@ function initializeCanvas() {
 	disposeController = initGameController(canvas, {
 		hexSize: defaultHexSize,
 		getLayout: () => graphicsApi.getLayout?.(),
-		subscribeToLayout: graphicsApi.subscribeLayout
+		subscribeToLayout: graphicsApi.subscribeLayout,
+		isAnimating: () => graphicsApi.isAnimating?.() ?? false
 	});
 }
 
@@ -607,6 +612,64 @@ function observeMultiplayer() {
 	});
 }
 
+function initializeVsAIPanel() {
+	const vsAiPanelContainer = document.querySelector('[data-view-panel="vs-ai"]');
+	if (!vsAiPanelContainer) return;
+
+	// Replace placeholder with actual AI controls
+	vsAiPanelContainer.innerHTML = `
+		<div class="ai-panel">
+			<header class="ai-panel__header">
+				<p class="flyout-card__eyebrow">Practice Mode</p>
+				<h2>Play vs AI</h2>
+				<p class="ai-panel__description">Sharpen your skills against our AI opponent. You play as Black.</p>
+			</header>
+			<div class="ai-panel__content">
+				<div class="difficulty-selector">
+					<label class="difficulty-label">AI Difficulty</label>
+					<div class="difficulty-options">
+						<button type="button" class="difficulty-btn" data-difficulty="2">
+							<span class="difficulty-name">Easy</span>
+							<span class="difficulty-desc">Depth 2</span>
+						</button>
+						<button type="button" class="difficulty-btn is-active" data-difficulty="3">
+							<span class="difficulty-name">Medium</span>
+							<span class="difficulty-desc">Depth 3</span>
+						</button>
+						<button type="button" class="difficulty-btn" data-difficulty="4">
+							<span class="difficulty-name">Hard</span>
+							<span class="difficulty-desc">Depth 4</span>
+						</button>
+					</div>
+				</div>
+				<button type="button" class="lobby-btn start-ai-btn" data-start-ai>
+					Start AI Game
+				</button>
+			</div>
+		</div>
+	`;
+
+	// Add event listeners
+	const difficultyButtons = vsAiPanelContainer.querySelectorAll('.difficulty-btn');
+	difficultyButtons.forEach(btn => {
+		btn.addEventListener('click', () => {
+			difficultyButtons.forEach(b => b.classList.remove('is-active'));
+			btn.classList.add('is-active');
+			const difficulty = parseInt(btn.dataset.difficulty);
+			setAppState({ aiDifficulty: difficulty });
+		});
+	});
+
+	const startButton = vsAiPanelContainer.querySelector('[data-start-ai]');
+	if (startButton) {
+		startButton.addEventListener('click', () => {
+			resetGameState();
+			setAppState({ gameMode: 'ai' });
+			setAppView('game');
+		});
+	}
+}
+
 function exposeDebugHelpers() {
 	window.hexaequoApp = {
 		socketClient,
@@ -632,6 +695,13 @@ function exposeDebugHelpers() {
 		refreshEndgameWatcher() {
 			disposeEndgame?.();
 			disposeEndgame = initEndgameWatcher();
+		},
+		startAIGame(difficulty = 3) {
+			resetGameState();
+			setAppState({ gameMode: 'ai', aiDifficulty: difficulty });
+		},
+		stopAIGame() {
+			setAppState({ gameMode: 'local' });
 		},
 		get state() {
 			return getAppState();

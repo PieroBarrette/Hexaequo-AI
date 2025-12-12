@@ -122,11 +122,161 @@ _Last updated: 2025-12-11 (post-v2-migration)_
 - [ ] Delete `hexaequo-v2/` folder after confirming all features work in main app
 - [ ] Update deployment documentation to reflect PWA setup
 
-## 9. Next Steps Checklist
-- [ ] **NEW:** Integrate AI client into main app game modes (create "Play vs AI" flow)
-- [ ] **NEW:** Test PWA installation and offline gameplay
-- [ ] Expand `frontend/js/store/gameStore.js` to apply serialized states + feed the animation queue.
-- [ ] Create `frontend/js/utils/socketClient.js` by wrapping the existing multiplayer client for reuse in the SPA shell.
-- [ ] Scaffold the SPA layout in `frontend/js/app.js` (view state + router) and port HUD controls, including timer placement beside pseudo/Elo when time modes are active.
-- [ ] Update `docs/SOCKET_EVENTS.md` with the actual Render contract and capture hosting/env details.
-- [ ] Choose the path for evolving `server/server.js` vs. replacing it with the `backend/` app once PostgreSQL is ready.
+## 9. Current State Analysis (2025-12-11)
+
+### What's Working
+1. **Backend & Multiplayer**
+   - ✅ `server/server.js` fully functional on Render (Express + Socket.IO + SQLite)
+   - ✅ Room creation, joining, moves, rematches, reconnection all working
+   - ✅ Full multiplayer protocol implemented
+
+2. **Frontend Architecture**
+   - ✅ Modern SPA shell in `frontend/` with dark/light themes
+   - ✅ Navigation rail, flyouts, settings panel working
+   - ✅ `canvasGraphics.js` rendering static board states
+   - ✅ `gameController.js` handling clicks/touches for local play
+   - ✅ `boardRenderer.js` connected to game store
+   - ✅ `gameStore.js` managing state with observables
+   - ✅ `socketClient.js` wrapping multiplayer (already migrated!)
+   - ✅ Lobby panel (`lobby/panel.js`) for creating/joining rooms
+   - ✅ PWA capabilities (service worker + manifest at root)
+
+3. **Game Logic (Shared)**
+   - ✅ `shared/game/` contains canonical move validation, state serialization, history management
+   - ✅ Used by both legacy and modern code
+   - ✅ `animationDiff.js` computing state changes for animation
+
+4. **AI System (Migrated)**
+   - ✅ `frontend/js/game/ai/aiEngine.js` - Minimax with alpha-beta pruning
+   - ✅ `frontend/js/game/ai/aiWorkerStandalone.js` - Web Worker for non-blocking computation
+   - ✅ `frontend/js/game/ai/aiClient.js` - High-level interface with worker fallback
+   - ✅ Supports Easy/Medium/Hard (depth 2/3/4)
+
+### What's NOT Working / Missing
+
+1. **🔴 CRITICAL: Animations System**
+   - ❌ `canvasGraphics.js` only has **stub methods** for animations (lines 95-112)
+   - ❌ Methods like `queueMoveAnimation`, `queueJumpSequenceWithCaptures` only call `logEvent` - **no actual animation**
+   - ❌ Legacy `hexaequo-v2/graphics.js` has full animation system with:
+     - `activeAnimations` queue managing translation/fade effects
+     - Smooth piece movement with easing
+     - Multi-segment jump sequences
+     - Capture animations (fade out)
+     - Placement animations (scale/fade in)
+     - Animation loop with requestAnimationFrame
+   - ✅ `animationController.js` exists and builds animation queues
+   - ❌ But those queues aren't executed - no rendering layer to consume them
+   
+   **Impact:** Moves appear instant with no visual feedback - poor UX
+
+2. **🔴 Drag & Drop Not Implemented**
+   - ❌ Modern `gameController.js` only handles clicks/taps
+   - ❌ Legacy `hexaequo-v2/game.js` has full drag system (lines 169-176, 810-1020):
+     - Mouse & touch drag events
+     - Drag threshold detection (8px minimum)
+     - Visual piece following cursor during drag
+     - Drop validation with move execution
+     - Cursor state management
+   - ❌ No visual feedback for dragged pieces in modern renderer
+   
+   **Impact:** Users can't drag pieces - only click-to-select-then-click-to-move
+
+3. **🟡 VS AI Mode Not Wired Up**
+   - ✅ AI client fully implemented and migrated
+   - ✅ UI has "Vs AI" button in flyout menu
+   - ❌ Button shows placeholder: "Practice mode returns shortly" (line 425 of `frontend/index.html`)
+   - ❌ No game mode controller to switch between local/AI/online
+   - ❌ No difficulty selector in UI
+   - ❌ No integration between AI client and game loop
+   
+   **Impact:** AI system exists but users can't access it
+
+4. **🟡 Missing Features from Legacy**
+   - ❌ Valid move highlights (legacy shows dots/highlights, modern has visual settings but not rendered)
+   - ❌ Multi-jump turn ending (checkmark button to end sequence)
+   - ❌ Contextual placement buttons (choose disc vs ring when both available)
+   - ❌ Previous move highlighting (ring showing last move)
+   - ❌ Undo/Redo functionality (buttons exist in legacy, not in modern)
+   - ❌ Game end detection and rematch flow
+
+5. **🟢 Documentation & Polish**
+   - ⚠️ `docs/SOCKET_EVENTS.md` still placeholder
+   - ⚠️ No deployment docs for Render server
+   - ⚠️ Timer UI exists in design but not implemented in game
+   - ⚠️ Spectator mode planned but not built
+
+### Legacy Code Analysis (`hexaequo-v2/`)
+
+**What it does well:**
+- Full animation system with smooth transitions (350ms duration, configurable)
+- Drag & drop with proper thresholds and visual feedback
+- Complete game flow including AI integration
+- IndexedDB persistence for game sessions
+- Sound effects for all actions
+- Full undo/redo with threefold repetition detection
+- Multi-jump sequences with capture animations
+- Placement UI (contextual disc/ring buttons)
+
+**What to extract:**
+1. Animation queue execution system from `graphics.js` (lines 24-320)
+2. Drag event handlers from `game.js` (lines 810-1020)
+3. Valid moves rendering system
+4. Undo/redo integration patterns
+5. Game end detection logic
+
+## 10. Next Steps Checklist (Prioritized)
+
+### Phase 1: Core Gameplay Polish (1-2 weeks)
+- [ ] **CRITICAL: Implement animation system**
+  - Port animation queue processor from `hexaequo-v2/graphics.js` to new `canvasGraphics.js`
+  - Add requestAnimationFrame loop
+  - Implement piece translation (move), fade-out (capture), scale-in (placement), tile fade-in
+  - Connect `animationController.js` output to actual rendering
+  - Test with all move types (adjacent, jump, multi-jump, ring jump)
+
+- [ ] **CRITICAL: Implement drag & drop**
+  - Add mousedown/touchstart handlers to `gameController.js`
+  - Add drag state management (position, threshold, validation)
+  - Update `canvasGraphics.js` to render dragged piece at cursor position
+  - Validate drops and execute moves
+  - Add ghost piece rendering for drag origin
+
+- [ ] **HIGH: Wire up VS AI mode**
+  - Create game mode state in `appStore.js` (local/ai/online enum)
+  - Add difficulty selector to VS AI flyout panel
+  - Connect AI client to game loop after player moves
+  - Disable AI moves during animations
+  - Add "thinking" indicator during AI computation
+  - Remove "returns shortly" placeholder
+
+### Phase 2: Complete Feature Parity (1-2 weeks)
+- [ ] Implement valid move indicators (dots on tiles, piece highlights)
+- [ ] Add contextual placement buttons (disc vs ring choice)
+- [ ] Implement multi-jump end turn button (checkmark)
+- [ ] Add previous move highlighting (ring overlay)
+- [ ] Port undo/redo functionality to modern architecture
+- [ ] Implement game end detection with rematch UI
+- [ ] Add sound effects for all actions (already migrated soundManager exists)
+
+### Phase 3: Multiplayer Polish (1 week)
+- [ ] Test full online play flow with animations
+- [ ] Implement timer UI display (exists in design, not rendered)
+- [ ] Add reconnection UI feedback
+- [ ] Document socket protocol in `docs/SOCKET_EVENTS.md`
+- [ ] Add room settings UI (spectators, timer mode)
+
+### Phase 4: Backend Migration (3-4 weeks)
+- [ ] Decide on `server/server.js` evolution vs `backend/` rewrite
+- [ ] Set up PostgreSQL on Render or alternative
+- [ ] Implement user accounts & JWT auth
+- [ ] Add Elo rating system
+- [ ] Implement replay storage and playback
+- [ ] Add spectator mode to socket protocol
+
+### Phase 5: Production Ready
+- [ ] Delete `hexaequo-v2/` folder after feature parity confirmed
+- [ ] Performance testing & optimization
+- [ ] Mobile responsive testing
+- [ ] PWA installation testing
+- [ ] SEO & metadata
+- [ ] Analytics integration

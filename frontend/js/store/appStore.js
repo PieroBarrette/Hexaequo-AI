@@ -34,6 +34,9 @@ const DEFAULT_STATE = {
 	showPreviousMove: true,
 	navExpanded: true,
 	activeFlyout: '',
+	gameMode: 'local', // 'local', 'ai', 'online'
+	aiDifficulty: 3, // 2=easy, 3=medium, 4=hard
+	aiThinking: false,
 	lobby: { ...DEFAULT_LOBBY_PREFS },
 	matchSettings: { ...DEFAULT_MATCH_SETTINGS },
 	players: { ...DEFAULT_PLAYERS },
@@ -133,6 +136,9 @@ function applyStateGuards(state, previous = null) {
 	next.animationsEnabled = next.animationsEnabled !== false;
 	next.showValidMoves = Boolean(next.showValidMoves);
 	next.showPreviousMove = next.showPreviousMove !== false;
+	next.gameMode = ['local', 'ai', 'online'].includes(next.gameMode) ? next.gameMode : 'local';
+	next.aiDifficulty = [2, 3, 4].includes(next.aiDifficulty) ? next.aiDifficulty : 3;
+	next.aiThinking = Boolean(next.aiThinking);
 	if (!ALLOWED_LEARN_VIEWS.has(next.learnView)) {
 		next.learnView = 'tutorial';
 	}
