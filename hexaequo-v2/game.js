@@ -1535,28 +1535,29 @@ window.onload = function () {
 
         const winnerText = document.createElement('p');
         let messageText;
-        let displayWinner = winner;
+        let isCurrentPlayerWinner = false;
         
-        // In online mode, convert color-based winner to actual player name
-        if (isOnlineMode && window.Lobby && (winner === 'Black' || winner === 'White')) {
+        // In online mode, determine if current player won
+        if (isOnlineMode && (winner === 'Black' || winner === 'White')) {
             const winnerColor = winner.toLowerCase();
-            // Get player names from the lobby
             const currentPlayerColor = onlinePlayerColor;
-            const currentUser = window.Lobby.getUser();
-            const currentUserName = currentUser?.pseudo || currentUser?.username || 'You';
-            const opponentName = getOpponentName();
-            
-            if (winnerColor === currentPlayerColor) {
-                displayWinner = currentUserName;
-            } else {
-                displayWinner = opponentName;
-            }
+            isCurrentPlayerWinner = (winnerColor === currentPlayerColor);
         }
         
         if (winner === 'Ex Aequo') {
             messageText = 'Ex Aequo!';
+        } else if (isOnlineMode) {
+            // In online mode: "You win!" for winner, "OpponentName wins!" for loser
+            // This keeps the reason text making sense (from winner's perspective)
+            if (isCurrentPlayerWinner) {
+                messageText = 'You win!';
+            } else {
+                const opponentName = getOpponentName();
+                messageText = `${opponentName} wins!`;
+            }
         } else {
-            messageText = `${displayWinner} wins!`;
+            // Local/AI mode: show color that won
+            messageText = `${winner} wins!`;
         }
         winnerText.textContent = messageText;
         winnerText.style.fontSize = '24px';
