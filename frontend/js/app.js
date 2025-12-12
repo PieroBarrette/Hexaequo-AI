@@ -75,7 +75,8 @@ function initializeCanvas() {
 				showValidMoves: state.showValidMoves,
 				showPreviousMove: state.showPreviousMove
 			};
-		}
+		},
+		getPalette: readBoardPalette
 	});
 	boardGraphicsApi = graphicsApi;
 
@@ -102,6 +103,31 @@ function initializeCanvas() {
 		getLayout: () => graphicsApi.getLayout?.(),
 		subscribeToLayout: graphicsApi.subscribeLayout
 	});
+}
+
+function readBoardPalette() {
+	const styles = window.getComputedStyle(document.body);
+	const read = (token, fallback) => {
+		const value = styles.getPropertyValue(token);
+		return value ? value.trim() : fallback;
+	};
+	return {
+		tileDark: read('--board-tile-dark', '#4b4f59'),
+		tileLight: read('--board-tile-light', '#b6bcc9'),
+		discDark: read('--board-disc-dark', '#17191d'),
+		discLight: read('--board-disc-light', '#f6f7f8'),
+		ringDark: read('--board-ring-dark', '#d4d7de'),
+		ringLight: read('--board-ring-light', '#3a3e46'),
+		outline: read('--board-outline', 'rgba(255, 255, 255, 0.18)'),
+		selection: read('--board-highlight', 'rgba(255, 255, 255, 0.45)'),
+		lastMove: read('--board-highlight', 'rgba(255, 255, 255, 0.32)'),
+		validAdjacent: read('--board-move-dot', 'rgba(255, 255, 255, 0.28)'),
+		validJump: read('--board-move-jump', 'rgba(255, 255, 255, 0.4)'),
+		hintPiece: read('--board-hint-piece', 'rgba(255, 255, 255, 0.4)'),
+		hintTile: read('--board-hint-tile', 'rgba(255, 255, 255, 0.25)'),
+		hintPlacement: read('--board-hint-placement', 'rgba(255, 255, 255, 0.35)'),
+		capture: read('--board-capture', 'rgba(255, 255, 255, 0.65)')
+	};
 }
 
 function syncCanvasSize(canvas) {

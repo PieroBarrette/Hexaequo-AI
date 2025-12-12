@@ -13,50 +13,63 @@ export function mountInventoryPanel(targets = {}) {
 
 function renderInventory(element, state, color) {
     if (!element) return;
-    const inventoryCount = state.inventory?.[color] ?? 0;
-    const discs = state.discInventory?.[color] ?? 0;
-    const rings = state.ringInventory?.[color] ?? 0;
-    const captured = state.captured?.[color] ?? { disc: 0, ring: 0 };
+    const reserve = {
+        tiles: clampCount(state.inventory?.[color]),
+        disc: clampCount(state.discInventory?.[color]),
+        ring: clampCount(state.ringInventory?.[color])
+    };
+    const captured = {
+        disc: clampCount(state.captured?.[color]?.disc),
+        ring: clampCount(state.captured?.[color]?.ring)
+    };
     const opponent = color === 'black' ? 'white' : 'black';
-    const losses = state.captured?.[opponent] ?? { disc: 0, ring: 0 };
     const isTurn = state.activePlayer === color;
-    const tilesLabel = inventoryCount === 1 ? 'tile' : 'tiles';
 
     element.dataset.player = color;
+    element.dataset.active = isTurn ? 'true' : 'false';
     element.innerHTML = `
-        <div class="inventory-grid">
-            ${renderStatRow('disc', discs, captured.disc ?? 0, losses.disc ?? 0)}
-            ${renderStatRow('ring', rings, captured.ring ?? 0, losses.ring ?? 0)}
+        <div class="inventory-tabletop" aria-hidden="true">
+            ${renderCluster('tile', reserve.tiles, color, 'reserve')}
+            ${renderCluster('disc', reserve.disc, color, 'reserve')}
+            ${renderCluster('ring', reserve.ring, color, 'reserve')}
         </div>
-        <div class="inventory-footer">
-            <div class="inventory-pool">
-                <span>Tiles in pool</span>
-                <strong>${inventoryCount}</strong>
-                <small>${tilesLabel} remaining</small>
-            </div>
-            <div class="inventory-turn ${isTurn ? 'is-active' : ''}">
-                <span>${isTurn ? 'Your move' : 'Stand by'}</span>
-                <span class="inventory-turn__dot" aria-hidden="true"></span>
-            </div>
+        <div class="inventory-divider" aria-hidden="true"></div>
+        <div class="inventory-tabletop inventory-tabletop--captured" aria-hidden="true">
+            ${renderCluster('disc', captured.disc, opponent, 'captured')}
+            ${renderCluster('ring', captured.ring, opponent, 'captured')}
+        </div>
+        ${renderSummary(color, reserve, captured)}
+    `;
+}
+
+function renderCluster(kind, count, color, slot) {
+    const safeCount = clampCount(count);
+    const tokens = safeCount > 0 ? buildTokens(kind, safeCount, color) : '<span class="token token--ghost" aria-hidden="true"></span>'; 
+    return `
+        <div class="token-cluster" data-kind="${kind}" data-slot="${slot}">
+            ${tokens}
         </div>
     `;
 }
 
-function renderStatRow(kind, remaining, captured, lost) {
-    const label = kind === 'disc' ? 'Discs' : 'Rings';
-    const piecesLabel = remaining === 1 ? 'piece ready' : 'pieces ready';
+function buildTokens(kind, count, color) {
+    const tokenKind = kind === 'tile' ? 'tile' : kind;
+    return Array.from({ length: count })
+        .map(() => `<span class="token token--${tokenKind}" data-color="${color}" aria-hidden="true"></span>`)
+        .join('');
+}
+
+function renderSummary(color, reserve, captured) {
     return `
-        <article class="inventory-stat" data-kind="${kind}">
-            <span class="inventory-stat__chip" aria-hidden="true"></span>
-            <div class="inventory-stat__copy">
-                <p class="inventory-stat__label">${label}</p>
-                <p class="inventory-stat__meta">${captured} captured · ${lost} lost</p>
-            </div>
-            <div class="inventory-stat__value">
-                <strong>${remaining}</strong>
-                <span>${piecesLabel}</span>
-            </div>
-        </article>
+        <span class="sr-only">
+            ${color} reserve: ${reserve.tiles} tiles, ${reserve.disc} discs, ${reserve.ring} rings.
+            Captured: ${captured.disc} discs and ${captured.ring} rings.
+        </span>
     `;
+}
+
+function clampCount(value) {
+    if (!Number.isFinite(value)) return 0;
+    return Math.max(0, Math.floor(value));
 }
 

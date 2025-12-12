@@ -1,6 +1,31 @@
 import { axialToPixel } from './hexMath.js';
 import { calculateAllValidMoves } from '../../../shared/game/moveValidator.js';
 
+const DEFAULT_PALETTE = {
+    tileDark: '#4b4f59',
+    tileLight: '#b6bcc9',
+    discDark: '#17191d',
+    discLight: '#f6f7f8',
+    ringDark: '#d4d7de',
+    ringLight: '#3a3e46',
+    outline: 'rgba(255, 255, 255, 0.18)',
+    selection: 'rgba(255, 255, 255, 0.45)',
+    validAdjacent: 'rgba(255, 255, 255, 0.28)',
+    validJump: 'rgba(255, 255, 255, 0.4)',
+    hintPiece: 'rgba(255, 255, 255, 0.4)',
+    hintTile: 'rgba(255, 255, 255, 0.25)',
+    hintPlacement: 'rgba(255, 255, 255, 0.35)',
+    lastMove: 'rgba(255, 255, 255, 0.32)',
+    capture: 'rgba(255, 255, 255, 0.65)'
+};
+
+function resolvePalette(custom) {
+    if (!custom) {
+        return { ...DEFAULT_PALETTE };
+    }
+    return { ...DEFAULT_PALETTE, ...custom };
+}
+
 export function createCanvasGraphics(canvas, options = {}) {
     if (!canvas) {
         throw new Error('createCanvasGraphics requires a canvas element');
@@ -14,6 +39,7 @@ export function createCanvasGraphics(canvas, options = {}) {
     const maxHexSize = options.maxHexSize ?? 72;
     const padding = options.padding ?? 48;
     const getPreferences = typeof options.getPreferences === 'function' ? options.getPreferences : null;
+    const getPalette = typeof options.getPalette === 'function' ? options.getPalette : null;
     let lastState = null;
     let currentLayout = {
         hexSize: fallbackHexSize,
@@ -28,17 +54,18 @@ export function createCanvasGraphics(canvas, options = {}) {
         updateLayout(state);
         const layout = currentLayout;
         const preferences = getPreferences ? getPreferences() : {};
+        const palette = resolvePalette(getPalette ? getPalette() : null);
         const size = layout.hexSize;
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.save();
         ctx.translate(layout.translateX, layout.translateY);
-        drawTiles(ctx, state.tiles, size);
-        drawPieces(ctx, state.pieces, state.tiles, size);
-        drawGlobalMoveHints(ctx, state, size, preferences);
-        drawSelection(ctx, state.metadata, size);
-        drawValidMoves(ctx, state.metadata, size);
-        drawLastMoveHighlight(ctx, state.metadata, size, preferences);
+        drawTiles(ctx, state.tiles, size, palette);
+        drawPieces(ctx, state.pieces, state.tiles, size, palette);
+        drawGlobalMoveHints(ctx, state, size, preferences, palette);
+        drawSelection(ctx, state.metadata, size, palette);
+        drawValidMoves(ctx, state.metadata, size, palette);
+        drawLastMoveHighlight(ctx, state.metadata, size, preferences, palette);
         ctx.restore();
     }
 
@@ -113,7 +140,7 @@ export function createCanvasGraphics(canvas, options = {}) {
     }
 }
 
-function drawTiles(ctx, tiles = {}, size) {
+function drawTiles(ctx, tiles = {}, size, palette) {
     for (const [key, color] of Object.entries(tiles)) {
         if (!color) continue;
         const [q, r] = parseKey(key);
@@ -122,8 +149,8 @@ function drawTiles(ctx, tiles = {}, size) {
         ctx.translate(x, y);
         ctx.beginPath();
         hexPath(ctx, size);
-        ctx.fillStyle = color === 'black' ? '#1f2937' : '#f9fafb';
-        ctx.strokeStyle = '#6b7280';
+        ctx.fillStyle = color === 'black' ? palette.tileDark : palette.tileLight;
+        ctx.strokeStyle = palette.outline;
         ctx.lineWidth = 1.5;
         ctx.fill();
         ctx.stroke();
@@ -131,7 +158,7 @@ function drawTiles(ctx, tiles = {}, size) {
     }
 }
 
-function drawPieces(ctx, pieces = {}, tiles = {}, size) {
+function drawPieces(ctx, pieces = {}, tiles = {}, size, palette) {
     for (const [key, piece] of Object.entries(pieces)) {
         if (!piece || !tiles[key]) continue;
         const [q, r] = parseKey(key);
@@ -139,14 +166,21 @@ function drawPieces(ctx, pieces = {}, tiles = {}, size) {
         ctx.save();
         ctx.translate(x, y);
         ctx.beginPath();
-        ctx.fillStyle = piece.color === 'black' ? '#111827' : '#fef3c7';
-        ctx.strokeStyle = piece.type === 'ring' ? '#d97706' : '#f8fafc';
-        ctx.lineWidth = piece.type === 'ring' ? 4 : 2;
-        ctx.globalAlpha = piece.type === 'ring' ? 0.85 : 1;
-        const radius = piece.type === 'ring' ? size * 0.45 : size * 0.35;
-        ctx.arc(0, 0, radius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
+        if (piece.type === 'ring') {
+            const ringColor = piece.color === 'black' ? palette.ringDark : palette.ringLight;
+            ctx.strokeStyle = ringColor;
+            ctx.lineWidth = size * 0.12;
+            ctx.arc(0, 0, size * 0.42, 0, Math.PI * 2);
+            ctx.stroke();
+        } else {
+            const discColor = piece.color === 'black' ? palette.discDark : palette.discLight;
+            ctx.fillStyle = discColor;
+            ctx.strokeStyle = palette.outline;
+            ctx.lineWidth = 1.5;
+            ctx.arc(0, 0, size * 0.32, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        }
         ctx.restore();
     }
 }
@@ -170,7 +204,7 @@ function parseKey(key) {
     return [q, r];
 }
 
-function drawSelection(ctx, metadata = {}, size) {
+function drawSelection(ctx, metadata = {}, size, palette) {
     if (!metadata?.selection) return;
     const { q, r } = metadata.selection;
     const { x, y } = axialToPixel(q, r, size);
@@ -178,14 +212,14 @@ function drawSelection(ctx, metadata = {}, size) {
     ctx.translate(x, y);
     ctx.beginPath();
     ctx.arc(0, 0, size * 0.5, 0, Math.PI * 2);
-    ctx.strokeStyle = '#f97316';
+    ctx.strokeStyle = palette.selection;
     ctx.lineWidth = 3;
     ctx.setLineDash([6, 4]);
     ctx.stroke();
     ctx.restore();
 }
 
-function drawValidMoves(ctx, metadata = {}, size) {
+function drawValidMoves(ctx, metadata = {}, size, palette) {
     const moves = metadata?.validMoves;
     if (!Array.isArray(moves) || moves.length === 0) return;
 
@@ -195,36 +229,36 @@ function drawValidMoves(ctx, metadata = {}, size) {
         ctx.translate(x, y);
         ctx.beginPath();
         ctx.arc(0, 0, size * 0.2, 0, Math.PI * 2);
-        ctx.fillStyle = move.type === 'jump' ? 'rgba(251, 191, 36, 0.85)' : 'rgba(96, 165, 250, 0.85)';
+        ctx.fillStyle = move.type === 'jump' ? palette.validJump : palette.validAdjacent;
         ctx.fill();
         ctx.restore();
     });
 }
 
-function drawGlobalMoveHints(ctx, state = {}, size, preferences = {}) {
+function drawGlobalMoveHints(ctx, state = {}, size, preferences = {}, palette) {
     if (!preferences?.showValidMoves) return;
     const highlights = calculateAllValidMoves(state, buildMoveContext(state));
     if (!Array.isArray(highlights) || highlights.length === 0) return;
 
-        highlights.forEach((hint) => {
+    highlights.forEach((hint) => {
         if (!Number.isFinite(hint.q) || !Number.isFinite(hint.r)) return;
         if (hint.type === 'piece') {
-            drawCircleOutline(ctx, hint.q, hint.r, size, 'rgba(59, 130, 246, 0.85)', 0.5);
+            drawCircleOutline(ctx, hint.q, hint.r, size, palette.hintPiece, 0.5);
             return;
         }
         if (hint.type === 'tile') {
-                drawHexOutline(ctx, hint.q, hint.r, size, 'rgba(16, 185, 129, 0.85)', 0.78);
+            drawHexOutline(ctx, hint.q, hint.r, size, palette.hintTile, 0.78);
             return;
         }
-        drawPlacementDot(ctx, hint.q, hint.r, size, 'rgba(251, 191, 36, 0.65)');
+        drawPlacementDot(ctx, hint.q, hint.r, size, palette.hintPlacement);
     });
 }
 
-function drawLastMoveHighlight(ctx, metadata = {}, size, preferences = {}) {
+function drawLastMoveHighlight(ctx, metadata = {}, size, preferences = {}, palette) {
     if (!preferences?.showPreviousMove) return;
     const summary = metadata?.lastMoveHighlight;
     if (!summary) return;
-    const highlightColor = 'rgba(148, 163, 184, 0.9)';
+    const highlightColor = palette.lastMove;
 
     switch (summary.kind) {
         case 'tile':
@@ -234,17 +268,17 @@ function drawLastMoveHighlight(ctx, metadata = {}, size, preferences = {}) {
             drawCircleOutline(ctx, summary.q, summary.r, size, highlightColor, 0.5);
             break;
         case 'move':
-            drawMoveTrail(ctx, summary, size, highlightColor);
+            drawMoveTrail(ctx, summary, size, highlightColor, palette);
             break;
         case 'capture':
-            (summary.captures || []).forEach((pos) => drawCaptureMarker(ctx, pos.q, pos.r, size));
+            (summary.captures || []).forEach((pos) => drawCaptureMarker(ctx, pos.q, pos.r, size, palette));
             break;
         default:
             break;
     }
 }
 
-function drawMoveTrail(ctx, summary, size, color) {
+function drawMoveTrail(ctx, summary, size, color, palette) {
     const nodes = Array.isArray(summary?.path) && summary.path.length > 1
         ? summary.path
         : [summary?.from, summary?.to];
@@ -268,7 +302,7 @@ function drawMoveTrail(ctx, summary, size, color) {
     ctx.restore();
     const destination = filteredNodes[filteredNodes.length - 1];
     drawCircleOutline(ctx, destination.q, destination.r, size, color, 0.52);
-    (summary.captures || []).forEach((pos) => drawCaptureMarker(ctx, pos.q, pos.r, size));
+    (summary.captures || []).forEach((pos) => drawCaptureMarker(ctx, pos.q, pos.r, size, palette));
 }
 
 function drawPlacementDot(ctx, q, r, size, color) {
@@ -311,12 +345,12 @@ function drawHexOutline(ctx, q, r, size, color, scale = 1) {
     ctx.restore();
 }
 
-function drawCaptureMarker(ctx, q, r, size) {
+function drawCaptureMarker(ctx, q, r, size, palette) {
     if (!Number.isFinite(q) || !Number.isFinite(r)) return;
     const { x, y } = axialToPixel(q, r, size);
     const arm = size * 0.22;
     ctx.save();
-    ctx.strokeStyle = 'rgba(248, 113, 113, 0.95)';
+    ctx.strokeStyle = palette.capture;
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(x - arm, y - arm);
