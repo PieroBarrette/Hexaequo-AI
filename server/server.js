@@ -395,6 +395,99 @@ app.get('/api/health', (req, res) => {
 // Store user info in memory (keyed by room code and player color)
 const roomPlayerInfo = new Map();
 
+// Store timer state per room
+const roomTimers = new Map();
+
+// Timer presets (time in milliseconds)
+const TIME_CONTROLS = {
+    none: { time: null, increment: 0 },
+    classic: { time: 15 * 60 * 1000, increment: 0 },
+    rapid: { time: 10 * 60 * 1000, increment: 5 * 1000 },
+    blitz: { time: 5 * 60 * 1000, increment: 3 * 1000 },
+    bullet: { time: 2 * 60 * 1000, increment: 1 * 1000 }
+};
+
+// Initialize timer state for a room
+function initRoomTimer(roomCode, timeControl) {
+    const control = TIME_CONTROLS[timeControl] || TIME_CONTROLS.classic;
+    roomTimers.set(roomCode, {
+        timeControl,
+        blackTime: control.time,
+        whiteTime: control.time,
+        activeTimer: null,
+        lastMoveTime: null,
+        gameStarted: false,  // Timer only starts after first move
+        increment: control.increment
+    });
+    console.log(`[Timer] Initialized for room ${roomCode}:`, timeControl, control);
+}
+
+// Get timer state for a room, calculating current time if running
+function getRoomTimerState(roomCode) {
+    const timer = roomTimers.get(roomCode);
+    if (!timer || timer.blackTime === null) {
+        return null;
+    }
+    
+    // If timer is running, calculate elapsed time since last move
+    if (timer.gameStarted && timer.activeTimer && timer.lastMoveTime) {
+        const elapsed = Date.now() - timer.lastMoveTime;
+        const result = { ...timer };
+        
+        if (timer.activeTimer === 'black') {
+            result.blackTime = Math.max(0, timer.blackTime - elapsed);
+        } else {
+            result.whiteTime = Math.max(0, timer.whiteTime - elapsed);
+        }
+        
+        return result;
+    }
+    
+    return timer;
+}
+
+// Process a move and update timer
+function processTimerMove(roomCode, playerColor) {
+    const timer = roomTimers.get(roomCode);
+    if (!timer || timer.blackTime === null) {
+        return null;
+    }
+    
+    const now = Date.now();
+    
+    // First move of the game - start the timer
+    if (!timer.gameStarted) {
+        timer.gameStarted = true;
+        timer.activeTimer = playerColor === 'black' ? 'white' : 'black';  // Switch to opponent
+        timer.lastMoveTime = now;
+        console.log(`[Timer] Game started in room ${roomCode}, ${timer.activeTimer}'s turn`);
+        return getRoomTimerState(roomCode);
+    }
+    
+    // Calculate elapsed time for the player who just moved
+    if (timer.lastMoveTime) {
+        const elapsed = now - timer.lastMoveTime;
+        
+        if (playerColor === 'black') {
+            timer.blackTime = Math.max(0, timer.blackTime - elapsed);
+            // Add increment after moving
+            timer.blackTime += timer.increment;
+        } else {
+            timer.whiteTime = Math.max(0, timer.whiteTime - elapsed);
+            // Add increment after moving
+            timer.whiteTime += timer.increment;
+        }
+    }
+    
+    // Switch timer to opponent
+    timer.activeTimer = playerColor === 'black' ? 'white' : 'black';
+    timer.lastMoveTime = now;
+    
+    console.log(`[Timer] Move by ${playerColor} in room ${roomCode}. Black: ${Math.round(timer.blackTime/1000)}s, White: ${Math.round(timer.whiteTime/1000)}s`);
+    
+    return getRoomTimerState(roomCode);
+}
+
 io.on('connection', (socket) => {
     console.log(`Client connected: ${socket.id}`);
 
@@ -412,6 +505,9 @@ io.on('connection', (socket) => {
             // Update time control
             db.prepare('UPDATE rooms SET time_control = ? WHERE room_code = ?').run(roomTimeControl, roomCode);
             
+            // Initialize timer for this room
+            initRoomTimer(roomCode, roomTimeControl);
+            
             // Create player record
             statements.createPlayer.run(playerId, socket.id, roomCode, 'black');
 
@@ -421,6 +517,9 @@ io.on('connection', (socket) => {
             // Join socket room
             socket.join(roomCode);
 
+            // Get initial timer state
+            const timerState = getRoomTimerState(roomCode);
+
             console.log(`Room ${roomCode} created by player ${playerId} with time control ${roomTimeControl}`);
 
             callback({
@@ -429,6 +528,7 @@ io.on('connection', (socket) => {
                 color: 'black',
                 gameState: initialState,
                 timeControl: roomTimeControl,
+                timerState,
                 waiting: true
             });
         } catch (err) {
@@ -463,6 +563,9 @@ io.on('connection', (socket) => {
                 // Notify other player of reconnection
                 socket.to(roomCode.toUpperCase()).emit('opponent-reconnected');
 
+                // Get current timer state
+                const timerState = getRoomTimerState(roomCode.toUpperCase());
+
                 console.log(`Player ${playerId} reconnected to room ${roomCode}`);
 
                 return callback({
@@ -473,7 +576,8 @@ io.on('connection', (socket) => {
                     reconnected: true,
                     opponentConnected: room.status === 'playing',
                     opponentInfo,
-                    timeControl: room.time_control || 'classic'
+                    timeControl: room.time_control || 'classic',
+                    timerState
                 });
             }
 
@@ -497,10 +601,14 @@ io.on('connection', (socket) => {
             // Get black player's info
             const blackPlayerInfo = roomPlayerInfo.get(`${roomCode.toUpperCase()}:black`);
 
-            // Notify black player that opponent joined (with opponent's info)
+            // Get timer state
+            const timerState = getRoomTimerState(roomCode.toUpperCase());
+
+            // Notify black player that opponent joined (with opponent's info and timer state)
             socket.to(roomCode.toUpperCase()).emit('opponent-joined', {
                 gameState,
-                opponentInfo: whiteUserInfo
+                opponentInfo: whiteUserInfo,
+                timerState
             });
 
             console.log(`Player ${playerId} joined room ${roomCode} as white with time control ${room.time_control}`);
@@ -512,7 +620,8 @@ io.on('connection', (socket) => {
                 gameState,
                 waiting: false,
                 opponentInfo: blackPlayerInfo,
-                timeControl: room.time_control || 'classic'
+                timeControl: room.time_control || 'classic',
+                timerState
             });
         } catch (err) {
             console.error('Join room error:', err);
@@ -541,6 +650,27 @@ io.on('connection', (socket) => {
                 return callback({ success: false, error: 'Not your turn' });
             }
 
+            // Process timer for this move
+            const timerState = processTimerMove(roomCode, player.color);
+            
+            // Check for timeout
+            if (timerState) {
+                if (timerState.blackTime <= 0 || timerState.whiteTime <= 0) {
+                    const loser = timerState.blackTime <= 0 ? 'black' : 'white';
+                    const winner = loser === 'black' ? 'white' : 'black';
+                    
+                    // Broadcast timeout to both players
+                    io.to(roomCode).emit('game-timeout', {
+                        winner,
+                        loser,
+                        timerState
+                    });
+                    
+                    console.log(`Game in room ${roomCode} ended: ${loser} ran out of time`);
+                    return callback({ success: true, timerState, timeout: true, winner });
+                }
+            }
+
             // Update game state in database
             statements.updateGameState.run(
                 JSON.stringify(gameState),
@@ -548,16 +678,17 @@ io.on('connection', (socket) => {
                 roomCode
             );
 
-            // Broadcast move to opponent (includes jumpPath for multi-jump highlighting)
+            // Broadcast move to opponent (includes jumpPath for multi-jump highlighting and timer state)
             socket.to(roomCode).emit('opponent-moved', {
                 gameState,
                 previousState,
-                jumpPath
+                jumpPath,
+                timerState
             });
 
             console.log(`Move in room ${roomCode} by ${player.color}`);
 
-            callback({ success: true });
+            callback({ success: true, timerState });
         } catch (err) {
             console.error('Move error:', err);
             callback({ success: false, error: err.message });
@@ -597,6 +728,10 @@ io.on('connection', (socket) => {
                     const remainingPlayers = statements.getPlayersInRoom.all(roomCode);
                     if (remainingPlayers.length === 0) {
                         statements.deleteRoom.run(roomCode);
+                        // Clean up timer state
+                        roomTimers.delete(roomCode);
+                        roomPlayerInfo.delete(`${roomCode}:black`);
+                        roomPlayerInfo.delete(`${roomCode}:white`);
                         console.log(`Room ${roomCode} deleted - no players remaining`);
                     } else {
                         // Notify remaining player

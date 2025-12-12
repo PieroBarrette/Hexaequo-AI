@@ -31,6 +31,7 @@ const Multiplayer = (function () {
     let onOpponentReadyRematch = null;
     let onOpponentLeftEndgame = null;
     let onGameReset = null;
+    let onGameTimeout = null;
     let onConnectionStatusChange = null;
     let onError = null;
 
@@ -109,12 +110,30 @@ const Multiplayer = (function () {
             // Game events
             socket.on('opponent-joined', (data) => {
                 console.log('Opponent joined');
+                // Sync timer when opponent joins
+                if (data.timerState && window.GameTimer) {
+                    window.GameTimer.syncFromServer(data.timerState);
+                }
                 if (onOpponentJoined) onOpponentJoined(data);
             });
 
             socket.on('opponent-moved', (data) => {
                 console.log('Opponent moved');
+                // Sync timer from server
+                if (data.timerState && window.GameTimer) {
+                    window.GameTimer.syncFromServer(data.timerState);
+                }
                 if (onOpponentMoved) onOpponentMoved(data);
+            });
+
+            socket.on('game-timeout', (data) => {
+                console.log('Game timeout:', data);
+                // Sync final timer state
+                if (data.timerState && window.GameTimer) {
+                    window.GameTimer.syncFromServer(data.timerState);
+                    window.GameTimer.stop();
+                }
+                if (onGameTimeout) onGameTimeout(data);
             });
 
             socket.on('opponent-disconnected', () => {
@@ -194,7 +213,8 @@ const Multiplayer = (function () {
                         color: response.color,
                         gameState: response.gameState,
                         waiting: response.waiting,
-                        timeControl: response.timeControl
+                        timeControl: response.timeControl,
+                        timerState: response.timerState
                     });
                 } else {
                     reject(new Error(response.error || 'Failed to create room'));
@@ -231,7 +251,8 @@ const Multiplayer = (function () {
                         reconnected: response.reconnected,
                         opponentConnected: response.opponentConnected,
                         opponentInfo: response.opponentInfo,
-                        timeControl: response.timeControl
+                        timeControl: response.timeControl,
+                        timerState: response.timerState
                     });
                 } else {
                     reject(new Error(response.error || 'Failed to join room'));
@@ -272,7 +293,11 @@ const Multiplayer = (function () {
                 jumpPath
             }, (response) => {
                 if (response.success) {
-                    resolve();
+                    // Sync timer from server response
+                    if (response.timerState && window.GameTimer) {
+                        window.GameTimer.syncFromServer(response.timerState);
+                    }
+                    resolve(response);
                 } else {
                     reject(new Error(response.error || 'Failed to send move'));
                 }
@@ -437,6 +462,7 @@ const Multiplayer = (function () {
         set onOpponentReadyRematch(fn) { onOpponentReadyRematch = fn; },
         set onOpponentLeftEndgame(fn) { onOpponentLeftEndgame = fn; },
         set onGameReset(fn) { onGameReset = fn; },
+        set onGameTimeout(fn) { onGameTimeout = fn; },
         set onConnectionStatusChange(fn) { onConnectionStatusChange = fn; },
         set onError(fn) { onError = fn; },
         

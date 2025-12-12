@@ -1802,10 +1802,21 @@ window.onload = function () {
         }
     }
 
+    // Handle game timeout from server
+    function onGameTimeout(data) {
+        console.log('[Game] Server timeout:', data);
+        if (window.GameTimer) {
+            window.GameTimer.stop();
+        }
+        const winner = data.winner === 'black' ? 'Black' : 'White';
+        endGame(winner, 'on time');
+    }
+
     // Expose rematch handlers for use in index.html
     window.onOpponentReadyForRematch = onOpponentReadyForRematch;
     window.onOpponentLeftEndgame = onOpponentLeftEndgame;
     window.onGameReset = onGameReset;
+    window.onGameTimeout = onGameTimeout;
 
     // Generate a hash string representing the current game state
     // Used for threefold repetition detection (like in chess)
@@ -1901,8 +1912,9 @@ window.onload = function () {
     // Record initial state at game start
     recordInitialState();
     
-    // Start black's timer (black moves first)
-    if (window.GameTimer && window.GameTimer.isEnabled()) {
+    // Start black's timer (black moves first) - only in offline modes
+    // In online mode, timer starts after first move and is controlled by server
+    if (window.GameTimer && window.GameTimer.isEnabled() && !isOnlineMode) {
         window.GameTimer.start('black');
     }
 
@@ -2211,8 +2223,8 @@ window.onload = function () {
         // Re-enable interactions after game reset
         enableInteractions();
 
-        // Start black's timer (black moves first)
-        if (window.GameTimer && window.GameTimer.isEnabled()) {
+        // Start black's timer (black moves first) - only in offline modes
+        if (window.GameTimer && window.GameTimer.isEnabled() && !isOnlineMode) {
             window.GameTimer.start('black');
         }
 
@@ -2336,8 +2348,9 @@ window.onload = function () {
         // Update active player
         activePlayer = updatedState.activePlayer;
 
-        // Switch timer to new active player
-        if (window.GameTimer && window.GameTimer.isEnabled()) {
+        // Switch timer to new active player (only in offline modes)
+        // In online mode, timer is controlled by server sync
+        if (window.GameTimer && window.GameTimer.isEnabled() && !isOnlineMode) {
             window.GameTimer.start(activePlayer);
         }
 

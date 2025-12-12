@@ -26,6 +26,8 @@
     let lastTickTime = null;
     let isRunning = false;
     let onTimeOut = null;  // Callback when a player runs out of time
+    let isOnlineMode = false;  // In online mode, server is authoritative
+    let serverLastUpdate = null;  // Timestamp of last server update
 
     // DOM elements
     let blackTimerEl = null;
@@ -167,12 +169,14 @@
         // Subtract elapsed time from active player
         if (activeTimer === 'black') {
             blackTime = Math.max(0, blackTime - elapsed);
-            if (blackTime <= 0) {
+            if (blackTime <= 0 && !isOnlineMode) {
+                // In offline mode, local timer handles timeout
                 handleTimeOut('black');
             }
         } else {
             whiteTime = Math.max(0, whiteTime - elapsed);
-            if (whiteTime <= 0) {
+            if (whiteTime <= 0 && !isOnlineMode) {
+                // In offline mode, local timer handles timeout
                 handleTimeOut('white');
             }
         }
@@ -260,6 +264,8 @@
      * @param {object} state - Timer state to restore
      */
     function setState(state) {
+        if (!state) return;
+        
         if (state.timeControl) {
             currentTimeControl = state.timeControl;
         }
@@ -271,6 +277,61 @@
             start(activeTimer);
         } else {
             updateDisplay();
+        }
+    }
+
+    /**
+     * Sync timer state from server (authoritative in online mode)
+     * @param {object} serverState - Timer state from server
+     */
+    function syncFromServer(serverState) {
+        if (!serverState) return;
+        
+        console.log('[Timer] Syncing from server:', serverState);
+        
+        isOnlineMode = true;
+        serverLastUpdate = Date.now();
+        
+        if (serverState.timeControl) {
+            currentTimeControl = serverState.timeControl;
+        }
+        
+        // Server times are authoritative
+        if (serverState.blackTime !== undefined) {
+            blackTime = serverState.blackTime;
+        }
+        if (serverState.whiteTime !== undefined) {
+            whiteTime = serverState.whiteTime;
+        }
+        
+        // Handle active timer - if game has started and there's an active timer
+        if (serverState.gameStarted && serverState.activeTimer) {
+            activeTimer = serverState.activeTimer;
+            
+            // Start local countdown for display purposes
+            if (!isRunning) {
+                isRunning = true;
+                lastTickTime = performance.now();
+                if (!timerInterval) {
+                    timerInterval = setInterval(tick, 100);
+                }
+            }
+        } else {
+            // Game not started yet - show initial times but don't run
+            activeTimer = null;
+            stop();
+        }
+        
+        updateDisplay();
+    }
+
+    /**
+     * Set online mode (timer is server-authoritative)
+     */
+    function setOnlineMode(enabled) {
+        isOnlineMode = enabled;
+        if (!enabled) {
+            serverLastUpdate = null;
         }
     }
 
@@ -311,6 +372,8 @@
         formatTime,
         getState,
         setState,
+        syncFromServer,
+        setOnlineMode,
         isEnabled,
         getTime,
         TIME_CONTROLS

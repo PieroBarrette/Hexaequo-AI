@@ -805,6 +805,13 @@
                 updateInGameUI();
             };
 
+            window.Multiplayer.onGameTimeout = (data) => {
+                // Server reports timeout
+                if (window.onGameTimeout) {
+                    window.onGameTimeout(data);
+                }
+            };
+
             window.Multiplayer.onError = (message) => {
                 showError(message);
             };

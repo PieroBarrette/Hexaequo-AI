@@ -515,7 +515,12 @@
             const playerColor = window.Multiplayer.playerColor;
             // Store opponent info
             currentOpponent = data.opponentInfo || { name: 'Guest', elo: null, isGuest: true };
-            startOnlineGame({ playerColor, gameState: data.gameState, opponentInfo: currentOpponent });
+            startOnlineGame({ 
+                playerColor, 
+                gameState: data.gameState, 
+                opponentInfo: currentOpponent,
+                timerState: data.timerState  // Sync timer from server
+            });
         });
         
         socket.on('roomError', (data) => {
@@ -608,7 +613,8 @@
                     playerColor: result.color, 
                     gameState: result.gameState,
                     opponentInfo: currentOpponent,
-                    timeControl: result.timeControl  // Use server's time control
+                    timeControl: result.timeControl,  // Use server's time control
+                    timerState: result.timerState     // Sync timer from server
                 });
             }
         }).catch((err) => {
@@ -686,10 +692,16 @@
         // Update player info displays with online mode data
         updatePlayerInfoDisplays('online', null, playerColor, opponentInfo);
         
-        // Set the time control from the selection (or from server data if available)
+        // Set the time control and sync timer from server
         const timeControl = data.timeControl || selectedTimeControl;
         if (window.GameTimer) {
             window.GameTimer.setTimeControl(timeControl);
+            window.GameTimer.setOnlineMode(true);
+            
+            // Sync timer state from server if available
+            if (data.timerState) {
+                window.GameTimer.syncFromServer(data.timerState);
+            }
         }
         
         // Hide lobby
