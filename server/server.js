@@ -16,11 +16,22 @@ const path = require('path');
 const PORT = process.env.PORT || 3000;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:8080';
 
+// Allowed origins for CORS
+const ALLOWED_ORIGINS = [
+    FRONTEND_URL,
+    'https://hexaequo.com',
+    'https://www.hexaequo.com',
+    'https://pierobarrette.github.io',
+    'http://localhost:8080',
+    'http://127.0.0.1:8080'
+];
+
 // Initialize Express
 const app = express();
 app.use(cors({
-    origin: [FRONTEND_URL, 'https://hexaequo.com', 'http://localhost:8080', 'http://127.0.0.1:8080'],
-    methods: ['GET', 'POST']
+    origin: ALLOWED_ORIGINS,
+    methods: ['GET', 'POST'],
+    credentials: true
 }));
 app.use(express.json());
 
@@ -30,8 +41,9 @@ const httpServer = createServer(app);
 // Initialize Socket.IO with CORS
 const io = new Server(httpServer, {
     cors: {
-        origin: [FRONTEND_URL, 'https://hexaequo.com', 'http://localhost:8080', 'http://127.0.0.1:8080'],
-        methods: ['GET', 'POST']
+        origin: ALLOWED_ORIGINS,
+        methods: ['GET', 'POST'],
+        credentials: true
     },
     pingTimeout: 60000,
     pingInterval: 25000
