@@ -233,6 +233,10 @@ function processGameResult(roomCode, winnerColor, isDraw) {
     const blackInfo = roomPlayerInfo.get(`${roomCode}:black`);
     const whiteInfo = roomPlayerInfo.get(`${roomCode}:white`);
     
+    // Get room info for time control
+    const room = statements.getRoom.get(roomCode);
+    const timeControl = room?.time_control || 'none';
+    
     const result = {
         black: { oldElo: null, newElo: null, change: 0, isGuest: true },
         white: { oldElo: null, newElo: null, change: 0, isGuest: true }
@@ -246,6 +250,23 @@ function processGameResult(roomCode, winnerColor, isDraw) {
     result.white.oldElo = whiteElo;
     result.black.isGuest = blackInfo?.isGuest !== false;
     result.white.isGuest = whiteInfo?.isGuest !== false;
+    
+    // Check if ELO should be adjusted:
+    // - No adjustment if either player is a guest
+    // - No adjustment if no timer (time control is 'none')
+    const hasGuest = result.black.isGuest || result.white.isGuest;
+    const hasNoTimer = timeControl === 'none';
+    
+    if (hasGuest || hasNoTimer) {
+        // No ELO change - set newElo same as oldElo
+        result.black.newElo = blackElo;
+        result.white.newElo = whiteElo;
+        result.black.change = 0;
+        result.white.change = 0;
+        
+        console.log(`[ELO] No adjustment: hasGuest=${hasGuest}, hasNoTimer=${hasNoTimer}`);
+        return result;
+    }
     
     if (isDraw) {
         // Draw: both get 0.5 result
