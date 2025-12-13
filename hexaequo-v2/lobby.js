@@ -9,7 +9,11 @@
     'use strict';
 
     // ==================== Configuration ====================
-    const API_BASE = 'http://localhost:3000/api';
+    const BACKEND_PORT = 3000;
+    const SERVER_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? `http://localhost:${BACKEND_PORT}`
+        : 'https://hexaequo-server.onrender.com';
+    const API_BASE = `${SERVER_URL}/api`;
 
     // ==================== State ====================
     let selectedDifficulty = 3;
