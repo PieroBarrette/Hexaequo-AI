@@ -338,6 +338,29 @@ function getInitialGameState() {
     };
 }
 
+// Check if a game has any moves played (differs from initial state)
+function hasGameStarted(gameState) {
+    const initial = getInitialGameState();
+    // If game state differs from initial, at least one move was made
+    // Check tiles count and inventory as quick indicators
+    const currentTileCount = Object.keys(gameState.tiles || {}).length;
+    const initialTileCount = Object.keys(initial.tiles).length;
+    
+    // If tile count differs, moves were made
+    if (currentTileCount !== initialTileCount) return true;
+    
+    // Check if active player changed (at least one move was made)
+    if (gameState.activePlayer !== 'black') return true;
+    
+    // Check inventory changes
+    const blackInv = gameState.inventory?.black;
+    const whiteInv = gameState.inventory?.white;
+    if (blackInv && (blackInv.tiles !== 7 || blackInv.discs !== 5 || blackInv.rings !== 3)) return true;
+    if (whiteInv && (whiteInv.tiles !== 7 || whiteInv.discs !== 5 || whiteInv.rings !== 3)) return true;
+    
+    return false;
+}
+
 // Cleanup old data periodically
 setInterval(() => {
     try {
@@ -1055,8 +1078,47 @@ io.on('connection', (socket) => {
                         io.emit('room-cancelled', { roomCode });
                         console.log(`Room ${roomCode} cancelled - creator disconnected while waiting`);
                     }
+                } else if (room && room.status === 'playing') {
+                    // Active game - check if moves were made (abandonment)
+                    const gameState = JSON.parse(room.game_state);
+                    if (hasGameStarted(gameState)) {
+                        // Treat as abandonment - process ELO
+                        const winnerColor = player.color === 'black' ? 'white' : 'black';
+                        const eloResult = processGameResult(roomCode, winnerColor, false);
+                        
+                        // Notify opponent they won by abandonment
+                        socket.to(roomCode).emit('opponent-resigned', {
+                            resignedColor: player.color,
+                            winnerColor,
+                            reason: 'abandonment'
+                        });
+                        
+                        // Send ELO update to remaining player
+                        const remainingPlayers = statements.getPlayersInRoom.all(roomCode);
+                        const winner = remainingPlayers.find(p => p.color === winnerColor);
+                        if (winner && eloResult) {
+                            const winnerEloChange = eloResult[winnerColor]?.change || 0;
+                            const winnerNewElo = eloResult[winnerColor]?.newElo;
+                            const winnerOldElo = eloResult[winnerColor]?.oldElo;
+                            const winnerIsGuest = eloResult[winnerColor]?.isGuest;
+                            
+                            if (!winnerIsGuest && winnerNewElo !== null) {
+                                io.to(winner.socket_id).emit('elo-updated', {
+                                    oldElo: winnerOldElo,
+                                    newElo: winnerNewElo,
+                                    change: winnerEloChange,
+                                    result: 'win'
+                                });
+                            }
+                        }
+                        
+                        console.log(`Player ${player.player_id} (${player.color}) abandoned game in room ${roomCode}`);
+                    } else {
+                        // No moves made yet, just notify opponent
+                        socket.to(roomCode).emit('opponent-disconnected');
+                    }
                 } else {
-                    // Notify opponent of disconnect (for active games)
+                    // Notify opponent of disconnect (for other cases)
                     socket.to(roomCode).emit('opponent-disconnected');
                 }
                 
@@ -1077,6 +1139,45 @@ io.on('connection', (socket) => {
                 // Check if room was in waiting status (to broadcast room-cancelled)
                 const room = statements.getRoom.get(roomCode);
                 const wasWaiting = room && room.status === 'waiting';
+                const wasPlaying = room && room.status === 'playing';
+                
+                // Check if game had moves - treat as abandonment
+                if (wasPlaying && room.game_state) {
+                    const gameState = JSON.parse(room.game_state);
+                    if (hasGameStarted(gameState)) {
+                        // Treat as abandonment - process ELO
+                        const winnerColor = player.color === 'black' ? 'white' : 'black';
+                        const eloResult = processGameResult(roomCode, winnerColor, false);
+                        
+                        // Notify opponent they won by abandonment
+                        socket.to(roomCode).emit('opponent-resigned', {
+                            resignedColor: player.color,
+                            winnerColor,
+                            reason: 'abandonment'
+                        });
+                        
+                        // Send ELO update to remaining player
+                        const remainingPlayersBeforeDelete = statements.getPlayersInRoom.all(roomCode);
+                        const winner = remainingPlayersBeforeDelete.find(p => p.color === winnerColor);
+                        if (winner && eloResult) {
+                            const winnerEloChange = eloResult[winnerColor]?.change || 0;
+                            const winnerNewElo = eloResult[winnerColor]?.newElo;
+                            const winnerOldElo = eloResult[winnerColor]?.oldElo;
+                            const winnerIsGuest = eloResult[winnerColor]?.isGuest;
+                            
+                            if (!winnerIsGuest && winnerNewElo !== null) {
+                                io.to(winner.socket_id).emit('elo-updated', {
+                                    oldElo: winnerOldElo,
+                                    newElo: winnerNewElo,
+                                    change: winnerEloChange,
+                                    result: 'win'
+                                });
+                            }
+                        }
+                        
+                        console.log(`Player ${playerId} (${player.color}) abandoned game in room ${roomCode}`);
+                    }
+                }
                 
                 // Remove player
                 db.prepare(`DELETE FROM players WHERE player_id = ?`).run(playerId);
@@ -1097,8 +1198,8 @@ io.on('connection', (socket) => {
                         }
                         
                         console.log(`Room ${roomCode} deleted - no players remaining`);
-                    } else {
-                        // Notify remaining player
+                    } else if (!wasPlaying) {
+                        // Only send opponent-left if not already handled as abandonment
                         socket.to(roomCode).emit('opponent-left');
                     }
                 }
