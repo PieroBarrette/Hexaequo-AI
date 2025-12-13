@@ -1114,8 +1114,11 @@ io.on('connection', (socket) => {
                         
                         console.log(`Player ${player.player_id} (${player.color}) abandoned game in room ${roomCode}`);
                     } else {
-                        // No moves made yet, just notify opponent
-                        socket.to(roomCode).emit('opponent-disconnected');
+                        // No moves made yet - game ends with no consequences
+                        socket.to(roomCode).emit('game-cancelled-early', {
+                            reason: 'Opponent has left the game before any moves were made.'
+                        });
+                        console.log(`Player ${player.player_id} left before moves - game cancelled without penalty`);
                     }
                 } else {
                     // Notify opponent of disconnect (for other cases)
@@ -1176,6 +1179,12 @@ io.on('connection', (socket) => {
                         }
                         
                         console.log(`Player ${playerId} (${player.color}) abandoned game in room ${roomCode}`);
+                    } else {
+                        // No moves made yet - game ends with no consequences
+                        socket.to(roomCode).emit('game-cancelled-early', {
+                            reason: 'Opponent has left the game before any moves were made.'
+                        });
+                        console.log(`Player ${playerId} left before moves - game cancelled without penalty`);
                     }
                 }
                 

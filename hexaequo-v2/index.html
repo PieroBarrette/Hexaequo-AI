@@ -862,6 +862,16 @@
                 closeOnlineModal();
             };
 
+            window.Multiplayer.onGameCancelledEarly = (data) => {
+                // Opponent left before any moves - no ELO penalty, just return to lobby
+                alert(data?.reason || 'Your opponent has left the game.');
+                window.Multiplayer.clearRoomInfo();
+                window.resetGame();
+                gameModeSelect.value = '2player';
+                window.toggleGameMode(false);
+                closeOnlineModal();
+            };
+
             // Rematch callbacks
             window.Multiplayer.onOpponentReadyRematch = (data) => {
                 // Opponent is ready for a rematch

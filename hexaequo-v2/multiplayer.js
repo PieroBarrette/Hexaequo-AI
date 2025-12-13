@@ -33,6 +33,7 @@ const Multiplayer = (function () {
     let onGameReset = null;
     let onGameTimeout = null;
     let onEloUpdated = null;
+    let onGameCancelledEarly = null;
     let onConnectionStatusChange = null;
     let onError = null;
     // Resign and draw callbacks
@@ -155,6 +156,11 @@ const Multiplayer = (function () {
             socket.on('opponent-left', () => {
                 console.log('Opponent left');
                 if (onOpponentLeft) onOpponentLeft();
+            });
+
+            socket.on('game-cancelled-early', (data) => {
+                console.log('Game cancelled early - no moves made');
+                if (onGameCancelledEarly) onGameCancelledEarly(data);
             });
 
             // Rematch events
@@ -589,6 +595,7 @@ const Multiplayer = (function () {
         set onGameReset(fn) { onGameReset = fn; },
         set onGameTimeout(fn) { onGameTimeout = fn; },
         set onEloUpdated(fn) { onEloUpdated = fn; },
+        set onGameCancelledEarly(fn) { onGameCancelledEarly = fn; },
         set onOpponentResigned(fn) { onOpponentResigned = fn; },
         set onDrawProposed(fn) { onDrawProposed = fn; },
         set onDrawAccepted(fn) { onDrawAccepted = fn; },
