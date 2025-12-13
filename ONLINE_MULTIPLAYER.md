@@ -1,8 +1,8 @@
-# Online Multiplayer Deployment Guide
+# Hexaequo Online Multiplayer - Production Deployment Guide
 
-This guide explains how to deploy the Hexaequo online multiplayer server on Render (free tier).
+This guide walks you through deploying Hexaequo online multiplayer to production.
 
-## Architecture Overview
+## Architecture
 
 ```
 ┌─────────────────┐         ┌─────────────────┐
@@ -10,156 +10,244 @@ This guide explains how to deploy the Hexaequo online multiplayer server on Rend
 │   Browser       │         │   Browser       │
 └────────┬────────┘         └────────┬────────┘
          │                           │
-         │    WebSocket (Socket.IO)  │
-         │                           │
-         └───────────┬───────────────┘
+         │         HTTPS             │
+         ▼                           ▼
+┌─────────────────────────────────────────────┐
+│         https://hexaequo.com                │
+│         (GitHub Pages - Frontend)           │
+└────────────────────┬────────────────────────┘
                      │
-         ┌───────────▼───────────┐
-         │   Render Server       │
-         │   (Node.js + SQLite)  │
-         └───────────────────────┘
+                     │ WebSocket (Socket.IO)
+                     ▼
+┌─────────────────────────────────────────────┐
+│   https://hexaequo-server.onrender.com      │
+│   (Render - Node.js + SQLite Backend)       │
+└─────────────────────────────────────────────┘
 ```
 
-## Prerequisites
+## What You Have
 
-- GitHub account
-- Render account (free tier available at https://render.com)
-- Your repository pushed to GitHub
+- ✅ **Domain**: `hexaequo.com` → GitHub Pages (frontend)
+- ✅ **Frontend**: GitHub Pages (free, automatic deployment)
+- ✅ **Backend**: Render.com (free tier, Node.js + SQLite)
 
-## Deployment Steps
+---
 
-### 1. Push Code to GitHub
+## Step 1: Deploy the Backend on Render.com
 
-Ensure all the new files are committed:
-- `server/` folder with `server.js`, `package.json`, `README.md`, `.gitignore`
-- `hexaequo-v2/multiplayer.js`
-- Updated `hexaequo-v2/index.html`, `hexaequo-v2/game.js`, `hexaequo-v2/styles.css`
+### 1.1 Create a Render Account
+1. Go to https://render.com
+2. Sign up with your GitHub account (recommended for easy repo connection)
 
-### 2. Create Render Web Service
+### 1.2 Create a New Web Service
+1. From your Render dashboard, click **New +** → **Web Service**
+2. Select **Build and deploy from a Git repository** → **Next**
+3. Connect your GitHub repository: `Hexaequo-AI`
+4. Click **Connect** next to the repository
 
-1. Go to https://dashboard.render.com
-2. Click **New +** → **Web Service**
-3. Connect your GitHub repository
-4. Configure the service:
+### 1.3 Configure the Service
 
-   | Setting | Value |
-   |---------|-------|
-   | **Name** | `hexaequo-server` |
-   | **Region** | Choose closest to your users |
-   | **Branch** | `main` (or your branch) |
-   | **Root Directory** | `server` |
-   | **Runtime** | Node |
-   | **Build Command** | `npm install` |
-   | **Start Command** | `npm start` |
-   | **Instance Type** | Free |
+Fill in the following settings:
 
-5. Add Environment Variables:
+| Setting | Value |
+|---------|-------|
+| **Name** | `hexaequo-server` |
+| **Region** | `Frankfurt (EU Central)` or closest to your users |
+| **Branch** | `main` (or your branch name) |
+| **Root Directory** | `server` |
+| **Runtime** | `Node` |
+| **Build Command** | `npm install` |
+| **Start Command** | `npm start` |
+| **Instance Type** | `Free` |
 
-   | Key | Value |
-   |-----|-------|
-   | `FRONTEND_URL` | `https://hexaequo.com` |
-   | `DATABASE_PATH` | `/tmp/hexaequo.db` |
-   | `NODE_ENV` | `production` |
+### 1.4 Add Environment Variables
 
-6. Click **Create Web Service**
+Scroll down to **Environment Variables** and add:
 
-### 3. Update Frontend Server URL
+| Key | Value |
+|-----|-------|
+| `FRONTEND_URL` | `https://hexaequo.com` |
+| `NODE_ENV` | `production` |
 
-After deployment, Render will give you a URL like `https://hexaequo-server.onrender.com`.
+> ⚠️ **Note**: On the free tier, the SQLite database is stored in ephemeral storage. Data persists between requests but is cleared when the server restarts (typically after ~15 min of inactivity). This is acceptable since games are short-lived.
 
-Update `hexaequo-v2/multiplayer.js` line 11:
+### 1.5 Deploy
+
+1. Click **Create Web Service**
+2. Wait for the build to complete (2-3 minutes)
+3. Your server URL will be: `https://hexaequo-server.onrender.com`
+
+### 1.6 Verify the Server is Running
+
+Visit: `https://hexaequo-server.onrender.com/health`
+
+You should see:
+```json
+{"status":"ok","rooms":0,"players":0}
+```
+
+---
+
+## Step 2: Update Frontend Configuration (If Needed)
+
+The frontend is already configured to use `https://hexaequo-server.onrender.com` in production.
+
+Verify in `hexaequo-v2/multiplayer.js` (line 11-13):
 ```javascript
 const SERVER_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:3000'
-    : 'https://hexaequo-server.onrender.com'; // ← Update this!
+    ? `http://localhost:${BACKEND_PORT}`
+    : 'https://hexaequo-server.onrender.com';
 ```
 
-### 4. Deploy Frontend
+This automatically uses:
+- `http://localhost:3000` when developing locally
+- `https://hexaequo-server.onrender.com` when accessed from `hexaequo.com`
 
-Push the updated `multiplayer.js` to GitHub. GitHub Pages will automatically deploy.
+---
 
-## Free Tier Limitations
+## Step 3: Deploy Frontend to GitHub Pages
 
-### Render Free Tier
-- Server **spins down after 15 minutes of inactivity**
-- First connection after spin-down takes **~30-50 seconds** (cold start)
-- 750 hours/month of free compute
-- SQLite database is stored in `/tmp` (ephemeral - lost on restart)
+### 3.1 Commit and Push All Changes
 
-### Mitigation Strategies
+```bash
+git add .
+git commit -m "Production deployment"
+git push origin main
+```
 
-1. **Cold Start UX**: The connection status shows "Connecting..." while the server wakes up
-2. **Database Persistence**: Games older than 24 hours are automatically cleaned up anyway
-3. **Reconnection**: Players can rejoin their game if disconnected within 24 hours
+### 3.2 Verify GitHub Pages
+
+1. Go to your repository on GitHub
+2. Navigate to **Settings** → **Pages**
+3. Ensure it's set to deploy from your branch (e.g., `main`)
+4. Your site should be live at `https://hexaequo.com`
+
+---
+
+## Step 4: Test Production Deployment
+
+### 4.1 Test the Connection
+1. Go to `https://hexaequo.com`
+2. Click **Play Online**
+3. Wait for "Connected to server" (may take 30-50 seconds on first visit due to cold start)
+
+### 4.2 Test a Full Game
+1. Open two browser windows (or use two devices)
+2. **Window 1**: Create an account or play as guest → Create Room
+3. **Window 2**: Create an account or play as guest → Join the room from the list
+4. Play a few moves to verify:
+   - ✅ Moves sync between players
+   - ✅ Timer works (if enabled)
+   - ✅ Resign/Draw features work
+   - ✅ ELO updates after game (for logged-in users with timer)
+
+---
+
+## Free Tier Considerations
+
+### Render Free Tier Limitations
+
+| Aspect | Behavior |
+|--------|----------|
+| **Cold Start** | Server sleeps after 15 min of inactivity. First connection takes 30-50 seconds. |
+| **Compute Hours** | 750 hours/month free (plenty for a hobby project) |
+| **Database** | SQLite stored in memory - data survives requests but clears on restart |
+| **Bandwidth** | 100 GB/month |
+
+### How the App Handles These Limitations
+
+1. **Cold Start**: The UI shows "Connecting to server..." while waiting
+2. **Database Reset**: 
+   - Game rooms are short-lived anyway (24-hour auto-cleanup)
+   - User accounts persist because users re-authenticate on each session
+   - ELO ratings are stored per-user and persist across active sessions
+
+---
+
+## Upgrading for Better Performance
+
+If you need faster response times (no cold starts):
+
+### Option 1: Render Starter ($7/month)
+- Same setup, just change instance type
+- No sleep, instant response
+- More memory
+
+### Option 2: Railway.app
+- Similar to Render
+- $5 free credit/month
+- No cold starts on paid tier
+
+### Option 3: Fly.io
+- Good global latency
+- Generous free tier
+- Slightly more complex setup
+
+### For Persistent Database (if needed later)
+- **Turso**: SQLite-compatible edge database (free tier available)
+- **PlanetScale**: MySQL (free tier available)
+- **Supabase**: PostgreSQL (free tier available)
+
+---
+
+## Troubleshooting
+
+### "Connecting to server..." takes forever
+- **First visit after inactivity**: Normal, wait 30-50 seconds for cold start
+- **Check Render dashboard**: Make sure the service is deployed and not failed
+- **Check browser console**: Look for CORS errors or connection failures
+
+### "Failed to connect to server"
+- Server might be deploying/restarting
+- Check https://hexaequo-server.onrender.com/health
+- Verify CORS settings in server.js include your domain
+
+### Moves not syncing
+- Check network connection
+- Look at browser console for errors
+- Check Render logs in the dashboard
+
+### Login/Register not working
+- Check browser console for errors
+- Verify the server is responding to `/api/auth/*` endpoints
+- Test: `curl https://hexaequo-server.onrender.com/health`
+
+---
 
 ## Local Development
 
-### Running the Server Locally
-
+### Run Backend Locally
 ```bash
 cd server
 npm install
 npm start
+# Server runs on http://localhost:3000
 ```
 
-Server runs on http://localhost:3000
-
-### Running the Frontend Locally
-
-Use any static file server:
+### Run Frontend Locally
 ```bash
 cd hexaequo-v2
 npx serve .
-# or
-python -m http.server 8080
+# Or: python -m http.server 8080
+# Frontend runs on http://localhost:8080
 ```
 
-Frontend runs on http://localhost:8080
+### Test Locally
+1. Open http://localhost:8080 in two browser windows
+2. Play Online → Create Room (window 1)
+3. Play Online → Join Room (window 2)
+4. Play!
 
-## Testing the Multiplayer
+---
 
-1. Open two browser windows/tabs
-2. In first window: Click **Play Online** → **Create Room**
-3. Copy the 4-character room code
-4. In second window: Click **Play Online** → Enter code → **Join Room**
-5. Play!
+## Deployment Checklist
 
-## Troubleshooting
-
-### "Failed to connect to server"
-- Check if the Render service is running
-- First connection after inactivity takes 30-50 seconds
-- Check browser console for detailed errors
-
-### "Room not found"
-- Room codes are case-insensitive
-- Rooms expire after 24 hours
-- Make sure the room was created recently
-
-### Moves not syncing
-- Check network connectivity
-- Look for errors in browser console
-- Server logs available in Render dashboard
-
-## Upgrading to Paid Hosting
-
-For better performance (no cold starts), consider:
-
-### Render Starter ($7/month)
-- No spin-down
-- More memory
-- Same deployment process
-
-### Railway ($5 credit/month free)
-- Similar to Render
-- Good for small projects
-
-### Fly.io
-- Generous free tier
-- Better global latency
-- Slightly more complex setup
-
-For persistent database with paid hosting, consider:
-- **Turso** (SQLite edge database)
-- **PlanetScale** (MySQL)
-- **Supabase** (PostgreSQL)
+- [ ] Create Render account (sign up with GitHub)
+- [ ] Create Web Service with Root Directory: `server`
+- [ ] Set environment variables: `FRONTEND_URL=https://hexaequo.com`, `NODE_ENV=production`
+- [ ] Wait for deployment to complete (~2-3 minutes)
+- [ ] Test `/health` endpoint returns OK
+- [ ] Commit and push all frontend changes to GitHub
+- [ ] Wait for GitHub Pages to deploy (~1-2 minutes)
+- [ ] Test full multiplayer game on https://hexaequo.com
+- [ ] 🎉 **You're live!**
