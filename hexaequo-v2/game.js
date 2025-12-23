@@ -1032,6 +1032,10 @@ window.onload = function () {
     function handleDragStart(e) {
         e.preventDefault();
 
+        // Block interactions in AI-vs-AI mode
+        const config = window.localGameConfig;
+        if (config && config.isAiVsAi) return;
+
         // Block interactions if game is over
         if (isGameOver()) return;
 
@@ -1193,7 +1197,7 @@ window.onload = function () {
             }
 
             // Check if AI should play (using new config system or legacy isAiMode)
-            if (isCurrentPlayerAi() && canvas.style.pointerEvents !== 'none' && !waitingForAiClick) {
+            if (isCurrentPlayerAi() && canvas.style.pointerEvents !== 'none') {
                 sendToAI();
             }
         });
@@ -1253,6 +1257,10 @@ window.onload = function () {
 
     // Add both click and touch event listeners
     canvas.addEventListener('click', function (e) {
+        // Block interactions in AI-vs-AI mode
+        const config = window.localGameConfig;
+        if (config && config.isAiVsAi) return;
+        
         // Block interactions if game is over
         if (isGameOver()) return;
 
@@ -1282,13 +1290,17 @@ window.onload = function () {
             }
 
             // Check if AI should play (using new config system or legacy isAiMode)
-            if (isCurrentPlayerAi() && canvas.style.pointerEvents !== 'none' && !waitingForAiClick) {
+            if (isCurrentPlayerAi() && canvas.style.pointerEvents !== 'none') {
                 sendToAI();
             }
         });
     });
     // Touch interaction handler - unified with click behavior (for taps when not dragging)
     function handleTouchInteraction(e) {
+        // Block interactions in AI-vs-AI mode
+        const config = window.localGameConfig;
+        if (config && config.isAiVsAi) return;
+        
         // Block interactions if game is over
         if (isGameOver()) return;
 
@@ -1318,7 +1330,7 @@ window.onload = function () {
             }
 
             // Check if AI should play (using new config system or legacy isAiMode)
-            if (isCurrentPlayerAi() && canvas.style.pointerEvents !== 'none' && !waitingForAiClick) {
+            if (isCurrentPlayerAi() && canvas.style.pointerEvents !== 'none') {
                 sendToAI();
             }
         });
@@ -2532,20 +2544,10 @@ window.onload = function () {
         updateDynamicLayout();
         drawGrid();
         
-        // Reset AI click prompt state
-        waitingForAiClick = false;
-        
         // If black player is AI, trigger first move after a short delay
         setTimeout(() => {
             if (isCurrentPlayerAi() && !isOnlineMode) {
-                const config = window.localGameConfig;
-                if (config && config.isAiVsAi) {
-                    // AI-vs-AI: wait for click
-                    waitingForAiClick = true;
-                } else {
-                    // Single AI: play immediately
-                    sendToAI();
-                }
+                sendToAI();
             }
         }, 500);
     }
@@ -2944,7 +2946,6 @@ window.onload = function () {
     // Initialize the AI Web Worker
     let aiWorker = null;
     let pendingGameState = null; // Store the game state before AI processes it
-    let waitingForAiClick = false; // For AI-vs-AI mode: waiting for user click to trigger next AI move
 
     if (typeof (Worker) !== "undefined") {
         aiWorker = new Worker('ai-worker.js');
@@ -2960,13 +2961,15 @@ window.onload = function () {
                 }
                 hideLoader(); // Hide loader
                 
-                // Check if AI-vs-AI mode and need to wait for click
+                // Check if AI-vs-AI mode - trigger next AI move automatically
                 const config = window.localGameConfig;
-                if (config && config.isAiVsAi) {
-                    // Check if game is not over
-                    if (!isGameOver()) {
-                        waitingForAiClick = true;
-                    }
+                if (config && config.isAiVsAi && !isGameOver() && isCurrentPlayerAi()) {
+                    // Wait a bit so user can see the move, then trigger next AI
+                    setTimeout(() => {
+                        if (!isGameOver() && isCurrentPlayerAi()) {
+                            sendToAI();
+                        }
+                    }, 800);
                 }
             } else if (type === 'error') {
                 console.error('AI Worker Error:', error);
@@ -3045,10 +3048,14 @@ window.onload = function () {
                 applyGameState(updatedState, gameState, null, true); // Animate multi-jumps for AI
                 pendingGameState = null;
                 
-                // Check if AI-vs-AI mode
+                // Check if AI-vs-AI mode - trigger next AI move automatically
                 const config = window.localGameConfig;
-                if (config && config.isAiVsAi && !isGameOver()) {
-                    waitingForAiClick = true;
+                if (config && config.isAiVsAi && !isGameOver() && isCurrentPlayerAi()) {
+                    setTimeout(() => {
+                        if (!isGameOver() && isCurrentPlayerAi()) {
+                            sendToAI();
+                        }
+                    }, 800);
                 }
             } catch (error) {
                 console.error('Error communicating with AI:', error);
@@ -3057,34 +3064,10 @@ window.onload = function () {
             }
         }
     }
-    
-    // Handle click for AI-vs-AI mode
-    function handleAiVsAiClick() {
-        if (waitingForAiClick && !isGameOver()) {
-            waitingForAiClick = false;
-            
-            // Trigger next AI move
-            if (isCurrentPlayerAi()) {
-                setTimeout(sendToAI, 100);
-            }
-        }
-    }
-    
-    // Add click handler for AI-vs-AI mode
-    canvas.addEventListener('click', (e) => {
-        const config = window.localGameConfig;
-        if (config && config.isAiVsAi && waitingForAiClick) {
-            handleAiVsAiClick();
-        }
-    });
 
     // Function to disable event listeners
     function disableInteractions() {
-        // Don't completely disable canvas in AI-vs-AI mode (need clicks)
-        const config = window.localGameConfig;
-        if (!config || !config.isAiVsAi) {
-            canvas.style.pointerEvents = 'none';
-        }
+        canvas.style.pointerEvents = 'none';
         const undoBtn = document.getElementById('undoBtn');
         const redoBtn = document.getElementById('redoBtn');
         if (undoBtn) undoBtn.disabled = true;
@@ -3298,9 +3281,8 @@ window.onload = function () {
         hideConfirmModal();
         closeHamburgerMenu();
         
-        // Clear local game config and AI state
+        // Clear local game config
         window.localGameConfig = null;
-        waitingForAiClick = false;
         
         // Stop timers if running
         if (window.GameTimer) {
