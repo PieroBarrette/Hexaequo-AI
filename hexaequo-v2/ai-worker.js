@@ -6,13 +6,14 @@ importScripts('ai.js');
 
 // Listen for messages from the main thread
 self.addEventListener('message', function (e) {
-    const { type, gameState, difficulty, aiColor } = e.data;
+    const { type, gameState, difficulty, aiColor, moveHistory } = e.data;
 
     if (type === 'computeMove') {
         try {
             // Process the game state and compute the best move
             // aiColor defaults to 'white' for backwards compatibility
-            const updatedState = processGameState(gameState, difficulty, aiColor || 'white');
+            // moveHistory is used for threefold repetition detection
+            const updatedState = processGameState(gameState, difficulty, aiColor || 'white', moveHistory || []);
 
             // Send the result back to the main thread
             self.postMessage({

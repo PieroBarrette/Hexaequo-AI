@@ -3033,18 +3033,25 @@ window.onload = function () {
 
         console.log(`Sending game state to AI (${aiColor}, level ${difficulty}):`, gameState);
 
+        // Préparer l'historique des coups pour la détection de répétition triple
+        const historyForAI = moveHistory.map(entry => ({
+            positionHash: entry.positionHash,
+            gameState: entry.gameState
+        }));
+
         if (aiWorker) {
             // Use Web Worker
             aiWorker.postMessage({
                 type: 'computeMove',
                 gameState: gameState,
                 difficulty: difficulty,
-                aiColor: aiColor
+                aiColor: aiColor,
+                moveHistory: historyForAI
             });
         } else {
             // Fallback to direct computation if Web Workers not supported
             try {
-                const updatedState = processGameState(gameState, difficulty, aiColor);
+                const updatedState = processGameState(gameState, difficulty, aiColor, historyForAI);
                 applyGameState(updatedState, gameState, null, true); // Animate multi-jumps for AI
                 pendingGameState = null;
                 

@@ -11,16 +11,137 @@
 let AI_SEARCH_DEPTH = 3;
 
 // ============================================
+// TABLE DE TRANSPOSITION
+// ============================================
+const transpositionTable = new Map();
+const MAX_TABLE_SIZE = 100000;
+
+// ============================================
+// DÉTECTION DE RÉPÉTITION TRIPLE (3-fold repetition)
+// ============================================
+// Historique des positions pour détecter les répétitions
+let positionHistory = [];
 
 /**
- * Deep clone a game state object
- * structuredClone is much faster than JSON.parse(JSON.stringify)
+ * Génère un hash de position pour la détection de répétition
+ * Similaire à getPositionHash dans game.js
+ */
+function getPositionHash(state) {
+    const tilesStr = Object.keys(state.tiles).sort().map(k => `${k}:${state.tiles[k]}`).join('|');
+    const piecesStr = Object.keys(state.pieces).sort().map(k => {
+        const p = state.pieces[k];
+        return `${k}:${p.type}:${p.color}`;
+    }).join('|');
+    const inv = state.inventory;
+    const inventoryStr = `b:${inv.black.tiles},${inv.black.discs},${inv.black.rings}|w:${inv.white.tiles},${inv.white.discs},${inv.white.rings}`;
+    return `${state.activePlayer}#${tilesStr}#${piecesStr}#${inventoryStr}`;
+}
+
+/**
+ * Initialise l'historique des positions à partir du moveHistory du jeu
+ * @param {Array} moveHistory - Historique des coups du jeu (optionnel)
+ */
+function initPositionHistory(moveHistory = []) {
+    positionHistory = [];
+    if (moveHistory && moveHistory.length > 0) {
+        for (const entry of moveHistory) {
+            if (entry.positionHash) {
+                positionHistory.push(entry.positionHash);
+            } else if (entry.gameState) {
+                positionHistory.push(getPositionHash(entry.gameState));
+            }
+        }
+    }
+}
+
+/**
+ * Vérifie si une position causerait une répétition triple
+ * @param {string} positionHash - Hash de la position à vérifier
+ * @param {Array} history - Historique des positions (incluant la position actuelle)
+ * @returns {boolean} true si répétition triple détectée
+ */
+function wouldCauseThreefoldRepetition(positionHash, history) {
+    let count = 0;
+    for (const hash of history) {
+        if (hash === positionHash) {
+            count++;
+            if (count >= 2) { // 2 dans l'historique + la nouvelle = 3
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+/**
+ * Compte les occurrences d'une position dans l'historique
+ * @param {string} positionHash - Hash de la position
+ * @param {Array} history - Historique des positions
+ * @returns {number} Nombre d'occurrences
+ */
+function countPositionOccurrences(positionHash, history) {
+    let count = 0;
+    for (const hash of history) {
+        if (hash === positionHash) {
+            count++;
+        }
+    }
+    return count;
+}
+
+/**
+ * Génère une clé de hachage pour un état de jeu
+ */
+function hashState(state) {
+    const pieces = Object.entries(state.pieces)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([pos, p]) => `${pos}:${p.type[0]}${p.color[0]}`)
+        .join('|');
+    
+    const tiles = Object.entries(state.tiles)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([pos, c]) => `${pos}:${c[0]}`)
+        .join('|');
+    
+    return `${state.activePlayer}|${pieces}|${tiles}|${state.captured.black_discs},${state.captured.black_rings},${state.captured.white_discs},${state.captured.white_rings}`;
+}
+
+/**
+ * Nettoyer la table de transposition entre les parties
+ */
+function clearTranspositionTable() {
+    transpositionTable.clear();
+}
+
+// ============================================
+
+/**
+ * Deep clone a game state object (legacy - utiliser cloneGameState pour les performances)
  */
 function deepClone(obj) {
     if (typeof structuredClone === 'function') {
         return structuredClone(obj);
     }
     return JSON.parse(JSON.stringify(obj));
+}
+
+/**
+ * Clone optimisé pour l'état de jeu (évite la sérialisation complète)
+ */
+function cloneGameState(state) {
+    return {
+        tiles: { ...state.tiles },
+        pieces: Object.fromEntries(
+            Object.entries(state.pieces).map(([k, v]) => [k, { ...v }])
+        ),
+        inventory: {
+            black: { ...state.inventory.black },
+            white: { ...state.inventory.white }
+        },
+        captured: { ...state.captured },
+        activePlayer: state.activePlayer,
+        branch: state.branch
+    };
 }
 
 /**
@@ -36,12 +157,23 @@ function logMoveDifferences(originalState, proposedState) {
  * @param {Object} gameState - Current game state
  * @param {number} depth - Search depth (1-4)
  * @param {string} aiColor - Color the AI plays ('black' or 'white'). Defaults to 'white' for backwards compatibility.
+ * @param {Array} moveHistory - Historique des coups pour la détection de répétition triple (optionnel)
  */
-function processGameState(gameState, depth = 3, aiColor = 'white') {
+function processGameState(gameState, depth = 3, aiColor = 'white', moveHistory = []) {
     // AI only plays when it's its turn
     if (gameState.activePlayer !== aiColor) {
         return gameState;
     }
+
+    // Initialiser l'historique des positions pour la détection de répétition
+    initPositionHistory(moveHistory);
+    
+    // Ajouter la position actuelle à l'historique
+    const currentHash = getPositionHash(gameState);
+    positionHistory.push(currentHash);
+
+    // Nettoyer la table de transposition pour une nouvelle recherche
+    clearTranspositionTable();
 
     // Update global depth if provided
     AI_SEARCH_DEPTH = depth;
@@ -115,59 +247,153 @@ function processGameState(gameState, depth = 3, aiColor = 'white') {
 }
 
 /**
- * Minimax algorithm with Alpha-Beta Pruning
+ * Recherche quiescence - continue à chercher dans les positions "instables" (captures)
  */
-function minimax(state, depth, alpha, beta, maximizingPlayer, branchPrefix) {
-    // Check for terminal state or depth limit
-    if (depth === 0 || isTerminal(state)) {
+/*function quiescenceSearch(state, alpha, beta, maximizingPlayer, maxDepth = 3) {
+    const standPat = evaluateQuick(state);
+    
+    if (maxDepth === 0) return standPat;
+    
+    if (maximizingPlayer) {
+        if (standPat >= beta) return beta;
+        if (standPat > alpha) alpha = standPat;
+        
+        // Ne chercher que les captures (jumps)
+        const captures = getValidDiscJumps(state, state.activePlayer);
+        
+        for (const jumpSeq of captures) {
+            const newState = cloneGameState(state);
+            simulateDiscJumpSequence(newState, jumpSeq);
+            newState.activePlayer = state.activePlayer === 'black' ? 'white' : 'black';
+            
+            const score = quiescenceSearch(newState, alpha, beta, false, maxDepth - 1);
+            if (score >= beta) return beta;
+            if (score > alpha) alpha = score;
+        }
+        return alpha;
+    } else {
+        if (standPat <= alpha) return alpha;
+        if (standPat < beta) beta = standPat;
+        
+        const captures = getValidDiscJumps(state, state.activePlayer);
+        
+        for (const jumpSeq of captures) {
+            const newState = cloneGameState(state);
+            simulateDiscJumpSequence(newState, jumpSeq);
+            newState.activePlayer = state.activePlayer === 'black' ? 'white' : 'black';
+            
+            const score = quiescenceSearch(newState, alpha, beta, true, maxDepth - 1);
+            if (score <= alpha) return alpha;
+            if (score < beta) beta = score;
+        }
+        return beta;
+    }
+}*/
+
+/**
+ * Minimax algorithm with Alpha-Beta Pruning and Transposition Table
+ * Inclut la détection de répétition triple (3-fold repetition)
+ */
+function minimax(state, depth, alpha, beta, maximizingPlayer, branchPrefix, searchHistory = null) {
+    // Initialiser l'historique de recherche si non fourni
+    if (searchHistory === null) {
+        searchHistory = [...positionHistory];
+    }
+    
+    // Vérifier la répétition triple - retourner 0 (match nul) si détectée
+    const posHash = getPositionHash(state);
+    if (wouldCauseThreefoldRepetition(posHash, searchHistory)) {
+        return [0, 0]; // Match nul par répétition triple
+    }
+    
+    const stateHash = hashState(state);
+    const cached = transpositionTable.get(stateHash);
+    
+    // Vérifier le cache avec la profondeur suffisante
+    if (cached && cached.depth >= depth) {
+        if (cached.flag === 'exact') return [cached.score, 0];
+        if (cached.flag === 'lower' && cached.score > alpha) alpha = cached.score;
+        if (cached.flag === 'upper' && cached.score < beta) beta = cached.score;
+        if (alpha >= beta) return [cached.score, 1];
+    }
+
+    // À profondeur 0, évaluer la position
+    if (depth === 0) {
         const score = evaluate(state);
-        return [score, 0]; // Return 0 pruned branches at leaf nodes
+        return [score, 0];
+    }
+    
+    if (isTerminal(state)) {
+        const score = evaluate(state);
+        return [score, 0];
     }
 
     let prunedBranches = 0;
     const children = getChildren(state, branchPrefix);
+    
+    if (children.length === 0) {
+        return [0, 0]; // Pat
+    }
+
+    let bestScore;
+    let flag = 'exact';
 
     if (maximizingPlayer) {
-        let maxEval = -Infinity;
+        bestScore = -Infinity;
         for (const child of children) {
+            // Créer un nouvel historique avec la position de l'enfant ajoutée
+            const childHistory = [...searchHistory, getPositionHash(child)];
             const [evalScore, childPrunedBranches] = minimax(
                 child,
                 depth - 1,
                 alpha,
                 beta,
                 false,
-                child.branch || branchPrefix
+                child.branch || branchPrefix,
+                childHistory
             );
-            maxEval = Math.max(maxEval, evalScore);
             prunedBranches += childPrunedBranches;
-            if (maxEval >= beta) {
-                prunedBranches += 1;
+            
+            if (evalScore > bestScore) bestScore = evalScore;
+            if (bestScore > alpha) alpha = bestScore;
+            if (bestScore >= beta) {
+                flag = 'lower';
+                prunedBranches++;
                 break;
             }
-            alpha = Math.max(alpha, maxEval);
         }
-        return [maxEval, prunedBranches];
     } else {
-        let minEval = Infinity;
+        bestScore = Infinity;
         for (const child of children) {
+            // Créer un nouvel historique avec la position de l'enfant ajoutée
+            const childHistory = [...searchHistory, getPositionHash(child)];
             const [evalScore, childPrunedBranches] = minimax(
                 child,
                 depth - 1,
                 alpha,
                 beta,
                 true,
-                child.branch || branchPrefix
+                child.branch || branchPrefix,
+                childHistory
             );
-            minEval = Math.min(minEval, evalScore);
             prunedBranches += childPrunedBranches;
-            if (minEval <= alpha) {
-                prunedBranches += 1;
+            
+            if (evalScore < bestScore) bestScore = evalScore;
+            if (bestScore < beta) beta = bestScore;
+            if (bestScore <= alpha) {
+                flag = 'upper';
+                prunedBranches++;
                 break;
             }
-            beta = Math.min(beta, minEval);
         }
-        return [minEval, prunedBranches];
     }
+
+    // Stocker dans la table (avec limite de taille)
+    if (transpositionTable.size < MAX_TABLE_SIZE) {
+        transpositionTable.set(stateHash, { score: bestScore, depth, flag });
+    }
+
+    return [bestScore, prunedBranches];
 }
 
 /**
@@ -207,98 +433,182 @@ function isTerminal(state) {
 }
 
 /**
- * Evaluate the game state
+ * Évaluation rapide pour la recherche quiescence (sans calculs coûteux)
+ */
+/*function evaluateQuick(state) {
+    let blackScore = 0;
+    let whiteScore = 0;
+    
+    let blackPieceCount = 0;
+    let whitePieceCount = 0;
+    
+    // Score pièces sur le plateau
+    for (const position in state.pieces) {
+        const piece = state.pieces[position];
+        if (piece.color === 'black') {
+            blackPieceCount++;
+            blackScore += piece.type === 'disc' ? 10 : 25;
+        } else {
+            whitePieceCount++;
+            whiteScore += piece.type === 'disc' ? 10 : 25;
+        }
+    }
+    
+    // Victoires
+    if (state.captured.black_discs >= 6 || state.captured.black_rings >= 3 || whitePieceCount === 0) {
+        return 10000;
+    }
+    if (state.captured.white_discs >= 6 || state.captured.white_rings >= 3 || blackPieceCount === 0) {
+        return -10000;
+    }
+    
+    // Captures
+    blackScore += state.captured.black_discs * 18 + state.captured.black_rings * 55;
+    whiteScore += state.captured.white_discs * 18 + state.captured.white_rings * 55;
+    
+    return blackScore - whiteScore;
+}*/
+
+/**
+ * Évaluation rapide d'un coup pour le tri (heuristique légère)
+ */
+/*function quickEvaluateMove(state, child, player) {
+    let score = 0;
+    
+    // Captures de pièces (très prioritaires)
+    const discCaptureDiff = child.captured[`${player}_discs`] - state.captured[`${player}_discs`];
+    const ringCaptureDiff = child.captured[`${player}_rings`] - state.captured[`${player}_rings`];
+    
+    score += discCaptureDiff * 100;
+    score += ringCaptureDiff * 300;
+    
+    // Vérifier victoire imminente
+    if (child.captured[`${player}_discs`] >= 6 || child.captured[`${player}_rings`] >= 3) {
+        score += 10000;
+    }
+    
+    return score;
+}
+
+/**
+ * Evaluate the game state (version enrichie)
  * Positive score = Good for Black
  * Negative score = Good for White
  */
 function evaluate(state) {
-    let blackScore = 0;
-    let whiteScore = 0;
-
-    // Material weights
-    const W_DISC = 10;
-    const W_RING = 30;
-    const W_CAPTURED_DISC = 15; // Capturing is better than just having
-    const W_CAPTURED_RING = 50;
-    const W_TILE = 2;
-    //const W_MOBILITY = 0.5;
-    //const W_CENTER = 1;
-
-    // Score pieces on the board
+    // Pré-calcul des positions des pièces par couleur
+    let blackPieceCount = 0;
+    let whitePieceCount = 0;
+    const piecesByColor = { black: [], white: [] };
+    
     for (const position in state.pieces) {
         const piece = state.pieces[position];
         const [q, r] = position.split(',').map(Number);
+        piecesByColor[piece.color].push({ position, piece, q, r });
+        if (piece.color === 'black') blackPieceCount++;
+        else whitePieceCount++;
+    }
 
-        // Distance from center (0,0)
-        // Hex distance = max(|q|, |r|, |s|) where s = -q-r
-        //const dist = Math.max(Math.abs(q), Math.abs(r), Math.abs(-q - r));
-        //const centerBonus = (5 - dist) * W_CENTER; // Closer to center is better
+    // Victoires (vérifier en premier pour éviter calculs inutiles)
+    if (state.captured.black_discs >= 6 || state.captured.black_rings >= 3 || whitePieceCount === 0) {
+        return 10000;
+    }
+    if (state.captured.white_discs >= 6 || state.captured.white_rings >= 3 || blackPieceCount === 0) {
+        return -10000;
+    }
 
-        if (piece.type === 'disc') {
-            if (piece.color === 'black') {
-                blackScore += W_DISC /*+ centerBonus*/;
+    let blackScore = 0;
+    let whiteScore = 0;
+
+    // Poids ajustés pour une meilleure stratégie
+    const WEIGHTS = {
+        DISC_ON_BOARD: 10,
+        RING_ON_BOARD: 30,
+        CAPTURED_DISC: 15,
+        CAPTURED_RING: 50,
+        TILE_CONTROL: 2,
+        //CENTER_BONUS: 1.5,
+        //THREAT: 4,
+        //CONNECTIVITY: 1.5,
+        //NEAR_VICTORY_DISC: 20,
+        //NEAR_VICTORY_RING: 30
+    };
+
+    // Score des pièces sur le plateau avec bonus de centralité
+    for (const color of ['black', 'white']) {
+        for (const { piece, q, r, position } of piecesByColor[color]) {
+            const baseValue = piece.type === 'disc' ? WEIGHTS.DISC_ON_BOARD : WEIGHTS.RING_ON_BOARD;
+            
+            // Bonus de centralité (distance du centre)
+            //const dist = Math.max(Math.abs(q), Math.abs(r), Math.abs(-q - r));
+            //const centerBonus = Math.max(0, (4 - dist)) * WEIGHTS.CENTER_BONUS;
+            
+            // Connectivité (pièces alliées adjacentes)
+            /*et connectivity = 0;
+            for (const neighbor of getNeighbors(position)) {
+                if (neighbor in state.pieces && state.pieces[neighbor].color === color) {
+                    connectivity += WEIGHTS.CONNECTIVITY;
+                }
+            }*/
+            
+            const totalValue = baseValue /*+ centerBonus + connectivity / 2*/;
+            
+            if (color === 'black') {
+                blackScore += totalValue;
             } else {
-                whiteScore += W_DISC /*+ centerBonus*/;
-            }
-        } else if (piece.type === 'ring') {
-            if (piece.color === 'black') {
-                blackScore += W_RING /*+ centerBonus*/;
-            } else {
-                whiteScore += W_RING /*+ centerBonus*/;
+                whiteScore += totalValue;
             }
         }
     }
 
-    // Score captured pieces
-    blackScore += state.captured.black_discs * W_CAPTURED_DISC;
-    blackScore += state.captured.black_rings * W_CAPTURED_RING;
-    whiteScore += state.captured.white_discs * W_CAPTURED_DISC;
-    whiteScore += state.captured.white_rings * W_CAPTURED_RING;
+    // Score des captures
+    blackScore += state.captured.black_discs * WEIGHTS.CAPTURED_DISC;
+    blackScore += state.captured.black_rings * WEIGHTS.CAPTURED_RING;
+    whiteScore += state.captured.white_discs * WEIGHTS.CAPTURED_DISC;
+    whiteScore += state.captured.white_rings * WEIGHTS.CAPTURED_RING;
 
-    // Score empty tiles of own color (territory)
+    // Contrôle territorial (tuiles vides de sa couleur)
     for (const position in state.tiles) {
         if (!(position in state.pieces)) {
             const tileColor = state.tiles[position];
             if (tileColor === 'black') {
-                blackScore += W_TILE;
+                blackScore += WEIGHTS.TILE_CONTROL;
             } else if (tileColor === 'white') {
-                whiteScore += W_TILE;
+                whiteScore += WEIGHTS.TILE_CONTROL;
             }
         }
     }
 
-    // Win/Loss check (High priority)
-    let blackPieces = 0;
-    let whitePieces = 0;
-    for (const key in state.pieces) {
-        if (state.pieces[key].color === 'black') blackPieces++;
-        else whitePieces++;
-    }
+    // Menaces (possibilités de capture au prochain tour)
+    //const blackJumps = getValidDiscJumps(state, 'black');
+    //const whiteJumps = getValidDiscJumps(state, 'white');
+    //blackScore += blackJumps.length * WEIGHTS.THREAT;
+    //whiteScore += whiteJumps.length * WEIGHTS.THREAT;
 
-    if (state.captured.black_discs >= 6 || state.captured.black_rings >= 3 || whitePieces === 0) {
-        return 10000;
-    } else if (state.captured.white_discs >= 6 || state.captured.white_rings >= 3 || blackPieces === 0) {
-        return -10000;
+    // Bonus progressif de proximité de victoire
+    /*if (state.captured.black_discs >= 4) {
+        blackScore += (state.captured.black_discs - 3) * WEIGHTS.NEAR_VICTORY_DISC;
     }
-
-    // Mobility (expensive to calculate fully, maybe skip for performance or use simplified version)
-    // For now, skipping full mobility calculation to keep AI fast enough for depth 4
-
-    //score = 0 if stalemate
-    const children = getChildren(state, '1');  
-    if (children.length === 0) {
-        return 0; // Stalemate
+    if (state.captured.black_rings >= 2) {
+        blackScore += (state.captured.black_rings - 1) * WEIGHTS.NEAR_VICTORY_RING;
     }
+    if (state.captured.white_discs >= 4) {
+        whiteScore += (state.captured.white_discs - 3) * WEIGHTS.NEAR_VICTORY_DISC;
+    }
+    if (state.captured.white_rings >= 2) {
+        whiteScore += (state.captured.white_rings - 1) * WEIGHTS.NEAR_VICTORY_RING;
+    }*/
 
     return blackScore - whiteScore;
 }
 
 /**
- * Generate all possible child states (moves)
+ * Generate all possible child states (moves) with move ordering for better pruning
  */
 function getChildren(state, branchPrefix) {
     const children = [];
     const player = state.activePlayer;
+    const opponent = player === 'black' ? 'white' : 'black';
 
     // Generate all possible moves for the current player
     // Order matters for Alpha-Beta pruning!
@@ -318,12 +628,11 @@ function getChildren(state, branchPrefix) {
 
     // Simulate disc jumps (Captures)
     for (const jumpSequence of discJumps) {
-        const newState = deepClone(state);
+        const newState = cloneGameState(state);
         simulateDiscJumpSequence(newState, jumpSequence);
-        newState.activePlayer = player === 'black' ? 'white' : 'black';
+        newState.activePlayer = opponent;
         newState.branch = `${branchPrefix}.${moveIndex}`;
         // Attach the jump path for highlighting (only at depth 1, i.e., direct children)
-        // Convert from string format "q,r" to object format {q, r} for consistency
         if (branchPrefix === '1') {
             newState.lastJumpPath = jumpSequence.map(pos => {
                 const [q, r] = pos.split(',').map(Number);
@@ -336,9 +645,9 @@ function getChildren(state, branchPrefix) {
 
     // Simulate ring moves (Potential captures)
     for (const [fromPosition, toPosition] of ringMoves) {
-        const newState = deepClone(state);
+        const newState = cloneGameState(state);
         simulateRingMove(newState, fromPosition, toPosition);
-        newState.activePlayer = player === 'black' ? 'white' : 'black';
+        newState.activePlayer = opponent;
         newState.branch = `${branchPrefix}.${moveIndex}`;
         children.push(newState);
         moveIndex++;
@@ -349,9 +658,9 @@ function getChildren(state, branchPrefix) {
         if (!(fromPosition in state.pieces)) {
             continue;
         }
-        const newState = deepClone(state);
+        const newState = cloneGameState(state);
         simulateDiscMove(newState, fromPosition, toPosition);
-        newState.activePlayer = player === 'black' ? 'white' : 'black';
+        newState.activePlayer = opponent;
         newState.branch = `${branchPrefix}.${moveIndex}`;
         children.push(newState);
         moveIndex++;
@@ -359,9 +668,9 @@ function getChildren(state, branchPrefix) {
 
     // Simulate ring placements
     for (const position of ringPlacements) {
-        const newState = deepClone(state);
+        const newState = cloneGameState(state);
         simulateRingPlacement(newState, position, player);
-        newState.activePlayer = player === 'black' ? 'white' : 'black';
+        newState.activePlayer = opponent;
         newState.branch = `${branchPrefix}.${moveIndex}`;
         children.push(newState);
         moveIndex++;
@@ -369,9 +678,9 @@ function getChildren(state, branchPrefix) {
 
     // Simulate disc placements
     for (const position of discPlacements) {
-        const newState = deepClone(state);
+        const newState = cloneGameState(state);
         simulateDiscPlacement(newState, position, player);
-        newState.activePlayer = player === 'black' ? 'white' : 'black';
+        newState.activePlayer = opponent;
         newState.branch = `${branchPrefix}.${moveIndex}`;
         children.push(newState);
         moveIndex++;
@@ -379,9 +688,9 @@ function getChildren(state, branchPrefix) {
 
     // Simulate tile placements
     for (const position of tilePlacements) {
-        const newState = deepClone(state);
+        const newState = cloneGameState(state);
         simulateTilePlacement(newState, position, player);
-        newState.activePlayer = player === 'black' ? 'white' : 'black';
+        newState.activePlayer = opponent;
         newState.branch = `${branchPrefix}.${moveIndex}`;
         children.push(newState);
         moveIndex++;
@@ -787,8 +1096,14 @@ if (typeof module !== 'undefined' && module.exports) {
         processGameState,
         minimax,
         evaluate,
+        //evaluateQuick,
+        //quiescenceSearch,
         isTerminal,
-        getChildren
+        getChildren,
+        clearTranspositionTable,
+        getPositionHash,
+        initPositionHistory,
+        wouldCauseThreefoldRepetition
     };
 }
 
