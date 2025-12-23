@@ -1192,7 +1192,8 @@ window.onload = function () {
                 return;
             }
 
-            if (isAiMode && canvas.style.pointerEvents !== 'none') {
+            // Check if AI should play (using new config system or legacy isAiMode)
+            if (isCurrentPlayerAi() && canvas.style.pointerEvents !== 'none' && !waitingForAiClick) {
                 sendToAI();
             }
         });
@@ -1280,8 +1281,8 @@ window.onload = function () {
                 return;
             }
 
-            // Serialize the board and send it to the AI if in AI mode
-            if (isAiMode && canvas.style.pointerEvents !== 'none') {
+            // Check if AI should play (using new config system or legacy isAiMode)
+            if (isCurrentPlayerAi() && canvas.style.pointerEvents !== 'none' && !waitingForAiClick) {
                 sendToAI();
             }
         });
@@ -1316,8 +1317,8 @@ window.onload = function () {
                 return;
             }
 
-            // Serialize the board and send it to the AI if in AI mode
-            if (isAiMode && canvas.style.pointerEvents !== 'none') {
+            // Check if AI should play (using new config system or legacy isAiMode)
+            if (isCurrentPlayerAi() && canvas.style.pointerEvents !== 'none' && !waitingForAiClick) {
                 sendToAI();
             }
         });
@@ -2341,20 +2342,25 @@ window.onload = function () {
     function saveGameSession() {
         if (!window.hexaequoDb) return; // DB not initialized
         
-        const transaction = window.hexaequoDb.transaction(['gameSession'], 'readwrite');
-        const objectStore = transaction.objectStore('gameSession');
-        
-        const sessionData = {
-            id: 'currentGame',
-            moveHistory: moveHistory,
-            currentMoveIndex: currentMoveIndex,
-            timestamp: Date.now()
-        };
-        
-        const request = objectStore.put(sessionData);
-        request.onerror = () => {
-            console.warn('Failed to save game session to IndexedDB');
-        };
+        try {
+            const transaction = window.hexaequoDb.transaction(['gameSession'], 'readwrite');
+            const objectStore = transaction.objectStore('gameSession');
+            
+            const sessionData = {
+                id: 'currentGame',
+                moveHistory: moveHistory,
+                currentMoveIndex: currentMoveIndex,
+                timestamp: Date.now()
+            };
+            
+            const request = objectStore.put(sessionData);
+            request.onerror = () => {
+                console.warn('Failed to save game session to IndexedDB');
+            };
+        } catch (error) {
+            // Database connection might be closing, which is fine - just ignore the error
+            console.debug('IndexedDB not available for saving session:', error.message);
+        }
     }
 
     // Load a saved game session from IndexedDB
@@ -2365,32 +2371,38 @@ window.onload = function () {
                 return;
             }
             
-            const transaction = window.hexaequoDb.transaction(['gameSession'], 'readonly');
-            const objectStore = transaction.objectStore('gameSession');
-            const request = objectStore.get('currentGame');
-            
-            request.onerror = () => {
-                console.warn('Failed to load game session from IndexedDB');
-                resolve(false);
-            };
-            
-            request.onsuccess = (event) => {
-                const sessionData = event.target.result;
-                if (sessionData) {
-                    moveHistory = sessionData.moveHistory || [];
-                    currentMoveIndex = sessionData.currentMoveIndex || 0;
-                    
-                    // Restore the last saved state if available
-                    if (currentMoveIndex >= 0 && moveHistory[currentMoveIndex]) {
-                        restoreGameState(moveHistory[currentMoveIndex].gameState);
-                        updateUndoRedoButtons();
-                        console.log('Game session restored from IndexedDB');
-                        resolve(true);
-                        return;
+            try {
+                const transaction = window.hexaequoDb.transaction(['gameSession'], 'readonly');
+                const objectStore = transaction.objectStore('gameSession');
+                const request = objectStore.get('currentGame');
+                
+                request.onerror = () => {
+                    console.warn('Failed to load game session from IndexedDB');
+                    resolve(false);
+                };
+                
+                request.onsuccess = (event) => {
+                    const sessionData = event.target.result;
+                    if (sessionData) {
+                        moveHistory = sessionData.moveHistory || [];
+                        currentMoveIndex = sessionData.currentMoveIndex || 0;
+                        
+                        // Restore the last saved state if available
+                        if (currentMoveIndex >= 0 && moveHistory[currentMoveIndex]) {
+                            restoreGameState(moveHistory[currentMoveIndex].gameState);
+                            updateUndoRedoButtons();
+                            console.log('Game session restored from IndexedDB');
+                            resolve(true);
+                            return;
+                        }
                     }
-                }
+                    resolve(false);
+                };
+            } catch (error) {
+                // Database connection might be closing, which is fine - just ignore the error
+                console.debug('IndexedDB not available for loading session:', error.message);
                 resolve(false);
-            };
+            }
         });
     }
 
@@ -2398,13 +2410,18 @@ window.onload = function () {
     function clearGameSession() {
         if (!window.hexaequoDb) return;
         
-        const transaction = window.hexaequoDb.transaction(['gameSession'], 'readwrite');
-        const objectStore = transaction.objectStore('gameSession');
-        const request = objectStore.delete('currentGame');
-        
-        request.onerror = () => {
-            console.warn('Failed to clear game session from IndexedDB');
-        };
+        try {
+            const transaction = window.hexaequoDb.transaction(['gameSession'], 'readwrite');
+            const objectStore = transaction.objectStore('gameSession');
+            const request = objectStore.delete('currentGame');
+            
+            request.onerror = () => {
+                console.warn('Failed to clear game session from IndexedDB');
+            };
+        } catch (error) {
+            // Database connection might be closing, which is fine - just ignore the error
+            console.debug('IndexedDB not available for clearing session:', error.message);
+        }
     }
 
     // Update the state of undo/redo buttons
@@ -2514,6 +2531,23 @@ window.onload = function () {
         // Redraw the grid
         updateDynamicLayout();
         drawGrid();
+        
+        // Reset AI click prompt state
+        waitingForAiClick = false;
+        
+        // If black player is AI, trigger first move after a short delay
+        setTimeout(() => {
+            if (isCurrentPlayerAi() && !isOnlineMode) {
+                const config = window.localGameConfig;
+                if (config && config.isAiVsAi) {
+                    // AI-vs-AI: wait for click
+                    waitingForAiClick = true;
+                } else {
+                    // Single AI: play immediately
+                    sendToAI();
+                }
+            }
+        }, 500);
     }
     window.resetGame = resetGame;
 
@@ -2910,6 +2944,7 @@ window.onload = function () {
     // Initialize the AI Web Worker
     let aiWorker = null;
     let pendingGameState = null; // Store the game state before AI processes it
+    let waitingForAiClick = false; // For AI-vs-AI mode: waiting for user click to trigger next AI move
 
     if (typeof (Worker) !== "undefined") {
         aiWorker = new Worker('ai-worker.js');
@@ -2924,11 +2959,62 @@ window.onload = function () {
                     pendingGameState = null; // Clear the pending state
                 }
                 hideLoader(); // Hide loader
+                
+                // Check if AI-vs-AI mode and need to wait for click
+                const config = window.localGameConfig;
+                if (config && config.isAiVsAi) {
+                    // Check if game is not over
+                    if (!isGameOver()) {
+                        waitingForAiClick = true;
+                    }
+                }
             } else if (type === 'error') {
                 console.error('AI Worker Error:', error);
                 hideLoader();
             }
         });
+    }
+    
+    // Get AI color for current player based on config
+    function getAiColorForCurrentPlayer() {
+        const config = window.localGameConfig;
+        if (!config) return 'white'; // Default fallback
+        
+        // Check if current active player is AI
+        if (activePlayer === 'black' && config.blackPlayer === 'ai') {
+            return 'black';
+        } else if (activePlayer === 'white' && config.whitePlayer === 'ai') {
+            return 'white';
+        }
+        return null; // Current player is not AI
+    }
+    
+    // Get AI difficulty for current player
+    function getAiDifficultyForCurrentPlayer() {
+        const config = window.localGameConfig;
+        if (!config) return aiDifficulty; // Default fallback
+        
+        if (activePlayer === 'black' && config.blackPlayer === 'ai') {
+            return config.blackAiLevel;
+        } else if (activePlayer === 'white' && config.whitePlayer === 'ai') {
+            return config.whiteAiLevel;
+        }
+        return aiDifficulty;
+    }
+    
+    // Check if current player is AI
+    function isCurrentPlayerAi() {
+        const config = window.localGameConfig;
+        if (!config) {
+            // Legacy mode: AI only plays white
+            return isAiMode && activePlayer === 'white';
+        }
+        
+        if (activePlayer === 'black') {
+            return config.blackPlayer === 'ai';
+        } else {
+            return config.whitePlayer === 'ai';
+        }
     }
 
     // Send the game state to the AI and handle the response
@@ -2937,22 +3023,33 @@ window.onload = function () {
         pendingGameState = gameState; // Save for later comparison
         disableInteractions(); // Disable interactions while AI is thinking
         showLoader(); // Show loader
+        
+        // Get AI color and difficulty from config
+        const aiColor = getAiColorForCurrentPlayer() || 'white';
+        const difficulty = getAiDifficultyForCurrentPlayer();
 
-        console.log('Sending game state to AI:', gameState); // Log the move sent to the AI
+        console.log(`Sending game state to AI (${aiColor}, level ${difficulty}):`, gameState);
 
         if (aiWorker) {
             // Use Web Worker
             aiWorker.postMessage({
                 type: 'computeMove',
                 gameState: gameState,
-                difficulty: aiDifficulty
+                difficulty: difficulty,
+                aiColor: aiColor
             });
         } else {
             // Fallback to direct computation if Web Workers not supported
             try {
-                const updatedState = processGameState(gameState, aiDifficulty);
+                const updatedState = processGameState(gameState, difficulty, aiColor);
                 applyGameState(updatedState, gameState, null, true); // Animate multi-jumps for AI
                 pendingGameState = null;
+                
+                // Check if AI-vs-AI mode
+                const config = window.localGameConfig;
+                if (config && config.isAiVsAi && !isGameOver()) {
+                    waitingForAiClick = true;
+                }
             } catch (error) {
                 console.error('Error communicating with AI:', error);
             } finally {
@@ -2960,10 +3057,34 @@ window.onload = function () {
             }
         }
     }
+    
+    // Handle click for AI-vs-AI mode
+    function handleAiVsAiClick() {
+        if (waitingForAiClick && !isGameOver()) {
+            waitingForAiClick = false;
+            
+            // Trigger next AI move
+            if (isCurrentPlayerAi()) {
+                setTimeout(sendToAI, 100);
+            }
+        }
+    }
+    
+    // Add click handler for AI-vs-AI mode
+    canvas.addEventListener('click', (e) => {
+        const config = window.localGameConfig;
+        if (config && config.isAiVsAi && waitingForAiClick) {
+            handleAiVsAiClick();
+        }
+    });
 
     // Function to disable event listeners
     function disableInteractions() {
-        canvas.style.pointerEvents = 'none';
+        // Don't completely disable canvas in AI-vs-AI mode (need clicks)
+        const config = window.localGameConfig;
+        if (!config || !config.isAiVsAi) {
+            canvas.style.pointerEvents = 'none';
+        }
         const undoBtn = document.getElementById('undoBtn');
         const redoBtn = document.getElementById('redoBtn');
         if (undoBtn) undoBtn.disabled = true;
@@ -3108,5 +3229,168 @@ window.onload = function () {
         // Initialize button states
         updateUndoRedoButtons();
     })();
+
+    // ==================== Hamburger Menu ====================
+    const hamburgerBtn = document.getElementById('hamburgerBtn');
+    const hamburgerModal = document.getElementById('hamburgerModal');
+    const closeHamburgerBtn = document.getElementById('closeHamburgerBtn');
+    const mainMenuBtn = document.getElementById('mainMenuBtn');
+    const confirmModal = document.getElementById('confirmModal');
+    const confirmYesBtn = document.getElementById('confirmYesBtn');
+    const confirmNoBtn = document.getElementById('confirmNoBtn');
+    
+    // Hamburger settings toggles
+    const hamburgerThemeToggle = document.getElementById('hamburgerThemeToggle');
+    const hamburgerSoundToggle = document.getElementById('hamburgerSoundToggle');
+    const hamburgerValidMovesToggle = document.getElementById('hamburgerValidMovesToggle');
+    const hamburgerAnimationsToggle = document.getElementById('hamburgerAnimationsToggle');
+    
+    // Sync hamburger toggles with main toggles
+    function syncHamburgerSettings() {
+        const themeToggle = document.getElementById('themeToggle');
+        const soundToggle = document.getElementById('soundToggle');
+        const validMovesToggle = document.getElementById('validMovesToggle');
+        const animationsToggle = document.getElementById('animationsToggle');
+        
+        if (hamburgerThemeToggle && themeToggle) {
+            hamburgerThemeToggle.checked = themeToggle.checked;
+        }
+        if (hamburgerSoundToggle && soundToggle) {
+            hamburgerSoundToggle.checked = soundToggle.checked;
+        }
+        if (hamburgerValidMovesToggle && validMovesToggle) {
+            hamburgerValidMovesToggle.checked = validMovesToggle.checked;
+        }
+        if (hamburgerAnimationsToggle && animationsToggle) {
+            hamburgerAnimationsToggle.checked = animationsToggle.checked;
+        }
+    }
+    
+    function toggleHamburgerMenu() {
+        const isOpen = hamburgerModal.classList.contains('open');
+        if (isOpen) {
+            closeHamburgerMenu();
+        } else {
+            openHamburgerMenu();
+        }
+    }
+    
+    function openHamburgerMenu() {
+        syncHamburgerSettings();
+        hamburgerBtn.classList.add('open');
+        hamburgerModal.classList.add('open');
+    }
+    
+    function closeHamburgerMenu() {
+        hamburgerBtn.classList.remove('open');
+        hamburgerModal.classList.remove('open');
+    }
+    
+    function showConfirmModal() {
+        confirmModal.classList.add('open');
+    }
+    
+    function hideConfirmModal() {
+        confirmModal.classList.remove('open');
+    }
+    
+    function goToMainMenu() {
+        hideConfirmModal();
+        closeHamburgerMenu();
+        
+        // Clear local game config and AI state
+        window.localGameConfig = null;
+        waitingForAiClick = false;
+        
+        // Stop timers if running
+        if (window.GameTimer) {
+            window.GameTimer.stop();
+        }
+        
+        // Show lobby overlay properly (remove hidden class and set display)
+        const lobbyOverlay = document.getElementById('lobbyOverlay');
+        if (lobbyOverlay) {
+            lobbyOverlay.classList.remove('hidden');
+            lobbyOverlay.style.display = 'flex';
+            lobbyOverlay.style.visibility = 'visible';
+            lobbyOverlay.style.pointerEvents = 'auto';
+            lobbyOverlay.style.opacity = '1';
+        }
+        
+        // Reset to main menu view in lobby (the new game will call resetGame when started)
+        if (window.showLobbyMainMenu) {
+            window.showLobbyMainMenu();
+        }
+    }
+    
+    if (hamburgerBtn) {
+        hamburgerBtn.addEventListener('click', toggleHamburgerMenu);
+    }
+    
+    if (closeHamburgerBtn) {
+        closeHamburgerBtn.addEventListener('click', closeHamburgerMenu);
+    }
+    
+    if (mainMenuBtn) {
+        mainMenuBtn.addEventListener('click', showConfirmModal);
+    }
+    
+    if (confirmYesBtn) {
+        confirmYesBtn.addEventListener('click', goToMainMenu);
+    }
+    
+    if (confirmNoBtn) {
+        confirmNoBtn.addEventListener('click', hideConfirmModal);
+    }
+    
+    // Hamburger settings change handlers
+    if (hamburgerThemeToggle) {
+        hamburgerThemeToggle.addEventListener('change', () => {
+            const themeToggle = document.getElementById('themeToggle');
+            if (themeToggle) {
+                themeToggle.checked = hamburgerThemeToggle.checked;
+                themeToggle.dispatchEvent(new Event('change'));
+            }
+        });
+    }
+    
+    if (hamburgerSoundToggle) {
+        hamburgerSoundToggle.addEventListener('change', () => {
+            const soundToggle = document.getElementById('soundToggle');
+            if (soundToggle) {
+                soundToggle.checked = hamburgerSoundToggle.checked;
+                soundToggle.dispatchEvent(new Event('change'));
+            }
+        });
+    }
+    
+    if (hamburgerValidMovesToggle) {
+        hamburgerValidMovesToggle.addEventListener('change', () => {
+            const validMovesToggle = document.getElementById('validMovesToggle');
+            if (validMovesToggle) {
+                validMovesToggle.checked = hamburgerValidMovesToggle.checked;
+                validMovesToggle.dispatchEvent(new Event('change'));
+            }
+        });
+    }
+    
+    if (hamburgerAnimationsToggle) {
+        hamburgerAnimationsToggle.addEventListener('change', () => {
+            const animationsToggle = document.getElementById('animationsToggle');
+            if (animationsToggle) {
+                animationsToggle.checked = hamburgerAnimationsToggle.checked;
+                animationsToggle.dispatchEvent(new Event('change'));
+            }
+        });
+    }
+    
+    // Close hamburger menu when clicking outside
+    document.addEventListener('click', (e) => {
+        if (hamburgerModal.classList.contains('open')) {
+            if (!hamburgerModal.contains(e.target) && !hamburgerBtn.contains(e.target)) {
+                closeHamburgerMenu();
+            }
+        }
+    });
 
 };

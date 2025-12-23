@@ -6,12 +6,13 @@ importScripts('ai.js');
 
 // Listen for messages from the main thread
 self.addEventListener('message', function (e) {
-    const { type, gameState, difficulty } = e.data;
+    const { type, gameState, difficulty, aiColor } = e.data;
 
     if (type === 'computeMove') {
         try {
             // Process the game state and compute the best move
-            const updatedState = processGameState(gameState, difficulty);
+            // aiColor defaults to 'white' for backwards compatibility
+            const updatedState = processGameState(gameState, difficulty, aiColor || 'white');
 
             // Send the result back to the main thread
             self.postMessage({

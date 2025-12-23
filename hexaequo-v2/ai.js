@@ -33,18 +33,25 @@ function logMoveDifferences(originalState, proposedState) {
 
 /**
  * Process game state and return the AI's move
+ * @param {Object} gameState - Current game state
+ * @param {number} depth - Search depth (1-4)
+ * @param {string} aiColor - Color the AI plays ('black' or 'white'). Defaults to 'white' for backwards compatibility.
  */
-function processGameState(gameState, depth = 3) {
-    if (gameState.activePlayer === 'black') {
+function processGameState(gameState, depth = 3, aiColor = 'white') {
+    // AI only plays when it's its turn
+    if (gameState.activePlayer !== aiColor) {
         return gameState;
     }
 
     // Update global depth if provided
     AI_SEARCH_DEPTH = depth;
 
+    // Determine if AI is maximizing (black) or minimizing (white)
+    const aiIsBlack = aiColor === 'black';
+    
     // Determine the best move using Minimax
     let bestMove = null;
-    let bestScore = Infinity; // Minimizing for white
+    let bestScore = aiIsBlack ? -Infinity : Infinity;
 
     // Total pruned branches counter
     let totalPrunedBranches = 0;
@@ -61,13 +68,25 @@ function processGameState(gameState, depth = 3) {
 
     // Evaluate each child
     for (const child of children) {
-        const [score, pruned] = minimax(child, AI_SEARCH_DEPTH, -Infinity, Infinity, true, child.branch || '1');
+        // For black (maximizing at root), start minimax with maximizing=false (opponent's turn next)
+        // For white (minimizing at root), start minimax with maximizing=true (opponent's turn next)
+        const startAsMaximizing = !aiIsBlack;
+        const [score, pruned] = minimax(child, AI_SEARCH_DEPTH, -Infinity, Infinity, startAsMaximizing, child.branch || '1');
         totalPrunedBranches += pruned;
 
-        // Update best_move and best_score for white
-        if (score < bestScore) {
-            bestScore = score;
-            bestMove = child;
+        // Update best_move and best_score based on AI color
+        if (aiIsBlack) {
+            // Black maximizes
+            if (score > bestScore) {
+                bestScore = score;
+                bestMove = child;
+            }
+        } else {
+            // White minimizes
+            if (score < bestScore) {
+                bestScore = score;
+                bestMove = child;
+            }
         }
     }
 
@@ -87,9 +106,10 @@ function processGameState(gameState, depth = 3) {
     }
 
     // Switch the active player to the opponent after the AI's move
-    bestMove.activePlayer = 'black';
+    const opponentColor = aiColor === 'black' ? 'white' : 'black';
+    bestMove.activePlayer = opponentColor;
 
-    console.log(`AI (Level ${depth}) finished. Score: ${bestScore}. Pruned: ${totalPrunedBranches}`);
+    console.log(`AI (${aiColor}, Level ${depth}) finished. Score: ${bestScore}. Pruned: ${totalPrunedBranches}`);
 
     return bestMove;
 }

@@ -25,6 +25,15 @@
     let sessionToken = null;
     let currentOpponent = null; // Stores opponent info for online games
     
+    // Local game configuration
+    let localGameConfig = {
+        blackPlayer: 'human',  // 'human' or 'ai'
+        blackAiLevel: 3,
+        whitePlayer: 'human',  // 'human' or 'ai'
+        whiteAiLevel: 3,
+        timeControl: 'none'
+    };
+    
     // Room list state
     let allRooms = []; // All rooms from server
     let filteredRooms = []; // Rooms after filtering
@@ -36,13 +45,16 @@
         overlay: null,
         // Main buttons
         playLocalBtn: null,
-        playAiBtn: null,
         playOnlineBtn: null,
-        // AI section
-        aiOptions: null,
-        startAiGameBtn: null,
-        backFromAiBtn: null,
-        difficultyBtns: null,
+        // Local config section
+        localConfigSection: null,
+        blackPlayerType: null,
+        blackAiLevel: null,
+        whitePlayerType: null,
+        whiteAiLevel: null,
+        localTimeControl: null,
+        startLocalGameBtn: null,
+        backFromLocalBtn: null,
         // Online section
         onlineOptions: null,
         connectionStatus: null,
@@ -88,13 +100,17 @@
         // Cache DOM elements
         lobby.overlay = document.getElementById('lobbyOverlay');
         lobby.playLocalBtn = document.getElementById('playLocalBtn');
-        lobby.playAiBtn = document.getElementById('playAiBtn');
         lobby.playOnlineBtn = document.getElementById('playOnlineBtn');
         
-        lobby.aiOptions = document.getElementById('aiOptions');
-        lobby.startAiGameBtn = document.getElementById('startAiGameBtn');
-        lobby.backFromAiBtn = document.getElementById('backFromAiBtn');
-        lobby.difficultyBtns = document.querySelectorAll('.diff-btn');
+        // Local config section
+        lobby.localConfigSection = document.getElementById('localConfigSection');
+        lobby.blackPlayerType = document.getElementById('blackPlayerType');
+        lobby.blackAiLevel = document.getElementById('blackAiLevel');
+        lobby.whitePlayerType = document.getElementById('whitePlayerType');
+        lobby.whiteAiLevel = document.getElementById('whiteAiLevel');
+        lobby.localTimeControl = document.getElementById('localTimeControl');
+        lobby.startLocalGameBtn = document.getElementById('startLocalGameBtn');
+        lobby.backFromLocalBtn = document.getElementById('backFromLocalBtn');
         
         lobby.onlineOptions = document.getElementById('onlineOptions');
         lobby.connectionStatus = document.getElementById('lobbyConnectionStatus');
@@ -170,6 +186,9 @@
         // Set up event listeners
         setupEventListeners();
         
+        // Load saved preferences from localStorage
+        loadLocalGameConfig();
+        
         // Sync settings with existing toggles
         syncSettingsFromGame();
         
@@ -182,15 +201,25 @@
     // ==================== Event Listeners ====================
     function setupEventListeners() {
         // Main menu buttons
-        lobby.playLocalBtn?.addEventListener('click', startLocalGame);
-        lobby.playAiBtn?.addEventListener('click', showAiOptions);
+        lobby.playLocalBtn?.addEventListener('click', showLocalConfig);
         lobby.playOnlineBtn?.addEventListener('click', showOnlineOptions);
         
-        // AI options
-        lobby.startAiGameBtn?.addEventListener('click', startAiGame);
-        lobby.backFromAiBtn?.addEventListener('click', showMainMenu);
-        lobby.difficultyBtns?.forEach(btn => {
-            btn.addEventListener('click', () => selectDifficulty(btn));
+        // Local config section
+        lobby.startLocalGameBtn?.addEventListener('click', startConfiguredLocalGame);
+        lobby.backFromLocalBtn?.addEventListener('click', showMainMenu);
+        lobby.blackPlayerType?.addEventListener('change', handleBlackPlayerTypeChange);
+        lobby.whitePlayerType?.addEventListener('change', handleWhitePlayerTypeChange);
+        lobby.blackAiLevel?.addEventListener('change', () => {
+            localGameConfig.blackAiLevel = parseInt(lobby.blackAiLevel.value);
+            saveLocalGameConfig();
+        });
+        lobby.whiteAiLevel?.addEventListener('change', () => {
+            localGameConfig.whiteAiLevel = parseInt(lobby.whiteAiLevel.value);
+            saveLocalGameConfig();
+        });
+        lobby.localTimeControl?.addEventListener('change', () => {
+            localGameConfig.timeControl = lobby.localTimeControl.value;
+            saveLocalGameConfig();
         });
         
         // Online options
@@ -327,6 +356,68 @@
         }
     }
 
+    // ==================== Local Game Config ====================
+    function loadLocalGameConfig() {
+        try {
+            const saved = localStorage.getItem('hexaequo.localGameConfig');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                localGameConfig = { ...localGameConfig, ...parsed };
+            }
+        } catch (e) {
+            console.warn('[Lobby] Failed to load local game config:', e);
+        }
+        
+        // Apply saved config to UI
+        if (lobby.blackPlayerType) {
+            lobby.blackPlayerType.value = localGameConfig.blackPlayer;
+            lobby.blackAiLevel.style.display = localGameConfig.blackPlayer === 'ai' ? 'block' : 'none';
+            lobby.blackAiLevel.value = localGameConfig.blackAiLevel;
+        }
+        if (lobby.whitePlayerType) {
+            lobby.whitePlayerType.value = localGameConfig.whitePlayer;
+            lobby.whiteAiLevel.style.display = localGameConfig.whitePlayer === 'ai' ? 'block' : 'none';
+            lobby.whiteAiLevel.value = localGameConfig.whiteAiLevel;
+        }
+        if (lobby.localTimeControl) {
+            lobby.localTimeControl.value = localGameConfig.timeControl;
+        }
+    }
+    
+    function saveLocalGameConfig() {
+        try {
+            localStorage.setItem('hexaequo.localGameConfig', JSON.stringify(localGameConfig));
+        } catch (e) {
+            console.warn('[Lobby] Failed to save local game config:', e);
+        }
+    }
+    
+    function handleBlackPlayerTypeChange() {
+        const type = lobby.blackPlayerType.value;
+        localGameConfig.blackPlayer = type;
+        lobby.blackAiLevel.style.display = type === 'ai' ? 'block' : 'none';
+        saveLocalGameConfig();
+    }
+    
+    function handleWhitePlayerTypeChange() {
+        const type = lobby.whitePlayerType.value;
+        localGameConfig.whitePlayer = type;
+        lobby.whiteAiLevel.style.display = type === 'ai' ? 'block' : 'none';
+        saveLocalGameConfig();
+    }
+    
+    function showLocalConfig() {
+        document.querySelector('.mode-selection')?.style.setProperty('display', 'none');
+        lobby.localConfigSection?.style.setProperty('display', 'flex');
+        lobby.onlineOptions?.style.setProperty('display', 'none');
+        lobby.settingsSection?.style.setProperty('display', 'none');
+        lobby.authSection?.style.setProperty('display', 'none');
+        document.querySelector('.lobby-footer')?.style.setProperty('display', 'none');
+        
+        // Ensure UI reflects current config
+        loadLocalGameConfig();
+    }
+
     // ==================== Menu Navigation ====================
     function showMainMenu() {
         // Cancel any waiting room before going back
@@ -336,7 +427,7 @@
         
         // Hide all sections
         document.querySelector('.mode-selection')?.style.setProperty('display', 'flex');
-        lobby.aiOptions?.style.setProperty('display', 'none');
+        lobby.localConfigSection?.style.setProperty('display', 'none');
         lobby.onlineOptions?.style.setProperty('display', 'none');
         lobby.settingsSection?.style.setProperty('display', 'none');
         lobby.authSection?.style.setProperty('display', 'none');
@@ -348,18 +439,9 @@
         hideAuthError();
     }
 
-    function showAiOptions() {
-        document.querySelector('.mode-selection')?.style.setProperty('display', 'none');
-        lobby.aiOptions?.style.setProperty('display', 'flex');
-        lobby.onlineOptions?.style.setProperty('display', 'none');
-        lobby.settingsSection?.style.setProperty('display', 'none');
-        lobby.authSection?.style.setProperty('display', 'none');
-        document.querySelector('.lobby-footer')?.style.setProperty('display', 'none');
-    }
-
     function showOnlineOptions() {
         document.querySelector('.mode-selection')?.style.setProperty('display', 'none');
-        lobby.aiOptions?.style.setProperty('display', 'none');
+        lobby.localConfigSection?.style.setProperty('display', 'none');
         lobby.onlineOptions?.style.setProperty('display', 'flex');
         lobby.settingsSection?.style.setProperty('display', 'none');
         lobby.authSection?.style.setProperty('display', 'none');
@@ -378,7 +460,7 @@
 
     function showSettings() {
         document.querySelector('.mode-selection')?.style.setProperty('display', 'none');
-        lobby.aiOptions?.style.setProperty('display', 'none');
+        lobby.localConfigSection?.style.setProperty('display', 'none');
         lobby.onlineOptions?.style.setProperty('display', 'none');
         lobby.settingsSection?.style.setProperty('display', 'flex');
         lobby.authSection?.style.setProperty('display', 'none');
@@ -390,7 +472,7 @@
     
     function showAuthSection() {
         document.querySelector('.mode-selection')?.style.setProperty('display', 'none');
-        lobby.aiOptions?.style.setProperty('display', 'none');
+        lobby.localConfigSection?.style.setProperty('display', 'none');
         lobby.onlineOptions?.style.setProperty('display', 'none');
         lobby.settingsSection?.style.setProperty('display', 'none');
         lobby.authSection?.style.setProperty('display', 'flex');
@@ -467,23 +549,59 @@
         }
     }
     
-    function startLocalGame() {
-        console.log('[Lobby] Starting local 2-player game');
+    function startConfiguredLocalGame() {
+        console.log('[Lobby] Starting configured local game:', localGameConfig);
+        
+        const blackIsAi = localGameConfig.blackPlayer === 'ai';
+        const whiteIsAi = localGameConfig.whitePlayer === 'ai';
+        const bothAi = blackIsAi && whiteIsAi;
+        const anyAi = blackIsAi || whiteIsAi;
+        
+        // Store config in window for game.js to access
+        window.localGameConfig = {
+            blackPlayer: localGameConfig.blackPlayer,
+            blackAiLevel: localGameConfig.blackAiLevel,
+            whitePlayer: localGameConfig.whitePlayer,
+            whiteAiLevel: localGameConfig.whiteAiLevel,
+            timeControl: localGameConfig.timeControl,
+            isAiVsAi: bothAi
+        };
+        
+        // Determine game mode
+        let gameMode;
+        if (bothAi) {
+            gameMode = 'ai-vs-ai';
+        } else if (anyAi) {
+            gameMode = 'ai';
+        } else {
+            gameMode = '2player';
+        }
         
         // Set game mode via the existing select (game.js uses this)
         const gameModeSelect = document.getElementById('gameModeSelect');
         if (gameModeSelect) {
-            gameModeSelect.value = '2player';
+            // For AI games, use 'ai' mode
+            gameModeSelect.value = anyAi ? 'ai' : '2player';
             gameModeSelect.dispatchEvent(new Event('change'));
         }
         
-        // No timer for local games (friendly)
+        // Set AI difficulty (use highest level if both are AI)
+        if (anyAi) {
+            const difficultySelect = document.getElementById('difficultySelect');
+            const aiLevel = whiteIsAi ? localGameConfig.whiteAiLevel : localGameConfig.blackAiLevel;
+            if (difficultySelect) {
+                difficultySelect.value = aiLevel.toString();
+                difficultySelect.dispatchEvent(new Event('change'));
+            }
+        }
+        
+        // Set timer
         if (window.GameTimer) {
-            window.GameTimer.setTimeControl('none');
+            window.GameTimer.setTimeControl(localGameConfig.timeControl);
         }
         
         // Update player displays
-        updatePlayerInfoDisplays('2player');
+        updatePlayerInfoDisplaysForConfig(localGameConfig);
         
         // Hide lobby and start game
         hideLobby();
@@ -491,40 +609,33 @@
         // Trigger new game
         triggerNewGame();
     }
-
-    function startAiGame() {
-        console.log('[Lobby] Starting AI game with difficulty:', selectedDifficulty);
+    
+    function updatePlayerInfoDisplaysForConfig(config) {
+        const blackInfo = document.getElementById('blackPlayerInfo');
+        const whiteInfo = document.getElementById('whitePlayerInfo');
         
-        // Set game mode
-        const gameModeSelect = document.getElementById('gameModeSelect');
-        if (gameModeSelect) {
-            gameModeSelect.value = 'ai';
-            gameModeSelect.dispatchEvent(new Event('change'));
+        if (!blackInfo || !whiteInfo) return;
+        
+        const blackName = blackInfo.querySelector('.player-name');
+        const blackRating = blackInfo.querySelector('.player-rating');
+        const whiteName = whiteInfo.querySelector('.player-name');
+        const whiteRating = whiteInfo.querySelector('.player-rating');
+        
+        if (config.blackPlayer === 'ai') {
+            blackName.textContent = 'AI';
+            blackRating.textContent = difficultyNames[config.blackAiLevel] || 'Hard';
+        } else {
+            blackName.textContent = currentUser ? (currentUser.pseudo || 'Player') : 'Black';
+            blackRating.textContent = '';
         }
         
-        // Set difficulty
-        const difficultySelect = document.getElementById('difficultySelect');
-        if (difficultySelect) {
-            difficultySelect.value = selectedDifficulty.toString();
-            difficultySelect.dispatchEvent(new Event('change'));
+        if (config.whitePlayer === 'ai') {
+            whiteName.textContent = 'AI';
+            whiteRating.textContent = difficultyNames[config.whiteAiLevel] || 'Hard';
+        } else {
+            whiteName.textContent = currentUser ? (currentUser.pseudo || 'Player') : 'White';
+            whiteRating.textContent = '';
         }
-        
-        // No timer for AI games
-        if (window.GameTimer) {
-            window.GameTimer.setTimeControl('none');
-        }
-        
-        // Update player displays
-        updatePlayerInfoDisplays('ai', selectedDifficulty);
-        
-        hideLobby();
-        triggerNewGame();
-    }
-
-    function selectDifficulty(btn) {
-        lobby.difficultyBtns.forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected');
-        selectedDifficulty = parseInt(btn.dataset.level, 10);
     }
 
     // ==================== Online Functions ====================
@@ -1017,11 +1128,20 @@
 
     // ==================== Utility Functions ====================
     function hideLobby() {
-        lobby.overlay?.classList.add('hidden');
+        if (lobby.overlay) {
+            lobby.overlay.classList.add('hidden');
+            // Remove inline styles to ensure CSS class works properly
+            lobby.overlay.style.display = '';
+            lobby.overlay.style.visibility = '';
+            lobby.overlay.style.pointerEvents = '';
+            lobby.overlay.style.opacity = '';
+        }
     }
 
     function showLobby() {
-        lobby.overlay?.classList.remove('hidden');
+        if (lobby.overlay) {
+            lobby.overlay.classList.remove('hidden');
+        }
         showMainMenu();
     }
 
@@ -1301,11 +1421,42 @@
 
     // Also expose as window.Lobby for compatibility
     window.Lobby = window.GameLobby;
+    
+    // Expose showMainMenu for hamburger menu access
+    window.showLobbyMainMenu = showMainMenu;
 
     // Initialize when DOM is ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
         init();
+    }
+
+    function onCreateRoom() {
+        const playerName = document.getElementById('playerNameInput').value.trim();
+        if (!playerName) {
+            alert('Please enter your name');
+            return;
+        }
+
+        window.isLocalMode = false;
+        window.isOnlineMode = true;
+
+        createRoom(playerName);
+    }
+
+    function onJoinRoom() {
+        const playerName = document.getElementById('playerNameInput').value.trim();
+        const roomCode = document.getElementById('roomCodeInput').value.trim();
+
+        if (!playerName || !roomCode) {
+            alert('Please enter both your name and room code');
+            return;
+        }
+
+        window.isLocalMode = false;
+        window.isOnlineMode = true;
+
+        joinRoom(playerName, roomCode);
     }
 })();

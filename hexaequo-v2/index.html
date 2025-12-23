@@ -32,28 +32,65 @@
     <div id="lobbyOverlay" class="lobby-overlay">
         <div class="lobby-content">
             <div class="lobby-logo">
+                <img id="lobbyLogoImg" src="icons/logo.png" alt="Hexaequo Logo" class="lobby-logo-img">
                 <h1 class="lobby-title">HEXAEQUO</h1>
             </div>
             
             <div class="lobby-menu">
-                <!-- Game Mode Selection -->
+                <!-- Game Mode Selection (2 buttons: Local / Online) -->
                 <div class="lobby-section mode-selection">
                     <button class="lobby-btn" id="playLocalBtn">Local Game</button>
-                    <button class="lobby-btn" id="playAiBtn">vs Computer</button>
                     <button class="lobby-btn" id="playOnlineBtn">Play Online</button>
                 </div>
                 
-                <!-- AI Difficulty (hidden by default) -->
-                <div class="lobby-section ai-options" id="aiOptions" style="display: none;">
-                    <div class="section-title">Difficulty</div>
-                    <div class="difficulty-buttons">
-                        <button class="diff-btn" data-level="1">Easy</button>
-                        <button class="diff-btn" data-level="2">Normal</button>
-                        <button class="diff-btn selected" data-level="3">Hard</button>
-                        <button class="diff-btn" data-level="4">Expert</button>
+                <!-- Local Game Configuration (hidden by default) -->
+                <div class="lobby-section local-config" id="localConfigSection" style="display: none;">
+                    <div class="section-title">Game Setup</div>
+                    
+                    <!-- Player Configuration -->
+                    <div class="player-config">
+                        <div class="player-config-row">
+                            <span class="player-config-label">⚫ Black</span>
+                            <select id="blackPlayerType" class="player-type-select">
+                                <option value="human">Human</option>
+                                <option value="ai">AI</option>
+                            </select>
+                            <select id="blackAiLevel" class="ai-level-select" style="display: none;">
+                                <option value="1">Level 1</option>
+                                <option value="2">Level 2</option>
+                                <option value="3" selected>Level 3</option>
+                                <option value="4">Level 4</option>
+                            </select>
+                        </div>
+                        <div class="player-config-row">
+                            <span class="player-config-label">⚪ White</span>
+                            <select id="whitePlayerType" class="player-type-select">
+                                <option value="human">Human</option>
+                                <option value="ai">AI</option>
+                            </select>
+                            <select id="whiteAiLevel" class="ai-level-select" style="display: none;">
+                                <option value="1">Level 1</option>
+                                <option value="2">Level 2</option>
+                                <option value="3" selected>Level 3</option>
+                                <option value="4">Level 4</option>
+                            </select>
+                        </div>
                     </div>
-                    <button class="lobby-btn primary" id="startAiGameBtn">Start</button>
-                    <button class="lobby-btn secondary" id="backFromAiBtn">Back</button>
+                    
+                    <!-- Time Control -->
+                    <div class="time-control-config">
+                        <label for="localTimeControl" class="config-label">Time Control</label>
+                        <select id="localTimeControl" class="lobby-select">
+                            <option value="none" selected>No Timer</option>
+                            <option value="classic">Classic: 15|0</option>
+                            <option value="rapid">Rapid: 10|5</option>
+                            <option value="blitz">Blitz: 5|3</option>
+                            <option value="bullet">Bullet: 2|1</option>
+                        </select>
+                    </div>
+                    
+                    <button class="lobby-btn primary" id="startLocalGameBtn">Start Game</button>
+                    <button class="lobby-btn secondary" id="backFromLocalBtn">Back</button>
                 </div>
                 
                 <!-- Online Options (hidden by default) -->
@@ -317,15 +354,78 @@
         </div>
     </div>
 
-    <!-- Back to Menu Button -->
-    <button id="backToMenuBtn" class="back-to-menu-btn" title="Back to Menu">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M19 12H5M12 19l-7-7 7-7"/>
-        </svg>
+    <!-- Hamburger Menu Button -->
+    <button id="hamburgerBtn" class="hamburger-btn" title="Menu">
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
     </button>
 
-    <!-- Menu Overlay -->
-    <div id="menuOverlay">
+    <!-- Hamburger Menu Modal -->
+    <div id="hamburgerModal" class="hamburger-modal">
+        <div class="hamburger-modal-content">
+            <div class="hamburger-header">
+                <span class="hamburger-title">Quick Settings</span>
+                <button id="closeHamburgerBtn" class="close-hamburger-btn" title="Close">✕</button>
+            </div>
+            
+            <div class="hamburger-settings">
+                <div class="hamburger-item">
+                    <label>Theme</label>
+                    <div class="toggle-container">
+                        <span class="toggle-label">Dark</span>
+                        <label class="switch">
+                            <input type="checkbox" id="hamburgerThemeToggle">
+                            <span class="slider"></span>
+                        </label>
+                        <span class="toggle-label">Light</span>
+                    </div>
+                </div>
+
+                <div class="hamburger-item">
+                    <label>Sound</label>
+                    <label class="switch">
+                        <input type="checkbox" id="hamburgerSoundToggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="hamburger-item">
+                    <label>Show Valid Moves</label>
+                    <label class="switch">
+                        <input type="checkbox" id="hamburgerValidMovesToggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="hamburger-item">
+                    <label>Animations</label>
+                    <label class="switch">
+                        <input type="checkbox" id="hamburgerAnimationsToggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="hamburger-footer">
+                <button id="mainMenuBtn" class="hamburger-main-menu-btn">Main Menu</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="confirm-modal">
+        <div class="confirm-modal-content">
+            <p class="confirm-message">Are you sure you want to leave?<br><small>Game progress will be lost.</small></p>
+            <div class="confirm-buttons">
+                <button id="confirmYesBtn" class="confirm-btn confirm-yes">Yes, Leave</button>
+                <button id="confirmNoBtn" class="confirm-btn confirm-no">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Menu Overlay (legacy - kept for game mode select, now hidden from hamburger) -->
+    <div id="menuOverlay" style="display: none;">
         <div class="menu-content">
             <div class="menu-title">Settings</div>
 
@@ -373,7 +473,7 @@
                 </label>
             </div>
 
-            <div class="menu-item">
+            <div class="menu-item" style="display: none;">
                 <label>Game Mode</label>
                 <select id="gameModeSelect">
                     <option value="2player">2 Players</option>
@@ -382,7 +482,7 @@
                 </select>
             </div>
 
-            <div class="menu-item" id="difficultyContainer">
+            <div class="menu-item" id="difficultyContainer" style="display: none;">
                 <label>Difficulty</label>
                 <select id="difficultySelect">
                     <option value="1">Level 1 (Easy)</option>
@@ -555,7 +655,7 @@
     </script>
     <script>
         // Menu Logic
-        const backToMenuBtn = document.getElementById('backToMenuBtn');
+        const backToMenuBtn = document.getElementById('backToMenuBtn'); // Legacy - may not exist
         const menuOverlay = document.getElementById('menuOverlay');
         const closeMenuBtn = document.getElementById('closeMenuBtn');
         const rulesBtn = document.getElementById('rulesBtn');
@@ -571,12 +671,14 @@
         const animationsToggle = document.getElementById('animationsToggle');
         const difficultyContainer = document.getElementById('difficultyContainer');
 
-        // Back to Menu button - shows lobby
-        backToMenuBtn.addEventListener('click', () => {
-            if (window.GameLobby) {
-                window.GameLobby.show();
-            }
-        });
+        // Back to Menu button - shows lobby (legacy - only if element exists)
+        if (backToMenuBtn) {
+            backToMenuBtn.addEventListener('click', () => {
+                if (window.GameLobby) {
+                    window.GameLobby.show();
+                }
+            });
+        }
 
         // Rules Menu
         function openRules() {
@@ -729,6 +831,18 @@
         const currentRoomCode = document.getElementById('currentRoomCode');
         const opponentStatus = document.getElementById('opponentStatus');
         const errorMessage = document.getElementById('errorMessage');
+
+        // Helper function to close hamburger menu
+        function toggleMenu() {
+            const hamburgerModal = document.getElementById('hamburgerModal');
+            if (hamburgerModal && hamburgerModal.classList.contains('open')) {
+                hamburgerModal.classList.remove('open');
+                const hamburgerBtn = document.getElementById('hamburgerBtn');
+                if (hamburgerBtn) {
+                    hamburgerBtn.classList.remove('open');
+                }
+            }
+        }
 
         function openOnlineModal() {
             onlineOverlay.classList.add('open');
@@ -1070,7 +1184,7 @@
         // New Game Button
         newGameBtn.addEventListener('click', () => {
             window.resetGame();
-            toggleMenu();
+            // Menu overlay handling is now done via lobby.js
         });
 
         // Initialize settings on load
