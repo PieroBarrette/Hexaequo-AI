@@ -3233,14 +3233,14 @@ window.onload = function () {
     const hamburgerThemeToggle = document.getElementById('hamburgerThemeToggle');
     const hamburgerSoundToggle = document.getElementById('hamburgerSoundToggle');
     const hamburgerValidMovesToggle = document.getElementById('hamburgerValidMovesToggle');
-    const hamburgerAnimationsToggle = document.getElementById('hamburgerAnimationsToggle');
+    const hamburgerPreviousMoveToggle = document.getElementById('hamburgerPreviousMoveToggle');
     
     // Sync hamburger toggles with main toggles
     function syncHamburgerSettings() {
         const themeToggle = document.getElementById('themeToggle');
         const soundToggle = document.getElementById('soundToggle');
         const validMovesToggle = document.getElementById('validMovesToggle');
-        const animationsToggle = document.getElementById('animationsToggle');
+        const previousMoveToggle = document.getElementById('previousMoveToggle');
         
         if (hamburgerThemeToggle && themeToggle) {
             hamburgerThemeToggle.checked = themeToggle.checked;
@@ -3251,8 +3251,8 @@ window.onload = function () {
         if (hamburgerValidMovesToggle && validMovesToggle) {
             hamburgerValidMovesToggle.checked = validMovesToggle.checked;
         }
-        if (hamburgerAnimationsToggle && animationsToggle) {
-            hamburgerAnimationsToggle.checked = animationsToggle.checked;
+        if (hamburgerPreviousMoveToggle && previousMoveToggle) {
+            hamburgerPreviousMoveToggle.checked = previousMoveToggle.checked;
         }
     }
     
@@ -3363,12 +3363,12 @@ window.onload = function () {
         });
     }
     
-    if (hamburgerAnimationsToggle) {
-        hamburgerAnimationsToggle.addEventListener('change', () => {
-            const animationsToggle = document.getElementById('animationsToggle');
-            if (animationsToggle) {
-                animationsToggle.checked = hamburgerAnimationsToggle.checked;
-                animationsToggle.dispatchEvent(new Event('change'));
+    if (hamburgerPreviousMoveToggle) {
+        hamburgerPreviousMoveToggle.addEventListener('change', () => {
+            const previousMoveToggle = document.getElementById('previousMoveToggle');
+            if (previousMoveToggle) {
+                previousMoveToggle.checked = hamburgerPreviousMoveToggle.checked;
+                previousMoveToggle.dispatchEvent(new Event('change'));
             }
         });
     }

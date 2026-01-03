@@ -235,7 +235,50 @@ button:active {
     border: 2px solid #cccccc;
 }
 
-/* Mobile optimizations */
+/* =====================================================
+   RESPONSIVE DESIGN - Device Breakpoints
+   =====================================================
+   
+   Device Reference:
+   - iPhone SE: 375x667 (portrait), 667x375 (landscape)
+   - iPhone 12/13/14: 390x844 (portrait), 844x390 (landscape)
+   - iPhone 12/13/14 Pro Max: 428x926 (portrait)
+   - iPad Mini: 768x1024 (portrait), 1024x768 (landscape)
+   - iPad: 810x1080 (portrait), 1080x810 (landscape)
+   - iPad Air: 820x1180 (portrait)
+   - iPad Pro 11": 834x1194 (portrait)
+   - iPad Pro 12.9": 1024x1366 (portrait)
+   - Desktop: 1280+ wide
+   ===================================================== */
+
+/* Large tablets and small laptops (iPad Pro 12.9" landscape, small desktops) */
+@media (max-width: 1366px) {
+    .lobby-content {
+        max-width: 420px;
+    }
+}
+
+/* Tablets (iPad, iPad Air, iPad Pro 11") */
+@media (max-width: 1024px) {
+    body {
+        padding: 0;
+    }
+    
+    .lobby-content {
+        max-width: 400px;
+        padding: 30px 25px;
+    }
+    
+    .lobby-logo-img {
+        max-width: 100px;
+    }
+    
+    .lobby-title {
+        font-size: 2rem;
+    }
+}
+
+/* Small tablets (iPad Mini portrait) */
 @media (max-width: 768px) {
     body {
         padding: 0;
@@ -283,8 +326,30 @@ button:active {
     .player-info .player-rating {
         font-size: 0.65rem;
     }
+    
+    /* Hamburger adjustments for tablets */
+    .hamburger-btn {
+        bottom: 15px;
+        left: 15px;
+    }
+    
+    .hamburger-modal-content {
+        width: 280px;
+    }
+    
+    /* Lobby adjustments */
+    .lobby-content {
+        max-width: 360px;
+        padding: 25px 20px;
+    }
+    
+    .lobby-btn {
+        padding: 14px 20px;
+        font-size: 1rem;
+    }
 }
 
+/* Large phones (iPhone Pro Max, larger Android) */
 @media (max-width: 480px) {
     h1 {
         font-size: 1.5em;
@@ -305,11 +370,10 @@ button:active {
     }
 
     button {
-        padding: 16px 32px;
+        padding: 14px 24px;
         font-size: 16px;
         margin: 8px 4px;
-        width: calc(50% - 16px);
-        max-width: 200px;
+        min-width: 100px;
     }
 
     #playerStatus {
@@ -317,10 +381,167 @@ button:active {
         margin: 5px;
         padding: 8px;
     }
+    
+    /* Player info adjustments */
+    .player-info {
+        padding: 4px 8px;
+        min-width: 70px;
+    }
+    
+    .player-info .player-name {
+        font-size: 0.75rem;
+    }
+    
+    .player-info .player-timer {
+        font-size: 1rem;
+        padding: 3px 6px;
+    }
+    
+    /* Undo/Redo toolbar */
+    #undoRedoToolbar {
+        min-height: 80px;
+        padding: 6px 10px;
+        gap: 8px;
+    }
+    
+    .undo-redo-btn {
+        width: 36px;
+        height: 36px;
+    }
+    
+    .player-indicator {
+        font-size: 11px;
+        padding: 3px 10px;
+        min-width: 100px;
+    }
+    
+    /* Canvas adjustments */
+    #gameCanvas {
+        margin-top: 80px;
+        height: calc(100% - 80px);
+    }
+    
+    #inventoryCanvas {
+        top: 100px;
+        height: calc(100% - 100px);
+    }
+    
+    /* Hamburger menu */
+    .hamburger-btn {
+        bottom: 12px;
+        left: 12px;
+        width: 40px;
+        height: 40px;
+    }
+    
+    .hamburger-modal-content {
+        width: 260px;
+        max-height: 80vh;
+    }
+    
+    /* Lobby */
+    .lobby-content {
+        max-width: 320px;
+        padding: 20px 16px;
+    }
+    
+    .lobby-logo-img {
+        max-width: 70px;
+    }
+    
+    .lobby-title {
+        font-size: 1.6rem;
+    }
+    
+    .lobby-btn {
+        padding: 12px 16px;
+        font-size: 0.95rem;
+    }
+    
+    .lobby-footer {
+        gap: 8px;
+        padding: 12px 0;
+    }
+    
+    .footer-btn {
+        padding: 10px 16px;
+        font-size: 0.85rem;
+    }
+    
+    /* Online game actions */
+    .online-game-actions {
+        bottom: 15px;
+        gap: 10px;
+    }
+    
+    .game-action-btn {
+        width: 36px;
+        height: 36px;
+    }
 }
 
-/* Landscape mobile */
-@media (max-width: 896px) and (orientation: landscape) {
+/* Small phones (iPhone SE, older devices) */
+@media (max-width: 375px) {
+    .player-info {
+        padding: 3px 6px;
+        min-width: 60px;
+    }
+    
+    .player-info .player-name {
+        font-size: 0.7rem;
+    }
+    
+    .player-info .player-timer {
+        font-size: 0.9rem;
+    }
+    
+    #undoRedoToolbar {
+        min-height: 70px;
+        padding: 4px 8px;
+        gap: 6px;
+    }
+    
+    .undo-redo-btn {
+        width: 32px;
+        height: 32px;
+    }
+    
+    .player-indicator {
+        font-size: 10px;
+        padding: 2px 8px;
+        min-width: 90px;
+    }
+    
+    #gameCanvas {
+        margin-top: 70px;
+        height: calc(100% - 70px);
+    }
+    
+    .lobby-content {
+        max-width: 300px;
+        padding: 16px 12px;
+    }
+    
+    .lobby-logo-img {
+        max-width: 60px;
+    }
+    
+    .lobby-title {
+        font-size: 1.4rem;
+    }
+    
+    .lobby-btn {
+        padding: 10px 14px;
+        font-size: 0.9rem;
+    }
+    
+    .hamburger-modal-content {
+        width: 240px;
+    }
+}
+
+/* Landscape mode - phones */
+@media (max-height: 500px) and (orientation: landscape) {
     .logo-container {
         margin: 5px 0;
     }
@@ -349,6 +570,120 @@ button:active {
         padding: 10px 20px;
         font-size: 14px;
         margin: 5px 3px;
+    }
+    
+    /* Compact toolbar in landscape */
+    #undoRedoToolbar {
+        min-height: 60px;
+        padding: 4px 8px;
+    }
+    
+    .undo-redo-btn {
+        width: 32px;
+        height: 32px;
+    }
+    
+    .player-indicator {
+        font-size: 10px;
+        padding: 2px 8px;
+    }
+    
+    /* Move player info to sides with compact layout */
+    .player-info {
+        top: 50%;
+        transform: translateY(-50%);
+        padding: 6px 8px;
+        flex-direction: column;
+    }
+    
+    .player-info-left {
+        left: 5px;
+    }
+    
+    .player-info-right {
+        right: 5px;
+    }
+    
+    #gameCanvas {
+        margin-top: 60px;
+        height: calc(100% - 60px);
+    }
+    
+    #inventoryCanvas {
+        top: 60px;
+        height: calc(100% - 60px);
+    }
+    
+    /* Hamburger menu positioning */
+    .hamburger-btn {
+        bottom: 10px;
+        left: 10px;
+        width: 36px;
+        height: 36px;
+    }
+    
+    /* Lobby in landscape */
+    .lobby-overlay {
+        padding: 10px;
+    }
+    
+    .lobby-content {
+        max-width: 90%;
+        max-height: 95vh;
+        padding: 15px;
+        overflow-y: auto;
+    }
+    
+    .lobby-logo {
+        flex-direction: row;
+        gap: 15px;
+        margin-bottom: 15px;
+    }
+    
+    .lobby-logo-img {
+        max-width: 50px;
+    }
+    
+    .lobby-title {
+        font-size: 1.4rem;
+    }
+    
+    .lobby-menu {
+        gap: 10px;
+    }
+    
+    .lobby-btn {
+        padding: 10px 16px;
+        font-size: 0.9rem;
+    }
+}
+
+/* Landscape mode - tablets (iPad Mini, iPad in landscape) */
+@media (min-width: 768px) and (max-height: 768px) and (orientation: landscape) {
+    #undoRedoToolbar {
+        min-height: 70px;
+    }
+    
+    #gameCanvas {
+        margin-top: 70px;
+        height: calc(100% - 70px);
+    }
+    
+    .player-info {
+        top: 8px;
+        transform: none;
+    }
+    
+    .lobby-content {
+        max-width: 500px;
+        max-height: 90vh;
+    }
+}
+
+/* High DPI / Retina displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    .hamburger-line {
+        height: 2px;
     }
 }
 
@@ -1013,7 +1348,7 @@ select {
     text-align: center;
 }
 
-/* Mobile optimizations for rules modal */
+/* Responsive rules modal - Tablets */
 @media (max-width: 768px) {
     .rules-modal {
         width: 95%;
@@ -1051,11 +1386,13 @@ select {
     }
 }
 
+/* Responsive rules modal - Phones */
 @media (max-width: 480px) {
     .rules-modal {
         width: 98%;
-        height: 80vh;
-        max-height: 85vh;
+        height: 85vh;
+        max-height: 90vh;
+        border-radius: 12px;
     }
 
     .rules-header {
@@ -1096,6 +1433,33 @@ select {
 
     .pdf-container {
         padding: 8px;
+    }
+}
+
+/* Responsive rules modal - Landscape phones */
+@media (max-height: 500px) and (orientation: landscape) {
+    .rules-modal {
+        width: 90%;
+        height: 95vh;
+        max-height: 95vh;
+    }
+    
+    .rules-header {
+        padding: 10px 15px;
+    }
+    
+    .rules-header h2 {
+        font-size: 1rem;
+    }
+    
+    .rules-footer {
+        padding: 8px 15px;
+    }
+    
+    .page-nav-btn {
+        padding: 6px 10px;
+        font-size: 11px;
+        min-height: 32px;
     }
 }
 
@@ -2708,4 +3072,400 @@ body:not([data-theme="light"]) .lobby-logo-img {
 
 [data-theme="light"] #drawProposalText {
     color: #333;
+}
+
+/* =====================================================
+   HTML RULES STYLES
+   Styles for the new HTML-based rules viewer
+   ===================================================== */
+
+/* Main HTML container for rules */
+.rules-html-container {
+    flex: 1;
+    overflow: hidden;
+    background: var(--bg-primary);
+}
+
+/* Loading state */
+.rules-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    font-size: 1rem;
+    color: var(--text-secondary);
+}
+
+.rules-loading span {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
+
+/* Error state */
+.rules-error {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 20px;
+    color: var(--error-color, #ff4444);
+    text-align: center;
+}
+
+/* Rules content container with sidebar layout */
+.rules-content {
+    display: flex;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* Sidebar navigation */
+.rules-nav {
+    width: 200px;
+    min-width: 200px;
+    background: var(--bg-container);
+    border-right: 1px solid var(--border-color);
+    overflow-y: auto;
+    padding: 20px 0;
+}
+
+.rules-nav-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.rules-nav-link {
+    display: block;
+    padding: 10px 20px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.9rem;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.rules-nav-link:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.rules-nav-link.active {
+    color: var(--text-primary);
+    border-left-color: var(--accent-color);
+    background: rgba(255, 255, 255, 0.08);
+    font-weight: 600;
+}
+
+/* Main content area */
+.rules-main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 30px 40px;
+    scroll-behavior: smooth;
+}
+
+/* Section styling */
+.rules-section {
+    margin-bottom: 50px;
+    padding-bottom: 30px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.rules-section:last-child {
+    border-bottom: none;
+}
+
+.rules-section h2 {
+    font-size: 1.6rem;
+    color: var(--text-primary);
+    margin: 0 0 20px 0;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--accent-color);
+}
+
+.rules-section h3 {
+    font-size: 1.2rem;
+    color: var(--text-primary);
+    margin: 25px 0 15px 0;
+}
+
+.rules-section p {
+    font-size: 1rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+    margin: 0 0 15px 0;
+}
+
+/* Lists */
+.rules-list {
+    margin: 15px 0;
+    padding-left: 25px;
+    color: var(--text-secondary);
+}
+
+.rules-list li {
+    margin-bottom: 10px;
+    line-height: 1.6;
+}
+
+.rules-list-numbered {
+    list-style-type: decimal;
+}
+
+/* Highlight boxes (for victory conditions etc) */
+.rules-highlight {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 30px;
+    margin: 25px 0;
+    padding: 25px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+}
+
+.rules-highlight-item {
+    text-align: center;
+}
+
+.highlight-number {
+    display: block;
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+}
+
+.highlight-label {
+    display: block;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-top: 8px;
+}
+
+.rules-highlight-separator {
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+/* Note boxes */
+.rules-note {
+    background: rgba(255, 200, 50, 0.1);
+    border-left: 4px solid #f0a500;
+    padding: 15px 20px;
+    margin: 20px 0;
+    border-radius: 0 8px 8px 0;
+}
+
+.rules-note strong {
+    color: #f0a500;
+}
+
+.rules-note-strategy {
+    background: rgba(100, 200, 100, 0.1);
+    border-left-color: #4caf50;
+}
+
+.rules-note-strategy strong {
+    color: #4caf50;
+}
+
+/* Victory conditions */
+.rules-victory-conditions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 40px;
+    margin: 30px 0;
+    flex-wrap: wrap;
+}
+
+.victory-condition {
+    text-align: center;
+    padding: 20px 30px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+}
+
+.victory-icon {
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+    letter-spacing: 2px;
+}
+
+.disc-icon {
+    color: var(--text-primary);
+}
+
+.ring-icon {
+    color: var(--text-secondary);
+}
+
+.victory-text {
+    font-size: 1rem;
+    color: var(--text-secondary);
+}
+
+.victory-or {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+/* Animation placeholder styling */
+.rules-animation-placeholder {
+    margin: 25px 0;
+    padding: 60px 30px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.05) 100%);
+    border: 2px dashed var(--border-color);
+    border-radius: 12px;
+    text-align: center;
+}
+
+.animation-placeholder-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    color: var(--text-secondary);
+}
+
+.animation-icon {
+    font-size: 2.5rem;
+    opacity: 0.5;
+}
+
+/* Future animation container (when implemented) */
+.rules-animation {
+    margin: 25px 0;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.rules-animation-canvas {
+    width: 100%;
+    height: 300px;
+    display: block;
+    background: var(--bg-body);
+}
+
+.animation-controls {
+    padding: 10px;
+    background: var(--bg-container);
+    text-align: center;
+}
+
+.animation-replay {
+    padding: 8px 16px;
+    font-size: 0.85rem;
+}
+
+/* Responsive rules */
+@media (max-width: 768px) {
+    .rules-content {
+        flex-direction: column;
+    }
+    
+    .rules-nav {
+        width: 100%;
+        min-width: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        padding: 10px 0;
+        overflow-x: auto;
+        overflow-y: visible;
+        white-space: nowrap;
+    }
+    
+    .rules-nav-list {
+        display: flex;
+        padding: 0 10px;
+        gap: 5px;
+    }
+    
+    .rules-nav-link {
+        padding: 8px 14px;
+        border-left: none;
+        border-bottom: 3px solid transparent;
+        border-radius: 6px 6px 0 0;
+        white-space: nowrap;
+        font-size: 0.85rem;
+    }
+    
+    .rules-nav-link.active {
+        border-left-color: transparent;
+        border-bottom-color: var(--accent-color);
+    }
+    
+    .rules-main {
+        padding: 20px 15px;
+    }
+    
+    .rules-section h2 {
+        font-size: 1.4rem;
+    }
+    
+    .rules-highlight {
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    .rules-victory-conditions {
+        flex-direction: column;
+        gap: 20px;
+    }
+}
+
+@media (max-width: 480px) {
+    .rules-nav-link {
+        padding: 6px 12px;
+        font-size: 0.8rem;
+    }
+    
+    .rules-main {
+        padding: 15px 12px;
+    }
+    
+    .rules-section h2 {
+        font-size: 1.2rem;
+    }
+    
+    .rules-section p {
+        font-size: 0.95rem;
+    }
+    
+    .highlight-number {
+        font-size: 2.5rem;
+    }
+    
+    .rules-animation-placeholder {
+        padding: 40px 20px;
+    }
+}
+
+/* Light theme adjustments */
+[data-theme="light"] .rules-nav-link:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .rules-nav-link.active {
+    background: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .rules-highlight,
+[data-theme="light"] .victory-condition {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .rules-animation-placeholder {
+    background: linear-gradient(135deg, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0.05) 100%);
 }

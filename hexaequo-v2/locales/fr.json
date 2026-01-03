@@ -1,0 +1,134 @@
+{
+  "meta": {
+    "language": "Français",
+    "code": "fr"
+  },
+  "lobby": {
+    "title": "HEXAEQUO",
+    "localGame": "Partie locale",
+    "playOnline": "Jouer en ligne",
+    "back": "Retour",
+    "gameSetup": "Configuration",
+    "black": "Noir",
+    "white": "Blanc",
+    "human": "Humain",
+    "ai": "IA",
+    "level": "Niveau",
+    "timeControl": "Cadence",
+    "noTimer": "Sans chrono",
+    "classic": "Classique : 15|0",
+    "rapid": "Rapide : 10|5",
+    "blitz": "Blitz : 5|3",
+    "bullet": "Bullet : 2|1",
+    "startGame": "Commencer",
+    "createRoom": "Créer un salon",
+    "availableRooms": "Salons disponibles",
+    "refresh": "Actualiser",
+    "filters": "Filtres",
+    "time": "Temps",
+    "player": "Joueur",
+    "elo": "ELO",
+    "guests": "Invités",
+    "users": "Utilisateurs",
+    "min": "Min",
+    "max": "Max",
+    "noRoomsAvailable": "Aucun salon disponible",
+    "createOrWait": "Créez un salon ou attendez que d'autres joueurs se connectent",
+    "waitingForOpponent": "En attente d'un adversaire...",
+    "cancel": "Annuler",
+    "connecting": "Connexion...",
+    "connected": "Connecté",
+    "disconnected": "Déconnecté",
+    "guest": "Invité"
+  },
+  "auth": {
+    "signIn": "Connexion",
+    "register": "Inscription",
+    "username": "Nom d'utilisateur",
+    "password": "Mot de passe",
+    "displayName": "Nom affiché (optionnel)",
+    "createAccount": "Créer un compte"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "theme": "Thème",
+    "dark": "Sombre",
+    "light": "Clair",
+    "sound": "Son",
+    "showValidMoves": "Afficher les coups valides",
+    "showPreviousMove": "Afficher le coup précédent",
+    "language": "Langue"
+  },
+  "game": {
+    "player": "Joueur",
+    "yourTurn": "Votre tour",
+    "opponentTurn": "Tour de l'adversaire",
+    "blackTurn": "Tour des Noirs",
+    "whiteTurn": "Tour des Blancs",
+    "undo": "Annuler",
+    "redo": "Refaire",
+    "resign": "Abandonner",
+    "proposeExAequo": "Proposer Ex Aequo",
+    "acceptExAequo": "Accepter",
+    "declineExAequo": "Refuser",
+    "opponentProposesExAequo": "L'adversaire propose Ex Aequo",
+    "exAequoDeclined": "Ex Aequo refusé",
+    "mainMenu": "Menu principal",
+    "quickSettings": "Paramètres rapides"
+  },
+  "gameOver": {
+    "victory": "Victoire !",
+    "defeat": "Défaite",
+    "draw": "Nulle",
+    "blackWins": "Les Noirs gagnent !",
+    "whiteWins": "Les Blancs gagnent !",
+    "exAequo": "Ex Aequo",
+    "byCapture": "par capture",
+    "byResignation": "par abandon",
+    "onTime": "au temps",
+    "newGame": "Nouvelle partie",
+    "rematch": "Revanche",
+    "backToLobby": "Retour au lobby"
+  },
+  "confirmLeave": {
+    "title": "Voulez-vous vraiment quitter ?",
+    "subtitle": "La progression de la partie sera perdue.",
+    "yes": "Oui, quitter",
+    "no": "Annuler"
+  },
+  "rules": {
+    "title": "Règles du jeu",
+    "prevPage": "← Préc.",
+    "nextPage": "Suiv. →",
+    "pageOf": "Page {current} sur {total}"
+  },
+  "profile": {
+    "title": "Profil",
+    "comingSoon": "🚧 Bientôt disponible 🚧",
+    "comingSoonHint": "Statistiques, changement de mot de passe et d'autres fonctionnalités seront disponibles ici."
+  },
+  "footer": {
+    "rules": "Règles",
+    "settings": "Paramètres"
+  },
+  "online": {
+    "playOnline": "Jouer en ligne",
+    "enterRoomCode": "Entrez le code du salon",
+    "joinRoom": "Rejoindre",
+    "or": "ou",
+    "waitingForOpponent": "En attente d'un adversaire...",
+    "youArePlaying": "Vous jouez les",
+    "room": "Salon",
+    "opponentConnected": "Adversaire connecté",
+    "opponentDisconnected": "Adversaire déconnecté",
+    "leaveGame": "Quitter la partie"
+  },
+  "errors": {
+    "connectionFailed": "Échec de la connexion",
+    "roomNotFound": "Salon introuvable",
+    "roomFull": "Le salon est complet",
+    "invalidMove": "Coup invalide",
+    "notYourTurn": "Ce n'est pas votre tour",
+    "gameEnded": "La partie est terminée"
+  }
+}

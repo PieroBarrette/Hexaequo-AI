@@ -1,0 +1,134 @@
+{
+  "meta": {
+    "language": "English",
+    "code": "en"
+  },
+  "lobby": {
+    "title": "HEXAEQUO",
+    "localGame": "Local Game",
+    "playOnline": "Play Online",
+    "back": "Back",
+    "gameSetup": "Game Setup",
+    "black": "Black",
+    "white": "White",
+    "human": "Human",
+    "ai": "AI",
+    "level": "Level",
+    "timeControl": "Time Control",
+    "noTimer": "No Timer",
+    "classic": "Classic: 15|0",
+    "rapid": "Rapid: 10|5",
+    "blitz": "Blitz: 5|3",
+    "bullet": "Bullet: 2|1",
+    "startGame": "Start Game",
+    "createRoom": "Create Room",
+    "availableRooms": "Available Rooms",
+    "refresh": "Refresh",
+    "filters": "Filters",
+    "time": "Time",
+    "player": "Player",
+    "elo": "ELO",
+    "guests": "Guests",
+    "users": "Users",
+    "min": "Min",
+    "max": "Max",
+    "noRoomsAvailable": "No rooms available",
+    "createOrWait": "Create a room or wait for others to join",
+    "waitingForOpponent": "Waiting for opponent...",
+    "cancel": "Cancel",
+    "connecting": "Connecting...",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "guest": "Guest"
+  },
+  "auth": {
+    "signIn": "Sign In",
+    "register": "Register",
+    "username": "Username",
+    "password": "Password",
+    "displayName": "Display Name (optional)",
+    "createAccount": "Create Account"
+  },
+  "settings": {
+    "title": "Settings",
+    "theme": "Theme",
+    "dark": "Dark",
+    "light": "Light",
+    "sound": "Sound",
+    "showValidMoves": "Show Valid Moves",
+    "showPreviousMove": "Show Previous Move",
+    "language": "Language"
+  },
+  "game": {
+    "player": "Player",
+    "yourTurn": "Your Turn",
+    "opponentTurn": "Opponent's Turn",
+    "blackTurn": "Black's Turn",
+    "whiteTurn": "White's Turn",
+    "undo": "Undo",
+    "redo": "Redo",
+    "resign": "Resign",
+    "proposeExAequo": "Propose Ex Aequo",
+    "acceptExAequo": "Accept",
+    "declineExAequo": "Decline",
+    "opponentProposesExAequo": "Opponent proposes Ex Aequo",
+    "exAequoDeclined": "Ex Aequo declined",
+    "mainMenu": "Main Menu",
+    "quickSettings": "Quick Settings"
+  },
+  "gameOver": {
+    "victory": "Victory!",
+    "defeat": "Defeat",
+    "draw": "Draw",
+    "blackWins": "Black Wins!",
+    "whiteWins": "White Wins!",
+    "exAequo": "Ex Aequo",
+    "byCapture": "by capture",
+    "byResignation": "by resignation",
+    "onTime": "on time",
+    "newGame": "New Game",
+    "rematch": "Rematch",
+    "backToLobby": "Back to Lobby"
+  },
+  "confirmLeave": {
+    "title": "Are you sure you want to leave?",
+    "subtitle": "Game progress will be lost.",
+    "yes": "Yes, Leave",
+    "no": "Cancel"
+  },
+  "rules": {
+    "title": "Game Rules",
+    "prevPage": "← Prev",
+    "nextPage": "Next →",
+    "pageOf": "Page {current} of {total}"
+  },
+  "profile": {
+    "title": "Profile",
+    "comingSoon": "🚧 Coming Soon 🚧",
+    "comingSoonHint": "Statistics, password change, and more features will be available here."
+  },
+  "footer": {
+    "rules": "Rules",
+    "settings": "Settings"
+  },
+  "online": {
+    "playOnline": "Play Online",
+    "enterRoomCode": "Enter room code",
+    "joinRoom": "Join Room",
+    "or": "or",
+    "waitingForOpponent": "Waiting for opponent to join...",
+    "youArePlaying": "You are playing as",
+    "room": "Room",
+    "opponentConnected": "Opponent connected",
+    "opponentDisconnected": "Opponent disconnected",
+    "leaveGame": "Leave Game"
+  },
+  "errors": {
+    "connectionFailed": "Connection failed",
+    "roomNotFound": "Room not found",
+    "roomFull": "Room is full",
+    "invalidMove": "Invalid move",
+    "notYourTurn": "Not your turn",
+    "gameEnded": "Game has ended"
+  }
+}

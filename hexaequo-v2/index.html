@@ -13,7 +13,10 @@
     <title>Hexaequo</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="manifest" href="manifest.json">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- i18n module - must load before other scripts -->
+    <script src="i18n.js" type="module"></script>
+    <!-- Rules viewer (replaces PDF.js) -->
+    <script src="rules-viewer.js" defer></script>
 
     <!-- Favicons with dark/light mode support -->
     <link rel="icon" href="icons/icon-192x192.png"
@@ -33,27 +36,27 @@
         <div class="lobby-content">
             <div class="lobby-logo">
                 <img id="lobbyLogoImg" src="icons/logo.png" alt="Hexaequo Logo" class="lobby-logo-img">
-                <h1 class="lobby-title">HEXAEQUO</h1>
+                <h1 class="lobby-title" data-i18n="lobby.title">HEXAEQUO</h1>
             </div>
             
             <div class="lobby-menu">
                 <!-- Game Mode Selection (2 buttons: Local / Online) -->
                 <div class="lobby-section mode-selection">
-                    <button class="lobby-btn" id="playLocalBtn">Local Game</button>
-                    <button class="lobby-btn" id="playOnlineBtn">Play Online</button>
+                    <button class="lobby-btn" id="playLocalBtn" data-i18n="lobby.localGame">Local Game</button>
+                    <button class="lobby-btn" id="playOnlineBtn" data-i18n="lobby.playOnline">Play Online</button>
                 </div>
                 
                 <!-- Local Game Configuration (hidden by default) -->
                 <div class="lobby-section local-config" id="localConfigSection" style="display: none;">
-                    <div class="section-title">Game Setup</div>
+                    <div class="section-title" data-i18n="lobby.gameSetup">Game Setup</div>
                     
                     <!-- Player Configuration -->
                     <div class="player-config">
                         <div class="player-config-row">
-                            <span class="player-config-label">⚫ Black</span>
+                            <span class="player-config-label">⚫ <span data-i18n="lobby.black">Black</span></span>
                             <select id="blackPlayerType" class="player-type-select">
-                                <option value="human">Human</option>
-                                <option value="ai">AI</option>
+                                <option value="human" data-i18n="lobby.human">Human</option>
+                                <option value="ai" data-i18n="lobby.ai">AI</option>
                             </select>
                             <select id="blackAiLevel" class="ai-level-select" style="display: none;">
                                 <option value="1">Level 1</option>
@@ -63,10 +66,10 @@
                             </select>
                         </div>
                         <div class="player-config-row">
-                            <span class="player-config-label">⚪ White</span>
+                            <span class="player-config-label">⚪ <span data-i18n="lobby.white">White</span></span>
                             <select id="whitePlayerType" class="player-type-select">
-                                <option value="human">Human</option>
-                                <option value="ai">AI</option>
+                                <option value="human" data-i18n="lobby.human">Human</option>
+                                <option value="ai" data-i18n="lobby.ai">AI</option>
                             </select>
                             <select id="whiteAiLevel" class="ai-level-select" style="display: none;">
                                 <option value="1">Level 1</option>
@@ -79,28 +82,28 @@
                     
                     <!-- Time Control -->
                     <div class="time-control-config">
-                        <label for="localTimeControl" class="config-label">Time Control</label>
+                        <label for="localTimeControl" class="config-label" data-i18n="lobby.timeControl">Time Control</label>
                         <select id="localTimeControl" class="lobby-select">
-                            <option value="none" selected>No Timer</option>
-                            <option value="classic">Classic: 15|0</option>
-                            <option value="rapid">Rapid: 10|5</option>
-                            <option value="blitz">Blitz: 5|3</option>
-                            <option value="bullet">Bullet: 2|1</option>
+                            <option value="none" selected data-i18n="lobby.noTimer">No Timer</option>
+                            <option value="classic" data-i18n="lobby.classic">Classic: 15|0</option>
+                            <option value="rapid" data-i18n="lobby.rapid">Rapid: 10|5</option>
+                            <option value="blitz" data-i18n="lobby.blitz">Blitz: 5|3</option>
+                            <option value="bullet" data-i18n="lobby.bullet">Bullet: 2|1</option>
                         </select>
                     </div>
                     
-                    <button class="lobby-btn primary" id="startLocalGameBtn">Start Game</button>
-                    <button class="lobby-btn secondary" id="backFromLocalBtn">Back</button>
+                    <button class="lobby-btn primary" id="startLocalGameBtn" data-i18n="lobby.startGame">Start Game</button>
+                    <button class="lobby-btn secondary" id="backFromLocalBtn" data-i18n="lobby.back">Back</button>
                 </div>
                 
                 <!-- Online Options (hidden by default) -->
                 <div class="lobby-section online-options" id="onlineOptions" style="display: none;">
                     <!-- User Status -->
                     <div id="userStatus" class="user-status">
-                        <span id="userDisplayName" class="user-name">Guest</span>
+                        <span id="userDisplayName" class="user-name" data-i18n="lobby.guest">Guest</span>
                         <span id="userEloDisplay" class="user-elo"></span>
-                        <button id="loginBtn" class="user-action-btn">Sign In</button>
-                        <button id="profileBtn" class="user-action-btn profile-btn" style="display: none;">Profile</button>
+                        <button id="loginBtn" class="user-action-btn" data-i18n="auth.signIn">Sign In</button>
+                        <button id="profileBtn" class="user-action-btn profile-btn" style="display: none;" data-i18n="profile.title">Profile</button>
                     </div>
                     
                     <div id="lobbyConnectionStatus" class="lobby-connection-status">
@@ -223,63 +226,63 @@
                 <!-- Settings Section (hidden by default) -->
                 <div class="lobby-section settings-section" id="lobbySettingsSection" style="display: none;">
                     <div class="settings-item">
-                        <span>Theme</span>
+                        <span data-i18n="settings.theme">Theme</span>
                         <div class="theme-toggle">
-                            <span class="theme-label">Dark</span>
+                            <span class="theme-label" data-i18n="settings.dark">Dark</span>
                             <label class="switch">
                                 <input type="checkbox" id="lobbyThemeToggle">
                                 <span class="slider"></span>
                             </label>
-                            <span class="theme-label">Light</span>
+                            <span class="theme-label" data-i18n="settings.light">Light</span>
                         </div>
                     </div>
                     <div class="settings-item">
-                        <span>Sound</span>
+                        <span data-i18n="settings.sound">Sound</span>
                         <label class="switch">
                             <input type="checkbox" id="lobbySoundToggle" checked>
                             <span class="slider"></span>
                         </label>
                     </div>
                     <div class="settings-item">
-                        <span>Show Valid Moves</span>
+                        <span data-i18n="settings.showValidMoves">Show Valid Moves</span>
                         <label class="switch">
                             <input type="checkbox" id="lobbyValidMovesToggle">
                             <span class="slider"></span>
                         </label>
                     </div>
                     <div class="settings-item">
-                        <span>Show Previous Move</span>
+                        <span data-i18n="settings.showPreviousMove">Show Previous Move</span>
                         <label class="switch">
                             <input type="checkbox" id="lobbyPreviousMoveToggle" checked>
                             <span class="slider"></span>
                         </label>
                     </div>
                     <div class="settings-item">
-                        <span>Animations</span>
-                        <label class="switch">
-                            <input type="checkbox" id="lobbyAnimationsToggle" checked>
-                            <span class="slider"></span>
-                        </label>
+                        <span data-i18n="settings.language">Language</span>
+                        <select id="languageSelect" class="lobby-select">
+                            <option value="en">English</option>
+                            <option value="fr">Français</option>
+                        </select>
                     </div>
-                    <button class="lobby-btn secondary" id="backFromSettingsBtn">Back</button>
+                    <button class="lobby-btn secondary" id="backFromSettingsBtn" data-i18n="lobby.back">Back</button>
                 </div>
                 
                 <!-- Profile Modal -->
                 <div class="profile-modal" id="profileModal" style="display: none;">
                     <div class="profile-modal-content">
                         <button class="profile-close-btn" id="profileCloseBtn">&times;</button>
-                        <h2 class="profile-title">Profile</h2>
+                        <h2 class="profile-title" data-i18n="profile.title">Profile</h2>
                         <div class="profile-coming-soon">
-                            <p>🚧 Coming Soon 🚧</p>
-                            <p class="coming-soon-hint">Statistics, password change, and more features will be available here.</p>
+                            <p data-i18n="profile.comingSoon">🚧 Coming Soon 🚧</p>
+                            <p class="coming-soon-hint" data-i18n="profile.comingSoonHint">Statistics, password change, and more features will be available here.</p>
                         </div>
                     </div>
                 </div>
             </div>
             
             <div class="lobby-footer">
-                <button class="footer-btn" id="lobbyRulesBtn">Rules</button>
-                <button class="footer-btn" id="lobbySettingsBtn">Settings</button>
+                <button class="footer-btn" id="lobbyRulesBtn" data-i18n="footer.rules">Rules</button>
+                <button class="footer-btn" id="lobbySettingsBtn" data-i18n="footer.settings">Settings</button>
             </div>
         </div>
     </div>
@@ -365,25 +368,25 @@
     <div id="hamburgerModal" class="hamburger-modal">
         <div class="hamburger-modal-content">
             <div class="hamburger-header">
-                <span class="hamburger-title">Quick Settings</span>
+                <span class="hamburger-title" data-i18n="game.quickSettings">Quick Settings</span>
                 <button id="closeHamburgerBtn" class="close-hamburger-btn" title="Close">✕</button>
             </div>
             
             <div class="hamburger-settings">
                 <div class="hamburger-item">
-                    <label>Theme</label>
+                    <label data-i18n="settings.theme">Theme</label>
                     <div class="toggle-container">
-                        <span class="toggle-label">Dark</span>
+                        <span class="toggle-label" data-i18n="settings.dark">Dark</span>
                         <label class="switch">
                             <input type="checkbox" id="hamburgerThemeToggle">
                             <span class="slider"></span>
                         </label>
-                        <span class="toggle-label">Light</span>
+                        <span class="toggle-label" data-i18n="settings.light">Light</span>
                     </div>
                 </div>
 
                 <div class="hamburger-item">
-                    <label>Sound</label>
+                    <label data-i18n="settings.sound">Sound</label>
                     <label class="switch">
                         <input type="checkbox" id="hamburgerSoundToggle" checked>
                         <span class="slider"></span>
@@ -391,7 +394,7 @@
                 </div>
 
                 <div class="hamburger-item">
-                    <label>Show Valid Moves</label>
+                    <label data-i18n="settings.showValidMoves">Show Valid Moves</label>
                     <label class="switch">
                         <input type="checkbox" id="hamburgerValidMovesToggle">
                         <span class="slider"></span>
@@ -399,16 +402,16 @@
                 </div>
 
                 <div class="hamburger-item">
-                    <label>Animations</label>
+                    <label data-i18n="settings.showPreviousMove">Show Previous Move</label>
                     <label class="switch">
-                        <input type="checkbox" id="hamburgerAnimationsToggle" checked>
+                        <input type="checkbox" id="hamburgerPreviousMoveToggle" checked>
                         <span class="slider"></span>
                     </label>
                 </div>
             </div>
             
             <div class="hamburger-footer">
-                <button id="mainMenuBtn" class="hamburger-main-menu-btn">Main Menu</button>
+                <button id="mainMenuBtn" class="hamburger-main-menu-btn" data-i18n="game.mainMenu">Main Menu</button>
             </div>
         </div>
     </div>
@@ -416,10 +419,11 @@
     <!-- Confirmation Modal -->
     <div id="confirmModal" class="confirm-modal">
         <div class="confirm-modal-content">
-            <p class="confirm-message">Are you sure you want to leave?<br><small>Game progress will be lost.</small></p>
+            <p class="confirm-message" data-i18n-html="confirmLeave.title">Are you sure you want to leave?</p>
+            <p class="confirm-message"><small data-i18n="confirmLeave.subtitle">Game progress will be lost.</small></p>
             <div class="confirm-buttons">
-                <button id="confirmYesBtn" class="confirm-btn confirm-yes">Yes, Leave</button>
-                <button id="confirmNoBtn" class="confirm-btn confirm-no">Cancel</button>
+                <button id="confirmYesBtn" class="confirm-btn confirm-yes" data-i18n="confirmLeave.yes">Yes, Leave</button>
+                <button id="confirmNoBtn" class="confirm-btn confirm-no" data-i18n="confirmLeave.no">Cancel</button>
             </div>
         </div>
     </div>
@@ -465,14 +469,6 @@
                 </label>
             </div>
 
-            <div class="menu-item">
-                <label>Animations</label>
-                <label class="switch">
-                    <input type="checkbox" id="animationsToggle" checked>
-                    <span class="slider"></span>
-                </label>
-            </div>
-
             <div class="menu-item" style="display: none;">
                 <label>Game Mode</label>
                 <select id="gameModeSelect">
@@ -502,18 +498,14 @@
     <div id="rulesOverlay" class="rules-overlay">
         <div class="rules-modal">
             <div class="rules-header">
-                <h2>Game Rules</h2>
+                <h2 data-i18n="rules.title">Game Rules</h2>
                 <button id="closeRulesBtn" class="close-rules-btn" title="Close">✕</button>
             </div>
-            <div id="pdfContainer" class="pdf-container">
-                <div class="pdf-viewer">
-                    <canvas id="pdfCanvas"></canvas>
+            <!-- HTML Rules Container (loaded dynamically by rules-viewer.js) -->
+            <div id="pdfContainer" class="rules-html-container">
+                <div class="rules-loading">
+                    <span>Loading rules...</span>
                 </div>
-            </div>
-            <div class="rules-footer">
-                <button id="prevPageBtn" class="page-nav-btn" title="Previous Page">← Prev</button>
-                <span id="pageIndicator" class="page-indicator">Page 1 of 10</span>
-                <button id="nextPageBtn" class="page-nav-btn" title="Next Page">Next →</button>
             </div>
         </div>
     </div>
@@ -583,75 +575,15 @@
     <script src="graphics.js"></script>
     <script src="game.js"></script>
     <script>
-        // Set up PDF.js worker
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        
-        let pdfDoc = null;
-        let currentPage = 1;
-        let totalPages = 0;
-
-        // PDF Viewer Setup
-        async function initializePdfViewer() {
-            try {
-                pdfDoc = await pdfjsLib.getDocument('./rules.pdf').promise;
-                totalPages = pdfDoc.numPages;
-                renderPage(currentPage);
-                updatePageIndicator();
-            } catch (error) {
-                console.error('Error loading PDF:', error);
-                document.getElementById('pdfContainer').innerHTML = '<p style="color: red; padding: 20px;">Error loading rules PDF</p>';
+        // Rules Viewer is loaded via rules-viewer.js
+        // Legacy compatibility: expose empty functions for any code that still references PDF viewer
+        window.pdfDoc = null;
+        window.initializePdfViewer = function() {
+            // Redirect to RulesViewer
+            if (window.RulesViewer) {
+                window.RulesViewer.open();
             }
-        }
-
-        async function renderPage(pageNum) {
-            if (!pdfDoc) return;
-            
-            try {
-                const page = await pdfDoc.getPage(pageNum);
-                const canvas = document.getElementById('pdfCanvas');
-                const ctx = canvas.getContext('2d');
-                
-                // Set viewport with proper scaling
-                const viewport = page.getViewport({ scale: window.devicePixelRatio });
-                canvas.width = viewport.width;
-                canvas.height = viewport.height;
-                
-                // Render page to canvas
-                await page.render({
-                    canvasContext: ctx,
-                    viewport: viewport
-                }).promise;
-            } catch (error) {
-                console.error('Error rendering page:', error);
-            }
-        }
-
-        function updatePageIndicator() {
-            document.getElementById('pageIndicator').textContent = `Page ${currentPage} of ${totalPages}`;
-            document.getElementById('prevPageBtn').disabled = currentPage <= 1;
-            document.getElementById('nextPageBtn').disabled = currentPage >= totalPages;
-        }
-
-        // Event Listeners for PDF Navigation
-        document.getElementById('prevPageBtn').addEventListener('click', () => {
-            if (currentPage > 1) {
-                currentPage--;
-                renderPage(currentPage);
-                updatePageIndicator();
-            }
-        });
-
-        document.getElementById('nextPageBtn').addEventListener('click', () => {
-            if (currentPage < totalPages) {
-                currentPage++;
-                renderPage(currentPage);
-                updatePageIndicator();
-            }
-        });
-        
-        // Expose PDF viewer for lobby.js
-        window.pdfDoc = pdfDoc;
-        window.initializePdfViewer = initializePdfViewer;
+        };
     </script>
     <script>
         // Menu Logic
@@ -668,7 +600,6 @@
         const themeToggle = document.getElementById('themeToggle');
         const validMovesToggle = document.getElementById('validMovesToggle');
         const previousMoveToggle = document.getElementById('previousMoveToggle');
-        const animationsToggle = document.getElementById('animationsToggle');
         const difficultyContainer = document.getElementById('difficultyContainer');
 
         // Back to Menu button - shows lobby (legacy - only if element exists)
@@ -680,18 +611,22 @@
             });
         }
 
-        // Rules Menu
+        // Rules Menu (using HTML rules viewer)
         function openRules() {
-            rulesOverlay.classList.add('open');
-            if (!pdfDoc) {
-                initializePdfViewer();
+            if (window.RulesViewer) {
+                window.RulesViewer.open();
             } else {
-                renderPage(currentPage);
+                // Fallback if RulesViewer not loaded yet
+                rulesOverlay.classList.add('open');
             }
         }
 
         function closeRules() {
-            rulesOverlay.classList.remove('open');
+            if (window.RulesViewer) {
+                window.RulesViewer.close();
+            } else {
+                rulesOverlay.classList.remove('open');
+            }
         }
 
         rulesBtn.addEventListener('click', openRules);
@@ -720,8 +655,7 @@
                 gameMode: gameModeSelect.value,
                 theme: themeToggle.checked ? 'light' : 'dark',
                 showValidMoves: validMovesToggle.checked,
-                showPreviousMove: previousMoveToggle.checked,
-                animations: animationsToggle.checked
+                showPreviousMove: previousMoveToggle.checked
             };
             localStorage.setItem('hexaequoSettings', JSON.stringify(settings));
         }
@@ -749,7 +683,6 @@
             themeToggle.checked = settings.theme === 'light';
             validMovesToggle.checked = settings.showValidMoves;
             previousMoveToggle.checked = settings.showPreviousMove;
-            animationsToggle.checked = settings.animations !== false; // Default to true
 
             // Apply settings to Game Logic
             if (window.setSoundEnabled) window.setSoundEnabled(settings.sound);
@@ -781,11 +714,6 @@
 
         previousMoveToggle.addEventListener('change', (e) => {
             window.setShowPreviousMove(e.target.checked);
-            saveSettings();
-        });
-
-        animationsToggle.addEventListener('change', (e) => {
-            window.setAnimationsEnabled(e.target.checked);
             saveSettings();
         });
 
@@ -1190,8 +1118,7 @@
         // Initialize settings on load
         window.addEventListener('load', () => {
             setTimeout(loadSettings, 0);
-            // Pre-load PDF on initial load for better UX
-            setTimeout(initializePdfViewer, 1000);
+            // Rules viewer initializes itself automatically
         });
 
         // Register service worker for PWA functionality

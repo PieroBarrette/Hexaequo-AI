@@ -1,7 +1,5 @@
-- Flags
-- Chat
-- Leaderboards
-- Tournaments
-- Game history and analysis mode
-- Statistiques
-
+1. Remove toggling animations as a settings option troughout the site, there will always be animations by default and we won't ever disable it.
+2. Add the "Show Previous Move" toggle option inside the quick settings hamburger menu inside a game as well (local and online mode).
+3. I want a drop down menu in the main menu settings (not the quick settings) that can change the language of the entire site (just french and english for now). I need this to be scalable in the future to accept more languages (all the text of the site will be in a file for each langage and the site will use the right file to display based on the selected language).
+4. For now the rules are in pdfs, but it actually needs to be in html and in css so we can do animations and "video tutorials" instead of just displaying a pdf. Changing the language will also change the language of the rules.
+5. Upgrade the UI so it looks great on all possible devices with rotations from portrait to landscape mode (e.g. positions and dimensions of buttons) so nothing is crooked, out of bounds or overlapping.

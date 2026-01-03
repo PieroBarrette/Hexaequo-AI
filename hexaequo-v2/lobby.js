@@ -89,7 +89,6 @@
         soundToggle: null,
         validMovesToggle: null,
         previousMoveToggle: null,
-        animationsToggle: null,
         // Footer
         rulesBtn: null,
         settingsBtn: null
@@ -148,7 +147,7 @@
         lobby.soundToggle = document.getElementById('lobbySoundToggle');
         lobby.validMovesToggle = document.getElementById('lobbyValidMovesToggle');
         lobby.previousMoveToggle = document.getElementById('lobbyPreviousMoveToggle');
-        lobby.animationsToggle = document.getElementById('lobbyAnimationsToggle');
+        lobby.languageSelect = document.getElementById('languageSelect');
         
         // Time control
         lobby.timeControlSelect = document.getElementById('timeControlSelect');
@@ -191,6 +190,9 @@
         
         // Sync settings with existing toggles
         syncSettingsFromGame();
+        
+        // Initialize language selector
+        initializeLanguageSelect();
         
         // Check for existing session
         checkExistingSession();
@@ -260,7 +262,7 @@
         lobby.soundToggle?.addEventListener('change', handleSoundChange);
         lobby.validMovesToggle?.addEventListener('change', handleValidMovesChange);
         lobby.previousMoveToggle?.addEventListener('change', handlePreviousMoveChange);
-        lobby.animationsToggle?.addEventListener('change', handleAnimationsChange);
+        lobby.languageSelect?.addEventListener('change', handleLanguageChange);
         
         // Time control select
         lobby.timeControlSelect?.addEventListener('change', (e) => {
@@ -293,7 +295,6 @@
         const gameSoundToggle = document.getElementById('soundToggle');
         const gameValidMovesToggle = document.getElementById('validMovesToggle');
         const gamePreviousMoveToggle = document.getElementById('previousMoveToggle');
-        const gameAnimationsToggle = document.getElementById('animationsToggle');
         
         if (gameThemeToggle && lobby.themeToggle) {
             lobby.themeToggle.checked = gameThemeToggle.checked;
@@ -306,9 +307,6 @@
         }
         if (gamePreviousMoveToggle && lobby.previousMoveToggle) {
             lobby.previousMoveToggle.checked = gamePreviousMoveToggle.checked;
-        }
-        if (gameAnimationsToggle && lobby.animationsToggle) {
-            lobby.animationsToggle.checked = gameAnimationsToggle.checked;
         }
     }
 
@@ -348,11 +346,19 @@
         }
     }
 
-    function handleAnimationsChange() {
-        const gameToggle = document.getElementById('animationsToggle');
-        if (gameToggle) {
-            gameToggle.checked = lobby.animationsToggle?.checked;
-            gameToggle.dispatchEvent(new Event('change'));
+    async function handleLanguageChange() {
+        const lang = lobby.languageSelect?.value;
+        if (lang && window.i18n) {
+            await window.i18n.setLanguage(lang);
+            window.i18n.updateDOM();
+            console.log('[Lobby] Language changed to:', lang);
+        }
+    }
+    
+    // Initialize language select with current language
+    function initializeLanguageSelect() {
+        if (lobby.languageSelect && window.i18n) {
+            lobby.languageSelect.value = window.i18n.getCurrentLanguage();
         }
     }
 
@@ -1167,13 +1173,14 @@
     }
 
     function openRules() {
-        // Open the rules overlay and initialize PDF viewer if needed
-        const rulesOverlay = document.getElementById('rulesOverlay');
-        if (rulesOverlay) {
-            rulesOverlay.classList.add('open');
-            // Trigger PDF initialization if available
-            if (window.initializePdfViewer && !window.pdfDoc) {
-                window.initializePdfViewer();
+        // Open the rules viewer (HTML-based)
+        if (window.RulesViewer) {
+            window.RulesViewer.open();
+        } else {
+            // Fallback for legacy PDF viewer
+            const rulesOverlay = document.getElementById('rulesOverlay');
+            if (rulesOverlay) {
+                rulesOverlay.classList.add('open');
             }
         }
     }
