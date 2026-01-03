@@ -140,8 +140,11 @@
         // Set up scroll spy
         setupScrollSpy();
         
-        // Initialize animations (placeholder for future implementation)
+        // Initialize animations (legacy placeholders)
         initAnimations();
+        
+        // Initialize video autoplay system
+        initVideos();
     }
 
     /**
@@ -209,28 +212,95 @@
     }
 
     /**
-     * Initialize animation placeholders
-     * This is a stub for future animation implementation
+     * Initialize animation placeholders (legacy - kept for backwards compatibility)
      */
     function initAnimations() {
         const animationPlaceholders = rulesContainer.querySelectorAll('.rules-animation-placeholder');
         
         animationPlaceholders.forEach(placeholder => {
             const animationId = placeholder.dataset.animationId;
-            
-            // TODO: Future implementation will:
-            // 1. Load animation sequence from animations.js
-            // 2. Create a mini canvas using graphics.js
-            // 3. Play the animation on loop when visible
-            // 4. Use IntersectionObserver to play only when in viewport
-            
             console.log(`[RulesViewer] Animation placeholder found: ${animationId}`);
-            
-            // For now, just add a click handler that logs
-            placeholder.addEventListener('click', () => {
-                console.log(`[RulesViewer] Animation '${animationId}' clicked (not yet implemented)`);
-            });
         });
+    }
+
+    /**
+     * Initialize video containers with IntersectionObserver for autoplay
+     * Videos play automatically when visible and pause when out of view
+     */
+    function initVideos() {
+        const videoContainers = rulesContainer.querySelectorAll('.rules-video-container');
+        
+        if (videoContainers.length === 0) return;
+        
+        // Create IntersectionObserver for autoplay on visibility
+        const videoObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                const container = entry.target;
+                const video = container.querySelector('video');
+                
+                if (!video) return;
+                
+                if (entry.isIntersecting) {
+                    // Video is visible - try to play
+                    video.play().catch(err => {
+                        // Autoplay might be blocked, that's okay
+                        console.log(`[RulesViewer] Video autoplay blocked: ${err.message}`);
+                    });
+                } else {
+                    // Video is not visible - pause to save resources
+                    video.pause();
+                }
+            });
+        }, {
+            root: rulesContainer.querySelector('.rules-main'),
+            rootMargin: '50px',
+            threshold: 0.3
+        });
+        
+        videoContainers.forEach(container => {
+            const video = container.querySelector('video');
+            const videoId = container.dataset.videoId;
+            
+            if (!video) return;
+            
+            console.log(`[RulesViewer] Video container found: ${videoId}`);
+            
+            // Mark container as loading
+            container.classList.add('video-loading');
+            
+            // Handle video load success
+            video.addEventListener('loadeddata', () => {
+                container.classList.remove('video-loading');
+                container.classList.add('video-loaded');
+                console.log(`[RulesViewer] Video loaded: ${videoId}`);
+            });
+            
+            // Handle video load error - keep placeholder visible
+            video.addEventListener('error', () => {
+                container.classList.remove('video-loading');
+                console.log(`[RulesViewer] Video failed to load: ${videoId}`);
+            });
+            
+            // Start observing for autoplay
+            videoObserver.observe(container);
+        });
+        
+        // Store observer reference for cleanup
+        rulesContainer._videoObserver = videoObserver;
+    }
+    
+    /**
+     * Cleanup video observers when rules are closed
+     */
+    function cleanupVideos() {
+        if (rulesContainer && rulesContainer._videoObserver) {
+            rulesContainer._videoObserver.disconnect();
+            rulesContainer._videoObserver = null;
+        }
+        
+        // Pause all videos
+        const videos = rulesContainer?.querySelectorAll('video');
+        videos?.forEach(video => video.pause());
     }
 
     /**
@@ -263,6 +333,9 @@
      * Close the rules modal
      */
     function close() {
+        // Cleanup videos (pause and disconnect observer)
+        cleanupVideos();
+        
         rulesOverlay.classList.remove('open');
         isOpen = false;
     }

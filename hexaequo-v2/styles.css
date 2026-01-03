@@ -3369,6 +3369,78 @@ body:not([data-theme="light"]) .lobby-logo-img {
     font-size: 0.85rem;
 }
 
+/* Video container styling */
+.rules-video-container {
+    margin: 25px 0;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    background: var(--bg-container);
+    position: relative;
+}
+
+.rules-video {
+    width: 100%;
+    height: auto;
+    display: block;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    background: #000;
+}
+
+/* Placeholder shown when video not loaded */
+.video-placeholder {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.05) 100%);
+    color: var(--text-secondary);
+    transition: opacity 0.3s ease;
+}
+
+.rules-video-container.video-loaded .video-placeholder {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.video-icon {
+    font-size: 2.5rem;
+    opacity: 0.5;
+}
+
+.video-placeholder span:last-child {
+    font-size: 0.9rem;
+    opacity: 0.7;
+}
+
+/* Video loading state */
+.rules-video-container.video-loading .video-placeholder {
+    background: linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.05) 100%);
+}
+
+.rules-video-container.video-loading .video-icon::after {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--text-secondary);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: video-spinner 1s linear infinite;
+    margin: 10px auto 0;
+}
+
+@keyframes video-spinner {
+    to { transform: rotate(360deg); }
+}
+
 /* Responsive rules */
 @media (max-width: 768px) {
     .rules-content {
@@ -3450,6 +3522,10 @@ body:not([data-theme="light"]) .lobby-logo-img {
     .rules-animation-placeholder {
         padding: 40px 20px;
     }
+    
+    .rules-video-container {
+        margin: 20px 0;
+    }
 }
 
 /* Light theme adjustments */
@@ -3467,5 +3543,9 @@ body:not([data-theme="light"]) .lobby-logo-img {
 }
 
 [data-theme="light"] .rules-animation-placeholder {
+    background: linear-gradient(135deg, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0.05) 100%);
+}
+
+[data-theme="light"] .video-placeholder {
     background: linear-gradient(135deg, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0.05) 100%);
 }

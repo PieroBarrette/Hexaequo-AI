@@ -14,15 +14,13 @@
     <nav class="rules-nav" id="rulesNav">
         <ul class="rules-nav-list">
             <li><a href="#rules-overview" class="rules-nav-link active">Aperçu</a></li>
-            <li><a href="#rules-objective" class="rules-nav-link">Objectif</a></li>
             <li><a href="#rules-setup" class="rules-nav-link">Mise en place</a></li>
+            <li><a href="#rules-objective" class="rules-nav-link">Objectif</a></li>
             <li><a href="#rules-turn" class="rules-nav-link">Tour de jeu</a></li>
             <li><a href="#rules-tiles" class="rules-nav-link">Placer des tuiles</a></li>
             <li><a href="#rules-pieces" class="rules-nav-link">Placer des pièces</a></li>
             <li><a href="#rules-movement" class="rules-nav-link">Déplacement</a></li>
-            <li><a href="#rules-capture" class="rules-nav-link">Capture</a></li>
             <li><a href="#rules-rings" class="rules-nav-link">Anneaux</a></li>
-            <li><a href="#rules-victory" class="rules-nav-link">Victoire</a></li>
         </ul>
     </nav>
     
@@ -32,64 +30,66 @@
         <section id="rules-overview" class="rules-section">
             <h2>Aperçu</h2>
             <p>
-                Hexaequo est un jeu de stratégie abstrait pour deux joueurs sur un plateau hexagonal.
-                Les joueurs placent à tour de rôle des tuiles et des pièces, déplacent des disques et capturent les pièces adverses.
+                Hexaequo est un jeu de stratégie abstrait pour deux joueurs.
+                Les joueurs placent leurs tuiles et leurs pièces, déplacent leurs pièces sur les tuiles et tentent de capturer les pièces adverses.
             </p>
             <p>
-                Le jeu combine l'expansion territoriale avec le mouvement tactique des pièces,
-                offrant des possibilités stratégiques profondes dans un ensemble de règles élégant.
+                Le jeu combine la pose de tuiles avec le mouvement tactique des pièces,
+                offrant des possibilités stratégiques profondes avec des règles simples.
             </p>
             
-            <!-- [PLACEHOLDER ANIMATION: Aperçu - Montrer une partie brève en accéléré] -->
-            <div class="rules-animation-placeholder" data-animation-id="overview-demo">
-                <div class="animation-placeholder-content">
-                    <span class="animation-icon">▶</span>
-                    <span>Animation d'aperçu du jeu</span>
-                </div>
-            </div>
-        </section>
-        
-        <!-- Section Objectif -->
-        <section id="rules-objective" class="rules-section">
-            <h2>Objectif</h2>
-            <p>
-                Gagnez en capturant <strong>6 disques adverses</strong> ou <strong>3 anneaux adverses</strong>.
-            </p>
-            <div class="rules-highlight">
-                <div class="rules-highlight-item">
-                    <span class="highlight-number">6</span>
-                    <span class="highlight-label">Disques à capturer</span>
-                </div>
-                <div class="rules-highlight-separator">ou</div>
-                <div class="rules-highlight-item">
-                    <span class="highlight-number">3</span>
-                    <span class="highlight-label">Anneaux à capturer</span>
+            <!-- Vidéo: Aperçu - Montrer une partie brève en accéléré -->
+            <div class="rules-video-container" data-video-id="overview-demo">
+                <video class="rules-video" muted loop playsinline preload="metadata">
+                    <source src="../../videos/overview-demo.mp4" type="video/mp4">
+                    <source src="../../videos/overview-demo.webm" type="video/webm">
+                </video>
+                <div class="video-placeholder">
+                    <span class="video-icon">▶</span>
+                    <span>Aperçu du jeu</span>
                 </div>
             </div>
         </section>
         
         <!-- Section Mise en place -->
         <section id="rules-setup" class="rules-section">
-            <h2>Mise en place initiale</h2>
+            <h2>Mise en place</h2>
             <p>
                 Chaque joueur commence avec :
             </p>
             <ul class="rules-list">
-                <li><strong>9 tuiles</strong> de sa couleur</li>
-                <li><strong>6 disques</strong> (pièces circulaires pleines)</li>
-                <li><strong>3 anneaux</strong> (pièces circulaires évidées)</li>
+                <li><strong>9 tuiles</strong></li>
+                <li><strong>6 disques</strong></li>
+                <li><strong>3 anneaux</strong></li>
             </ul>
             <p>
-                La partie commence avec 2 tuiles déjà placées au centre (une noire, une blanche)
-                avec un disque sur chaque tuile.
+                La partie commence avec 2 tuiles de chaque couleur placées l'une 
+                contre l'autre avec un disque à chaque bout (de la même couleur
+                que la tuile). Le joueur avec les pièces noires commence.
             </p>
             
-            <!-- [PLACEHOLDER ANIMATION: Configuration initiale du plateau] -->
-            <div class="rules-animation-placeholder" data-animation-id="initial-setup">
-                <div class="animation-placeholder-content">
-                    <span class="animation-icon">▶</span>
-                    <span>Animation de la mise en place</span>
+            <!-- Vidéo: Configuration initiale du plateau -->
+            <div class="rules-video-container" data-video-id="initial-setup">
+                <video class="rules-video" muted loop playsinline preload="metadata">
+                    <source src="../../videos/initial-setup.mp4" type="video/mp4">
+                    <source src="../../videos/initial-setup.webm" type="video/webm">
+                </video>
+                <div class="video-placeholder">
+                    <span class="video-icon">▶</span>
+                    <span>Mise en place initiale</span>
                 </div>
+            </div>
+        </section>
+
+        <!-- Section Objectif -->
+        <section id="rules-objective" class="rules-section">
+            <h2>Objectif</h2>
+            <p>
+                Gagnez en capturant <strong>6 disques adverses</strong> ou <strong>3 anneaux adverses</strong> ou <strong>toutes les pièces adverses sur les tuiles</strong>.
+            </p>
+            <div class="rules-note">
+                <strong>Note :</strong>
+                <span>Si un joueur ne peut pas jouer à son tour, ou si une position se répète trois fois, la partie est terminée et c'est <strong>Ex Aequo</strong>!</span>
             </div>
         </section>
         
@@ -99,109 +99,87 @@
             <p>
                 À votre tour, vous <strong>devez</strong> effectuer exactement l'une de ces actions :
             </p>
-            <ol class="rules-list rules-list-numbered">
-                <li><strong>Placer une tuile</strong> et éventuellement y placer une pièce</li>
-                <li><strong>Déplacer un disque</strong> que vous contrôlez</li>
-            </ol>
-            <p>
-                Les Noirs jouent toujours en premier. Les joueurs alternent jusqu'à ce que l'un d'eux remporte la victoire.
-            </p>
+            <ul class="rules-list">
+                <li><strong>Placer une tuile</strong></li>
+                <li><strong>Placer une pièce</strong></li>
+                <li><strong>Déplacer une pièce</strong></li>
+            </ul>
         </section>
         
         <!-- Section Placement de tuiles -->
         <section id="rules-tiles" class="rules-section">
-            <h2>Placer des tuiles</h2>
+            <h2>Placer une tuile</h2>
             <p>
-                Lors du placement d'une tuile, elle doit être :
-            </p>
-            <ul class="rules-list">
-                <li>Adjacente à au moins une tuile existante</li>
-                <li>Placée sur un hexagone vide (pas de tuile déjà présente)</li>
-            </ul>
-            <p>
-                Après avoir placé une tuile, vous <em>pouvez</em> immédiatement placer une de vos pièces
-                (disque ou anneau) sur cette tuile.
+                La tuile doit être : Adjacente à au moins 2 tuiles déjà placées
             </p>
             
-            <!-- [PLACEHOLDER ANIMATION: Exemples de placement de tuiles] -->
-            <div class="rules-animation-placeholder" data-animation-id="tile-placement">
-                <div class="animation-placeholder-content">
-                    <span class="animation-icon">▶</span>
-                    <span>Animation de placement de tuiles</span>
+            <!-- Vidéo: Exemples de placement de tuiles -->
+            <div class="rules-video-container" data-video-id="tile-placement">
+                <video class="rules-video" muted loop playsinline preload="metadata">
+                    <source src="../../videos/tile-placement.mp4" type="video/mp4">
+                    <source src="../../videos/tile-placement.webm" type="video/webm">
+                </video>
+                <div class="video-placeholder">
+                    <span class="video-icon">▶</span>
+                    <span>Placement de tuiles</span>
                 </div>
             </div>
         </section>
         
         <!-- Section Placement de pièces -->
         <section id="rules-pieces" class="rules-section">
-            <h2>Placer des pièces</h2>
+            <h2>Placer une pièce</h2>
             <p>
-                Lors du placement d'une pièce (disque ou anneau), elle doit être placée sur :
+                La pièce (disque ou anneau) doit être placée sur une tuile vide de sa couleur:
             </p>
-            <ul class="rules-list">
-                <li>Une tuile que vous venez de placer ce tour-ci</li>
-                <li>Une tuile vide (pas d'autre pièce dessus)</li>
-            </ul>
             <div class="rules-note">
                 <strong>Note :</strong>
-                <span>Vous ne pouvez pas placer de pièces sur des tuiles qui étaient déjà sur le plateau.
-                Les pièces ne peuvent être placées que sur des tuiles fraîchement posées.</span>
+                <span>Pour placer un <strong>anneau</strong>, il faut redonner à son adversaire un <strong>disque</strong> déjà capturé.</span>
+            </div>
+            <!-- Vidéo: Exemples de placement de pièces -->
+            <div class="rules-video-container" data-video-id="piece-placement">
+                <video class="rules-video" muted loop playsinline preload="metadata">
+                    <source src="../../videos/piece-placement.mp4" type="video/mp4">
+                    <source src="../../videos/piece-placement.webm" type="video/webm">
+                </video>
+                <div class="video-placeholder">
+                    <span class="video-icon">▶</span>
+                    <span>Placement de pièces</span>
+                </div>
             </div>
         </section>
         
         <!-- Section Déplacement -->
         <section id="rules-movement" class="rules-section">
-            <h2>Déplacement</h2>
+            <h2>Déplacer une pièce</h2>
             <p>
-                Les disques peuvent se déplacer en ligne droite dans n'importe laquelle des 6 directions hexagonales.
-                Ils glissent jusqu'à ce qu'ils heurtent une autre pièce ou le bord du plateau.
+                Un disque se déplace sur une tuile vide adjacente <strong>ou</strong> peut
+                effectuer un ou plusieurs sauts par-dessus n'importe quelle pièce, capturant uniquement les pièces adverses.
             </p>
-            <h3>Mouvement glissant</h3>
-            <p>
-                Un disque glisse dans une direction choisie jusqu'à atteindre :
-            </p>
-            <ul class="rules-list">
-                <li>Une tuile occupée (s'arrête sur la tuile précédente)</li>
-                <li>Le bord du plateau (s'arrête sur la dernière tuile)</li>
-            </ul>
-            
-            <!-- [PLACEHOLDER ANIMATION: Exemples de déplacement] -->
-            <div class="rules-animation-placeholder" data-animation-id="movement-basic">
-                <div class="animation-placeholder-content">
-                    <span class="animation-icon">▶</span>
-                    <span>Animation de déplacement</span>
+            <div class="rules-note">
+                <strong>Note :</strong>
+                <span>L'état du jeu doit changer et il n'est pas possible de passer son tour.</span>
+            </div>
+            <!-- Vidéo: Exemples de déplacement -->
+            <div class="rules-video-container" data-video-id="movement-basic">
+                <video class="rules-video" muted loop playsinline preload="metadata">
+                    <source src="../../videos/movement-basic.mp4" type="video/mp4">
+                    <source src="../../videos/movement-basic.webm" type="video/webm">
+                </video>
+                <div class="video-placeholder">
+                    <span class="video-icon">▶</span>
+                    <span>Déplacement</span>
                 </div>
             </div>
-        </section>
-        
-        <!-- Section Capture -->
-        <section id="rules-capture" class="rules-section">
-            <h2>Capture</h2>
-            <p>
-                Capturez les pièces adverses en <strong>sautant par-dessus</strong>.
-            </p>
-            <h3>Capture par saut</h3>
-            <p>
-                Pour capturer, votre disque doit :
-            </p>
-            <ol class="rules-list rules-list-numbered">
-                <li>Être adjacent à une pièce adverse</li>
-                <li>Sauter par-dessus en ligne droite</li>
-                <li>Atterrir sur une tuile vide immédiatement après</li>
-            </ol>
-            
-            <h3>Multi-saut</h3>
-            <p>
-                Après une capture, si une autre capture est possible depuis la position d'arrivée,
-                vous <strong>pouvez</strong> continuer à capturer dans le même tour.
-                Les multi-sauts sont optionnels mais peuvent être très puissants !
-            </p>
-            
-            <!-- [PLACEHOLDER ANIMATION: Exemples de capture et multi-saut] -->
-            <div class="rules-animation-placeholder" data-animation-id="capture-demo">
-                <div class="animation-placeholder-content">
-                    <span class="animation-icon">▶</span>
-                    <span>Animation de capture</span>
+            <!-- Vidéo: Exemples de capture et multi-saut -->
+            <div class="rules-video-container" data-video-id="capture-demo">
+                <video class="rules-video" muted loop playsinline preload="metadata">
+                    <source src="../../videos/capture-demo.mp4" type="video/mp4">
+                    <source src="../../videos/capture-demo.webm" type="video/webm">
+                </video>
+                <div class="video-placeholder">
+                    <span class="video-icon">▶</span>
+                    <span>Capture</span>
                 </div>
             </div>
         </section>
@@ -210,50 +188,29 @@
         <section id="rules-rings" class="rules-section">
             <h2>Anneaux</h2>
             <p>
-                Les anneaux sont des pièces spéciales avec des propriétés uniques :
+                Un <strong>anneau</strong> saute précisément d'une distance de 2 tuiles
+                une seule fois, capturant une pièce adverse à son arrivée
+                s'il y a lieu.
             </p>
-            <ul class="rules-list">
-                <li><strong>Ne peuvent pas se déplacer</strong> une fois placés</li>
-                <li><strong>Ne peuvent pas capturer</strong> d'autres pièces</li>
-                <li><strong>Peuvent être capturés</strong> comme les disques (en sautant par-dessus)</li>
-                <li>Valent plus : capturer <strong>3 anneaux fait gagner</strong> la partie</li>
-            </ul>
-            <div class="rules-note rules-note-strategy">
-                <strong>Stratégie :</strong>
-                <span>Les anneaux sont de puissantes pièces défensives. Placez-les pour bloquer le mouvement adverse
-                ou protéger des positions clés, mais attention—ce sont des cibles de valeur !</span>
+            <div class="rules-note">
+                <strong>Note :</strong>
+                <span>Un anneau ne peut pas finir son déplacement sur un
+                disque ou un anneau de sa propre couleur.</span>
             </div>
-        </section>
-        
-        <!-- Section Victoire -->
-        <section id="rules-victory" class="rules-section">
-            <h2>Conditions de victoire</h2>
-            <p>
-                La partie se termine immédiatement quand un joueur capture :
-            </p>
-            <div class="rules-victory-conditions">
-                <div class="victory-condition">
-                    <div class="victory-icon disc-icon">●●●●●●</div>
-                    <div class="victory-text">6 disques adverses</div>
-                </div>
-                <div class="victory-or">OU</div>
-                <div class="victory-condition">
-                    <div class="victory-icon ring-icon">○○○</div>
-                    <div class="victory-text">3 anneaux adverses</div>
+            <!-- Vidéo: Exemples de capture par un anneau -->
+            <div class="rules-video-container" data-video-id="ring-demo">
+                <video class="rules-video" muted loop playsinline preload="metadata">
+                    <source src="../../videos/ring-demo.mp4" type="video/mp4">
+                    <source src="../../videos/ring-demo.webm" type="video/webm">
+                </video>
+                <div class="video-placeholder">
+                    <span class="video-icon">▶</span>
+                    <span>Anneau</span>
                 </div>
             </div>
             <p>
-                Il n'y a pas de nulle par répétition ou pat dans Hexaequo.
-                Le jeu continue jusqu'à ce qu'un joueur atteigne une condition de victoire.
+                <strong>Bon jeu!</strong>
             </p>
-            
-            <!-- [PLACEHOLDER ANIMATION: Exemples de victoire] -->
-            <div class="rules-animation-placeholder" data-animation-id="victory-demo">
-                <div class="animation-placeholder-content">
-                    <span class="animation-icon">▶</span>
-                    <span>Animation de victoire</span>
-                </div>
-            </div>
         </section>
     </main>
 </div>
