@@ -63,10 +63,14 @@
 
         // Listen for language changes
         window.addEventListener('languageChanged', (e) => {
+            const newLang = e.detail.language;
             if (isOpen) {
-                loadRules(e.detail.language);
+                // Rules are open, reload immediately
+                loadRules(newLang);
             } else {
-                currentLanguage = e.detail.language;
+                // Rules are closed, invalidate cache so it reloads on next open
+                currentLanguage = newLang;
+                rulesContent = null; // Invalidate cached content
             }
         });
 

@@ -1,6 +1,11 @@
 // game.js
 // Entry point for Hexaequo V2 game logic
 
+// Helper function for i18n
+function i18nT(key, params) {
+    return window.i18n?.t(key, params) || key;
+}
+
 let endTurnBtnBounds = null; // Used to track the End Turn button position for click detection
 let placePieceBtnBounds = null; // Used to track contextual place disc/ring buttons
 let placePieceBtnTile = null; // {q, r} for which tile the buttons are shown
@@ -1505,7 +1510,7 @@ window.onload = function () {
                 return opponent.name;
             }
         }
-        return 'Guest';
+        return i18nT('lobby.guest');
     }
 
     // End the game and display the winner
@@ -1570,19 +1575,20 @@ window.onload = function () {
         }
         
         if (winner === 'Ex Aequo') {
-            messageText = 'Ex Aequo!';
+            messageText = i18nT('gameOver.exAequo');
         } else if (isOnlineMode) {
             // In online mode: "You win!" for winner, "OpponentName wins!" for loser
             // This keeps the reason text making sense (from winner's perspective)
             if (isCurrentPlayerWinner) {
-                messageText = 'You win!';
+                messageText = i18nT('gameOver.youWin');
             } else {
                 const opponentName = getOpponentName();
-                messageText = `${opponentName} wins!`;
+                messageText = i18nT('gameOver.playerWins', { player: opponentName });
             }
         } else {
             // Local/AI mode: show color that won
-            messageText = `${winner} wins!`;
+            const winnerKey = winner === 'Black' ? 'gameOver.blackWins' : 'gameOver.whiteWins';
+            messageText = i18nT(winnerKey);
         }
         winnerText.textContent = messageText;
         winnerText.style.fontSize = '24px';
@@ -1596,13 +1602,27 @@ window.onload = function () {
         if (reason) {
             const reasonText = document.createElement('p');
             // Format reason text based on the reason type
+            let reasonString;
             if (reason === 'on time') {
-                reasonText.textContent = 'on time';
-            } else if (winner === 'Ex Aequo') {
-                reasonText.textContent = `by ${reason}`;
+                reasonString = i18nT('gameOver.onTime');
+            } else if (reason === 'abandonment') {
+                reasonString = i18nT('gameOver.byAbandonment');
+            } else if (reason === 'agreement') {
+                reasonString = i18nT('gameOver.byAgreement');
+            } else if (reason === 'capturing 6 discs') {
+                reasonString = i18nT('gameOver.byCapturing6Discs');
+            } else if (reason === 'capturing 3 rings') {
+                reasonString = i18nT('gameOver.byCapturing3Rings');
+            } else if (reason === 'eliminating all opponent pieces') {
+                reasonString = i18nT('gameOver.byElimination');
+            } else if (reason === 'stalemate') {
+                reasonString = i18nT('gameOver.byStalemate');
+            } else if (reason === 'threefold repetition') {
+                reasonString = i18nT('gameOver.byThreefoldRepetition');
             } else {
-                reasonText.textContent = `by ${reason}`;
+                reasonString = i18nT('gameOver.by', { reason: reason });
             }
+            reasonText.textContent = reasonString;
             reasonText.style.fontSize = '16px';
             reasonText.style.color = isDarkTheme ? '#aaa' : '#555';
             reasonText.style.marginTop = '0';
@@ -1641,7 +1661,7 @@ window.onload = function () {
             opponentStatusDiv.style.borderRadius = '6px';
             opponentStatusDiv.style.fontSize = '14px';
             opponentStatusDiv.style.color = isDarkTheme ? '#ccc' : '#666';
-            opponentStatusDiv.innerHTML = `<span class="status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981; margin-right: 8px;"></span>${opponentName} in room`;
+            opponentStatusDiv.innerHTML = `<span class="status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981; margin-right: 8px;"></span>${i18nT('gameOver.playerInRoom', { player: opponentName })}`;
             gameOverDiv.appendChild(opponentStatusDiv);
 
             // Buttons container
@@ -1653,7 +1673,7 @@ window.onload = function () {
             // Play Again button (green)
             const playAgainButton = document.createElement('button');
             playAgainButton.id = 'playAgainBtn';
-            playAgainButton.textContent = 'Play Again';
+            playAgainButton.textContent = i18nT('gameOver.playAgain');
             playAgainButton.className = 'endgame-btn play-again';
             playAgainButton.style.padding = '12px 24px';
             playAgainButton.style.fontSize = '16px';
@@ -1680,7 +1700,7 @@ window.onload = function () {
             // Leave Room button (red)
             const leaveRoomButton = document.createElement('button');
             leaveRoomButton.id = 'leaveRoomBtn';
-            leaveRoomButton.textContent = 'Leave Room';
+            leaveRoomButton.textContent = i18nT('gameOver.leaveRoom');
             leaveRoomButton.className = 'endgame-btn leave-room';
             leaveRoomButton.style.padding = '12px 24px';
             leaveRoomButton.style.fontSize = '16px';
@@ -1708,7 +1728,7 @@ window.onload = function () {
         } else {
             // Local mode (2 player or AI): Reset Game button
             const resetButton = document.createElement('button');
-            resetButton.textContent = 'Reset Game';
+            resetButton.textContent = i18nT('gameOver.resetGame');
             resetButton.style.marginTop = '10px';
             resetButton.style.padding = '10px 20px';
             resetButton.style.fontSize = '16px';
@@ -1745,7 +1765,7 @@ window.onload = function () {
             playAgainBtn.disabled = true;
             playAgainBtn.style.backgroundColor = '#6b7280';
             playAgainBtn.style.cursor = 'not-allowed';
-            playAgainBtn.textContent = 'Ready!';
+            playAgainBtn.textContent = i18nT('gameOver.ready');
             
             // Request rematch from server
             if (window.Multiplayer && window.Multiplayer.requestRematch) {
@@ -1760,7 +1780,7 @@ window.onload = function () {
                     // Both ready, start new game
                     startRematchGame();
                 } else {
-                    statusDiv.innerHTML = `<span class="status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; margin-right: 8px; animation: pulse 1.5s infinite;"></span>Waiting for ${opponentName}...`;
+                    statusDiv.innerHTML = `<span class="status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; margin-right: 8px; animation: pulse 1.5s infinite;"></span>${i18nT('gameOver.waitingForPlayer', { player: opponentName })}`;
                 }
             }
         }
@@ -1803,7 +1823,7 @@ window.onload = function () {
                 // Both ready, start new game
                 startRematchGame();
             } else {
-                statusDiv.innerHTML = `<span class="status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981; margin-right: 8px;"></span>${opponentName} is ready for next game`;
+                statusDiv.innerHTML = `<span class="status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981; margin-right: 8px;"></span>${i18nT('gameOver.playerReady', { player: opponentName })}`;
             }
         }
     }
@@ -1816,7 +1836,7 @@ window.onload = function () {
         const opponentName = getOpponentName();
         
         if (statusDiv) {
-            statusDiv.innerHTML = `<span class="status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ef4444; margin-right: 8px;"></span>${opponentName} has left the room`;
+            statusDiv.innerHTML = `<span class="status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ef4444; margin-right: 8px;"></span>${i18nT('gameOver.playerLeft', { player: opponentName })}`;
         }
         
         if (playAgainBtn) {
@@ -1857,7 +1877,7 @@ window.onload = function () {
         pendingDrawProposal = false;
         if (proposeDrawBtn) {
             proposeDrawBtn.disabled = false;
-            proposeDrawBtn.title = 'Propose Ex Aequo';
+            proposeDrawBtn.title = i18nT('game.proposeExAequo');
         }
         
         // Show resign/draw buttons for new game
@@ -1949,10 +1969,10 @@ window.onload = function () {
         if (proposeDrawBtn) {
             proposeDrawBtn.disabled = !canProposeDraw || pendingDrawProposal;
             proposeDrawBtn.title = !canProposeDraw 
-                ? 'You already proposed Ex Aequo this turn' 
+                ? i18nT('game.alreadyProposedExAequo') 
                 : pendingDrawProposal 
-                    ? 'Waiting for opponent response'
-                    : 'Propose Ex Aequo';
+                    ? i18nT('game.opponentTurn')
+                    : i18nT('game.proposeExAequo');
         }
     }
     
@@ -1974,7 +1994,7 @@ window.onload = function () {
     // Show draw proposal notification from opponent
     function showDrawProposalNotification(opponentName) {
         if (drawProposalNotification && drawProposalText) {
-            drawProposalText.textContent = `${opponentName} proposes Ex Aequo`;
+            drawProposalText.textContent = i18nT('game.playerProposesExAequo', { player: opponentName });
             drawProposalNotification.classList.remove('hidden');
             pendingDrawProposal = true;
         }
@@ -1997,7 +2017,7 @@ window.onload = function () {
         
         const toast = document.createElement('div');
         toast.className = 'draw-declined-toast';
-        toast.textContent = `${opponentName} refuses Ex Aequo`;
+        toast.textContent = i18nT('game.playerRefusesExAequo', { player: opponentName });
         document.getElementById('gameContainer').appendChild(toast);
         
         // Remove toast after animation
@@ -2082,7 +2102,7 @@ window.onload = function () {
     // Handler for when opponent proposes a draw
     function onDrawProposed(data) {
         console.log('Opponent proposes draw', data);
-        const opponentName = data?.proposerName || opponentInfo?.name || 'Opponent';
+        const opponentName = data?.proposerName || opponentInfo?.name || i18nT('game.opponent');
         showDrawProposalNotification(opponentName);
     }
     
@@ -2098,7 +2118,7 @@ window.onload = function () {
     function onDrawDeclined(data) {
         console.log('Draw declined');
         pendingDrawProposal = false;
-        const opponentName = opponentInfo?.name || 'Opponent';
+        const opponentName = opponentInfo?.name || i18nT('game.opponent');
         showDrawDeclinedToast(opponentName);
     }
     
@@ -2457,18 +2477,21 @@ window.onload = function () {
         
         // Update player indicator
         if (playerIndicator) {
-            let indicatorText = `Player: ${activePlayer.charAt(0).toUpperCase() + activePlayer.slice(1)}`;
+            let indicatorText;
+            const colorKey = activePlayer === 'black' ? 'game.playerBlack' : 'game.playerWhite';
+            indicatorText = i18nT(colorKey);
             
             // Add online mode indicator
             if (isOnlineMode) {
                 // Check if viewing history (not at end)
                 if (!isAtEndOfHistory()) {
                     const movesBack = moveHistory.length - 1 - currentMoveIndex;
-                    indicatorText = `Viewing History (${movesBack} move${movesBack > 1 ? 's' : ''} back)`;
+                    indicatorText = i18nT('game.viewingHistory', { count: movesBack });
                 } else if (isMyTurn(activePlayer)) {
-                    indicatorText = `Your Turn (${onlinePlayerColor.charAt(0).toUpperCase() + onlinePlayerColor.slice(1)})`;
+                    const colorName = i18nT(activePlayer === 'black' ? 'lobby.black' : 'lobby.white');
+                    indicatorText = i18nT('game.yourTurnTime', { time: colorName });
                 } else {
-                    indicatorText = `Opponent's Turn`;
+                    indicatorText = i18nT('game.opponentTurn');
                 }
             }
             
@@ -3102,7 +3125,7 @@ window.onload = function () {
     loader.style.fontSize = '16px';
     loader.style.fontWeight = 'bold';
     loader.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.5)';
-    loader.innerText = 'AI is thinking...';
+    loader.innerText = i18nT('game.aiThinking');
     document.body.appendChild(loader);
 
     // Show the loader when waiting for AI

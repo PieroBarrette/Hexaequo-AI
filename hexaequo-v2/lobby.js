@@ -491,12 +491,21 @@
     }
 
     // ==================== Game Start Functions ====================
-    const difficultyNames = {
-        1: 'Easy',
-        2: 'Normal',
-        3: 'Hard',
-        4: 'Expert'
-    };
+    // Helper function for i18n
+    function i18nT(key, params) {
+        return window.i18n?.t(key, params) || key;
+    }
+    
+    // Difficulty names are now localized dynamically
+    function getDifficultyName(level) {
+        const keys = {
+            1: 'lobby.easy',
+            2: 'lobby.normal',
+            3: 'lobby.hard',
+            4: 'lobby.expert'
+        };
+        return i18nT(keys[level] || keys[3]);
+    }
     
     function updatePlayerInfoDisplays(mode, aiLevel = null, playerColor = null, opponentInfo = null) {
         const blackInfo = document.getElementById('blackPlayerInfo');
@@ -513,30 +522,30 @@
             // Black player is the user, White is AI
             if (currentUser) {
                 // Use pseudo for display name
-                const userName = currentUser.pseudo || currentUser.username || 'Player';
+                const userName = currentUser.pseudo || currentUser.username || i18nT('game.player');
                 blackName.textContent = userName;
                 blackRating.textContent = `ELO: ${currentUser.elo || 1000}`;
             } else {
-                blackName.textContent = 'Player';
+                blackName.textContent = i18nT('game.player');
                 blackRating.textContent = '';
             }
             
-            whiteName.textContent = 'AI';
-            whiteRating.textContent = difficultyNames[aiLevel] || 'Hard';
+            whiteName.textContent = i18nT('lobby.ai');
+            whiteRating.textContent = getDifficultyName(aiLevel);
         } else if (mode === '2player') {
-            blackName.textContent = 'Black';
+            blackName.textContent = i18nT('lobby.black');
             blackRating.textContent = '';
-            whiteName.textContent = 'White';
+            whiteName.textContent = i18nT('lobby.white');
             whiteRating.textContent = '';
         } else if (mode === 'online') {
             // Determine which player is local and which is opponent based on playerColor
             const localUser = currentUser;
             const localIsGuest = !localUser;
-            const localName = localUser ? (localUser.pseudo || localUser.username) : 'Guest';
+            const localName = localUser ? (localUser.pseudo || localUser.username) : i18nT('lobby.guest');
             const localElo = localIsGuest ? '?' : (localUser.elo || 1000);
             
             const opponentIsGuest = !opponentInfo || opponentInfo.isGuest;
-            const opponentName = opponentInfo?.name || 'Guest';
+            const opponentName = opponentInfo?.name || i18nT('lobby.guest');
             const opponentElo = opponentIsGuest ? '?' : (opponentInfo?.elo || 1000);
             
             if (playerColor === 'black') {
@@ -628,18 +637,18 @@
         const whiteRating = whiteInfo.querySelector('.player-rating');
         
         if (config.blackPlayer === 'ai') {
-            blackName.textContent = 'AI';
-            blackRating.textContent = difficultyNames[config.blackAiLevel] || 'Hard';
+            blackName.textContent = i18nT('lobby.ai');
+            blackRating.textContent = getDifficultyName(config.blackAiLevel);
         } else {
-            blackName.textContent = currentUser ? (currentUser.pseudo || 'Player') : 'Black';
+            blackName.textContent = currentUser ? (currentUser.pseudo || i18nT('game.player')) : i18nT('lobby.black');
             blackRating.textContent = '';
         }
         
         if (config.whitePlayer === 'ai') {
-            whiteName.textContent = 'AI';
-            whiteRating.textContent = difficultyNames[config.whiteAiLevel] || 'Hard';
+            whiteName.textContent = i18nT('lobby.ai');
+            whiteRating.textContent = getDifficultyName(config.whiteAiLevel);
         } else {
-            whiteName.textContent = currentUser ? (currentUser.pseudo || 'Player') : 'White';
+            whiteName.textContent = currentUser ? (currentUser.pseudo || i18nT('game.player')) : i18nT('lobby.white');
             whiteRating.textContent = '';
         }
     }
@@ -654,10 +663,10 @@
                 onConnected();
             }).catch((err) => {
                 console.error('[Lobby] Connection error:', err);
-                onConnectionError('Could not connect to server');
+                onConnectionError(i18nT('lobby.couldNotConnect'));
             });
         } else {
-            onConnectionError('Multiplayer not available');
+            onConnectionError(i18nT('errors.multiplayerNotAvailable'));
         }
     }
 
@@ -674,7 +683,7 @@
             // Get our color from Multiplayer module
             const playerColor = window.Multiplayer.playerColor;
             // Store opponent info
-            currentOpponent = data.opponentInfo || { name: 'Guest', elo: null, isGuest: true };
+            currentOpponent = data.opponentInfo || { name: i18nT('lobby.guest'), elo: null, isGuest: true };
             startOnlineGame({ 
                 playerColor, 
                 gameState: data.gameState, 
@@ -702,7 +711,7 @@
             statusDot.classList.add('connected');
         }
         if (statusText) {
-            statusText.textContent = 'Connected';
+            statusText.textContent = i18nT('lobby.connectedToServer');
         }
         
         lobby.roomActions?.style.setProperty('display', 'flex');
@@ -724,7 +733,7 @@
             statusDot.classList.add('error');
         }
         if (statusText) {
-            statusText.textContent = message || 'Connection failed';
+            statusText.textContent = message || i18nT('errors.connectionFailed');
         }
         
         lobby.roomActions?.style.setProperty('display', 'none');
@@ -732,7 +741,7 @@
 
     function createRoom() {
         if (!isConnected) {
-            showError('Not connected to server');
+            showError(i18nT('lobby.notConnected'));
             return;
         }
         
@@ -746,25 +755,25 @@
             showWaitingForOpponent(result.roomCode);
         }).catch((err) => {
             console.error('[Lobby] Failed to create room:', err);
-            showError(err.message || 'Failed to create room');
+            showError(err.message || i18nT('errors.failedToCreateRoom'));
         });
     }
 
     function joinRoom(roomCode) {
         if (!isConnected) {
-            showError('Not connected to server');
+            showError(i18nT('lobby.notConnected'));
             return;
         }
         
         const code = roomCode || '';
         if (!code || code.length !== 4) {
-            showError('Invalid room code');
+            showError(i18nT('errors.invalidRoomCode'));
             return;
         }
         
         // Prevent joining own room (client-side check)
         if (currentRoomCode && code.toUpperCase() === currentRoomCode.toUpperCase()) {
-            showError("Can't join your own room");
+            showError(i18nT('errors.cantJoinOwnRoom'));
             return;
         }
         
@@ -780,7 +789,7 @@
             } else {
                 // Game is starting - we're the joining player (white)
                 // Store opponent info (black player)
-                currentOpponent = result.opponentInfo || { name: 'Guest', elo: null, isGuest: true };
+                currentOpponent = result.opponentInfo || { name: i18nT('lobby.guest'), elo: null, isGuest: true };
                 startOnlineGame({ 
                     playerColor: result.color, 
                     gameState: result.gameState,
@@ -791,7 +800,7 @@
             }
         }).catch((err) => {
             console.error('[Lobby] Failed to join room:', err);
-            showError(err.message || 'Failed to join room');
+            showError(err.message || i18nT('errors.failedToJoinRoom'));
         });
     }
 
@@ -938,21 +947,21 @@
         // Clear existing rows
         tbody.innerHTML = '';
         
+        // Time labels - these are universal abbreviations, kept as-is
+        const timeLabels = {
+            none: i18nT('lobby.none'),
+            classic: '15|0',
+            rapid: '10|5',
+            blitz: '5|3',
+            bullet: '2|1'
+        };
+        
         if (filteredRooms.length === 0) {
             emptyMsg?.style.setProperty('display', 'block');
             return;
         }
         
         emptyMsg?.style.setProperty('display', 'none');
-        
-        // Time control labels
-        const timeLabels = {
-            none: 'None',
-            classic: '15|0',
-            rapid: '10|5',
-            blitz: '5|3',
-            bullet: '2|1'
-        };
         
         filteredRooms.forEach(room => {
             const tr = document.createElement('tr');
@@ -978,9 +987,9 @@
             
             // Player name cell
             const tdName = document.createElement('td');
-            tdName.textContent = room.creatorName || 'Guest';
+            tdName.textContent = room.creatorName || i18nT('lobby.guest');
             if (isOwnRoom) {
-                tdName.textContent += ' (You)';
+                tdName.textContent += ' ' + i18nT('lobby.you');
             }
             tr.appendChild(tdName);
             
@@ -1227,7 +1236,7 @@
                 lobby.userEloDisplay.textContent = currentUser.elo !== undefined ? currentUser.elo : '';
             }
             if (lobby.loginBtn) {
-                lobby.loginBtn.textContent = 'Sign Out';
+                lobby.loginBtn.textContent = i18nT('auth.signOut');
             }
             if (lobby.profileBtn) {
                 lobby.profileBtn.style.display = 'inline-block';
@@ -1235,13 +1244,13 @@
         } else {
             // Guest
             if (lobby.userDisplayName) {
-                lobby.userDisplayName.textContent = 'Guest';
+                lobby.userDisplayName.textContent = i18nT('lobby.guest');
             }
             if (lobby.userEloDisplay) {
                 lobby.userEloDisplay.textContent = '';
             }
             if (lobby.loginBtn) {
-                lobby.loginBtn.textContent = 'Sign In';
+                lobby.loginBtn.textContent = i18nT('auth.signIn');
             }
             if (lobby.profileBtn) {
                 lobby.profileBtn.style.display = 'none';
@@ -1282,7 +1291,7 @@
         const password = lobby.loginPassword?.value;
         
         if (!username || !password) {
-            showAuthError('Please enter username and password');
+            showAuthError(i18nT('errors.enterUsernamePassword'));
             return;
         }
         
@@ -1304,11 +1313,11 @@
                 // Go back to online options
                 showOnlineOptions();
             } else {
-                showAuthError(data.error || 'Login failed');
+                showAuthError(data.error || i18nT('auth.loginFailed'));
             }
         } catch (err) {
             console.error('[Lobby] Login error:', err);
-            showAuthError('Connection failed');
+            showAuthError(i18nT('errors.connectionFailed'));
         }
     }
     
@@ -1320,17 +1329,17 @@
         const password = lobby.registerPassword?.value;
         
         if (!username || !password) {
-            showAuthError('Please enter username and password');
+            showAuthError(i18nT('auth.fillAllFields'));
             return;
         }
         
         if (username.length < 3) {
-            showAuthError('Username must be at least 3 characters');
+            showAuthError(i18nT('auth.usernameMinLength'));
             return;
         }
         
         if (password.length < 4) {
-            showAuthError('Password must be at least 4 characters');
+            showAuthError(i18nT('auth.passwordMinLength'));
             return;
         }
         
@@ -1356,11 +1365,11 @@
                 // Go back to online options
                 showOnlineOptions();
             } else {
-                showAuthError(data.error || 'Registration failed');
+                showAuthError(data.error || i18nT('auth.registrationFailed'));
             }
         } catch (err) {
             console.error('[Lobby] Registration error:', err);
-            showAuthError('Connection failed');
+            showAuthError(i18nT('errors.connectionFailed'));
         }
     }
     

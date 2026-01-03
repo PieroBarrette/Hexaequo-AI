@@ -59,10 +59,10 @@
                                 <option value="ai" data-i18n="lobby.ai">AI</option>
                             </select>
                             <select id="blackAiLevel" class="ai-level-select" style="display: none;">
-                                <option value="1">Level 1</option>
-                                <option value="2">Level 2</option>
-                                <option value="3" selected>Level 3</option>
-                                <option value="4">Level 4</option>
+                                <option value="1" data-i18n="lobby.level1">Level 1</option>
+                                <option value="2" data-i18n="lobby.level2">Level 2</option>
+                                <option value="3" selected data-i18n="lobby.level3">Level 3</option>
+                                <option value="4" data-i18n="lobby.level4">Level 4</option>
                             </select>
                         </div>
                         <div class="player-config-row">
@@ -72,10 +72,10 @@
                                 <option value="ai" data-i18n="lobby.ai">AI</option>
                             </select>
                             <select id="whiteAiLevel" class="ai-level-select" style="display: none;">
-                                <option value="1">Level 1</option>
-                                <option value="2">Level 2</option>
-                                <option value="3" selected>Level 3</option>
-                                <option value="4">Level 4</option>
+                                <option value="1" data-i18n="lobby.level1">Level 1</option>
+                                <option value="2" data-i18n="lobby.level2">Level 2</option>
+                                <option value="3" selected data-i18n="lobby.level3">Level 3</option>
+                                <option value="4" data-i18n="lobby.level4">Level 4</option>
                             </select>
                         </div>
                     </div>
@@ -108,39 +108,39 @@
                     
                     <div id="lobbyConnectionStatus" class="lobby-connection-status">
                         <span class="status-dot connecting"></span>
-                        <span class="status-text">Connecting...</span>
+                        <span class="status-text" data-i18n="lobby.connecting">Connecting...</span>
                     </div>
                     
                     <div id="lobbyRoomActions" class="lobby-room-actions" style="display: none;">
                         <div class="time-control-select">
-                            <label for="timeControlSelect">Time Control</label>
+                            <label for="timeControlSelect" data-i18n="lobby.timeControl">Time Control</label>
                             <select id="timeControlSelect" class="lobby-select">
-                                <option value="none">No Timer</option>
-                                <option value="classic" selected>Classic: 15|0</option>
-                                <option value="rapid">Rapid: 10|5</option>
-                                <option value="blitz">Blitz: 5|3</option>
-                                <option value="bullet">Bullet: 2|1</option>
+                                <option value="none" data-i18n="lobby.noTimer">No Timer</option>
+                                <option value="classic" selected data-i18n="lobby.classic">Classic: 15|0</option>
+                                <option value="rapid" data-i18n="lobby.rapid">Rapid: 10|5</option>
+                                <option value="blitz" data-i18n="lobby.blitz">Blitz: 5|3</option>
+                                <option value="bullet" data-i18n="lobby.bullet">Bullet: 2|1</option>
                             </select>
                         </div>
-                        <button class="lobby-btn primary" id="lobbyCreateRoomBtn">Create Room</button>
+                        <button class="lobby-btn primary" id="lobbyCreateRoomBtn" data-i18n="lobby.createRoom">Create Room</button>
                         
                         <!-- Room Browser Section -->
                         <div class="room-browser-section">
                             <div class="room-browser-header">
-                                <span class="room-browser-title">Available Rooms</span>
-                                <button class="refresh-btn" id="refreshRoomsBtn" title="Refresh">↻</button>
+                                <span class="room-browser-title" data-i18n="lobby.availableRooms">Available Rooms</span>
+                                <button class="refresh-btn" id="refreshRoomsBtn" data-i18n-title="lobby.refresh" title="Refresh">↻</button>
                             </div>
                             
                             <!-- Filters (collapsible) -->
                             <button class="filter-toggle" id="filterToggleBtn">
-                                <span>Filters</span>
+                                <span data-i18n="lobby.filters">Filters</span>
                                 <span class="toggle-icon">▼</span>
                             </button>
                             <div class="room-filters" id="roomFilters">
                                 <div class="filter-group">
-                                    <span class="filter-label">Time:</span>
+                                    <span class="filter-label" data-i18n="lobby.time">Time:</span>
                                     <div class="filter-checkboxes">
-                                        <label><input type="checkbox" id="filterNone" checked> None</label>
+                                        <label><input type="checkbox" id="filterNone" checked> <span data-i18n="lobby.none">None</span></label>
                                         <label><input type="checkbox" id="filterClassic" checked> Classic</label>
                                         <label><input type="checkbox" id="filterRapid" checked> Rapid</label>
                                         <label><input type="checkbox" id="filterBlitz" checked> Blitz</label>
@@ -148,18 +148,18 @@
                                     </div>
                                 </div>
                                 <div class="filter-group">
-                                    <span class="filter-label">Player:</span>
+                                    <span class="filter-label" data-i18n="lobby.player">Player:</span>
                                     <div class="filter-checkboxes">
-                                        <label><input type="checkbox" id="filterGuests" checked> Guests</label>
-                                        <label><input type="checkbox" id="filterUsers" checked> Users</label>
+                                        <label><input type="checkbox" id="filterGuests" checked> <span data-i18n="lobby.guests">Guests</span></label>
+                                        <label><input type="checkbox" id="filterUsers" checked> <span data-i18n="lobby.users">Users</span></label>
                                     </div>
                                 </div>
                                 <div class="filter-group elo-filter">
-                                    <span class="filter-label">ELO:</span>
+                                    <span class="filter-label" data-i18n="lobby.elo">ELO:</span>
                                     <div class="elo-range">
-                                        <input type="number" id="eloMin" class="elo-input" placeholder="Min" min="0" max="3000">
+                                        <input type="number" id="eloMin" class="elo-input" data-i18n-placeholder="lobby.min" placeholder="Min" min="0" max="3000">
                                         <span>-</span>
-                                        <input type="number" id="eloMax" class="elo-input" placeholder="Max" min="0" max="3000">
+                                        <input type="number" id="eloMax" class="elo-input" data-i18n-placeholder="lobby.max" placeholder="Max" min="0" max="3000">
                                     </div>
                                 </div>
                             </div>
@@ -169,9 +169,9 @@
                                 <table class="room-list-table">
                                     <thead>
                                         <tr>
-                                            <th class="sortable" data-sort="timeControl">Time <span class="sort-arrow"></span></th>
-                                            <th class="sortable" data-sort="creatorName">Player <span class="sort-arrow"></span></th>
-                                            <th class="sortable" data-sort="creatorElo">ELO <span class="sort-arrow"></span></th>
+                                            <th class="sortable" data-sort="timeControl" data-i18n="lobby.time">Time <span class="sort-arrow"></span></th>
+                                            <th class="sortable" data-sort="creatorName" data-i18n="lobby.player">Player <span class="sort-arrow"></span></th>
+                                            <th class="sortable" data-sort="creatorElo" data-i18n="lobby.elo">ELO <span class="sort-arrow"></span></th>
                                         </tr>
                                     </thead>
                                     <tbody id="roomListBody">
@@ -179,8 +179,8 @@
                                     </tbody>
                                 </table>
                                 <div class="room-list-empty" id="roomListEmpty">
-                                    <p>No rooms available</p>
-                                    <p class="empty-hint">Create a room or wait for others to join</p>
+                                    <p data-i18n="lobby.noRoomsAvailable">No rooms available</p>
+                                    <p class="empty-hint" data-i18n="lobby.createOrWait">Create a room or wait for others to join</p>
                                 </div>
                             </div>
                         </div>
@@ -190,37 +190,37 @@
                     <div id="lobbyWaitingSection" class="lobby-waiting" style="display: none;">
                         <div class="waiting-animation">
                             <div class="spinner"></div>
-                            <span>Waiting for opponent...</span>
+                            <span data-i18n="lobby.waitingForOpponent">Waiting for opponent...</span>
                         </div>
-                        <button class="lobby-btn secondary" id="lobbyCancelBtn">Cancel</button>
+                        <button class="lobby-btn secondary" id="lobbyCancelBtn" data-i18n="lobby.cancel">Cancel</button>
                     </div>
                     
-                    <button class="lobby-btn secondary" id="backFromOnlineBtn">Back</button>
+                    <button class="lobby-btn secondary" id="backFromOnlineBtn" data-i18n="lobby.back">Back</button>
                     <div id="lobbyError" class="lobby-error" style="display: none;"></div>
                 </div>
                 
                 <!-- Auth Section (hidden by default) -->
                 <div class="lobby-section auth-section" id="authSection" style="display: none;">
                     <div class="auth-tabs">
-                        <button class="auth-tab active" data-tab="login">Sign In</button>
-                        <button class="auth-tab" data-tab="register">Register</button>
+                        <button class="auth-tab active" data-tab="login" data-i18n="auth.signIn">Sign In</button>
+                        <button class="auth-tab" data-tab="register" data-i18n="auth.register">Register</button>
                     </div>
                     
                     <form id="loginForm" class="auth-form">
-                        <input type="text" id="loginUsername" placeholder="Username" autocomplete="username">
-                        <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password">
-                        <button type="submit" class="lobby-btn primary">Sign In</button>
+                        <input type="text" id="loginUsername" data-i18n-placeholder="auth.username" placeholder="Username" autocomplete="username">
+                        <input type="password" id="loginPassword" data-i18n-placeholder="auth.password" placeholder="Password" autocomplete="current-password">
+                        <button type="submit" class="lobby-btn primary" data-i18n="auth.signIn">Sign In</button>
                     </form>
                     
                     <form id="registerForm" class="auth-form" style="display: none;">
-                        <input type="text" id="registerUsername" placeholder="Username" autocomplete="username">
-                        <input type="text" id="registerDisplayName" placeholder="Display Name (optional)">
-                        <input type="password" id="registerPassword" placeholder="Password" autocomplete="new-password">
-                        <button type="submit" class="lobby-btn primary">Create Account</button>
+                        <input type="text" id="registerUsername" data-i18n-placeholder="auth.username" placeholder="Username" autocomplete="username">
+                        <input type="text" id="registerDisplayName" data-i18n-placeholder="auth.displayName" placeholder="Display Name (optional)">
+                        <input type="password" id="registerPassword" data-i18n-placeholder="auth.password" placeholder="Password" autocomplete="new-password">
+                        <button type="submit" class="lobby-btn primary" data-i18n="auth.createAccount">Create Account</button>
                     </form>
                     
                     <div id="authError" class="lobby-error" style="display: none;"></div>
-                    <button class="lobby-btn secondary" id="backFromAuthBtn">Back</button>
+                    <button class="lobby-btn secondary" id="backFromAuthBtn" data-i18n="lobby.back">Back</button>
                 </div>
                 
                 <!-- Settings Section (hidden by default) -->
@@ -295,24 +295,24 @@
     <div id="gameContainer">
         <!-- Player Info Displays -->
         <div id="blackPlayerInfo" class="player-info player-info-left">
-            <span class="player-name">Black</span>
+            <span class="player-name" data-i18n="lobby.black">Black</span>
             <span class="player-rating"></span>
             <span class="player-timer" id="blackTimer"></span>
         </div>
         <div id="whitePlayerInfo" class="player-info player-info-right">
-            <span class="player-name">White</span>
+            <span class="player-name" data-i18n="lobby.white">White</span>
             <span class="player-rating"></span>
             <span class="player-timer" id="whiteTimer"></span>
         </div>
         
         <div id="undoRedoToolbar">
-            <button id="undoBtn" class="undo-redo-btn" title="Undo">
+            <button id="undoBtn" class="undo-redo-btn" data-i18n-title="game.undo" title="Undo">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M13 8c0-1.66-1.34-3-3-3H5l2-2m0 8l-2-2"/>
                 </svg>
             </button>
-            <div id="playerIndicator" class="player-indicator player-black">Player: Black</div>
-            <button id="redoBtn" class="undo-redo-btn" title="Redo">
+            <div id="playerIndicator" class="player-indicator player-black" data-i18n="game.playerBlack">Player: Black</div>
+            <button id="redoBtn" class="undo-redo-btn" data-i18n-title="game.redo" title="Redo">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M3 8c0-1.66 1.34-3 3-3h5l-2-2m0 8l2-2"/>
                 </svg>
@@ -326,12 +326,12 @@
         
         <!-- Online Game Actions (Resign / Ex Aequo) -->
         <div id="onlineGameActions" class="online-game-actions hidden">
-            <button id="resignBtn" class="game-action-btn resign-btn" title="Resign">
+            <button id="resignBtn" class="game-action-btn resign-btn" data-i18n-title="game.resign" title="Resign">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M5 4h2v16H5V4zm4 0h2v8h6l-3-3 1.5-1.5L20 12l-4.5 4.5L14 15l3-3H9V4z"/>
                 </svg>
             </button>
-            <button id="proposeDrawBtn" class="game-action-btn draw-btn" title="Propose Ex Aequo">
+            <button id="proposeDrawBtn" class="game-action-btn draw-btn" data-i18n-title="game.proposeExAequo" title="Propose Ex Aequo">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 3L4 7v2h1l1.5 9h11L19 9h1V7l-8-4zm0 2.24L16.47 7.5H7.53L12 5.24zM7.04 16L5.94 10h12.12l-1.1 6H7.04z"/>
                     <circle cx="7" cy="18" r="2"/>
@@ -342,13 +342,13 @@
         
         <!-- Draw Proposal Notification -->
         <div id="drawProposalNotification" class="draw-proposal-notification hidden">
-            <span id="drawProposalText">Opponent proposes Ex Aequo</span>
-            <button id="acceptDrawBtn" class="draw-response-btn accept-btn" title="Accept">
+            <span id="drawProposalText" data-i18n="game.opponentProposesExAequo">Opponent proposes Ex Aequo</span>
+            <button id="acceptDrawBtn" class="draw-response-btn accept-btn" data-i18n-title="game.acceptExAequo" title="Accept">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
             </button>
-            <button id="declineDrawBtn" class="draw-response-btn decline-btn" title="Decline">
+            <button id="declineDrawBtn" class="draw-response-btn decline-btn" data-i18n-title="game.declineExAequo" title="Decline">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18"></line>
                     <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -358,7 +358,7 @@
     </div>
 
     <!-- Hamburger Menu Button -->
-    <button id="hamburgerBtn" class="hamburger-btn" title="Menu">
+    <button id="hamburgerBtn" class="hamburger-btn" data-i18n-title="settings.menu" title="Menu">
         <span class="hamburger-line"></span>
         <span class="hamburger-line"></span>
         <span class="hamburger-line"></span>
@@ -369,7 +369,7 @@
         <div class="hamburger-modal-content">
             <div class="hamburger-header">
                 <span class="hamburger-title" data-i18n="game.quickSettings">Quick Settings</span>
-                <button id="closeHamburgerBtn" class="close-hamburger-btn" title="Close">✕</button>
+                <button id="closeHamburgerBtn" class="close-hamburger-btn" data-i18n-title="settings.close" title="Close">✕</button>
             </div>
             
             <div class="hamburger-settings">
@@ -499,12 +499,12 @@
         <div class="rules-modal">
             <div class="rules-header">
                 <h2 data-i18n="rules.title">Game Rules</h2>
-                <button id="closeRulesBtn" class="close-rules-btn" title="Close">✕</button>
+                <button id="closeRulesBtn" class="close-rules-btn" data-i18n-title="settings.close" title="Close">✕</button>
             </div>
             <!-- HTML Rules Container (loaded dynamically by rules-viewer.js) -->
             <div id="pdfContainer" class="rules-html-container">
                 <div class="rules-loading">
-                    <span>Loading rules...</span>
+                    <span data-i18n="rules.loading">Loading rules...</span>
                 </div>
             </div>
         </div>
@@ -514,52 +514,52 @@
     <div id="onlineOverlay" class="online-overlay">
         <div class="online-modal">
             <div class="online-header">
-                <h2>Play Online</h2>
-                <button id="closeOnlineBtn" class="close-online-btn" title="Close">✕</button>
+                <h2 data-i18n="online.playOnline">Play Online</h2>
+                <button id="closeOnlineBtn" class="close-online-btn" data-i18n-title="settings.close" title="Close">✕</button>
             </div>
             <div class="online-content">
                 <!-- Connection Status -->
                 <div id="connectionStatus" class="connection-status">
                     <span class="status-dot"></span>
-                    <span class="status-text">Connecting...</span>
+                    <span class="status-text" data-i18n="lobby.connecting">Connecting...</span>
                 </div>
                 
                 <!-- Room Actions (visible when connected) -->
                 <div id="roomActions" class="room-actions" style="display: none;">
-                    <button id="createRoomBtn" class="online-btn primary">Create Room</button>
-                    <div class="divider"><span>or</span></div>
+                    <button id="createRoomBtn" class="online-btn primary" data-i18n="lobby.createRoom">Create Room</button>
+                    <div class="divider"><span data-i18n="online.or">or</span></div>
                     <div class="join-room-section">
                         <input type="text" id="roomCodeInput" class="room-code-input" 
-                               placeholder="Enter room code" maxlength="4" 
+                               data-i18n-placeholder="online.enterRoomCode" placeholder="Enter room code" maxlength="4" 
                                autocomplete="off" autocapitalize="characters">
-                        <button id="joinRoomBtn" class="online-btn">Join Room</button>
+                        <button id="joinRoomBtn" class="online-btn" data-i18n="online.joinRoom">Join Room</button>
                     </div>
                 </div>
                 
                 <!-- Waiting for opponent (visible after creating room) -->
                 <div id="waitingSection" class="waiting-section" style="display: none;">
-                    <p class="waiting-text">Waiting for opponent to join...</p>
+                    <p class="waiting-text" data-i18n="online.waitingForOpponent">Waiting for opponent to join...</p>
                     <div class="loading-spinner"></div>
-                    <button id="cancelWaitingBtn" class="online-btn secondary">Cancel</button>
+                    <button id="cancelWaitingBtn" class="online-btn secondary" data-i18n="lobby.cancel">Cancel</button>
                 </div>
                 
                 <!-- In-game status (visible during online game) -->
                 <div id="inGameSection" class="in-game-section" style="display: none;">
                     <div class="game-info">
                         <div class="player-color">
-                            <span class="color-label">You are playing as</span>
-                            <span id="playerColorDisplay" class="color-value">Black</span>
+                            <span class="color-label" data-i18n="online.youArePlaying">You are playing as</span>
+                            <span id="playerColorDisplay" class="color-value" data-i18n="lobby.black">Black</span>
                         </div>
                         <div class="room-info">
-                            <span class="room-label">Room:</span>
+                            <span class="room-label" data-i18n="online.room">Room:</span>
                             <span id="currentRoomCode" class="room-value">----</span>
                         </div>
                         <div id="opponentStatus" class="opponent-status connected">
                             <span class="status-dot"></span>
-                            <span class="opponent-text">Opponent connected</span>
+                            <span class="opponent-text" data-i18n="online.opponentConnected">Opponent connected</span>
                         </div>
                     </div>
-                    <button id="leaveGameBtn" class="online-btn danger">Leave Game</button>
+                    <button id="leaveGameBtn" class="online-btn danger" data-i18n="online.leaveGame">Leave Game</button>
                 </div>
                 
                 <!-- Error message -->
