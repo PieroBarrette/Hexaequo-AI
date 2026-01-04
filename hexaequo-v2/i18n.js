@@ -114,23 +114,15 @@ async function init() {
     // Check for saved language preference
     const savedLang = localStorage.getItem(STORAGE_KEY);
     
-    // Detect browser language as fallback
-    const browserLang = navigator.language?.split('-')[0];
-    
-    // Priority: saved > browser > default
+    // Priority: saved > default (no browser detection to ensure English by default on first visit)
     let targetLang = DEFAULT_LANGUAGE;
     if (savedLang && SUPPORTED_LANGUAGES[savedLang]) {
         targetLang = savedLang;
-    } else if (browserLang && SUPPORTED_LANGUAGES[browserLang]) {
-        targetLang = browserLang;
     }
     
     translations = await loadTranslations(targetLang);
     currentLanguage = targetLang;
     isLoaded = true;
-    
-    // Save the determined language
-    localStorage.setItem(STORAGE_KEY, currentLanguage);
     
     // Update the HTML lang attribute
     document.documentElement.lang = currentLanguage;
