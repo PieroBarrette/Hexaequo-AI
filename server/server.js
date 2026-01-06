@@ -55,8 +55,13 @@ const io = new Server(httpServer, {
 });
 
 // Initialize SQLite database
-const dbPath = process.env.DATABASE_PATH || path.join(__dirname, 'hexaequo.db');
+// Use persistent disk on Render, local file in dev
+const dbPath = process.env.DATABASE_PATH 
+    || (process.env.NODE_ENV === 'production' 
+        ? '/data/hexaequo.db'           // Persistent disk on Render
+        : path.join(__dirname, 'hexaequo.db'));  // Local dev
 const db = new Database(dbPath);
+console.log(`[Database] Using path: ${dbPath} (NODE_ENV: ${process.env.NODE_ENV || 'development'})`);
 
 // Simple password hashing (for production, use bcrypt)
 const crypto = require('crypto');
@@ -536,6 +541,54 @@ app.get('/api/auth/me', (req, res) => {
 // Health check endpoint
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// DEBUG - List all users (requires password)
+app.get('/api/debug/users', (req, res) => {
+    try {
+        const debugPassword = process.env.DEBUG_PASSWORD || 'debug123';
+        const password = req.query.pwd;
+        
+        if (!password || password !== debugPassword) {
+            return res.status(401).json({ error: 'Unauthorized - invalid or missing password' });
+        }
+        
+        const users = db.prepare('SELECT id, username, pseudo, elo, games_played, games_won, created_at FROM users ORDER BY created_at DESC').all();
+        res.json({
+            success: true,
+            count: users.length,
+            users
+        });
+    } catch (err) {
+        console.error('Debug users error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// DEBUG - User statistics
+app.get('/api/debug/stats', (req, res) => {
+    try {
+        const debugPassword = process.env.DEBUG_PASSWORD || 'debug123';
+        const password = req.query.pwd;
+        
+        if (!password || password !== debugPassword) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+        
+        const stats = {
+            totalUsers: db.prepare('SELECT COUNT(*) as count FROM users').get().count,
+            totalSessions: db.prepare('SELECT COUNT(*) as count FROM sessions').get().count,
+            totalRooms: db.prepare('SELECT COUNT(*) as count FROM rooms').get().count,
+            activePlayers: db.prepare('SELECT COUNT(*) as count FROM players WHERE connected = 1').get().count,
+            dbPath,
+            nodeEnv: process.env.NODE_ENV || 'development'
+        };
+        
+        res.json({ success: true, stats });
+    } catch (err) {
+        console.error('Debug stats error:', err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Socket.IO connection handling
