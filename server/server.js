@@ -21,6 +21,7 @@ const ALLOWED_ORIGINS = [
     FRONTEND_URL,
     'https://hexaequo.com',
     'https://www.hexaequo.com',
+    'https://hexaequo-server.onrender.com',
     'https://pierobarrette.github.io',
     'http://localhost:8080',
     'http://127.0.0.1:8080'
