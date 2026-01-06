@@ -21,10 +21,14 @@ const ALLOWED_ORIGINS = [
     FRONTEND_URL,
     'https://hexaequo.com',
     'https://www.hexaequo.com',
+    'http://hexaequo.com',
+    'http://www.hexaequo.com',
     'https://hexaequo-server.onrender.com',
     'https://pierobarrette.github.io',
     'http://localhost:8080',
-    'http://127.0.0.1:8080'
+    'http://127.0.0.1:8080',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000'
 ];
 
 // Initialize Express
@@ -1351,6 +1355,9 @@ io.on('connection', (socket) => {
     });
 });
 
+// Serve static frontend files
+app.use(express.static(path.join(__dirname, '../hexaequo-v2')));
+
 // Health check endpoint
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -1369,6 +1376,15 @@ app.get('/room/:code', (req, res) => {
         activePlayer: room.active_player,
         players: players.map(p => ({ color: p.color, connected: !!p.connected }))
     });
+});
+
+// SPA fallback - serve index.html for all non-API routes
+app.get('*', (req, res) => {
+    // Don't intercept API routes
+    if (req.path.startsWith('/api') || req.path.startsWith('/room/')) {
+        return res.status(404).json({ error: 'Not found' });
+    }
+    res.sendFile(path.join(__dirname, '../hexaequo-v2/index.html'));
 });
 
 // Start server
