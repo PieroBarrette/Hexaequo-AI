@@ -40,8 +40,15 @@ function initializeSocket(httpServer) {
             methods: ['GET', 'POST'],
             credentials: true
         },
-        pingTimeout: 60000,
-        pingInterval: 25000
+        // Allow both transports - polling as fallback for WebSocket issues
+        transports: ['polling', 'websocket'],
+        // Longer timeouts for Render's cold starts
+        pingTimeout: 120000,
+        pingInterval: 25000,
+        // Allow upgrades from polling to websocket
+        allowUpgrades: true,
+        // Required for Render.com
+        allowEIO3: true
     });
 
     // Optional authentication middleware

@@ -83,11 +83,15 @@ const Multiplayer = (function () {
             playerId = getPlayerId();
             
             socket = io(SERVER_URL, {
-                transports: ['websocket', 'polling'],
-                timeout: 10000,
+                // Start with polling then upgrade to websocket (more reliable on cloud platforms)
+                transports: ['polling', 'websocket'],
+                upgrade: true,
+                timeout: 20000,
                 reconnection: true,
                 reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
-                reconnectionDelay: 1000
+                reconnectionDelay: 1000,
+                // Force new connection each time
+                forceNew: true
             });
 
             socket.on('connect', () => {
