@@ -68,7 +68,7 @@ const Multiplayer = (function () {
             // Load Socket.IO client if not loaded
             if (typeof io === 'undefined') {
                 const script = document.createElement('script');
-                script.src = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
+                script.src = 'https://cdn.socket.io/4.8.1/socket.io.min.js';
                 script.onload = () => initializeSocket(resolve, reject);
                 script.onerror = () => reject(new Error('Failed to load Socket.IO'));
                 document.head.appendChild(script);
