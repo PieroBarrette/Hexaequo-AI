@@ -82,18 +82,6 @@ app.use('/api/rooms', roomRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Serve static frontend files
-app.use(express.static(path.join(__dirname, '../hexaequo-v2')));
-
-// SPA fallback - serve index.html for all non-API routes
-app.get('*', (req, res, next) => {
-    // Don't intercept API routes
-    if (req.path.startsWith('/api')) {
-        return next();
-    }
-    res.sendFile(path.join(__dirname, '../hexaequo-v2/index.html'));
-});
-
 // 404 handler for API routes only
 app.use('/api/*', (req, res, next) => {
     res.status(404).json({
@@ -105,12 +93,27 @@ app.use('/api/*', (req, res, next) => {
 // Global error handler
 app.use(errorHandler);
 
-// Create HTTP server
+// Create HTTP server BEFORE applying static middleware
+// This allows Socket.IO to attach to the server without Express interference
 const httpServer = createServer(app);
 
 // Initialize Socket.IO
 const { initializeSocket } = require('./socket/socketHandler');
 const io = initializeSocket(httpServer);
+
+// AFTER Socket.IO is initialized, add static file serving
+// This ensures Socket.IO handshake isn't blocked by Express static middleware
+app.use(express.static(path.join(__dirname, '../hexaequo-v2')));
+
+// SPA fallback - serve index.html for all non-API routes
+// Must be LAST to avoid catching Socket.IO upgrade requests
+app.get('*', (req, res, next) => {
+    // Don't intercept API or socket.io routes
+    if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) {
+        return next();
+    }
+    res.sendFile(path.join(__dirname, '../hexaequo-v2/index.html'));
+});
 
 // Handle uncaught errors
 process.on('uncaughtException', (error) => {
