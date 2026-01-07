@@ -5,7 +5,7 @@
  */
 
 const { query, transaction } = require('../config/database');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const { BCRYPT_ROUNDS } = require('../config/env');
 
 /**
