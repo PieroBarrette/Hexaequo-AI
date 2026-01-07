@@ -85,17 +85,17 @@ const validate = (schema, source = 'body') => {
 // Common validation schemas
 const schemas = {
     signup: {
-        required: [['email', 'username'], ['pseudo', 'displayName'], 'password'], // Accept either email/username and pseudo/displayName
+        // No required fields - validation done in controller to support aliases
         fields: {
-            email: { type: 'string', email: true, maxLength: 255 },
-            username: { type: 'string', minLength: 3, maxLength: 30 }, // Alias for email
+            email: { type: 'string', maxLength: 255 },
+            username: { type: 'string', minLength: 3, maxLength: 30 },
             pseudo: { type: 'string', minLength: 3, maxLength: 30, pattern: /^[a-zA-Z0-9_-]+$/ },
-            displayName: { type: 'string', minLength: 3, maxLength: 30 }, // Alias for pseudo
-            password: { type: 'string', minLength: 4, maxLength: 128 } // Min 4 pour compatibilité frontend
+            displayName: { type: 'string', minLength: 3, maxLength: 30 },
+            password: { type: 'string', minLength: 4, maxLength: 128 }
         }
     },
     login: {
-        required: [['email', 'username'], 'password'], // Accept either email or username
+        required: ['password'],
         fields: {
             email: { type: 'string' },
             username: { type: 'string' },

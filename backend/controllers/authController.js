@@ -18,6 +18,21 @@ exports.signup = async (req, res, next) => {
         const pseudo = req.body.pseudo || req.body.displayName || req.body.username;
         const { password } = req.body;
 
+        // Validate required fields
+        if (!email || !pseudo || !password) {
+            return res.status(400).json({
+                success: false,
+                error: 'Email/username, pseudo/displayName, and password are required'
+            });
+        }
+
+        if (password.length < 4) {
+            return res.status(400).json({
+                success: false,
+                error: 'Password must be at least 4 characters'
+            });
+        }
+
         const result = await authService.createUser({ email, pseudo, password });
 
         res.status(201).json({
@@ -51,6 +66,13 @@ exports.login = async (req, res, next) => {
         // Support both email and username for frontend compatibility
         const email = req.body.email || req.body.username;
         const { password } = req.body;
+
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                error: 'Email/username and password are required'
+            });
+        }
 
         const result = await authService.loginUser({ email, password });
 
