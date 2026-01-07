@@ -6,12 +6,16 @@
 
 const Multiplayer = (function () {
     // Configuration
-    // Port 3000: Backend with REST API + Socket.IO
-    const BACKEND_PORT = 3000;
+    // Port 3001: Backend with REST API + Socket.IO (PostgreSQL)
+    const BACKEND_PORT = 3001;
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    
+    // Production URL - Update this after deploying to Render
+    const PRODUCTION_URL = 'https://hexaequo-backend.onrender.com';
+    
     const SERVER_URL = isLocalDev
         ? `http://localhost:${BACKEND_PORT}`
-        : window.location.origin; // Use same origin when frontend is served by the backend
+        : PRODUCTION_URL;
 
     // State
     let socket = null;

@@ -23,14 +23,36 @@ const userRoutes = require('./routes/userRoutes');
 const gameRoutes = require('./routes/gameRoutes');
 const roomRoutes = require('./routes/roomRoutes');
 const aiRoutes = require('./routes/aiRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 // Initialize Express
 const app = express();
 
+// Allowed origins for CORS
+const ALLOWED_ORIGINS = [
+    FRONTEND_URL,
+    'https://hexaequo.com',
+    'https://www.hexaequo.com',
+    'http://hexaequo.com',
+    'http://www.hexaequo.com',
+    'https://hexaequo-backend.onrender.com',
+    'https://pierobarrette.github.io',
+    'http://localhost:8080',
+    'http://127.0.0.1:8080',
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:3001',
+    'http://localhost:5500',
+    'http://127.0.0.1:5500'
+];
+
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+    contentSecurityPolicy: false // Disable for admin interface
+}));
 app.use(cors({
-    origin: [FRONTEND_URL, 'http://localhost:8080', 'http://127.0.0.1:8080'],
+    origin: ALLOWED_ORIGINS,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     credentials: true
 }));
@@ -57,6 +79,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/games', gameRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/admin', adminRoutes);
 
 // 404 handler
 app.use((req, res, next) => {
