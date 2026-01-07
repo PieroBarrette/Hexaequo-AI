@@ -591,6 +591,80 @@ app.get('/api/debug/stats', (req, res) => {
     }
 });
 
+// DEBUG - Download database file (requires password)
+app.get('/api/debug/download-db', (req, res) => {
+    try {
+        const debugPassword = process.env.DEBUG_PASSWORD || 'debug123';
+        const password = req.query.pwd;
+        
+        if (!password || password !== debugPassword) {
+            return res.status(401).json({ error: 'Unauthorized - invalid or missing password' });
+        }
+        
+        const fs = require('fs');
+        
+        // Check if database file exists
+        if (!fs.existsSync(dbPath)) {
+            return res.status(404).json({ error: 'Database file not found', path: dbPath });
+        }
+        
+        // Send the database file for download
+        res.download(dbPath, 'hexaequo.db', (err) => {
+            if (err) {
+                console.error('Download error:', err);
+                if (!res.headersSent) {
+                    res.status(500).json({ error: 'Download failed' });
+                }
+            }
+        });
+    } catch (err) {
+        console.error('Download DB error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// DEBUG - List all rooms
+app.get('/api/debug/rooms', (req, res) => {
+    try {
+        const debugPassword = process.env.DEBUG_PASSWORD || 'debug123';
+        const password = req.query.pwd;
+        
+        if (!password || password !== debugPassword) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+        
+        const rooms = db.prepare('SELECT * FROM rooms ORDER BY created_at DESC LIMIT 50').all();
+        res.json({ success: true, count: rooms.length, rooms });
+    } catch (err) {
+        console.error('Debug rooms error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// DEBUG - List all sessions
+app.get('/api/debug/sessions', (req, res) => {
+    try {
+        const debugPassword = process.env.DEBUG_PASSWORD || 'debug123';
+        const password = req.query.pwd;
+        
+        if (!password || password !== debugPassword) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+        
+        const sessions = db.prepare(`
+            SELECT s.token, s.created_at, s.expires_at, u.username, u.pseudo 
+            FROM sessions s 
+            JOIN users u ON s.user_id = u.id 
+            ORDER BY s.created_at DESC
+        `).all();
+        
+        res.json({ success: true, count: sessions.length, sessions });
+    } catch (err) {
+        console.error('Debug sessions error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Socket.IO connection handling
 // Store user info in memory (keyed by room code and player color)
 const roomPlayerInfo = new Map();
