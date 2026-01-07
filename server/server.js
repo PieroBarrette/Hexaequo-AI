@@ -665,6 +665,345 @@ app.get('/api/debug/sessions', (req, res) => {
     }
 });
 
+// DEBUG - Execute SQL commands (INSERT, UPDATE, DELETE)
+app.post('/api/debug/execute', (req, res) => {
+    try {
+        const debugPassword = process.env.DEBUG_PASSWORD || 'debug123';
+        const password = req.body.pwd || req.query.pwd;
+        
+        if (!password || password !== debugPassword) {
+            return res.status(401).json({ error: 'Unauthorized - invalid or missing password' });
+        }
+        
+        const { sql } = req.body;
+        
+        if (!sql) {
+            return res.status(400).json({ error: 'Missing SQL command' });
+        }
+        
+        // Allow DELETE, UPDATE, INSERT
+        const sqlUpper = sql.trim().toUpperCase();
+        const allowedCommands = ['DELETE', 'UPDATE', 'INSERT'];
+        const isAllowed = allowedCommands.some(cmd => sqlUpper.startsWith(cmd));
+        
+        if (!isAllowed) {
+            return res.status(403).json({ 
+                error: 'Only DELETE, UPDATE, INSERT commands are allowed',
+                allowedCommands 
+            });
+        }
+        
+        // Execute command
+        const stmt = db.prepare(sql);
+        const info = stmt.run();
+        
+        console.log(`[DEBUG] SQL executed: ${sql.substring(0, 100)}... | Changes: ${info.changes}`);
+        
+        res.json({ 
+            success: true, 
+            changes: info.changes,
+            lastInsertRowid: info.lastInsertRowid,
+            message: `Executed successfully. ${info.changes} row(s) affected.`
+        });
+        
+    } catch (err) {
+        console.error('Execute error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// DEBUG - Web interface for database inspection and modification
+app.get('/api/debug/admin', (req, res) => {
+    const debugPassword = process.env.DEBUG_PASSWORD || 'debug123';
+    const password = req.query.pwd;
+    
+    if (!password || password !== debugPassword) {
+        return res.status(401).send(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Login Required</title>
+                <style>
+                    body { font-family: 'Space Grotesk', monospace; padding: 40px; background: #1a1a1a; color: #fff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+                    .login-box { background: #2a2a2a; padding: 40px; border-radius: 8px; text-align: center; }
+                    input { padding: 10px; margin: 10px 0; width: 250px; background: #1a1a1a; color: #fff; border: 1px solid #444; }
+                    button { padding: 10px 30px; margin: 10px 0; background: #4CAF50; color: white; border: none; cursor: pointer; }
+                    button:hover { background: #45a049; }
+                </style>
+            </head>
+            <body>
+                <div class="login-box">
+                    <h1>🔒 Hexaequo DB Admin</h1>
+                    <p>Enter password to access database admin panel</p>
+                    <form onsubmit="window.location.href='?pwd='+document.getElementById('pwd').value; return false;">
+                        <input type="password" id="pwd" placeholder="Password" autofocus>
+                        <br>
+                        <button type="submit">Login</button>
+                    </form>
+                </div>
+            </body>
+            </html>
+        `);
+    }
+    
+    res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Hexaequo DB Admin</title>
+            <style>
+                * { box-sizing: border-box; }
+                body { font-family: 'Space Grotesk', monospace; padding: 20px; background: #1a1a1a; color: #fff; margin: 0; }
+                h1 { margin-bottom: 10px; }
+                .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #4CAF50; padding-bottom: 10px; }
+                .nav { margin: 20px 0; }
+                table { border-collapse: collapse; width: 100%; margin: 20px 0; background: #2a2a2a; }
+                th, td { border: 1px solid #444; padding: 10px; text-align: left; font-size: 13px; }
+                th { background: #333; position: sticky; top: 0; z-index: 10; }
+                tr:hover { background: #333; }
+                button { padding: 10px 20px; margin: 5px; background: #4CAF50; color: white; border: none; cursor: pointer; border-radius: 4px; font-family: inherit; }
+                button:hover { background: #45a049; }
+                button.danger { background: #f44336; }
+                button.danger:hover { background: #da190b; }
+                textarea { width: 100%; height: 100px; background: #2a2a2a; color: #fff; border: 1px solid #444; padding: 10px; font-family: 'Courier New', monospace; font-size: 14px; }
+                pre { background: #2a2a2a; padding: 15px; overflow-x: auto; border: 1px solid #444; border-radius: 4px; }
+                .section { background: #222; padding: 20px; margin: 20px 0; border-radius: 8px; border: 1px solid #333; }
+                .warning { color: #ff9800; font-weight: bold; margin: 10px 0; }
+                .success { color: #4CAF50; font-weight: bold; }
+                .error { color: #f44336; font-weight: bold; }
+                #results { margin-top: 20px; max-height: 600px; overflow-y: auto; }
+                .example { background: #1a1a1a; padding: 10px; margin: 10px 0; border-left: 3px solid #4CAF50; font-family: 'Courier New', monospace; font-size: 12px; }
+                .tab-buttons { display: flex; gap: 10px; margin-bottom: 15px; }
+                .tab-button { background: #333; }
+                .tab-button.active { background: #4CAF50; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>🎲 Hexaequo Database Admin</h1>
+                <div>
+                    <button onclick="location.reload()">🔄 Refresh</button>
+                    <button onclick="if(confirm('Logout?')) window.location.href='/api/debug/admin'">🚪 Logout</button>
+                </div>
+            </div>
+            
+            <div class="nav">
+                <strong>Quick Views:</strong>
+                <button onclick="loadUsers()">👥 Users</button>
+                <button onclick="loadRooms()">🎮 Rooms</button>
+                <button onclick="loadSessions()">🔑 Sessions</button>
+                <button onclick="loadPlayers()">🎯 Players</button>
+                <button onclick="loadStats()">📊 Statistics</button>
+            </div>
+            
+            <div class="section">
+                <h3>📖 Read Database (SELECT Queries)</h3>
+                <textarea id="sqlQuery" placeholder="SELECT * FROM users LIMIT 10">SELECT id, username, pseudo, elo, games_played, games_won, created_at FROM users ORDER BY elo DESC LIMIT 20</textarea>
+                <button onclick="executeQuery()">▶️ Execute Query</button>
+                <button onclick="document.getElementById('sqlQuery').value=''">🗑️ Clear</button>
+            </div>
+            
+            <div class="section" style="border-color: #f44336;">
+                <h3>⚠️ Modify Database (DELETE, UPDATE, INSERT)</h3>
+                <p class="warning">⚠️ Warning: These commands will permanently modify your live database!</p>
+                
+                <div class="tab-buttons">
+                    <button class="tab-button" onclick="setModifyExample('delete')">DELETE Examples</button>
+                    <button class="tab-button" onclick="setModifyExample('update')">UPDATE Examples</button>
+                    <button class="tab-button" onclick="setModifyExample('insert')">INSERT Examples</button>
+                </div>
+                
+                <div id="examples">
+                    <div class="example">-- Delete a user by username<br>DELETE FROM users WHERE username = 'testuser'</div>
+                    <div class="example">-- Delete expired sessions<br>DELETE FROM sessions WHERE expires_at < datetime('now')</div>
+                    <div class="example">-- Delete old rooms<br>DELETE FROM rooms WHERE created_at < datetime('now', '-7 days')</div>
+                </div>
+                
+                <textarea id="modifyQuery" placeholder="DELETE FROM users WHERE username = 'testuser'"></textarea>
+                <button class="danger" onclick="executeModify()">⚠️ Execute Modification</button>
+                <button onclick="document.getElementById('modifyQuery').value=''">🗑️ Clear</button>
+            </div>
+            
+            <h3>Results</h3>
+            <div id="results"></div>
+            
+            <script>
+                const pwd = '${password}';
+                
+                const examples = {
+                    delete: [
+                        { label: 'Delete a user by username', sql: "DELETE FROM users WHERE username = 'testuser'" },
+                        { label: 'Delete expired sessions', sql: "DELETE FROM sessions WHERE expires_at < datetime('now')" },
+                        { label: 'Delete old rooms', sql: "DELETE FROM rooms WHERE created_at < datetime('now', '-7 days')" },
+                        { label: 'Delete disconnected players', sql: "DELETE FROM players WHERE connected = 0 AND last_seen < datetime('now', '-1 hour')" }
+                    ],
+                    update: [
+                        { label: 'Reset user ELO', sql: "UPDATE users SET elo = 1000 WHERE username = 'player1'" },
+                        { label: 'Reset user statistics', sql: "UPDATE users SET games_played = 0, games_won = 0 WHERE id = 5" },
+                        { label: 'Change username', sql: "UPDATE users SET username = 'newname' WHERE username = 'oldname'" },
+                        { label: 'Update room status', sql: "UPDATE rooms SET status = 'finished' WHERE room_code = 'ABC123'" }
+                    ],
+                    insert: [
+                        { label: 'Create test user', sql: "INSERT INTO users (username, password_hash, pseudo, elo) VALUES ('testuser', 'hash', 'Test Player', 1000)" },
+                        { label: 'Add session (requires valid user_id)', sql: "INSERT INTO sessions (token, user_id) VALUES ('test-token-123', 1)" }
+                    ]
+                };
+                
+                function setModifyExample(type) {
+                    const examplesDiv = document.getElementById('examples');
+                    const buttons = document.querySelectorAll('.tab-button');
+                    buttons.forEach(b => b.classList.remove('active'));
+                    event.target.classList.add('active');
+                    
+                    examplesDiv.innerHTML = examples[type].map(ex => 
+                        \`<div class="example">-- \${ex.label}<br>\${ex.sql}</div>\`
+                    ).join('');
+                }
+                
+                async function fetchData(endpoint) {
+                    const res = await fetch(endpoint + '?pwd=' + pwd);
+                    return await res.json();
+                }
+                
+                async function postQuery(sql) {
+                    const res = await fetch('/api/debug/query?pwd=' + pwd, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sql, pwd })
+                    });
+                    return await res.json();
+                }
+                
+                function renderTable(data) {
+                    if (!data.results || data.results.length === 0) {
+                        return '<p>No results found</p>';
+                    }
+                    
+                    const keys = Object.keys(data.results[0]);
+                    let html = '<table><thead><tr>';
+                    keys.forEach(key => html += '<th>' + key + '</th>');
+                    html += '</tr></thead><tbody>';
+                    
+                    data.results.forEach(row => {
+                        html += '<tr>';
+                        keys.forEach(key => {
+                            let value = row[key];
+                            if (value === null) value = '<em style="color:#888">NULL</em>';
+                            else if (typeof value === 'string' && value.length > 100) value = value.substring(0, 100) + '...';
+                            html += '<td>' + value + '</td>';
+                        });
+                        html += '</tr>';
+                    });
+                    
+                    html += '</tbody></table>';
+                    html += '<p><strong>Total:</strong> ' + data.count + ' row(s)</p>';
+                    return html;
+                }
+                
+                async function loadUsers() {
+                    try {
+                        const data = await postQuery('SELECT id, username, pseudo, elo, games_played, games_won, created_at, last_login FROM users ORDER BY elo DESC');
+                        document.getElementById('results').innerHTML = '<h4 class="success">✅ Users</h4>' + renderTable(data);
+                    } catch (err) {
+                        document.getElementById('results').innerHTML = '<p class="error">❌ Error: ' + err.message + '</p>';
+                    }
+                }
+                
+                async function loadRooms() {
+                    try {
+                        const data = await postQuery('SELECT room_code, status, time_control, black_player_id, white_player_id, created_at, updated_at FROM rooms ORDER BY created_at DESC LIMIT 50');
+                        document.getElementById('results').innerHTML = '<h4 class="success">✅ Rooms</h4>' + renderTable(data);
+                    } catch (err) {
+                        document.getElementById('results').innerHTML = '<p class="error">❌ Error: ' + err.message + '</p>';
+                    }
+                }
+                
+                async function loadSessions() {
+                    try {
+                        const data = await fetchData('/api/debug/sessions');
+                        document.getElementById('results').innerHTML = '<h4 class="success">✅ Sessions</h4>' + renderTable(data);
+                    } catch (err) {
+                        document.getElementById('results').innerHTML = '<p class="error">❌ Error: ' + err.message + '</p>';
+                    }
+                }
+                
+                async function loadPlayers() {
+                    try {
+                        const data = await postQuery('SELECT player_id, room_code, color, connected, socket_id, last_seen FROM players ORDER BY last_seen DESC');
+                        document.getElementById('results').innerHTML = '<h4 class="success">✅ Players</h4>' + renderTable(data);
+                    } catch (err) {
+                        document.getElementById('results').innerHTML = '<p class="error">❌ Error: ' + err.message + '</p>';
+                    }
+                }
+                
+                async function loadStats() {
+                    try {
+                        const data = await fetchData('/api/debug/stats');
+                        document.getElementById('results').innerHTML = '<h4 class="success">✅ Statistics</h4><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                    } catch (err) {
+                        document.getElementById('results').innerHTML = '<p class="error">❌ Error: ' + err.message + '</p>';
+                    }
+                }
+                
+                async function executeQuery() {
+                    const sql = document.getElementById('sqlQuery').value.trim();
+                    if (!sql) {
+                        alert('Please enter a SQL query');
+                        return;
+                    }
+                    
+                    try {
+                        const data = await postQuery(sql);
+                        document.getElementById('results').innerHTML = '<h4 class="success">✅ Query Results</h4>' + renderTable(data);
+                    } catch (err) {
+                        document.getElementById('results').innerHTML = '<p class="error">❌ Error: ' + err.message + '</p>';
+                    }
+                }
+                
+                async function executeModify() {
+                    const sql = document.getElementById('modifyQuery').value.trim();
+                    
+                    if (!sql) {
+                        alert('Please enter a SQL command');
+                        return;
+                    }
+                    
+                    if (!confirm('⚠️ WARNING\\n\\nThis will permanently modify the live database.\\n\\nCommand: ' + sql.substring(0, 100) + '\\n\\nAre you absolutely sure?')) {
+                        return;
+                    }
+                    
+                    try {
+                        const res = await fetch('/api/debug/execute?pwd=' + pwd, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ sql, pwd })
+                        });
+                        const data = await res.json();
+                        
+                        if (data.success) {
+                            document.getElementById('results').innerHTML = 
+                                '<h4 class="success">✅ ' + data.message + '</h4>' +
+                                '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                        } else {
+                            document.getElementById('results').innerHTML = 
+                                '<h4 class="error">❌ Error</h4>' +
+                                '<p class="error">' + data.error + '</p>';
+                        }
+                    } catch (err) {
+                        document.getElementById('results').innerHTML = 
+                            '<h4 class="error">❌ Error</h4>' +
+                            '<p class="error">' + err.message + '</p>';
+                    }
+                }
+                
+                // Load users by default
+                loadUsers();
+            </script>
+        </body>
+        </html>
+    `);
+});
+
 // Socket.IO connection handling
 // Store user info in memory (keyed by room code and player color)
 const roomPlayerInfo = new Map();
