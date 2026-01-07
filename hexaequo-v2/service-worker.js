@@ -1,7 +1,7 @@
 // service-worker.js
 // Service Worker for caching and offline functionality
 
-const CACHE_NAME = 'hexaequo-v1';
+const CACHE_NAME = 'hexaequo-v2';
 const urlsToCache = [
     './',
     './index.html',
@@ -55,6 +55,19 @@ self.addEventListener('activate', function(event) {
 
 // Fetch event - serve from cache, fallback to network
 self.addEventListener('fetch', function(event) {
+    const url = new URL(event.request.url);
+    
+    // SKIP socket.io, API calls, and external URLs - let them pass through directly
+    if (url.pathname.includes('/socket.io') || 
+        url.pathname.startsWith('/api') ||
+        url.hostname.includes('hexaequo-backend') ||
+        url.hostname.includes('render.com') ||
+        url.hostname.includes('cdn.socket.io') ||
+        event.request.url.includes('socket.io')) {
+        // Don't intercept - let the browser handle it normally
+        return;
+    }
+
     event.respondWith(
         caches.match(event.request)
             .then(function(response) {
@@ -86,8 +99,12 @@ self.addEventListener('fetch', function(event) {
                 );
             })
             .catch(function() {
-                // Offline fallback
+                // Offline fallback - return the cached index.html for navigation requests
                 console.log('[ServiceWorker] Fetch failed; returning offline page instead.');
+                if (event.request.mode === 'navigate') {
+                    return caches.match('./index.html');
+                }
+                return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
             })
     );
 });

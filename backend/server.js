@@ -65,13 +65,17 @@ app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 // Rate limiting
 app.use('/api/', apiLimiter);
 
-// Health check
+// Health check (both /health and /healthz for Render.com compatibility)
 app.get('/health', (req, res) => {
     res.json({
         status: 'ok',
         timestamp: new Date().toISOString(),
         uptime: process.uptime()
     });
+});
+
+app.get('/healthz', (req, res) => {
+    res.status(200).send('OK');
 });
 
 // API Routes
