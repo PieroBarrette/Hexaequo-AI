@@ -9,14 +9,25 @@ const authService = require('../services/authService');
 /**
  * Register a new user
  * POST /api/auth/signup
+ * POST /api/auth/register (alias)
  */
 exports.signup = async (req, res, next) => {
     try {
-        const { email, pseudo, password } = req.body;
+        // Support both email/username and pseudo/displayName for frontend compatibility
+        const email = req.body.email || req.body.username;
+        const pseudo = req.body.pseudo || req.body.displayName || req.body.username;
+        const { password } = req.body;
 
         const result = await authService.createUser({ email, pseudo, password });
 
         res.status(201).json({
+            success: true,
+            token: result.accessToken || null, // For compatibility
+            user: {
+                id: result.userId,
+                email: result.email,
+                pseudo: result.pseudo
+            },
             data: {
                 userId: result.userId,
                 email: result.email,
@@ -37,11 +48,24 @@ exports.signup = async (req, res, next) => {
  */
 exports.login = async (req, res, next) => {
     try {
-        const { email, password } = req.body;
+        // Support both email and username for frontend compatibility
+        const email = req.body.email || req.body.username;
+        const { password } = req.body;
 
         const result = await authService.loginUser({ email, password });
 
         res.json({
+            success: true,
+            token: result.accessToken, // For frontend compatibility
+            user: {
+                id: result.user.id,
+                pseudo: result.user.pseudo,
+                username: result.user.email, // Alias
+                email: result.user.email,
+                elo: result.user.elo.classic || 1500, // Default ELO
+                gamesPlayed: 0,
+                gamesWon: 0
+            },
             data: {
                 accessToken: result.accessToken,
                 refreshToken: result.refreshToken,

@@ -85,17 +85,20 @@ const validate = (schema, source = 'body') => {
 // Common validation schemas
 const schemas = {
     signup: {
-        required: ['email', 'pseudo', 'password'],
+        required: [['email', 'username'], ['pseudo', 'displayName'], 'password'], // Accept either email/username and pseudo/displayName
         fields: {
             email: { type: 'string', email: true, maxLength: 255 },
+            username: { type: 'string', minLength: 3, maxLength: 30 }, // Alias for email
             pseudo: { type: 'string', minLength: 3, maxLength: 30, pattern: /^[a-zA-Z0-9_-]+$/ },
-            password: { type: 'string', minLength: 8, maxLength: 128 }
+            displayName: { type: 'string', minLength: 3, maxLength: 30 }, // Alias for pseudo
+            password: { type: 'string', minLength: 4, maxLength: 128 } // Min 4 pour compatibilité frontend
         }
     },
     login: {
-        required: ['email', 'password'],
+        required: [['email', 'username'], 'password'], // Accept either email or username
         fields: {
-            email: { type: 'string', email: true },
+            email: { type: 'string' },
+            username: { type: 'string' },
             password: { type: 'string' }
         }
     },

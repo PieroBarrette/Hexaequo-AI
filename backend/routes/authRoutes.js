@@ -16,6 +16,13 @@ router.post('/signup',
     authController.signup
 );
 
+// Alias for compatibility with frontend
+router.post('/register', 
+    authLimiter, 
+    validate(schemas.signup), 
+    authController.signup
+);
+
 router.post('/login', 
     authLimiter, 
     validate(schemas.login), 
