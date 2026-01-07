@@ -21,15 +21,13 @@ async function initializeDatabase() {
     
     console.log('✅ Database connection successful\n');
     
-    // Read schema file
-    const schemaPath = path.join(__dirname, '../models/schema.js');
-    const schemaModule = require(schemaPath);
-    const schema = schemaModule.schema;
-    
     console.log('📋 Executing schema...\n');
     
     try {
-        await pool.query(schema);
+        // Import and run createSchema function
+        const { createSchema } = require('../models/schema');
+        await createSchema();
+        
         console.log('✅ Schema executed successfully!\n');
         
         // Verify tables were created
