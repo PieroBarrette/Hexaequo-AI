@@ -9,6 +9,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const { createServer } = require('http');
+const path = require('path');
 
 // Import configuration
 const { PORT, FRONTEND_URL, NODE_ENV } = require('./config/env');
@@ -81,8 +82,20 @@ app.use('/api/rooms', roomRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/admin', adminRoutes);
 
-// 404 handler
-app.use((req, res, next) => {
+// Serve static frontend files
+app.use(express.static(path.join(__dirname, '../hexaequo-v2')));
+
+// SPA fallback - serve index.html for all non-API routes
+app.get('*', (req, res, next) => {
+    // Don't intercept API routes
+    if (req.path.startsWith('/api')) {
+        return next();
+    }
+    res.sendFile(path.join(__dirname, '../hexaequo-v2/index.html'));
+});
+
+// 404 handler for API routes only
+app.use('/api/*', (req, res, next) => {
     res.status(404).json({
         error: 'Not Found',
         message: `Route ${req.method} ${req.path} not found`
