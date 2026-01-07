@@ -274,14 +274,8 @@ async function createSchema() {
     console.log('Creating database schema...');
     
     try {
-        // Split by semicolons and execute each statement
-        const statements = schema.split(';').filter(s => s.trim());
-        
-        for (const statement of statements) {
-            if (statement.trim()) {
-                await query(statement + ';');
-            }
-        }
+        // Execute entire schema at once (PostgreSQL handles multiple statements)
+        await query(schema);
         
         console.log('Database schema created successfully!');
     } catch (error) {
