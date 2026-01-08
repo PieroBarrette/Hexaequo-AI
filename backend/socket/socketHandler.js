@@ -81,7 +81,7 @@ function initializeSocket(httpServer) {
 
         // Store socket info
         connectedSockets.set(socket.id, {
-            oderId: playerId,
+            userId: playerId,
             pseudo: socket.pseudo || 'Guest',
             roomCode: null
         });

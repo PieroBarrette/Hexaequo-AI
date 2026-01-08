@@ -29,15 +29,6 @@ const adminRoutes = require('./routes/adminRoutes');
 // Initialize Express
 const app = express();
 
-// Prevent Express from handling Socket.IO requests
-// This allows the separate Socket.IO listener to handle them without Express interference (404s)
-app.use((req, res, next) => {
-    if (req.path.startsWith('/socket.io')) {
-        return; // Don't call next(), stopping Express chain here
-    }
-    next();
-});
-
 // Allowed origins for CORS
 const ALLOWED_ORIGINS = [
     FRONTEND_URL,
@@ -95,19 +86,15 @@ app.use('/api/rooms', roomRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Create HTTP server manually to control listener order
-const httpServer = createServer();
+// Static file serving BEFORE creating HTTP server
+app.use(express.static(path.join(__dirname, '../hexaequo-v2')));
 
-// Initialize Socket.IO FIRST - this ensures it gets the request first
+// Create HTTP server with Express app
+const httpServer = createServer(app);
+
+// Initialize Socket.IO - it will intercept /socket.io requests
 const { initializeSocket } = require('./socket/socketHandler');
 const io = initializeSocket(httpServer);
-
-// Attach Express app as a request listener SECOND
-// It will handle all requests that Socket.IO doesn't handle
-httpServer.on('request', app);
-
-// NOW add static file serving (after Socket.IO is attached)
-app.use(express.static(path.join(__dirname, '../hexaequo-v2')));
 
 // SPA fallback - serve index.html for all non-API routes
 app.get('*', (req, res, next) => {
@@ -153,11 +140,14 @@ const startServer = () => {
     })();
 
     // Start HTTP server (synchronous - keeps event loop alive)
-    httpServer.listen(PORT, () => {
+    // Listen on 0.0.0.0 to accept connections from all network interfaces
+    httpServer.listen(PORT, '0.0.0.0', () => {
         console.log(`\n🎮 Hexaequo Backend Server running on port ${PORT}`);
         console.log(`   Environment: ${NODE_ENV}`);
         console.log(`   Frontend URL: ${FRONTEND_URL}`);
         console.log(`   WebSocket: enabled`);
+        console.log(`   Listening on: 0.0.0.0:${PORT}`);
+        console.log(`   Socket.IO endpoint: http://localhost:${PORT}/socket.io/`);
         console.log(`   Server is ready and listening...\n`);
     });
 
