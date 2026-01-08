@@ -86,12 +86,16 @@ app.use('/api/rooms', roomRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Create HTTP server FIRST, before any static middleware
-const httpServer = createServer(app);
+// Create HTTP server manually to control listener order
+const httpServer = createServer();
 
-// Initialize Socket.IO immediately on the HTTP server
+// Initialize Socket.IO FIRST - this ensures it gets the request first
 const { initializeSocket } = require('./socket/socketHandler');
 const io = initializeSocket(httpServer);
+
+// Attach Express app as a request listener SECOND
+// It will handle all requests that Socket.IO doesn't handle
+httpServer.on('request', app);
 
 // NOW add static file serving (after Socket.IO is attached)
 app.use(express.static(path.join(__dirname, '../hexaequo-v2')));
