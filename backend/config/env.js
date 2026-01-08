@@ -12,7 +12,7 @@ module.exports = {
     NODE_ENV: process.env.NODE_ENV || 'development',
     
     // Frontend
-    FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:8080',
+    FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:8080', 
     
     // Database
     DATABASE_URL: process.env.DATABASE_URL || 'postgresql://localhost:5432/hexaequo',

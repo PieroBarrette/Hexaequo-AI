@@ -44,18 +44,12 @@ function initializeSocket(httpServer) {
     console.log('🔌 Allowed CORS origins:', allowedOrigins);
     
     const io = new Server(httpServer, {
+        path: '/socket.io/',
         cors: {
-            origin: function(origin, callback) {
-                console.log(`[SOCKET.IO CORS] Request from origin: ${origin || 'no-origin'}`);
-                if (!origin || allowedOrigins.includes(origin)) {
-                    callback(null, true);
-                } else {
-                    console.error(`[SOCKET.IO CORS] Rejected origin: ${origin}`);
-                    callback(new Error('Not allowed by CORS'));
-                }
-            },
+            origin: allowedOrigins,
             methods: ['GET', 'POST'],
-            credentials: true
+            credentials: true,
+            allowedHeaders: ['Content-Type', 'Authorization']
         },
         // Allow both transports - polling as fallback for WebSocket issues
         transports: ['polling', 'websocket'],
@@ -64,13 +58,15 @@ function initializeSocket(httpServer) {
         pingInterval: 25000,
         // Allow upgrades from polling to websocket
         allowUpgrades: true,
-        // Required for Render.com
-        allowEIO3: true
+        // Required for Render.com and Socket.IO v3+ compatibility
+        allowEIO3: true,
+        // Serve client files (helps with debugging)
+        serveClient: false
     });
 
-    console.log('✅ Socket.IO server created with CORS origins:', io.engine.opts.cors.origin.length, 'origins');
+    console.log('✅ Socket.IO server created with CORS origins:', allowedOrigins.length, 'origins');
     console.log('✅ Socket.IO transports:', io.engine.opts.transports);
-    console.log('✅ Socket.IO path:', io.path() || '/socket.io/');
+    console.log('✅ Socket.IO path:', io.path());
 
     // Optional authentication middleware
     io.use(async (socket, next) => {
