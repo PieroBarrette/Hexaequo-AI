@@ -29,6 +29,15 @@ const adminRoutes = require('./routes/adminRoutes');
 // Initialize Express
 const app = express();
 
+// Prevent Express from handling Socket.IO requests
+// This allows the separate Socket.IO listener to handle them without Express interference (404s)
+app.use((req, res, next) => {
+    if (req.path.startsWith('/socket.io')) {
+        return; // Don't call next(), stopping Express chain here
+    }
+    next();
+});
+
 // Allowed origins for CORS
 const ALLOWED_ORIGINS = [
     FRONTEND_URL,
