@@ -20,25 +20,32 @@ const connectedSockets = new Map(); // socketId -> { userId, pseudo, roomCode }
 function initializeSocket(httpServer) {
     console.log('🔌 Initializing Socket.IO server...');
     
+    // Debug: log the FRONTEND_URL being used
+    console.log('🔌 FRONTEND_URL from env:', FRONTEND_URL);
+    
+    const allowedOrigins = [
+        FRONTEND_URL,
+        'https://hexaequo.com',
+        'https://www.hexaequo.com',
+        'http://hexaequo.com',
+        'http://www.hexaequo.com',
+        'https://hexaequo-backend.onrender.com',
+        'https://pierobarrette.github.io',
+        'http://localhost:8080',
+        'http://localhost:5500',
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://127.0.0.1:8080',
+        'http://127.0.0.1:5500',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:3001'
+    ];
+    
+    console.log('🔌 Allowed CORS origins:', allowedOrigins);
+    
     const io = new Server(httpServer, {
         cors: {
-            origin: [
-                FRONTEND_URL,
-                'https://hexaequo.com',
-                'https://www.hexaequo.com',
-                'http://hexaequo.com',
-                'http://www.hexaequo.com',
-                'https://hexaequo-backend.onrender.com',
-                'https://pierobarrette.github.io',
-                'http://localhost:8080',
-                'http://localhost:5500',
-                'http://localhost:3000',
-                'http://localhost:3001',
-                'http://127.0.0.1:8080',
-                'http://127.0.0.1:5500',
-                'http://127.0.0.1:3000',
-                'http://127.0.0.1:3001'
-            ],
+            origin: allowedOrigins,
             methods: ['GET', 'POST'],
             credentials: true
         },

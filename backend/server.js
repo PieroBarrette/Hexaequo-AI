@@ -89,6 +89,13 @@ app.use('/api/admin', adminRoutes);
 // Create HTTP server with Express app FIRST
 const httpServer = createServer(app);
 
+// Debug: Log ALL incoming requests BEFORE Socket.IO handles them
+httpServer.on('request', (req, res) => {
+    if (req.url && req.url.startsWith('/socket.io')) {
+        console.log(`[SOCKET.IO REQUEST] ${req.method} ${req.url} from origin: ${req.headers.origin}`);
+    }
+});
+
 // Initialize Socket.IO - MUST be done before adding more middlewares
 const { initializeSocket } = require('./socket/socketHandler');
 const io = initializeSocket(httpServer);
