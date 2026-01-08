@@ -60,7 +60,7 @@ self.addEventListener('fetch', function(event) {
     // SKIP socket.io, API calls, and external URLs - let them pass through directly
     if (url.pathname.includes('/socket.io') || 
         url.pathname.startsWith('/api') ||
-        url.hostname.includes('hexaequo-backend') ||
+        url.hostname.includes('hexaequo-server') ||
         url.hostname.includes('render.com') ||
         url.hostname.includes('cdn.socket.io') ||
         event.request.url.includes('socket.io')) {

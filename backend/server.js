@@ -36,7 +36,7 @@ const ALLOWED_ORIGINS = [
     'https://www.hexaequo.com',
     'http://hexaequo.com',
     'http://www.hexaequo.com',
-    'https://hexaequo-backend.onrender.com',
+    'https://hexaequo-server.onrender.com',
     'https://pierobarrette.github.io',
     'http://localhost:8080',
     'http://127.0.0.1:8080',
@@ -182,8 +182,8 @@ const startServer = () => {
         console.log(`   Socket.IO path: /socket.io/`);
         console.log(`   Socket.IO transports: polling, websocket`);
         if (NODE_ENV === 'production') {
-            console.log(`   Public URL: https://hexaequo-backend.onrender.com`);
-            console.log(`   Socket.IO URL: https://hexaequo-backend.onrender.com/socket.io/`);
+            console.log(`   Public URL: https://hexaequo-server.onrender.com`);
+            console.log(`   Socket.IO URL: https://hexaequo-server.onrender.com/socket.io/`);
         } else {
             console.log(`   Socket.IO URL: http://localhost:${PORT}/socket.io/`);
         }

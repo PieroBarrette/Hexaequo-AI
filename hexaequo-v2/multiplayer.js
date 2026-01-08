@@ -11,7 +11,7 @@ const Multiplayer = (function () {
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     
     // Production URL - Update this after deploying to Render
-    const PRODUCTION_URL = 'https://hexaequo-backend.onrender.com';
+    const PRODUCTION_URL = 'https://hexaequo-server.onrender.com';
     
     const SERVER_URL = isLocalDev
         ? `http://localhost:${BACKEND_PORT}`

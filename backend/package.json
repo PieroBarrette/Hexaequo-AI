@@ -1,5 +1,5 @@
 {
-    "name": "hexaequo-backend",
+    "name": "hexaequo-server",
     "version": "1.0.0",
     "description": "Hexaequo REST API Backend",
     "main": "server.js",

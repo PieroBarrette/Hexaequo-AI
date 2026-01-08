@@ -29,7 +29,7 @@ function initializeSocket(httpServer) {
         'https://www.hexaequo.com',
         'http://hexaequo.com',
         'http://www.hexaequo.com',
-        'https://hexaequo-backend.onrender.com',
+        'https://hexaequo-server.onrender.com',
         'https://pierobarrette.github.io',
         'http://localhost:8080',
         'http://localhost:5500',
