@@ -95,8 +95,21 @@ const io = initializeSocket(httpServer);
 
 console.log('✅ Socket.IO initialized on server');
 
-// Static file serving AFTER Socket.IO
-app.use(express.static(path.join(__dirname, '../hexaequo-v2')));
+// Debug: Log all incoming requests in production
+app.use((req, res, next) => {
+    console.log(`[DEBUG] ${req.method} ${req.path}`);
+    next();
+});
+
+// Static file serving AFTER Socket.IO (only if frontend exists)
+const frontendPath = path.join(__dirname, '../hexaequo-v2');
+const fs = require('fs');
+if (fs.existsSync(frontendPath)) {
+    console.log(`✅ Frontend folder found at: ${frontendPath}`);
+    app.use(express.static(frontendPath));
+} else {
+    console.log(`⚠️  Frontend folder NOT found at: ${frontendPath} (backend-only mode)`);
+}
 
 // 404 handler for API routes only (before SPA fallback)
 app.use('/api/*', (req, res, next) => {
@@ -108,11 +121,17 @@ app.use('/api/*', (req, res, next) => {
 
 // SPA fallback - serve index.html for all non-API routes (LAST middleware)
 app.get('*', (req, res, next) => {
-    // Don't intercept API or socket.io routes
-    if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) {
+    // Don't intercept API, socket.io, or health routes
+    if (req.path.startsWith('/api') || req.path.startsWith('/socket.io') || req.path === '/health' || req.path === '/healthz') {
         return next();
     }
-    res.sendFile(path.join(__dirname, '../hexaequo-v2/index.html'));
+    const indexPath = path.join(__dirname, '../hexaequo-v2/index.html');
+    if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+    } else {
+        // Backend-only mode: no frontend to serve
+        res.status(404).json({ error: 'Frontend not deployed on this server', path: req.path });
+    }
 });
 
 // Error handler middleware (must be after all routes)
