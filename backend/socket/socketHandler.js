@@ -45,7 +45,15 @@ function initializeSocket(httpServer) {
     
     const io = new Server(httpServer, {
         cors: {
-            origin: allowedOrigins,
+            origin: function(origin, callback) {
+                console.log(`[SOCKET.IO CORS] Request from origin: ${origin || 'no-origin'}`);
+                if (!origin || allowedOrigins.includes(origin)) {
+                    callback(null, true);
+                } else {
+                    console.error(`[SOCKET.IO CORS] Rejected origin: ${origin}`);
+                    callback(new Error('Not allowed by CORS'));
+                }
+            },
             methods: ['GET', 'POST'],
             credentials: true
         },
