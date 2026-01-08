@@ -78,9 +78,38 @@ const Multiplayer = (function () {
         });
     }
 
+    // Debug logging (enabled in production for multiplayer debugging)
+    const DEBUG = true;
+    function debugLog(...args) {
+        if (DEBUG) {
+            console.log('[Multiplayer Debug]', new Date().toISOString(), ...args);
+        }
+    }
+    function debugError(...args) {
+        if (DEBUG) {
+            console.error('[Multiplayer Debug]', new Date().toISOString(), ...args);
+        }
+    }
+
     function initializeSocket(resolve, reject) {
         try {
             playerId = getPlayerId();
+            
+            debugLog('=== Socket.IO Connection Attempt ===');
+            debugLog('Server URL:', SERVER_URL);
+            debugLog('Current origin:', window.location.origin);
+            debugLog('Is local dev:', isLocalDev);
+            debugLog('Player ID:', playerId);
+            
+            // Test server reachability first
+            debugLog('Testing server health endpoint...');
+            fetch(`${SERVER_URL}/health`)
+                .then(res => {
+                    debugLog('Health check response:', res.status, res.statusText);
+                    return res.json();
+                })
+                .then(data => debugLog('Health check data:', data))
+                .catch(err => debugError('Health check failed:', err.message));
             
             socket = io(SERVER_URL, {
                 // Start with polling then upgrade to websocket (more reliable on cloud platforms)
@@ -91,10 +120,17 @@ const Multiplayer = (function () {
                 reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
                 reconnectionDelay: 1000,
                 // Force new connection each time
-                forceNew: true
+                forceNew: true,
+                // Explicit path
+                path: '/socket.io/'
             });
+            
+            debugLog('Socket.IO instance created, waiting for events...');
 
             socket.on('connect', () => {
+                debugLog('✅ Connected successfully!');
+                debugLog('Socket ID:', socket.id);
+                debugLog('Transport:', socket.io.engine.transport.name);
                 console.log('Connected to server');
                 isConnected = true;
                 reconnectAttempts = 0;
@@ -108,19 +144,46 @@ const Multiplayer = (function () {
                 resolve();
             });
 
-            socket.on('disconnect', () => {
+            socket.on('disconnect', (reason) => {
+                debugLog('❌ Disconnected:', reason);
                 console.log('Disconnected from server');
                 isConnected = false;
                 if (onConnectionStatusChange) onConnectionStatusChange('disconnected');
             });
 
             socket.on('connect_error', (err) => {
+                debugError('❌ Connection error:', err.message);
+                debugError('Error type:', err.type);
+                debugError('Error description:', err.description);
+                debugError('Transport:', socket.io?.engine?.transport?.name || 'unknown');
+                debugError('Reconnect attempts:', reconnectAttempts + 1, '/', MAX_RECONNECT_ATTEMPTS);
+                
+                // Log additional context for CORS issues
+                if (err.message.includes('xhr') || err.message.includes('poll')) {
+                    debugError('⚠️ Possible CORS issue detected');
+                    debugError('Check that server allows origin:', window.location.origin);
+                    debugError('Expected server CORS origins should include:', window.location.origin);
+                }
+                
                 console.error('Connection error:', err);
                 reconnectAttempts++;
                 if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
                     if (onError) onError('Unable to connect to server. Please try again later.');
                     reject(err);
                 }
+            });
+            
+            // Additional debug events
+            socket.io.on('error', (err) => {
+                debugError('Manager error:', err);
+            });
+            
+            socket.io.on('reconnect_attempt', (attempt) => {
+                debugLog('Reconnect attempt:', attempt);
+            });
+            
+            socket.io.on('reconnect_failed', () => {
+                debugError('❌ Reconnection failed after all attempts');
             });
 
             // Game events
