@@ -1,125 +1,181 @@
 # Hexaequo AI - Copilot Instructions
 
 ## Project Overview
-Hexaequo is a web-based strategic hexagonal board game with multiplayer support via WebSocket, AI opponents, and a planned REST API backend. The architecture separates concerns into three tiers: Frontend (SPA), Multiplayer Server (WebSocket), and a future Backend API.
+Hexaequo is a strategic hexagonal board game with a pure-JavaScript PWA frontend (`hexaequo-v2/`), REST API backend for user management and game history, and shared game logic for both client and server.
 
-## Architecture Fundamentals
+## Architecture: Two-Tier + Shared Logic
 
-### Three-Tier Structure
-1. **Frontend** (`/frontend`) - Canvas-based SPA with ES modules. Entry point: `js/app.js`
-2. **Multiplayer Server** (`/server`) - Node.js/Express + Socket.IO + SQLite. Real-time gameplay via WebSocket
-3. **Backend** (`/backend`) - Planned REST API for auth, ratings, game history. Uses Express + PostgreSQL (planned)
-4. **Shared** (`/shared`) - Pure game logic imported by frontend & backend. No DOM/Node dependencies. Exports via ES modules (`game/index.js`)
+### Core Components
+1. **Frontend PWA** (`/hexaequo-v2/`) - Vanilla JS, Canvas rendering, Web Workers for AI. Entry: `index.html`
+2. **Backend API** (`/backend/`) - Express REST API + Socket.IO. Auth (JWT), ELO ratings, game history. Port 3001
+3. **Shared Logic** (`/shared/game/`) - Pure ES modules imported by both frontend and backend. NO platform dependencies
 
-### Game State Model
-- **Hex Grid**: Cube coordinates (q, r) as strings "q,r" (see `shared/game/constants.js` for `BOARD_RADIUS = 8`)
-- **State Structure** (from `shared/game/gameState.js`):
-  - `tiles`: Board positions mapped to colors ("black"/"white")
-  - `pieces`: Pieces (discs/rings) with location & color
-  - `inventory`: Unplaced tiles & discs per player
-  - `captured`: Pieces captured (victory: 6 discs or 3 rings)
-  - `metadata`: Multi-jump tracking, move history
-- **Victory Conditions**: `DISC_CAPTURE_WIN = 6`, `RING_CAPTURE_WIN = 3`
+### Critical Architecture Details
+- **NO `/frontend` or `/server` directories exist** - old references in docs are outdated
+- Frontend connects to backend on **port 3001** (see `hexaequo-v2/multiplayer.js`: `const BACKEND_PORT = 3001`)
+- Backend uses **PostgreSQL with memory fallback** (`backend/services/gameService.js` - `withFallback()` pattern)
+- AI runs in **Web Worker** (`hexaequo-v2/ai-worker.js`) to avoid blocking UI during minimax search
 
-### Data Flow
-1. **Frontend → Server**: Player makes move (e.g., `play-move` socket event)
-2. **Server**: Validates via `moveValidator.validateMove()` (from shared), updates state, broadcasts `game-update`
-3. **Frontend**: Receives state, re-renders canvas via `BoardRenderer.render()`
-4. **WebSocket Events**: See [docs/SOCKET_EVENTS.md](docs/SOCKET_EVENTS.md) for full list (create-room, join-room, play-move, etc.)
+## Game State & Hex Grid System
 
-## Key Development Patterns
+### Hex Coordinates (Cube System)
+- Coordinates: `(q, r)` stored as strings `"q,r"` in objects (e.g., `"0,0": "black"`)
+- Board radius: `BOARD_RADIUS = 8` (from `shared/game/constants.js`)
+- Validation: `isWithinBoard(q, r, radius)` checks `|q| <= r && |r| <= r && |q+r| <= r`
+- Grid math: `getNeighbors(q, r)` returns 6 adjacent hexes using `HEX_DIRECTIONS`
 
-### Shared Game Logic
-- **Never duplicate game rules** - import from `/shared/game/`:
-  - `constants.js` - Board radius, piece types, victory conditions
-  - `gameState.js` - State structure and initialization
-  - `moveValidator.js` - Move validation (placement, movement, jumps)
-  - Hexagonal grid math: `getNeighbors(q, r)`, `isWithinBoard(q, r)`
-- Example: When validating a move, always use `validateMove(gameState, move)` not custom logic
+### Game State Structure (`shared/game/gameState.js`)
+```javascript
+{
+  tiles: { "0,0": "black", "1,0": "black", ... },  // Board positions
+  pieces: { "1,0": {type: "disc", color: "black"}, ... },  // Pieces on board
+  inventory: { black: 7, white: 7 },  // Unplaced tiles
+  discInventory: { black: 5, white: 5 },  // Unplaced discs
+  ringInventory: { black: 3, white: 3 },  // Unplaced rings
+  captured: { black: {disc: 0, ring: 0}, white: {...} },  // Captured pieces
+  activePlayer: "black",  // Current turn
+  metadata: { moveHistory: [...], multiJumping: false, ... }  // Game metadata
+}
+```
+- Victory: Capture 6 discs (`DISC_CAPTURE_WIN`) OR 3 rings (`RING_CAPTURE_WIN`)
 
-### Frontend State Management
-- **Two independent stores** (no dependencies between them):
-  - `appStore.js` - UI state, preferences, connection status (localStorage persisted)
-  - `gameStore.js` - Game state synchronized with server
-- **Subscription pattern**: `subscribeToAppState(callback)` & `subscribeToGameState(callback)`
-- **Mutations**: Use `updateAppState({...})`, `updateGameState({...})` to trigger subscriptions
+## Data Flow & Validation Pattern
 
-### Server Architecture (WebSocket)
-- **Room-based gameplay**: Each game = one room with 2-4 players
-- **Real-time synchronization**: `socket.emit('game-update', {gameState, ...})` broadcasts to all room participants
-- **Event validation**: Server must validate ALL moves via shared `moveValidator` before applying state changes
-- **Database fallback**: Games service uses database (PostgreSQL planned) with memory store fallback (see `backend/services/gameService.js`)
+### Move Validation (CRITICAL)
+**Two-phase validation** - client-side preview + server-side enforcement:
+1. Frontend (`hexaequo-v2/modules/gameController.js`): Validates before emitting socket event
+2. Backend (`backend/socket/socketHandler.js`): Re-validates via `shared/game/moveValidator.js` before applying
 
-### Canvas Rendering
-- **CanvasGraphics**: Low-level drawing (hexagons, pieces, UI elements)
-- **BoardRenderer**: High-level board state → visual representation
-- **Animation System**: Diffs previous/current state to animate piece movement (from `shared/game/animationDiff.js`)
+**Never duplicate validation logic** - always import from `shared/game/moveValidator.js`:
+- `canPlaceTile(tiles, q, r, player, inventory)` - Check tile placement rules
+- `canPlaceDisc(tiles, pieces, q, r, player, discInventory)` - Check disc placement
+- `getValidMovesForPiece(gameState, q, r)` - Get all legal moves for a piece
+- ALL validation functions return `{valid: boolean, reason?: string}`
+
+### Socket.IO Communication
+**Production URL**: `https://hexaequo-server.onrender.com` (Render deployment)
+**Dev URL**: `http://localhost:3001` (auto-detected by hostname check)
+
+Key events (see [docs/SOCKET_EVENTS.md](docs/SOCKET_EVENTS.md)):
+- **`create-room`** → Server creates game, returns `roomCode` + initial `gameState`
+- **`join-room`** → Join with `roomCode`, receive opponent data
+- **`play-move`** → Emit move, server validates → broadcasts `game-update`
+- **`opponent-moved`** → Receive opponent's validated move
+- **Pattern**: All events use callbacks: `socket.emit('event', data, (response) => {...})`
+
+## Development Workflows
+
+### Local Development
+```bash
+./dev-local.sh  # Starts backend (3001) + frontend (8080) with live reload
+```
+- Backend: `cd backend && npm run dev` (nodemon watches for changes)
+- Frontend: `cd hexaequo-v2 && npx http-server -p 8080 -c-1 --cors`
+- Backend .env created from `.env.example` on first run
+
+### Database Management
+```bash
+cd backend
+npm run db:init     # Initialize PostgreSQL schema
+npm run db:reset    # Drop + recreate all tables
+npm run db:cleanup  # Remove old/stale data
+```
+**Fallback pattern**: All services try PostgreSQL first, then in-memory store if DB unavailable
+
+### Testing AI
+AI uses **minimax with alpha-beta pruning** + **transposition table**:
+- Depth controlled by `AI_SEARCH_DEPTH` (default 3) in `hexaequo-v2/ai.js`
+- **Position hashing** for draw detection (3-fold repetition) via `getPositionHash(state)`
+- Test levels 1-4 via lobby UI (`blackAiLevel`/`whiteAiLevel` selects)
 
 ## Project-Specific Conventions
 
-### File Organization
-- **Controllers** end with `Controller` (e.g., `gameController.js`)
-- **Services** encapsulate business logic (`gameService.js`, `eloService.js`)
-- **Models** = database schema definitions
-- **Routes** = Express route handlers
-- **Socket handlers** = real-time event logic
+### File Naming & Organization
+- **Controllers**: `*Controller.js` (e.g., `authController.js` handles /api/auth routes)
+- **Services**: Business logic layer (e.g., `eloService.js` - ELO calculations, `gameService.js` - game CRUD)
+- **Models**: PostgreSQL schema in `backend/models/` + memory fallbacks in `memoryGameStore.js`
+- **Routes**: `backend/routes/*.js` define Express endpoints, map to controllers
+- **Socket handlers**: All WebSocket logic in `backend/socket/socketHandler.js`
 
-### Error Handling
-- **Backend**: `middleware/errorHandler.js` standardizes error responses
-- **Socket errors**: Return errors via callback: `callback({ success: false, error: "msg" })`
-- **Frontend**: Catch socket errors and update `appStore.lastError`
+### ELO Rating System (`backend/services/eloService.js`)
+**K-factors vary by experience**:
+- New players (<30 games): `K_NEW_PLAYER = 40` (high volatility)
+- Established: `K_ESTABLISHED = 20`
+- High-rated (>2400): `K_HIGH_RATED = 10` (stable)
 
-### Imports & Module System
-- **Shared code**: Import as `import { fn } from '@hexaequo/shared/game/constants'` (Node.js via npm) or direct relative paths (frontend)
-- **Frontend only**: `type: "module"` in package.json (ES modules throughout)
-- **Backend**: Mix of `require()` (CommonJS) and `import` (see backend/server.js for pattern)
+**Default rating**: `DEFAULT_ELO = 1500` (configurable)
+**Time modes**: Ratings separated by `timeMode` (bullet/blitz/rapid/classic)
 
-## Critical Integration Points
+### Module System Nuances
+- **Frontend**: Pure ES modules (`type: "module"` in script tags or `import` statements)
+- **Backend**: CommonJS (`require()`) for most files, except Socket.IO uses `const { Server } = require('socket.io')`
+- **Shared**: ES modules with `.js` extensions (`import { X } from './constants.js'`)
+  - Backend imports via relative paths: `const { validateMove } = require('../shared/game/moveValidator.js')`
 
-### Socket.IO Events (Frontend ↔ Multiplayer Server)
-Key events to understand:
-- **`create-room`**: Player initiates game, receives `roomCode` & starting `gameState`
-- **`play-move`**: Client sends move, server validates & broadcasts `game-update`
-- **`game-update`**: Server notifies all players of state changes
-- See [docs/SOCKET_EVENTS.md](docs/SOCKET_EVENTS.md) for complete protocol
+### Error Handling Pattern
+**Backend standardized errors** (`backend/middleware/errorHandler.js`):
+```javascript
+throw notFound('Game');  // 404 with "Game not found"
+throw unauthorized('Invalid token');  // 401
+// Middleware catches and formats as: {error: "NOT_FOUND", message: "Game not found"}
+```
 
-### Frontend → Shared Game Logic
-- `GameController` validates moves locally before sending to server
-- `moveValidator.validateMove(gameState, move)` returns `{ valid: boolean, reason?: string }`
-- Always sync game state from server as source of truth
+**Socket.IO errors** use callbacks:
+```javascript
+socket.emit('join-room', {roomCode}, (response) => {
+  if (!response.success) {
+    console.error(response.error);  // Handle error
+  }
+});
+```
 
-### Backend (Future) → Shared Logic
-- All business logic (move validation, ELO calculations) uses shared modules
-- `gameService.js` orchestrates game operations
-- `eloService.js` handles rating updates post-game
+## Integration Points
 
-## Debugging & Development Tips
+### Frontend → Backend REST API
+**Auth flow** (see [docs/API.md](docs/API.md)):
+1. `POST /api/auth/signup` → Returns `{accessToken, refreshToken, user}`
+2. Store tokens in localStorage: `localStorage.setItem('accessToken', token)`
+3. Add to requests: `Authorization: Bearer ${accessToken}`
+4. Refresh via `POST /api/auth/refresh` when 401 received
 
-### Testing Moves
-- Validate locally in frontend via `moveValidator.validateMove()`
-- Validate on server before state mutation
-- Replay system uses `moveHistory` from `gameState` - always append moves before mutation
+**Game history** (`GET /api/games?playerId=X`):
+- Returns paginated list with ELO changes, time modes, opponents
+- Replay data: `GET /api/games/:id/replay` → Full move history for visualization
 
-### Database Operations
-- Backend scripts in `/backend/scripts/`: `initDb.js`, `resetDb.js`, `cleanupDb.js`
-- Run: `npm run db:init` to initialize schema
-- Server uses SQLite at `/server/hexaequo.db` for multiplayer game persistence
+### Shared Logic Import Examples
+**Backend** (CommonJS):
+```javascript
+const { BOARD_RADIUS, DISC_CAPTURE_WIN } = require('../../shared/game/constants.js');
+const { createInitialState } = require('../../shared/game/gameState.js');
+```
 
-### Common Pitfalls
-1. **Modifying shared logic without both client & server updates** - shared code must stay in `/shared/game/`
-2. **Direct state mutations** - use store methods (`updateGameState()`) to trigger re-renders
-3. **Assuming server state** - frontend must validate server responses before trusting them
-4. **Forgetting move history** - always append to `moveHistory` when move is applied
+**Frontend** (ES Module):
+```javascript
+import { BOARD_RADIUS } from './modules/index.js';  // Re-exports from shared
+import { validateMove } from './modules/moveValidator.js';
+```
 
-## Dependencies & External Services
-- **Frontend**: Socket.IO client (CDN), Google Fonts (Space Grotesk)
-- **Server**: Socket.IO 4.7.2, better-sqlite3 9.x, Express 4.x
-- **Backend**: Express, PostgreSQL (planned), Redis (planned), JWT for auth, Nodemailer for emails
-- **Multiplayer deployment**: Render (free tier) - WebSocket + SQLite file storage
+## Common Pitfalls
 
-## File References for Common Tasks
-- **Add game move type**: Update `shared/game/constants.js` (PIECE_TYPES), `moveValidator.js` (validation logic)
-- **Modify game state structure**: Update `shared/game/gameState.js` (INITIAL_GAME_STATE)
-- **Add socket event**: Update [docs/SOCKET_EVENTS.md](docs/SOCKET_EVENTS.md), implement in `server/server.js` and frontend `socketClient.js`
-- **Update UI**: Modify `appStore.js` (state) + CSS in `frontend/css/` + HTML in `frontend/index.html`
-- **Backend API endpoint**: Add route in `backend/routes/`, controller in `backend/controllers/`, service logic in `backend/services/`
+1. **Wrong directory references**: Old docs mention `/frontend` or `/server` - actual frontend is `/hexaequo-v2`, backend handles both REST and WebSocket
+2. **Direct state mutation**: Game state is immutable - always clone before modifying (use `cloneState()` from `hexaequo-v2/modules/gameState.js`)
+3. **Missing move history**: Server MUST append to `metadata.moveHistory` before broadcasting updates (used for replays + draw detection)
+4. **Socket.IO CORS**: Must whitelist origins in `backend/socket/socketHandler.js` (currently includes localhost, Render, GitHub Pages)
+5. **AI blocking UI**: Always use Web Worker (`ai-worker.js`) for AI calculations, never run minimax on main thread
+
+## Key File References
+
+- **Game rules**: `shared/game/moveValidator.js` (431 lines - ALL validation logic)
+- **Socket events**: `docs/SOCKET_EVENTS.md` (complete protocol spec)
+- **ELO system**: `backend/services/eloService.js` (K-factor logic, rating calculations)
+- **Frontend entry**: `hexaequo-v2/index.html` (1139 lines - lobby, game UI, modals)
+- **Multiplayer client**: `hexaequo-v2/multiplayer.js` (691 lines - Socket.IO client wrapper)
+- **Backend socket server**: `backend/socket/socketHandler.js` (503 lines - room management, move handling)
+- **AI engine**: `hexaequo-v2/ai.js` (1110 lines - minimax, evaluation, move generation)
+- **Database schema**: `backend/models/schema.js` (PostgreSQL tables)
+
+## Next Steps for New Features
+- **UI changes**: Edit `hexaequo-v2/index.html` + `styles.css`. Lobby controlled by `lobby.js`, in-game by `game.js`
+- **New API endpoint**: Add route → `backend/routes/`, controller → `backend/controllers/`, service → `backend/services/`
+- **New socket event**: Update `backend/socket/socketHandler.js` + `hexaequo-v2/multiplayer.js` + document in `docs/SOCKET_EVENTS.md`
+- **Game rule change**: Modify `shared/game/moveValidator.js` or `constants.js` - affects both client and server immediately
