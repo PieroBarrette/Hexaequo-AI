@@ -1,0 +1,35 @@
+/**
+ * chat.css - Styles chat in-game (Phase 3)
+ * 
+ * Éléments à styler:
+ * - .chat-widget: Container principal (position: fixed bottom)
+ * - .chat-toggle: Bouton toggle open/close + badge
+ * - .chat-badge: Badge notification (nombre messages)
+ * - .chat-panel: Panel chat (slide-up)
+ * - .chat-tabs: Onglets "Text" et "Quick"
+ * - .chat-tab: Onglet individuel
+ * - .chat-messages: Liste messages (scrollable)
+ * - .chat-message: Message individuel (bulle)
+ * - .chat-message-own: Mes messages (alignés droite)
+ * - .chat-message-other: Messages adversaire (alignés gauche)
+ * - .chat-input-container: Container input + send
+ * - .chat-input: Input texte
+ * - .chat-send-btn: Bouton envoyer
+ * - .quick-messages: Grille messages rapides
+ * - .quick-message-btn: Bouton message rapide
+ * 
+ * Animations:
+ * - Slide-up/down panel
+ * - Pulse badge sur nouveau message
+ * - Fade-in nouveaux messages
+ * 
+ * Responsive:
+ * - Mobile: Chat pleine largeur, hauteur 40vh max
+ * - Desktop: Chat fixe ~350px largeur
+ * 
+ * Design:
+ * - Bulles messages style moderne
+ * - Timestamps discrets
+ */
+
+/* TODO: Implémenter Phase 3 */

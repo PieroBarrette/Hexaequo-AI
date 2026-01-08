@@ -134,8 +134,9 @@ exports.createGame = async ({
     timeMode
 }) => {
     // Get player ELOs (only if database available)
-    let blackEloBefore = 1500;
-    let whiteEloBefore = 1500;
+    // Default ELO is 1000 (Phase 0)
+    let blackEloBefore = 1000;
+    let whiteEloBefore = 1000;
     
     if (!useMemoryStore) {
         try {
@@ -144,14 +145,14 @@ exports.createGame = async ({
             if (blackPlayerId && User) {
                 const blackPlayer = await User.findById(blackPlayerId);
                 if (blackPlayer) {
-                    blackEloBefore = blackPlayer[eloColumn] || 1500;
+                    blackEloBefore = blackPlayer[eloColumn] || 1000;
                 }
             }
             
             if (whitePlayerId && User) {
                 const whitePlayer = await User.findById(whitePlayerId);
                 if (whitePlayer) {
-                    whiteEloBefore = whitePlayer[eloColumn] || 1500;
+                    whiteEloBefore = whitePlayer[eloColumn] || 1000;
                 }
             }
         } catch (err) {

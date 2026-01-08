@@ -103,8 +103,15 @@ AI uses **minimax with alpha-beta pruning** + **transposition table**:
 - Established: `K_ESTABLISHED = 20`
 - High-rated (>2400): `K_HIGH_RATED = 10` (stable)
 
-**Default rating**: `DEFAULT_ELO = 1500` (configurable)
-**Time modes**: Ratings separated by `timeMode` (bullet/blitz/rapid/classic)
+**Default rating**: `DEFAULT_ELO = 1000` (Phase 0)
+**Time mode multipliers** (affect ELO change magnitude):
+- `none`: 0 (friendly/unrated - no ELO change)
+- `bullet`: 0.75 (less variation for fast games)
+- `blitz`: 0.9
+- `rapid`: 1.0 (standard)
+- `classic`: 1.2 (more points for longer games)
+
+**Guest games**: Any game with a guest player has multiplier 0 (no ELO change)
 
 ### Module System Nuances
 - **Frontend**: Pure ES modules (`type: "module"` in script tags or `import` statements)
@@ -167,12 +174,41 @@ import { validateMove } from './modules/moveValidator.js';
 
 - **Game rules**: `shared/game/moveValidator.js` (431 lines - ALL validation logic)
 - **Socket events**: `docs/SOCKET_EVENTS.md` (complete protocol spec)
-- **ELO system**: `backend/services/eloService.js` (K-factor logic, rating calculations)
+- **ELO system**: `backend/services/eloService.js` (K-factor logic, rating calculations, time mode multipliers)
+- **ELO tests**: `backend/tests/eloService.test.js` (validates multipliers and calculations)
 - **Frontend entry**: `hexaequo-v2/index.html` (1139 lines - lobby, game UI, modals)
 - **Multiplayer client**: `hexaequo-v2/multiplayer.js` (691 lines - Socket.IO client wrapper)
 - **Backend socket server**: `backend/socket/socketHandler.js` (503 lines - room management, move handling)
 - **AI engine**: `hexaequo-v2/ai.js` (1110 lines - minimax, evaluation, move generation)
 - **Database schema**: `backend/models/schema.js` (PostgreSQL tables)
+- **DB migration (Phase 0)**: `backend/scripts/migration_phase0.js` (ELO defaults + new tables)
+
+## Future Features Architecture (Phase 1-4)
+
+### New Frontend Components (`hexaequo-v2/components/`)
+- `userMenu.js` - Menu hamburger utilisateur (Phase 1)
+- `matchmaking.js` - Système Play/Invite (Phase 2)
+- `qrCodeModal.js` - Modal QR code invitation (Phase 2)
+- `chat.js` - Chat in-game (Phase 3)
+- `profile.js` - Page profil utilisateur (Phase 4)
+- `gameHistory.js` - Liste historique parties (Phase 4)
+- `replayViewer.js` - Lecteur de replay (Phase 4)
+
+### New Backend Components
+**Models**:
+- `userPreferencesModel.js` - Préférences matchmaking (Phase 2)
+- `matchmakingQueueModel.js` - File d'attente (Phase 2)
+- `invitationModel.js` - Codes invitation (Phase 2)
+- `chatMessageModel.js` - Messages chat (Phase 3)
+
+**Services**:
+- `matchmakingService.js` - Logique matching (Phase 2)
+- `invitationService.js` - Gestion invitations (Phase 2)
+- `chatService.js` - Gestion chat (Phase 3)
+
+**Controllers**:
+- `matchmakingController.js` - REST endpoints matchmaking (Phase 2)
+- `chatController.js` - REST endpoints chat (Phase 3)
 
 ## Next Steps for New Features
 - **UI changes**: Edit `hexaequo-v2/index.html` + `styles.css`. Lobby controlled by `lobby.js`, in-game by `game.js`

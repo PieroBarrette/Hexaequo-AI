@@ -1,0 +1,38 @@
+/**
+ * profile.css - Styles profil utilisateur (Phase 4)
+ * 
+ * Éléments à styler:
+ * - .profile-page: Container page profil
+ * - .profile-header: Pseudo + avatar + ELO
+ * - .profile-elo-badges: Badges ELO par cadence
+ * - .profile-settings: Section settings online
+ * - .elo-range-slider: Slider plage ELO (±200)
+ * - .friendly-toggle: Toggle allow friendly games
+ * - .profile-tabs: Onglets navigation
+ * - .profile-tab: Onglet individuel
+ * - .profile-tab-active: Onglet actif
+ * 
+ * Game History (intégré):
+ * - .game-history-list: Liste parties
+ * - .game-history-item: Partie individuelle
+ * - .game-result-win: Indicateur victoire (vert)
+ * - .game-result-loss: Indicateur défaite (rouge)
+ * - .game-result-draw: Indicateur nul (gris)
+ * - .game-opponent: Info adversaire
+ * - .game-time-mode: Icône cadence
+ * - .game-date: Date partie
+ * 
+ * Replay Viewer Modal:
+ * - .replay-modal: Modal fullscreen
+ * - .replay-canvas-container: Container canvas
+ * - .replay-controls: Contrôles navigation
+ * - .replay-progress: Progress bar cliquable
+ * - .replay-info: Info coup actuel
+ * - .replay-close-btn: Bouton fermer
+ * 
+ * Responsive:
+ * - Mobile: Layout vertical, contrôles adaptés touch
+ * - Desktop: Layout horizontal, plus d'espace
+ */
+
+/* TODO: Implémenter Phase 4 */

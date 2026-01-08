@@ -19,7 +19,16 @@ const CONFIG = {
     // Rating threshold for high-rated status
     HIGH_RATED_THRESHOLD: 2400,
     // Default starting ELO
-    DEFAULT_ELO: 1500
+    DEFAULT_ELO: 1000,
+    // ELO multipliers by time mode
+    // Games with guests OR no timer have multiplier 0 (no ELO change)
+    ELO_MULTIPLIERS: {
+        none: 0,      // Friendly/unrated - no ELO change
+        bullet: 0.75, // Fast games - less variation
+        blitz: 0.9,   // Quick games
+        rapid: 1.0,   // Standard
+        classic: 1.2  // Long games - more points
+    }
 };
 
 /**
@@ -50,26 +59,47 @@ function expectedScore(ratingA, ratingB) {
 
 /**
  * Calculate new ratings after a game
- * @param {Object} playerA - { rating, gamesPlayed }
- * @param {Object} playerB - { rating, gamesPlayed }
+ * @param {Object} playerA - { rating, gamesPlayed, isGuest? }
+ * @param {Object} playerB - { rating, gamesPlayed, isGuest? }
  * @param {number} result - 1 if A wins, 0 if B wins, 0.5 for draw
- * @returns {Object} { newRatingA, newRatingB, changeA, changeB }
+ * @param {string} timeMode - Time control mode (none, bullet, blitz, rapid, classic)
+ * @returns {Object} { newRatingA, newRatingB, changeA, changeB, multiplier }
  */
-function calculateNewRatings(playerA, playerB, result) {
+function calculateNewRatings(playerA, playerB, result, timeMode = 'rapid') {
+    // Get multiplier for this time mode
+    const multiplier = CONFIG.ELO_MULTIPLIERS[timeMode] ?? 1.0;
+    
+    // Check if either player is a guest (no ELO change)
+    const isGuestGame = playerA.isGuest || playerB.isGuest;
+    
+    // No ELO changes for: guest games OR no timer (friendly)
+    if (multiplier === 0 || isGuestGame) {
+        return {
+            newRatingA: playerA.rating,
+            newRatingB: playerB.rating,
+            changeA: 0,
+            changeB: 0,
+            multiplier: 0,
+            reason: isGuestGame ? 'guest_game' : 'friendly_mode'
+        };
+    }
+    
     const expectedA = expectedScore(playerA.rating, playerB.rating);
     const expectedB = 1 - expectedA;
 
     const kA = getKFactor(playerA.rating, playerA.gamesPlayed);
     const kB = getKFactor(playerB.rating, playerB.gamesPlayed);
 
-    const changeA = Math.round(kA * (result - expectedA));
-    const changeB = Math.round(kB * ((1 - result) - expectedB));
+    // Apply multiplier to K-factor (affects how much rating changes)
+    const changeA = Math.round(kA * multiplier * (result - expectedA));
+    const changeB = Math.round(kB * multiplier * ((1 - result) - expectedB));
 
     return {
         newRatingA: playerA.rating + changeA,
         newRatingB: playerB.rating + changeB,
         changeA,
-        changeB
+        changeB,
+        multiplier
     };
 }
 

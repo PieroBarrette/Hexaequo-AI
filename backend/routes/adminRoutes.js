@@ -444,7 +444,7 @@ router.get('/', (req, res) => {
                         { label: 'Delete all spectators', sql: "DELETE FROM spectators" }
                     ],
                     update: [
-                        { label: 'Reset user ELO', sql: "UPDATE users SET elo_classic = 1500, elo_rapid = 1500, elo_blitz = 1500 WHERE pseudo = 'player1'" },
+                        { label: 'Reset user ELO', sql: "UPDATE users SET elo_classic = 1000, elo_rapid = 1000, elo_blitz = 1000 WHERE pseudo = 'player1'" },
                         { label: 'Reset user statistics', sql: "UPDATE users SET games_played = 0, wins = 0, losses = 0, draws = 0 WHERE id = 'uuid-here'" },
                         { label: 'Change pseudo', sql: "UPDATE users SET pseudo = 'NewPseudo' WHERE pseudo = 'OldPseudo'" },
                         { label: 'Update room status', sql: "UPDATE rooms SET status = 'finished' WHERE code = 'ABCD'" }

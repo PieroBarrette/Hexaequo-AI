@@ -57,6 +57,23 @@ export const TIMER_CONFIGS = {
     blitz: { initial: 5 * 60, increment: 3 }
 };
 
+// ELO Configuration
+export const DEFAULT_ELO = 1000;
+
+// ELO Multipliers by time mode
+// - none: 0 (no ELO change for unrated/friendly games)
+// - bullet: 0.75 (less variation for fast games) - NOT YET IMPLEMENTED
+// - blitz: 0.9
+// - rapid: 1.0 (standard)
+// - classic: 1.2 (more points for longer games)
+export const ELO_MULTIPLIERS = {
+    none: 0,      // Friendly games - no ELO change
+    bullet: 0.75, // Fast games - less variation
+    blitz: 0.9,   // Quick games
+    rapid: 1.0,   // Standard
+    classic: 1.2  // Long games - more points
+};
+
 // AI difficulty levels
 export const AI_DIFFICULTY = {
     EASY: 2,

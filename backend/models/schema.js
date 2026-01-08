@@ -25,10 +25,10 @@ CREATE TABLE IF NOT EXISTS users (
     reset_token VARCHAR(255),
     reset_expires TIMESTAMP,
     
-    -- ELO Ratings per time control
-    elo_classic INTEGER DEFAULT 1500,
-    elo_rapid INTEGER DEFAULT 1500,
-    elo_blitz INTEGER DEFAULT 1500,
+    -- ELO Ratings per time control (default 1000 as of Phase 0)
+    elo_classic INTEGER DEFAULT 1000,
+    elo_rapid INTEGER DEFAULT 1000,
+    elo_blitz INTEGER DEFAULT 1000,
     
     -- Statistics
     games_played INTEGER DEFAULT 0,

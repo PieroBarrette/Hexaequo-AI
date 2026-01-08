@@ -1,0 +1,25 @@
+/**
+ * userMenu.css - Styles menu utilisateur (Phase 1)
+ * 
+ * Éléments à styler:
+ * - .user-menu-button: Bouton icône top-right (44x44px min pour mobile)
+ * - .user-menu-overlay: Overlay semi-transparent quand menu ouvert
+ * - .user-menu-panel: Panel slide-in depuis droite
+ * - .user-menu-header: Pseudo + ELO si connecté
+ * - .user-menu-item: Boutons menu (Sign-in, Profile, Settings, Logout)
+ * - .user-menu-icon: Icônes dans les items
+ * - .user-display: Pseudo + ELO affiché à côté du bouton (menu fermé)
+ * 
+ * Animations:
+ * - Slide-in/out du panel (transform: translateX)
+ * - Fade overlay
+ * 
+ * Responsive:
+ * - Mobile: Panel pleine largeur ou 80% max
+ * - Desktop: Panel fixe ~300px
+ * 
+ * Thèmes:
+ * - Support mode clair (.theme-light) et sombre (.theme-dark)
+ */
+
+/* TODO: Implémenter Phase 1 */

@@ -1,0 +1,21 @@
+/**
+ * matchmaking.css - Styles matchmaking (Phase 2)
+ * 
+ * Éléments à styler:
+ * - .matchmaking-container: Container des 2 boutons côte à côte
+ * - .matchmaking-btn-play: Bouton "Play" (accent color)
+ * - .matchmaking-btn-invite: Bouton "Invite" (secondary color)
+ * - .matchmaking-waiting: État attente avec loader
+ * - .matchmaking-timer: Timer d'attente (0:00 format)
+ * - .matchmaking-cancel: Bouton cancel pendant attente
+ * 
+ * Animations:
+ * - Pulse/spinner sur loader attente
+ * - Transition boutons hover/active
+ * 
+ * Responsive:
+ * - Mobile: Boutons empilés ou 50/50
+ * - Desktop: Boutons côte à côte avec gap
+ */
+
+/* TODO: Implémenter Phase 2 */

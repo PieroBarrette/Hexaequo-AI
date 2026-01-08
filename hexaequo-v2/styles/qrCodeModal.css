@@ -1,0 +1,24 @@
+/**
+ * qrCodeModal.css - Styles modal QR code (Phase 2)
+ * 
+ * Éléments à styler:
+ * - .qr-modal-overlay: Overlay fond sombre
+ * - .qr-modal-content: Container modal centré
+ * - .qr-modal-header: Titre + bouton close
+ * - .qr-code-container: QR code centré
+ * - .qr-code-image: QR code lui-même
+ * - .invite-code-text: Code texte (ABC12345)
+ * - .copy-link-btn: Bouton "Copy Link"
+ * - .share-buttons: Container boutons partage
+ * - .share-btn: Boutons individuels (WhatsApp, Email, etc.)
+ * 
+ * Animations:
+ * - Fade-in modal
+ * - Feedback visuel "Copied!" sur copy
+ * 
+ * Responsive:
+ * - QR code taille adaptative (min 200px, max 300px)
+ * - Modal centré avec padding adaptatif
+ */
+
+/* TODO: Implémenter Phase 2 */

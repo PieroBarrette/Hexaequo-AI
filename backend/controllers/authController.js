@@ -84,7 +84,7 @@ exports.login = async (req, res, next) => {
                 pseudo: result.user.pseudo,
                 username: result.user.email, // Alias
                 email: result.user.email,
-                elo: result.user.elo.classic || 1500, // Default ELO
+                elo: result.user.elo.classic || 1000, // Default ELO (Phase 0)
                 gamesPlayed: 0,
                 gamesWon: 0
             },

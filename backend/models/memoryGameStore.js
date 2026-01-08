@@ -14,10 +14,10 @@ async function create({
     roomCode,
     blackPlayerId,
     blackPseudo,
-    blackEloBefore = 1500,
+    blackEloBefore = 1000,
     whitePlayerId,
     whitePseudo,
-    whiteEloBefore = 1500,
+    whiteEloBefore = 1000,
     timeMode
 }) {
     const gameId = `game_${gameIdCounter++}_${Date.now()}`;
