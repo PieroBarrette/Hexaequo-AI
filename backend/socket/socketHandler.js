@@ -18,6 +18,8 @@ const connectedSockets = new Map(); // socketId -> { userId, pseudo, roomCode }
  * Initialize Socket.IO with the HTTP server
  */
 function initializeSocket(httpServer) {
+    console.log('🔌 Initializing Socket.IO server...');
+    
     const io = new Server(httpServer, {
         cors: {
             origin: [
@@ -50,6 +52,10 @@ function initializeSocket(httpServer) {
         // Required for Render.com
         allowEIO3: true
     });
+
+    console.log('✅ Socket.IO server created with CORS origins:', io.engine.opts.cors.origin.length, 'origins');
+    console.log('✅ Socket.IO transports:', io.engine.opts.transports);
+    console.log('✅ Socket.IO path:', io.path() || '/socket.io/');
 
     // Optional authentication middleware
     io.use(async (socket, next) => {

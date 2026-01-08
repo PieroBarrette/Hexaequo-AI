@@ -86,17 +86,27 @@ app.use('/api/rooms', roomRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Static file serving BEFORE creating HTTP server
-app.use(express.static(path.join(__dirname, '../hexaequo-v2')));
-
-// Create HTTP server with Express app
+// Create HTTP server with Express app FIRST
 const httpServer = createServer(app);
 
-// Initialize Socket.IO - it will intercept /socket.io requests
+// Initialize Socket.IO - MUST be done before adding more middlewares
 const { initializeSocket } = require('./socket/socketHandler');
 const io = initializeSocket(httpServer);
 
-// SPA fallback - serve index.html for all non-API routes
+console.log('✅ Socket.IO initialized on server');
+
+// Static file serving AFTER Socket.IO
+app.use(express.static(path.join(__dirname, '../hexaequo-v2')));
+
+// 404 handler for API routes only (before SPA fallback)
+app.use('/api/*', (req, res, next) => {
+    res.status(404).json({
+        error: 'Not Found',
+        message: `Route ${req.method} ${req.path} not found`
+    });
+});
+
+// SPA fallback - serve index.html for all non-API routes (LAST middleware)
 app.get('*', (req, res, next) => {
     // Don't intercept API or socket.io routes
     if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) {
@@ -105,21 +115,16 @@ app.get('*', (req, res, next) => {
     res.sendFile(path.join(__dirname, '../hexaequo-v2/index.html'));
 });
 
-// 404 handler for API routes only
-app.use('/api/*', (req, res, next) => {
-    res.status(404).json({
-        error: 'Not Found',
-        message: `Route ${req.method} ${req.path} not found`
-    });
-});
+// Error handler middleware (must be after all routes)
+app.use(errorHandler);
 
 // Handle uncaught errors
 process.on('uncaughtException', (error) => {
-    console.error('Uncaught Exception:', error);
+    console.error('❌ Uncaught Exception:', error);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
 // Start server
@@ -145,9 +150,16 @@ const startServer = () => {
         console.log(`\n🎮 Hexaequo Backend Server running on port ${PORT}`);
         console.log(`   Environment: ${NODE_ENV}`);
         console.log(`   Frontend URL: ${FRONTEND_URL}`);
-        console.log(`   WebSocket: enabled`);
         console.log(`   Listening on: 0.0.0.0:${PORT}`);
-        console.log(`   Socket.IO endpoint: http://localhost:${PORT}/socket.io/`);
+        console.log(`   Socket.IO initialized: YES`);
+        console.log(`   Socket.IO path: /socket.io/`);
+        console.log(`   Socket.IO transports: polling, websocket`);
+        if (NODE_ENV === 'production') {
+            console.log(`   Public URL: https://hexaequo-backend.onrender.com`);
+            console.log(`   Socket.IO URL: https://hexaequo-backend.onrender.com/socket.io/`);
+        } else {
+            console.log(`   Socket.IO URL: http://localhost:${PORT}/socket.io/`);
+        }
         console.log(`   Server is ready and listening...\n`);
     });
 
