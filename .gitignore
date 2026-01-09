@@ -2,6 +2,9 @@
 node_modules/
 */node_modules/
 
+# Portable Node.js (local development)
+node-portable/
+
 # Environment variables
 .env
 .env.local
