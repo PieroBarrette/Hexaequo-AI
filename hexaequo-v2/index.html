@@ -12,6 +12,7 @@
     <meta name="apple-mobile-web-app-title" content="HEXAEQUO">
     <title>Hexaequo</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles/userMenu.css">
     <link rel="manifest" href="manifest.json">
     <!-- i18n module - must load before other scripts -->
     <script src="i18n.js" type="module"></script>
@@ -31,6 +32,61 @@
 
 <body>
 
+    <!-- User Menu (top-right hamburger) -->
+    <button id="userMenuBtn" class="user-menu-btn" aria-label="User menu">
+        <img src="icons/user-icon-light.png" alt="" class="user-menu-icon user-menu-icon-light">
+        <img src="icons/user-icon-dark.png" alt="" class="user-menu-icon user-menu-icon-dark">
+    </button>
+    
+    <div id="userMenuOverlay" class="user-menu-overlay"></div>
+    
+    <div id="userMenuPanel" class="user-menu-panel">
+        <!-- User info section (only when logged in) -->
+        <div id="userMenuUserSection" class="user-menu-user-section">
+            <div class="user-menu-user-info">
+                <div class="user-menu-avatar" id="userMenuAvatar">?</div>
+                <div class="user-menu-details">
+                    <p class="user-menu-name" id="userMenuName">User</p>
+                    <p class="user-menu-elo" id="userMenuElo"></p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Guest menu items (not logged in) -->
+        <div id="userMenuGuestItems" class="user-menu-items">
+            <button id="userMenuSignIn" class="user-menu-item" data-i18n="auth.signIn">
+                <span class="user-menu-item-icon">🔑</span>
+                Sign In
+            </button>
+            <button id="userMenuRegister" class="user-menu-item" data-i18n="auth.register">
+                <span class="user-menu-item-icon">📝</span>
+                Register
+            </button>
+            <div class="user-menu-separator"></div>
+            <button id="userMenuSettings" class="user-menu-item" data-i18n="settings.title">
+                <span class="user-menu-item-icon">⚙️</span>
+                Settings
+            </button>
+        </div>
+        
+        <!-- Logged in menu items -->
+        <div id="userMenuLoggedItems" class="user-menu-items" style="display: none;">
+            <button id="userMenuProfile" class="user-menu-item" data-i18n="profile.title">
+                <span class="user-menu-item-icon">👤</span>
+                Profile
+            </button>
+            <button id="userMenuSettingsLogged" class="user-menu-item" data-i18n="settings.title">
+                <span class="user-menu-item-icon">⚙️</span>
+                Settings
+            </button>
+            <div class="user-menu-separator"></div>
+            <button id="userMenuLogout" class="user-menu-item logout" data-i18n="auth.signOut">
+                <span class="user-menu-item-icon">🚪</span>
+                Sign Out
+            </button>
+        </div>
+    </div>
+
     <!-- Main Lobby Overlay (shown on load) -->
     <div id="lobbyOverlay" class="lobby-overlay">
         <div class="lobby-content">
@@ -40,10 +96,11 @@
             </div>
             
             <div class="lobby-menu">
-                <!-- Game Mode Selection (2 buttons: Local / Online) -->
+                <!-- Game Mode Selection (3 buttons: Local / Online / Rules) -->
                 <div class="lobby-section mode-selection">
                     <button class="lobby-btn" id="playLocalBtn" data-i18n="lobby.localGame">Local Game</button>
                     <button class="lobby-btn" id="playOnlineBtn" data-i18n="lobby.playOnline">Play Online</button>
+                    <button class="lobby-btn" id="mainRulesBtn" data-i18n="footer.rules">Rules</button>
                 </div>
                 
                 <!-- Local Game Configuration (hidden by default) -->
@@ -280,10 +337,7 @@
                 </div>
             </div>
             
-            <div class="lobby-footer">
-                <button class="footer-btn" id="lobbyRulesBtn" data-i18n="footer.rules">Rules</button>
-                <button class="footer-btn" id="lobbySettingsBtn" data-i18n="footer.settings">Settings</button>
-            </div>
+            <!-- Footer removed - Rules now in main menu, Settings in user menu -->
         </div>
     </div>
 
@@ -570,6 +624,7 @@
 
     <script src="timer.js"></script>
     <script src="lobby.js"></script>
+    <script src="components/userMenu.js"></script>
     <script src="multiplayer.js"></script>
     <script src="ai.js"></script>
     <script src="graphics.js"></script>

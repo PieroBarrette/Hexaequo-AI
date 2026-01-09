@@ -91,7 +91,9 @@
         previousMoveToggle: null,
         // Footer
         rulesBtn: null,
-        settingsBtn: null
+        settingsBtn: null,
+        // Main menu Rules button
+        mainRulesBtn: null
     };
 
     // ==================== Initialization ====================
@@ -169,6 +171,9 @@
         
         lobby.rulesBtn = document.getElementById('lobbyRulesBtn');
         lobby.settingsBtn = document.getElementById('lobbySettingsBtn');
+        
+        // Main menu Rules button
+        lobby.mainRulesBtn = document.getElementById('mainRulesBtn');
         
         // Profile
         lobby.profileBtn = document.getElementById('profileBtn');
@@ -256,7 +261,7 @@
         lobby.backFromAuthBtn?.addEventListener('click', showOnlineOptions);
         
         // Settings
-        lobby.settingsBtn?.addEventListener('click', showSettings);
+        // Note: Settings button moved to user menu (Phase 1)
         lobby.backFromSettingsBtn?.addEventListener('click', showMainMenu);
         lobby.themeToggle?.addEventListener('change', handleThemeChange);
         lobby.soundToggle?.addEventListener('change', handleSoundChange);
@@ -280,7 +285,10 @@
         // Filter toggle
         lobby.filterToggleBtn?.addEventListener('click', toggleFilters);
         
-        // Footer
+        // Main menu Rules button
+        lobby.mainRulesBtn?.addEventListener('click', openRules);
+        
+        // Footer (legacy - Rules also in main menu now)
         lobby.rulesBtn?.addEventListener('click', openRules);
     }
 
@@ -703,16 +711,9 @@
 
     function onConnected() {
         isConnected = true;
-        const statusDot = lobby.connectionStatus?.querySelector('.status-dot');
-        const statusText = lobby.connectionStatus?.querySelector('.status-text');
-        
-        if (statusDot) {
-            statusDot.classList.remove('connecting', 'error');
-            statusDot.classList.add('connected');
-        }
-        if (statusText) {
-            statusText.textContent = i18nT('lobby.connectedToServer');
-        }
+        // Connection status indicator is hidden (Phase 1) - users don't need to see this
+        // Just hide the connecting indicator and show room actions
+        lobby.connectionStatus?.style.setProperty('display', 'none');
         
         lobby.roomActions?.style.setProperty('display', 'flex');
         
@@ -727,6 +728,9 @@
         isConnected = false;
         const statusDot = lobby.connectionStatus?.querySelector('.status-dot');
         const statusText = lobby.connectionStatus?.querySelector('.status-text');
+        
+        // Show connection status only when there's an error
+        lobby.connectionStatus?.style.setProperty('display', 'flex');
         
         if (statusDot) {
             statusDot.classList.remove('connecting', 'connected');
@@ -1310,6 +1314,9 @@
                 localStorage.setItem('hexaequo_session', sessionToken);
                 console.log('[Lobby] Logged in as:', currentUser.pseudo);
                 
+                // Update user menu display
+                window.UserMenu?.updateDisplay?.();
+                
                 // Go back to online options
                 showOnlineOptions();
             } else {
@@ -1362,6 +1369,9 @@
                 localStorage.setItem('hexaequo_session', sessionToken);
                 console.log('[Lobby] Registered and logged in as:', currentUser.pseudo);
                 
+                // Update user menu display
+                window.UserMenu?.updateDisplay?.();
+                
                 // Go back to online options
                 showOnlineOptions();
             } else {
@@ -1397,6 +1407,7 @@
         currentUser = null;
         
         updateUserStatusUI();
+        window.UserMenu?.updateDisplay?.();
         console.log('[Lobby] Logged out');
     }
     
@@ -1430,9 +1441,11 @@
             if (currentUser) {
                 currentUser.elo = newElo;
                 updateUserStatusUI();
+                window.UserMenu?.updateDisplay?.();
                 console.log('[Lobby] Updated user ELO to:', newElo);
             }
-        }
+        },
+        logout: handleLogout
     };
 
     // Also expose as window.Lobby for compatibility
