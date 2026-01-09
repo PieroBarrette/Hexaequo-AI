@@ -28,6 +28,10 @@
         userSection: null,
         userName: null,
         userElo: null,
+        // Badge (beside button)
+        badge: null,
+        badgeName: null,
+        badgeElo: null,
         // Menu items
         signInBtn: null,
         registerBtn: null,
@@ -55,6 +59,11 @@
         elements.userName = document.getElementById('userMenuName');
         elements.userElo = document.getElementById('userMenuElo');
         elements.avatar = document.getElementById('userMenuAvatar');
+        // Badge elements
+        elements.badge = document.getElementById('userMenuBadge');
+        elements.badgeName = document.getElementById('userMenuBadgeName');
+        elements.badgeElo = document.getElementById('userMenuBadgeElo');
+        // Menu items
         elements.signInBtn = document.getElementById('userMenuSignIn');
         elements.registerBtn = document.getElementById('userMenuRegister');
         elements.profileBtn = document.getElementById('userMenuProfile');
@@ -126,6 +135,8 @@
         elements.panel?.classList.add('open');
         elements.overlay?.classList.add('open');
         elements.button?.classList.add('open');
+        // Hide badge when menu is open
+        elements.badge?.classList.add('hidden');
         updateDisplay();
     }
 
@@ -135,11 +146,33 @@
         elements.panel?.classList.remove('open');
         elements.overlay?.classList.remove('open');
         elements.button?.classList.remove('open');
+        // Show badge when menu is closed (if user is logged in)
+        updateBadgeVisibility();
     }
 
     // ==================== Display Updates ====================
+    function updateBadgeVisibility() {
+        const user = window.GameLobby?.getUser?.() || null;
+        if (user && !isOpen) {
+            const displayName = user.pseudo || user.username || 'User';
+            if (elements.badgeName) {
+                elements.badgeName.textContent = displayName;
+            }
+            if (elements.badgeElo) {
+                elements.badgeElo.textContent = user.elo ? `ELO: ${user.elo}` : '';
+            }
+            elements.badge?.style.setProperty('display', 'flex');
+            elements.badge?.classList.remove('hidden');
+        } else {
+            elements.badge?.style.setProperty('display', 'none');
+        }
+    }
+
     function updateDisplay() {
         const user = window.GameLobby?.getUser?.() || null;
+        
+        // Update badge visibility
+        updateBadgeVisibility();
         
         if (user) {
             // User is logged in

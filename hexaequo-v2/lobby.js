@@ -328,6 +328,9 @@
             gameToggle.checked = isLight;
             gameToggle.dispatchEvent(new Event('change'));
         }
+        
+        // Save to backend if logged in
+        saveSettingToBackend('theme', isLight ? 'light' : 'dark');
     }
 
     function handleSoundChange() {
@@ -336,6 +339,9 @@
             gameToggle.checked = lobby.soundToggle?.checked;
             gameToggle.dispatchEvent(new Event('change'));
         }
+        
+        // Save to backend if logged in
+        saveSettingToBackend('sound', lobby.soundToggle?.checked);
     }
 
     function handleValidMovesChange() {
@@ -344,6 +350,9 @@
             gameToggle.checked = lobby.validMovesToggle?.checked;
             gameToggle.dispatchEvent(new Event('change'));
         }
+        
+        // Save to backend if logged in
+        saveSettingToBackend('showValidMoves', lobby.validMovesToggle?.checked);
     }
 
     function handlePreviousMoveChange() {
@@ -352,6 +361,9 @@
             gameToggle.checked = lobby.previousMoveToggle?.checked;
             gameToggle.dispatchEvent(new Event('change'));
         }
+        
+        // Save to backend if logged in
+        saveSettingToBackend('showPreviousMove', lobby.previousMoveToggle?.checked);
     }
 
     async function handleLanguageChange() {
@@ -360,6 +372,114 @@
             await window.i18n.setLanguage(lang);
             window.i18n.updateDOM();
             console.log('[Lobby] Language changed to:', lang);
+            
+            // Save to backend if logged in
+            saveSettingToBackend('language', lang);
+        }
+    }
+    
+    // Save a single setting to the backend (debounced)
+    let saveSettingsTimeout = null;
+    let pendingSettings = {};
+    
+    function saveSettingToBackend(key, value) {
+        if (!sessionToken) return; // Not logged in
+        
+        pendingSettings[key] = value;
+        
+        // Debounce: wait 500ms before sending to avoid multiple rapid requests
+        if (saveSettingsTimeout) {
+            clearTimeout(saveSettingsTimeout);
+        }
+        
+        saveSettingsTimeout = setTimeout(async () => {
+            const settingsToSave = { ...pendingSettings };
+            pendingSettings = {};
+            
+            try {
+                await fetch(`${API_BASE}/users/me/settings`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sessionToken}`
+                    },
+                    body: JSON.stringify(settingsToSave)
+                });
+                console.log('[Lobby] Settings saved to backend:', settingsToSave);
+            } catch (err) {
+                console.error('[Lobby] Failed to save settings:', err);
+            }
+        }, 500);
+    }
+    
+    // Load settings from backend and apply them
+    async function loadSettingsFromBackend() {
+        if (!sessionToken) return;
+        
+        try {
+            const response = await fetch(`${API_BASE}/users/me/settings`, {
+                headers: { 'Authorization': `Bearer ${sessionToken}` }
+            });
+            
+            if (response.ok) {
+                const { data: settings } = await response.json();
+                applySettings(settings);
+                console.log('[Lobby] Settings loaded from backend:', settings);
+            }
+        } catch (err) {
+            console.error('[Lobby] Failed to load settings:', err);
+        }
+    }
+    
+    // Apply settings to the UI
+    function applySettings(settings) {
+        if (!settings) return;
+        
+        // Theme
+        if (settings.theme) {
+            const isLight = settings.theme === 'light';
+            document.body.setAttribute('data-theme', settings.theme);
+            if (lobby.themeToggle) lobby.themeToggle.checked = isLight;
+            const gameThemeToggle = document.getElementById('themeToggle');
+            if (gameThemeToggle) gameThemeToggle.checked = isLight;
+        }
+        
+        // Sound
+        if (typeof settings.sound === 'boolean') {
+            if (lobby.soundToggle) lobby.soundToggle.checked = settings.sound;
+            const gameSoundToggle = document.getElementById('soundToggle');
+            if (gameSoundToggle) {
+                gameSoundToggle.checked = settings.sound;
+                gameSoundToggle.dispatchEvent(new Event('change'));
+            }
+        }
+        
+        // Show Valid Moves
+        if (typeof settings.showValidMoves === 'boolean') {
+            if (lobby.validMovesToggle) lobby.validMovesToggle.checked = settings.showValidMoves;
+            const gameValidMovesToggle = document.getElementById('validMovesToggle');
+            if (gameValidMovesToggle) {
+                gameValidMovesToggle.checked = settings.showValidMoves;
+                gameValidMovesToggle.dispatchEvent(new Event('change'));
+            }
+        }
+        
+        // Show Previous Move
+        if (typeof settings.showPreviousMove === 'boolean') {
+            if (lobby.previousMoveToggle) lobby.previousMoveToggle.checked = settings.showPreviousMove;
+            const gamePreviousMoveToggle = document.getElementById('previousMoveToggle');
+            if (gamePreviousMoveToggle) {
+                gamePreviousMoveToggle.checked = settings.showPreviousMove;
+                gamePreviousMoveToggle.dispatchEvent(new Event('change'));
+            }
+        }
+        
+        // Language
+        if (settings.language && window.i18n) {
+            window.i18n.setLanguage(settings.language).then(() => {
+                window.i18n.updateDOM();
+                if (lobby.languageSelect) lobby.languageSelect.value = settings.language;
+            });
         }
     }
     
@@ -1218,6 +1338,12 @@
                 const data = await response.json();
                 currentUser = data.user;
                 console.log('[Lobby] Session restored for:', currentUser.pseudo);
+                
+                // Load user settings from backend
+                await loadSettingsFromBackend();
+                
+                // Update user menu display
+                window.UserMenu?.updateDisplay?.();
             } else {
                 // Invalid session, clear it
                 localStorage.removeItem('hexaequo_session');
@@ -1314,6 +1440,9 @@
                 localStorage.setItem('hexaequo_session', sessionToken);
                 console.log('[Lobby] Logged in as:', currentUser.pseudo);
                 
+                // Load user settings from backend
+                await loadSettingsFromBackend();
+                
                 // Update user menu display
                 window.UserMenu?.updateDisplay?.();
                 
@@ -1368,6 +1497,20 @@
                 currentUser = data.user;
                 localStorage.setItem('hexaequo_session', sessionToken);
                 console.log('[Lobby] Registered and logged in as:', currentUser.pseudo);
+                
+                // Save current settings to backend for new user
+                const currentSettings = {
+                    theme: document.body.getAttribute('data-theme') || 'dark',
+                    sound: lobby.soundToggle?.checked ?? true,
+                    showValidMoves: lobby.validMovesToggle?.checked ?? false,
+                    showPreviousMove: lobby.previousMoveToggle?.checked ?? true,
+                    language: window.i18n?.getCurrentLanguage() || 'en'
+                };
+                saveSettingToBackend('theme', currentSettings.theme);
+                saveSettingToBackend('sound', currentSettings.sound);
+                saveSettingToBackend('showValidMoves', currentSettings.showValidMoves);
+                saveSettingToBackend('showPreviousMove', currentSettings.showPreviousMove);
+                saveSettingToBackend('language', currentSettings.language);
                 
                 // Update user menu display
                 window.UserMenu?.updateDisplay?.();

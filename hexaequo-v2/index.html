@@ -33,10 +33,16 @@
 <body>
 
     <!-- User Menu (top-right hamburger) -->
-    <button id="userMenuBtn" class="user-menu-btn" aria-label="User menu">
-        <img src="icons/user-icon-light.png" alt="" class="user-menu-icon user-menu-icon-light">
-        <img src="icons/user-icon-dark.png" alt="" class="user-menu-icon user-menu-icon-dark">
-    </button>
+    <div class="user-menu-container">
+        <div id="userMenuBadge" class="user-menu-badge" style="display: none;">
+            <span id="userMenuBadgeName" class="user-menu-badge-name"></span>
+            <span id="userMenuBadgeElo" class="user-menu-badge-elo"></span>
+        </div>
+        <button id="userMenuBtn" class="user-menu-btn" aria-label="User menu">
+            <img src="icons/user-icon-light.png" alt="" class="user-menu-icon user-menu-icon-light">
+            <img src="icons/user-icon-dark.png" alt="" class="user-menu-icon user-menu-icon-dark">
+        </button>
+    </div>
     
     <div id="userMenuOverlay" class="user-menu-overlay"></div>
     
@@ -155,13 +161,7 @@
                 
                 <!-- Online Options (hidden by default) -->
                 <div class="lobby-section online-options" id="onlineOptions" style="display: none;">
-                    <!-- User Status -->
-                    <div id="userStatus" class="user-status">
-                        <span id="userDisplayName" class="user-name" data-i18n="lobby.guest">Guest</span>
-                        <span id="userEloDisplay" class="user-elo"></span>
-                        <button id="loginBtn" class="user-action-btn" data-i18n="auth.signIn">Sign In</button>
-                        <button id="profileBtn" class="user-action-btn profile-btn" style="display: none;" data-i18n="profile.title">Profile</button>
-                    </div>
+                    <!-- User Status removed - now in user menu (Phase 1) -->
                     
                     <div id="lobbyConnectionStatus" class="lobby-connection-status">
                         <span class="status-dot connecting"></span>
