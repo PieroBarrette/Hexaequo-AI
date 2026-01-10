@@ -2,12 +2,34 @@
  * userMenu.css - Styles menu utilisateur (Phase 1)
  */
 
+/* ==================== Site Header ==================== */
+.site-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10000;
+    background: var(--bg-body);
+    border-bottom: 1px solid var(--border-color);
+    padding: 10px 20px;
+    transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+.site-header-content {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    max-width: 1200px;
+    margin: 0 auto;
+    min-height: 44px;
+}
+
+.header-spacer {
+    flex: 1;
+}
+
 /* ==================== User Menu Container ==================== */
 .user-menu-container {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 10000;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -50,6 +72,7 @@
     position: relative;
     width: 44px;
     height: 44px;
+    aspect-ratio: 1;
     border-radius: 50%;
     background: var(--hamburger-bg);
     border: 1px solid var(--border-color);
@@ -128,7 +151,7 @@
 /* ==================== User Menu Panel ==================== */
 .user-menu-panel {
     position: fixed;
-    top: 80px;
+    top: 75px; /* Below the header */
     right: 20px;
     z-index: 10002;
     background: var(--menu-content-bg);
@@ -239,18 +262,37 @@
 
 /* ==================== Responsive ==================== */
 @media (max-width: 480px) {
+    .site-header {
+        padding: 8px 12px;
+    }
+    
+    .site-header-content {
+        min-height: 40px;
+    }
+    
     .user-menu-btn {
-        top: 10px;
-        right: 10px;
         width: 40px;
         height: 40px;
     }
     
+    .user-menu-badge {
+        padding: 4px 8px;
+    }
+    
+    .user-menu-badge-name {
+        font-size: 0.8rem;
+    }
+    
+    .user-menu-badge-elo {
+        font-size: 0.7rem;
+    }
+    
     .user-menu-panel {
-        top: 60px;
+        top: 70px;
         right: 10px;
-        width: calc(100vw - 20px);
-        max-width: 300px;
+        left: 10px;
+        width: auto;
+        max-width: none;
     }
     
     .user-menu-icon {
@@ -266,9 +308,4 @@
 
 [data-theme="light"] .user-menu-item:hover {
     background: rgba(0, 0, 0, 0.05);
-}
-
-/* Hide user menu button when in-game (game container visible) */
-body.in-game .user-menu-btn {
-    display: none;
 }

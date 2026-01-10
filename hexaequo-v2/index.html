@@ -32,17 +32,24 @@
 
 <body>
 
-    <!-- User Menu (top-right hamburger) -->
-    <div class="user-menu-container">
-        <div id="userMenuBadge" class="user-menu-badge" style="display: none;">
-            <span id="userMenuBadgeName" class="user-menu-badge-name"></span>
-            <span id="userMenuBadgeElo" class="user-menu-badge-elo"></span>
+    <!-- Site Header (sticky, contains user menu) -->
+    <header class="site-header">
+        <div class="site-header-content">
+            <!-- Left side: empty spacer for centering -->
+            <div class="header-spacer"></div>
+            <!-- Right side: User Menu -->
+            <div class="user-menu-container">
+                <div id="userMenuBadge" class="user-menu-badge" style="display: none;">
+                    <span id="userMenuBadgeName" class="user-menu-badge-name"></span>
+                    <span id="userMenuBadgeElo" class="user-menu-badge-elo"></span>
+                </div>
+                <button id="userMenuBtn" class="user-menu-btn" aria-label="User menu">
+                    <img src="icons/user-icon-light.png" alt="" class="user-menu-icon user-menu-icon-light">
+                    <img src="icons/user-icon-dark.png" alt="" class="user-menu-icon user-menu-icon-dark">
+                </button>
+            </div>
         </div>
-        <button id="userMenuBtn" class="user-menu-btn" aria-label="User menu">
-            <img src="icons/user-icon-light.png" alt="" class="user-menu-icon user-menu-icon-light">
-            <img src="icons/user-icon-dark.png" alt="" class="user-menu-icon user-menu-icon-dark">
-        </button>
-    </div>
+    </header>
     
     <div id="userMenuOverlay" class="user-menu-overlay"></div>
     

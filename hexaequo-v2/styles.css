@@ -1261,11 +1261,13 @@ select {
     padding: 0;
     width: 40px;
     height: 40px;
+    aspect-ratio: 1;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
     transition: background 0.2s ease;
+    flex-shrink: 0;
 }
 
 .close-rules-btn:hover {
@@ -1406,6 +1408,7 @@ select {
     .close-rules-btn {
         width: 36px;
         height: 36px;
+        aspect-ratio: 1;
         font-size: 24px;
     }
 
@@ -1526,11 +1529,13 @@ select {
     width: 32px;
     height: 32px;
     min-height: 32px;
+    aspect-ratio: 1;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
     transition: background 0.2s, color 0.2s;
+    flex-shrink: 0;
 }
 
 .close-online-btn:hover {
@@ -1938,8 +1943,10 @@ select {
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 20px;
     padding: 20px 40px 40px;
+    padding-top: 80px; /* Account for fixed header */
     max-width: 400px;
     width: 90%;
     min-height: 100vh;
@@ -2858,6 +2865,14 @@ body:not([data-theme="light"]) .lobby-logo-img {
     cursor: pointer;
     line-height: 1;
     transition: color 0.2s;
+    width: 36px;
+    height: 36px;
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    padding: 0;
 }
 
 .profile-close-btn:hover {

@@ -1275,11 +1275,19 @@
             lobby.overlay.style.pointerEvents = '';
             lobby.overlay.style.opacity = '';
         }
+        // Hide user menu when entering a game
+        if (window.UserMenu?.hide) {
+            window.UserMenu.hide();
+        }
     }
 
     function showLobby() {
         if (lobby.overlay) {
             lobby.overlay.classList.remove('hidden');
+        }
+        // Show user menu when returning to lobby
+        if (window.UserMenu?.show) {
+            window.UserMenu.show();
         }
         showMainMenu();
     }

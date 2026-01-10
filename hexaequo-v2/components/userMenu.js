@@ -296,6 +296,25 @@
         return window.i18n?.t(key) || key;
     }
 
+    // ==================== Visibility Control ====================
+    function show() {
+        const header = document.querySelector('.site-header');
+        if (header) {
+            header.style.display = 'block';
+        }
+    }
+
+    function hide() {
+        const header = document.querySelector('.site-header');
+        if (header) {
+            header.style.display = 'none';
+        }
+        // Also close menu if open
+        if (isOpen) {
+            close();
+        }
+    }
+
     // ==================== Public API ====================
     window.UserMenu = {
         init,
@@ -303,7 +322,9 @@
         close,
         toggle,
         updateDisplay,
-        isOpen: () => isOpen
+        isOpen: () => isOpen,
+        show,
+        hide
     };
 
     // Initialize when DOM is ready

@@ -3329,6 +3329,11 @@ window.onload = function () {
             lobbyOverlay.style.opacity = '1';
         }
         
+        // Show user menu when returning to lobby
+        if (window.UserMenu?.show) {
+            window.UserMenu.show();
+        }
+        
         // Reset to main menu view in lobby (the new game will call resetGame when started)
         if (window.showLobbyMainMenu) {
             window.showLobbyMainMenu();
