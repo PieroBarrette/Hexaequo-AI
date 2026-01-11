@@ -90,6 +90,13 @@ AI uses **minimax with alpha-beta pruning** + **transposition table**:
 
 ## Project-Specific Conventions
 
+### Localization (CRITICAL)
+**ALL user-facing text MUST be localized** - never hardcode text strings in HTML or JS:
+- Add keys to both `hexaequo-v2/locales/en.json` and `hexaequo-v2/locales/fr.json`
+- HTML: Use `data-i18n="section.key"` attribute (e.g., `<span data-i18n="lobby.play">Play</span>`)
+- JS: Use `i18nT('section.key')` or `window.i18nT('section.key')` function
+- Update text on language change if set dynamically (see `game.js` showLoader pattern)
+
 ### File Naming & Organization
 - **Controllers**: `*Controller.js` (e.g., `authController.js` handles /api/auth routes)
 - **Services**: Business logic layer (e.g., `eloService.js` - ELO calculations, `gameService.js` - game CRUD)

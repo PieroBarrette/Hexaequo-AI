@@ -142,7 +142,9 @@ const QrCodeModal = (function() {
             const socket = window.Multiplayer?.getSocket();
             
             if (!socket || !socket.connected) {
-                reject(new Error('Not connected to server'));
+                // Use localized message
+                const msg = window.i18nT ? window.i18nT('lobby.notConnectedForInvite') : 'Connect to server to create an invitation';
+                reject(new Error(msg));
                 return;
             }
             

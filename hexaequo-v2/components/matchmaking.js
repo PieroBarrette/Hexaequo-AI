@@ -206,6 +206,9 @@ const Matchmaking = (function() {
         isInQueue = true;
         queueStartTime = Date.now();
         
+        // Update setup info display
+        updateSetupInfoDisplay();
+        
         // Hide play/invite buttons, show waiting section
         if (playBtn) playBtn.style.display = 'none';
         if (inviteBtn) inviteBtn.style.display = 'none';
@@ -214,6 +217,27 @@ const Matchmaking = (function() {
         // Start timer
         updateTimer();
         timerInterval = setInterval(updateTimer, 1000);
+    }
+    
+    /**
+     * Update the setup info display (time control and ELO range)
+     */
+    function updateSetupInfoDisplay() {
+        const timeModeDisplay = document.getElementById('matchmakingTimeMode');
+        const eloRangeDisplay = document.getElementById('matchmakingEloRange');
+        
+        // Get localized time mode label
+        if (timeModeDisplay && timeModeSelect) {
+            const selectedOption = timeModeSelect.options[timeModeSelect.selectedIndex];
+            timeModeDisplay.textContent = selectedOption ? selectedOption.textContent : currentTimeMode;
+        }
+        
+        // Calculate ELO range (±200 from current ELO)
+        if (eloRangeDisplay) {
+            const eloMin = Math.max(0, currentElo - 200);
+            const eloMax = currentElo + 200;
+            eloRangeDisplay.textContent = `${eloMin} - ${eloMax}`;
+        }
     }
     
     /**

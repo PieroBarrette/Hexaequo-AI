@@ -55,7 +55,17 @@
     "couldNotConnect": "Could not connect to server",
     "notConnected": "Not connected to server",
     "guest": "Guest",
-    "you": "(You)"
+    "you": "(You)",
+    "play": "Play",
+    "invite": "Invite",
+    "searchingOpponent": "Searching for opponent...",
+    "inviteFriend": "Invite a Friend",
+    "inviteCode": "Invite Code:",
+    "copyLink": "Copy Link",
+    "share": "Share",
+    "inviteHint": "Share this link or scan the QR code to join your game",
+    "notConnectedForInvite": "Connect to server to create an invitation",
+    "eloRange": "ELO Range:"
   },
   "auth": {
     "signIn": "Sign In",

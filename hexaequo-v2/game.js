@@ -3130,6 +3130,8 @@ window.onload = function () {
 
     // Show the loader when waiting for AI
     function showLoader() {
+        // Update text in case language changed
+        loader.innerText = i18nT('game.aiThinking');
         // Position loader at top center of canvas
         const canvasRect = canvas.getBoundingClientRect();
         loader.style.top = (canvasRect.top + 20) + 'px';

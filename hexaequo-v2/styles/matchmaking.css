@@ -41,9 +41,28 @@
     align-items: center;
     gap: 16px;
     padding: 24px;
-    background: var(--surface-color, #1a1a2e);
+    background: var(--bg-container, #1a1a2e);
+    border: 1px solid var(--border-color, #333);
     border-radius: 12px;
     margin-top: 16px;
+}
+
+/* Light mode specific adjustments */
+[data-theme="light"] .matchmaking-waiting {
+    background: #f8f9fa;
+    border-color: #dee2e6;
+}
+
+[data-theme="light"] .matchmaking-setup-info {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .matchmaking-setup-info .setup-label {
+    color: #6c757d;
+}
+
+[data-theme="light"] .matchmaking-setup-info .setup-value {
+    color: #212529;
 }
 
 .matchmaking-waiting .waiting-animation {
@@ -81,6 +100,34 @@
     to {
         transform: rotate(360deg);
     }
+}
+
+/* Setup Info Display */
+.matchmaking-setup-info {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    margin-bottom: 8px;
+}
+
+.matchmaking-setup-info .setup-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.95em;
+}
+
+.matchmaking-setup-info .setup-label {
+    color: var(--text-secondary, #aaa);
+}
+
+.matchmaking-setup-info .setup-value {
+    color: var(--text-primary, #fff);
+    font-weight: 600;
 }
 
 /* Mobile Responsive */

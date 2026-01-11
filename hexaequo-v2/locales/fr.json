@@ -55,7 +55,17 @@
     "couldNotConnect": "Impossible de se connecter au serveur",
     "notConnected": "Non connecté au serveur",
     "guest": "Invité",
-    "you": "(Vous)"
+    "you": "(Vous)",
+    "play": "Jouer",
+    "invite": "Inviter",
+    "searchingOpponent": "Recherche d'un adversaire...",
+    "inviteFriend": "Inviter un ami",
+    "inviteCode": "Code d'invitation :",
+    "copyLink": "Copier le lien",
+    "share": "Partager",
+    "inviteHint": "Partagez ce lien ou scannez le QR code pour rejoindre votre partie",
+    "notConnectedForInvite": "Connectez-vous au serveur pour créer une invitation",
+    "eloRange": "Plage ELO :"
   },
   "auth": {
     "signIn": "Connexion",
