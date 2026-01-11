@@ -202,6 +202,22 @@
         // Check for existing session
         checkExistingSession();
         
+        // Initialize Matchmaking system (Phase 2)
+        if (window.Matchmaking) {
+            window.Matchmaking.init({
+                elo: currentUser?.elo || 1000,
+                onMatchFound: handleMatchFound,
+                onQueueStatusChange: (status) => {
+                    console.log('[Lobby] Queue status changed:', status);
+                }
+            });
+        }
+        
+        // Initialize QR Code modal (Phase 2)
+        if (window.QrCodeModal) {
+            window.QrCodeModal.init();
+        }
+        
         console.log('[Lobby] Initialized');
     }
 
@@ -729,6 +745,11 @@
     function startConfiguredLocalGame() {
         console.log('[Lobby] Starting configured local game:', localGameConfig);
         
+        // Close any open modals
+        if (window.QrCodeModal && window.QrCodeModal.isOpen) {
+            window.QrCodeModal.close();
+        }
+        
         const blackIsAi = localGameConfig.blackPlayer === 'ai';
         const whiteIsAi = localGameConfig.whitePlayer === 'ai';
         const bothAi = blackIsAi && whiteIsAi;
@@ -871,21 +892,10 @@
         
         lobby.roomActions?.style.setProperty('display', 'flex');
         
-        // Initialize matchmaking component (Phase 2)
-        if (window.Matchmaking) {
-            const userElo = currentUser?.elo || 1000;
-            window.Matchmaking.init({
-                elo: userElo,
-                onMatchFound: handleMatchFound,
-                onQueueStatusChange: (status) => {
-                    console.log('[Lobby] Queue status changed:', status);
-                }
-            });
-        }
-        
-        // Initialize QR Code modal (Phase 2)
-        if (window.QrCodeModal) {
-            window.QrCodeModal.init();
+        // Note: Matchmaking and QrCodeModal are initialized at DOMContentLoaded
+        // Here we just update the ELO for matchmaking if user is logged in
+        if (window.Matchmaking && currentUser) {
+            window.Matchmaking.setElo(currentUser.elo || 1000);
         }
         
         // Check for invite code in URL
@@ -1320,6 +1330,11 @@
 
     function startOnlineGame(data) {
         console.log('[Lobby] Starting online game', data);
+        
+        // Close any open modals
+        if (window.QrCodeModal && window.QrCodeModal.isOpen) {
+            window.QrCodeModal.close();
+        }
         
         const playerColor = data.playerColor || window.Multiplayer.playerColor;
         const opponentInfo = data.opponentInfo || currentOpponent;

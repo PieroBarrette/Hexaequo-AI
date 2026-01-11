@@ -212,8 +212,7 @@ const QrCodeModal = (function() {
     }
     
     /**
-     * Generate QR code on canvas (simple implementation)
-     * Uses a basic QR code algorithm for alphanumeric data
+     * Generate QR code on canvas using qrcode library
      */
     function generateQRCode(text, canvas) {
         const ctx = canvas.getContext('2d');
@@ -223,54 +222,56 @@ const QrCodeModal = (function() {
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, size, size);
         
-        // Use QRCode library if available
-        if (typeof QRCode !== 'undefined') {
-            try {
-                QRCode.toCanvas(canvas, text, {
-                    width: size,
-                    margin: 2,
-                    color: {
-                        dark: '#000000',
-                        light: '#ffffff'
-                    }
-                });
-                return;
-            } catch (e) {
-                console.warn('[QrCodeModal] QRCode library error:', e);
-            }
+        // Use QRCode library (from CDN: qrcode@1.5.3)
+        if (typeof QRCode !== 'undefined' && QRCode.toCanvas) {
+            QRCode.toCanvas(canvas, text, {
+                width: size,
+                margin: 2,
+                color: {
+                    dark: '#000000',
+                    light: '#ffffff'
+                }
+            }, function(error) {
+                if (error) {
+                    console.error('[QrCodeModal] QRCode generation error:', error);
+                    drawFallbackQR(ctx, text, size);
+                }
+            });
+            return;
         }
         
-        // Fallback: Display URL as text with visual indicator
-        ctx.fillStyle = '#f0f0f0';
+        // Fallback if library not loaded
+        console.warn('[QrCodeModal] QRCode library not available, using fallback');
+        drawFallbackQR(ctx, text, size);
+    }
+    
+    /**
+     * Fallback QR display when library is unavailable
+     * Shows a simple visual with the URL (not scannable)
+     */
+    function drawFallbackQR(ctx, text, size) {
+        // Draw a placeholder pattern that looks like a QR code
+        ctx.fillStyle = '#f5f5f5';
         ctx.fillRect(10, 10, size - 20, size - 20);
         
-        ctx.fillStyle = '#333333';
-        ctx.font = '14px monospace';
+        // Draw border
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(10, 10, size - 20, size - 20);
+        
+        // Draw corner position patterns (like real QR codes)
+        drawPositionPattern(ctx, 20, 20, 40);
+        drawPositionPattern(ctx, size - 60, 20, 40);
+        drawPositionPattern(ctx, 20, size - 60, 40);
+        
+        // Draw "QR" text in center
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 16px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        
-        // Draw placeholder pattern
-        const moduleSize = 8;
-        for (let y = 20; y < size - 20; y += moduleSize) {
-            for (let x = 20; x < size - 20; x += moduleSize) {
-                if (Math.random() > 0.5) {
-                    ctx.fillStyle = '#000000';
-                    ctx.fillRect(x, y, moduleSize - 1, moduleSize - 1);
-                }
-            }
-        }
-        
-        // Draw position patterns (corners)
-        drawPositionPattern(ctx, 20, 20, 7 * moduleSize);
-        drawPositionPattern(ctx, size - 20 - 7 * moduleSize, 20, 7 * moduleSize);
-        drawPositionPattern(ctx, 20, size - 20 - 7 * moduleSize, 7 * moduleSize);
-        
-        // Draw URL in center
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(size/2 - 60, size/2 - 10, 120, 20);
-        ctx.fillStyle = '#000000';
-        ctx.font = 'bold 12px monospace';
-        ctx.fillText(text.split('=')[1] || text.slice(-10), size/2, size/2);
+        ctx.fillText('QR Code', size / 2, size / 2 - 10);
+        ctx.font = '12px sans-serif';
+        ctx.fillText('(Use link below)', size / 2, size / 2 + 10);
     }
     
     /**

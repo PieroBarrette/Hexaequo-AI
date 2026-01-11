@@ -27,6 +27,7 @@ const Matchmaking = (function() {
     let currentTimeMode = 'classic';
     let currentElo = 1000;
     let currentPreferences = {};
+    let isInitialized = false;
     
     // Callbacks
     let onMatchFound = null;

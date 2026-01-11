@@ -56,7 +56,7 @@ Hexaequo is a strategic hexagonal board game with a pure-JavaScript PWA frontend
 **Production URL**: `https://hexaequo-server.onrender.com` (Render deployment)
 **Dev URL**: `http://localhost:3001` (auto-detected by hostname check)
 
-Key events (see [docs/SOCKET_EVENTS.md](docs/SOCKET_EVENTS.md)):
+Key events (see [docs/SOCKET_EVENTS.md](../docs/SOCKET_EVENTS.md)):
 - **`create-room`** → Server creates game, returns `roomCode` + initial `gameState`
 - **`join-room`** → Join with `roomCode`, receive opponent data
 - **`play-move`** → Emit move, server validates → broadcasts `game-update`
@@ -139,7 +139,7 @@ socket.emit('join-room', {roomCode}, (response) => {
 ## Integration Points
 
 ### Frontend → Backend REST API
-**Auth flow** (see [docs/API.md](docs/API.md)):
+**Auth flow** (see [docs/API.md](../docs/API.md)):
 1. `POST /api/auth/signup` → Returns `{accessToken, refreshToken, user}`
 2. Store tokens in localStorage: `localStorage.setItem('accessToken', token)`
 3. Add to requests: `Authorization: Bearer ${accessToken}`
