@@ -347,6 +347,118 @@ function initializeSocket(httpServer) {
             }
         });
 
+        // ===== Resign / Draw =====
+
+        /**
+         * Player resigns
+         */
+        socket.on('resign', async (data, callback) => {
+            try {
+                const { roomCode, playerId, playerColor } = data;
+                
+                const room = await roomService.getByCode(roomCode);
+                if (!room) {
+                    return callback({ success: false, error: 'Room not found' });
+                }
+
+                // Determine winner (opposite color of resigning player)
+                const winnerColor = playerColor === 'black' ? 'white' : 'black';
+                
+                // Notify opponent
+                socket.to(roomCode).emit('opponent-resigned', {
+                    winnerColor,
+                    resignedColor: playerColor
+                });
+
+                // Update room status
+                await roomService.updateStatus(roomCode, 'finished');
+                
+                console.log(`Player ${playerColor} resigned in room ${roomCode}`);
+
+                callback({ success: true, winnerColor });
+            } catch (err) {
+                console.error('Resign error:', err);
+                callback({ success: false, error: err.message });
+            }
+        });
+
+        /**
+         * Player proposes a draw
+         */
+        socket.on('propose-draw', async (data, callback) => {
+            try {
+                const { roomCode, playerId, playerColor } = data;
+                
+                const room = await roomService.getByCode(roomCode);
+                if (!room) {
+                    return callback({ success: false, error: 'Room not found' });
+                }
+
+                // Notify opponent of draw proposal
+                socket.to(roomCode).emit('draw-proposed', {
+                    proposedBy: playerColor
+                });
+
+                console.log(`Player ${playerColor} proposed draw in room ${roomCode}`);
+
+                callback({ success: true });
+            } catch (err) {
+                console.error('Propose draw error:', err);
+                callback({ success: false, error: err.message });
+            }
+        });
+
+        /**
+         * Player accepts a draw proposal
+         */
+        socket.on('accept-draw', async (data, callback) => {
+            try {
+                const { roomCode, playerId, playerColor } = data;
+                
+                const room = await roomService.getByCode(roomCode);
+                if (!room) {
+                    return callback({ success: false, error: 'Room not found' });
+                }
+
+                // Notify opponent that draw was accepted
+                socket.to(roomCode).emit('draw-accepted');
+
+                // Update room status
+                await roomService.updateStatus(roomCode, 'finished');
+                
+                console.log(`Draw accepted in room ${roomCode}`);
+
+                callback({ success: true, isDraw: true });
+            } catch (err) {
+                console.error('Accept draw error:', err);
+                callback({ success: false, error: err.message });
+            }
+        });
+
+        /**
+         * Player declines a draw proposal
+         */
+        socket.on('decline-draw', async (data, callback) => {
+            try {
+                const { roomCode, playerId, playerColor } = data;
+                
+                const room = await roomService.getByCode(roomCode);
+                if (!room) {
+                    return callback({ success: false, error: 'Room not found' });
+                }
+
+                // Notify opponent that draw was declined
+                socket.to(roomCode).emit('draw-declined');
+
+                console.log(`Draw declined by ${playerColor} in room ${roomCode}`);
+
+                callback({ success: true });
+            } catch (err) {
+                console.error('Decline draw error:', err);
+                callback({ success: false, error: err.message });
+            }
+        });
+
         // ===== Rematch =====
 
         socket.on('request-rematch', async (data, callback) => {

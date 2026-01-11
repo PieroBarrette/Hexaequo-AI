@@ -2225,9 +2225,9 @@ window.onload = function () {
     // Record initial state at game start
     recordInitialState();
     
-    // Start black's timer (black moves first) - only in offline modes
-    // In online mode, timer starts after first move and is controlled by server
-    if (window.GameTimer && window.GameTimer.isEnabled() && !isOnlineMode) {
+    // Start black's timer (black moves first) - both online and offline modes
+    // In online mode, this starts local timer; server sync can adjust if needed
+    if (window.GameTimer && window.GameTimer.isEnabled()) {
         window.GameTimer.start('black');
     }
 
@@ -2555,8 +2555,8 @@ window.onload = function () {
         // Re-enable interactions after game reset
         enableInteractions();
 
-        // Start black's timer (black moves first) - only in offline modes
-        if (window.GameTimer && window.GameTimer.isEnabled() && !isOnlineMode) {
+        // Start black's timer (black moves first) - both online and offline modes
+        if (window.GameTimer && window.GameTimer.isEnabled()) {
             window.GameTimer.start('black');
         }
 
@@ -2687,9 +2687,9 @@ window.onload = function () {
         // Update active player
         activePlayer = updatedState.activePlayer;
 
-        // Switch timer to new active player (only in offline modes)
-        // In online mode, timer is controlled by server sync
-        if (window.GameTimer && window.GameTimer.isEnabled() && !isOnlineMode) {
+        // Switch timer to new active player (both online and offline modes)
+        // Server sync can adjust times if needed in online mode
+        if (window.GameTimer && window.GameTimer.isEnabled()) {
             window.GameTimer.start(activePlayer);
         }
 

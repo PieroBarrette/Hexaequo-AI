@@ -306,7 +306,7 @@ const Multiplayer = (function () {
         console.log('[Multiplayer] getUserInfo - currentUser:', currentUser);
         if (currentUser) {
             const userInfo = {
-                oderId: currentUser.id,  // User ID for ELO updates
+                userId: currentUser.id,  // User ID for ELO updates
                 name: currentUser.pseudo || currentUser.username,
                 elo: currentUser.elo || 1000,
                 isGuest: false
@@ -525,6 +525,15 @@ const Multiplayer = (function () {
         });
     }
 
+    // Set room info (used when match is found via matchmaking callback)
+    function setRoomInfo(code, color) {
+        roomCode = code;
+        playerColor = color;
+        isOnlineMode = true;
+        saveRoomInfo();
+        console.log(`[Multiplayer] Room info set: roomCode=${roomCode}, color=${playerColor}`);
+    }
+
     // Notify opponent that player is leaving the endgame screen (before leaving room)
     function leaveEndgame() {
         return new Promise((resolve) => {
@@ -545,7 +554,7 @@ const Multiplayer = (function () {
                 reject(new Error('Not connected to a game'));
                 return;
             }
-            socket.emit('resign', { roomCode, playerId }, (response) => {
+            socket.emit('resign', { roomCode, playerId, playerColor }, (response) => {
                 if (response && response.success) {
                     console.log('[Multiplayer] Resigned successfully');
                     resolve(response);
@@ -564,7 +573,7 @@ const Multiplayer = (function () {
                 reject(new Error('Not connected to a game'));
                 return;
             }
-            socket.emit('propose-draw', { roomCode, playerId }, (response) => {
+            socket.emit('propose-draw', { roomCode, playerId, playerColor }, (response) => {
                 if (response && response.success) {
                     console.log('[Multiplayer] Draw proposed successfully');
                     resolve(response);
@@ -583,7 +592,8 @@ const Multiplayer = (function () {
                 reject(new Error('Not connected to a game'));
                 return;
             }
-            socket.emit('respond-draw', { roomCode, playerId, accepted }, (response) => {
+            const event = accepted ? 'accept-draw' : 'decline-draw';
+            socket.emit(event, { roomCode, playerId, playerColor }, (response) => {
                 if (response && response.success) {
                     console.log('[Multiplayer] Draw response sent:', accepted ? 'accepted' : 'declined');
                     resolve(response);
@@ -655,6 +665,7 @@ const Multiplayer = (function () {
         startRematch,
         leaveEndgame,
         reportGameResult,
+        setRoomInfo,
         resign,
         proposeDraw,
         respondDraw,

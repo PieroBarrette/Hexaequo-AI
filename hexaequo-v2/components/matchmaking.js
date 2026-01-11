@@ -92,6 +92,10 @@ const Matchmaking = (function() {
             const result = await joinQueue(currentTimeMode, currentElo, currentPreferences);
             
             if (result.matched) {
+                // Match found immediately - set room info in Multiplayer
+                if (window.Multiplayer && result.roomCode) {
+                    window.Multiplayer.setRoomInfo(result.roomCode, result.color);
+                }
                 // Match found immediately
                 if (onMatchFound) {
                     onMatchFound(result);
