@@ -214,7 +214,7 @@ const QrCodeModal = (function() {
     }
     
     /**
-     * Generate QR code on canvas using qrcode library
+     * Generate QR code on canvas using qrcode-generator library
      */
     function generateQRCode(text, canvas) {
         const ctx = canvas.getContext('2d');
@@ -224,22 +224,35 @@ const QrCodeModal = (function() {
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, size, size);
         
-        // Use QRCode library (from CDN: qrcode@1.5.3)
-        if (typeof QRCode !== 'undefined' && QRCode.toCanvas) {
-            QRCode.toCanvas(canvas, text, {
-                width: size,
-                margin: 2,
-                color: {
-                    dark: '#000000',
-                    light: '#ffffff'
+        // Use qrcode-generator library (from CDN)
+        if (typeof qrcode !== 'undefined') {
+            try {
+                // Create QR code (Type 0 = auto-detect, L = low error correction)
+                const qr = qrcode(0, 'L');
+                qr.addData(text);
+                qr.make();
+                
+                // Get module count and calculate cell size
+                const moduleCount = qr.getModuleCount();
+                const margin = 4;
+                const cellSize = (size - margin * 2) / moduleCount;
+                
+                // Draw QR code
+                for (let row = 0; row < moduleCount; row++) {
+                    for (let col = 0; col < moduleCount; col++) {
+                        ctx.fillStyle = qr.isDark(row, col) ? '#000000' : '#ffffff';
+                        ctx.fillRect(
+                            margin + col * cellSize,
+                            margin + row * cellSize,
+                            cellSize,
+                            cellSize
+                        );
+                    }
                 }
-            }, function(error) {
-                if (error) {
-                    console.error('[QrCodeModal] QRCode generation error:', error);
-                    drawFallbackQR(ctx, text, size);
-                }
-            });
-            return;
+                return;
+            } catch (e) {
+                console.error('[QrCodeModal] QRCode generation error:', e);
+            }
         }
         
         // Fallback if library not loaded

@@ -144,13 +144,13 @@ async function findAndCreateMatch(userId, socketId, pseudo, elo, timeMode, prefe
             room: joinedRoom,
             opponent: {
                 id: opponent.id,
-                oderId: opponent.userId,
+                userId: opponent.userId,
                 socketId: opponent.socketId,
                 pseudo: opponent.pseudo,
                 elo: opponent.elo
             },
             joiner: {
-                userId: oderId,
+                userId: userId,
                 socketId: socketId,
                 pseudo: pseudo,
                 elo: elo
