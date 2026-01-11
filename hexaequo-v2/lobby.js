@@ -548,6 +548,14 @@
         lobby.authSection?.style.setProperty('display', 'none');
         document.querySelector('.lobby-footer')?.style.setProperty('display', 'none');
         
+        // Hide lobby logo (logo is in header on sub-pages)
+        document.querySelector('.lobby-logo')?.classList.add('hidden');
+        
+        // Set header to show logo (not main menu)
+        if (window.UserMenu?.setMainMenuMode) {
+            window.UserMenu.setMainMenuMode(false);
+        }
+        
         // Ensure UI reflects current config
         loadLocalGameConfig();
     }
@@ -569,6 +577,14 @@
         // Show footer
         document.querySelector('.lobby-footer')?.style.setProperty('display', 'flex');
         
+        // Show lobby logo (main menu has logo in page content)
+        document.querySelector('.lobby-logo')?.classList.remove('hidden');
+        
+        // Set header to main menu mode (hide logo in header)
+        if (window.UserMenu?.setMainMenuMode) {
+            window.UserMenu.setMainMenuMode(true);
+        }
+        
         hideError();
         hideAuthError();
     }
@@ -580,6 +596,14 @@
         lobby.settingsSection?.style.setProperty('display', 'none');
         lobby.authSection?.style.setProperty('display', 'none');
         document.querySelector('.lobby-footer')?.style.setProperty('display', 'none');
+        
+        // Hide lobby logo (logo is in header on sub-pages)
+        document.querySelector('.lobby-logo')?.classList.add('hidden');
+        
+        // Set header to show logo (not main menu)
+        if (window.UserMenu?.setMainMenuMode) {
+            window.UserMenu.setMainMenuMode(false);
+        }
         
         // Reset online UI state
         lobby.roomActions?.style.setProperty('display', 'none');
@@ -600,6 +624,11 @@
         lobby.authSection?.style.setProperty('display', 'none');
         document.querySelector('.lobby-footer')?.style.setProperty('display', 'none');
         
+        // Set header to show logo (not main menu)
+        if (window.UserMenu?.setMainMenuMode) {
+            window.UserMenu.setMainMenuMode(false);
+        }
+        
         // Sync settings
         syncSettingsFromGame();
     }
@@ -611,6 +640,11 @@
         lobby.settingsSection?.style.setProperty('display', 'none');
         lobby.authSection?.style.setProperty('display', 'flex');
         document.querySelector('.lobby-footer')?.style.setProperty('display', 'none');
+        
+        // Set header to show logo (not main menu)
+        if (window.UserMenu?.setMainMenuMode) {
+            window.UserMenu.setMainMenuMode(false);
+        }
         
         // Clear forms
         lobby.loginForm?.reset();

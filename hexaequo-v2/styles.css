@@ -103,10 +103,10 @@ h1 {
 
 #inventoryCanvas {
     position: absolute;
-    top: 120px;
+    top: 200px; /* Below toolbar (100px) + player info boxes (~90px) + gap */
     left: 0;
     width: 100%;
-    height: calc(100% - 120px);
+    height: calc(100% - 200px);
     pointer-events: none;
     touch-action: none;
 }
@@ -384,6 +384,7 @@ button:active {
     
     /* Player info adjustments */
     .player-info {
+        top: 90px; /* Below toolbar (80px min-height) + gap */
         padding: 4px 8px;
         min-width: 70px;
     }
@@ -422,8 +423,8 @@ button:active {
     }
     
     #inventoryCanvas {
-        top: 100px;
-        height: calc(100% - 100px);
+        top: 160px; /* Below toolbar (80px) + player info boxes (~70px) + gap */
+        height: calc(100% - 160px);
     }
     
     /* Hamburger menu */
@@ -610,8 +611,8 @@ button:active {
     }
     
     #inventoryCanvas {
-        top: 60px;
-        height: calc(100% - 60px);
+        top: 120px; /* Below toolbar (60px) + player info boxes (~50px) + gap */
+        height: calc(100% - 120px);
     }
     
     /* Hamburger menu positioning */
@@ -943,7 +944,7 @@ button:active {
 /* Player Info Displays */
 .player-info {
     position: absolute;
-    top: 8px;
+    top: 110px; /* Below toolbar (100px min-height + 10px gap) */
     z-index: 100;
     background: var(--hamburger-bg);
     border: 1px solid var(--border-color);
@@ -1959,6 +1960,12 @@ select {
     flex-direction: column;
     align-items: center;
     gap: 16px;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* Hide lobby logo when on sub-pages (logo is in header) */
+.lobby-logo.hidden {
+    display: none !important;
 }
 
 .lobby-logo-img {
@@ -1997,6 +2004,76 @@ body:not([data-theme="light"]) .lobby-logo-img {
     flex-direction: column;
     gap: 10px;
     width: 100%;
+    /* Page transition animations */
+    animation: pageEnter 0.3s ease-out;
+}
+
+/* ==================== Page Transition Animations ==================== */
+@keyframes pageEnter {
+    from {
+        opacity: 0;
+        transform: translateY(15px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes pageExit {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-15px);
+    }
+}
+
+/* Animation for lobby logo on main menu */
+.lobby-logo {
+    animation: logoEnter 0.5s ease-out;
+}
+
+@keyframes logoEnter {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Animation for menu buttons */
+.mode-selection .lobby-btn {
+    animation: buttonEnter 0.4s ease-out backwards;
+}
+
+.mode-selection .lobby-btn:nth-child(1) {
+    animation-delay: 0.1s;
+}
+
+.mode-selection .lobby-btn:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.mode-selection .lobby-btn:nth-child(3) {
+    animation-delay: 0.3s;
+}
+
+@keyframes buttonEnter {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
 }
 
 .lobby-btn {
@@ -2952,6 +3029,7 @@ body:not([data-theme="light"]) .lobby-logo-img {
 .game-action-btn {
     width: 40px;
     height: 40px;
+    aspect-ratio: 1;
     border-radius: 50%;
     border: 2px solid var(--border-color);
     background: var(--bg-container);
@@ -2962,6 +3040,7 @@ body:not([data-theme="light"]) .lobby-logo-img {
     justify-content: center;
     transition: all 0.2s;
     opacity: 0.7;
+    flex-shrink: 0;
 }
 
 .game-action-btn:hover {
@@ -3025,6 +3104,7 @@ body:not([data-theme="light"]) .lobby-logo-img {
 .draw-response-btn {
     width: 28px;
     height: 28px;
+    aspect-ratio: 1;
     border-radius: 50%;
     border: none;
     cursor: pointer;
@@ -3032,6 +3112,7 @@ body:not([data-theme="light"]) .lobby-logo-img {
     align-items: center;
     justify-content: center;
     transition: all 0.2s;
+    flex-shrink: 0;
 }
 
 .accept-btn {

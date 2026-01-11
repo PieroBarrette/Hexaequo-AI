@@ -47,7 +47,10 @@
     function init() {
         cacheElements();
         setupEventListeners();
+        setupHeaderLogoClick();
         updateDisplay();
+        // Start in main menu mode (logo hidden in header)
+        setMainMenuMode(true);
         console.log('[UserMenu] Initialized');
     }
 
@@ -300,19 +303,88 @@
     function show() {
         const header = document.querySelector('.site-header');
         if (header) {
-            header.style.display = 'block';
+            header.classList.remove('hidden');
         }
+        // Set to main menu mode by default when showing
+        setMainMenuMode(true);
     }
 
     function hide() {
         const header = document.querySelector('.site-header');
         if (header) {
-            header.style.display = 'none';
+            header.classList.add('hidden');
         }
         // Also close menu if open
         if (isOpen) {
             close();
         }
+    }
+
+    function setMainMenuMode(isMainMenu) {
+        const header = document.querySelector('.site-header');
+        if (header) {
+            if (isMainMenu) {
+                header.classList.add('main-menu');
+            } else {
+                header.classList.remove('main-menu');
+            }
+        }
+    }
+
+    // ==================== Header Logo Click Handler ====================
+    function setupHeaderLogoClick() {
+        const logoLink = document.getElementById('headerLogoLink');
+        if (logoLink) {
+            logoLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                handleLogoClick();
+            });
+        }
+    }
+
+    function handleLogoClick() {
+        // If in a game, show confirmation modal (like hamburger menu's main menu button)
+        const lobbyOverlay = document.getElementById('lobbyOverlay');
+        const isInGame = lobbyOverlay && lobbyOverlay.classList.contains('hidden');
+        
+        if (isInGame) {
+            // If there's a confirmation modal system, use it
+            const confirmModal = document.getElementById('confirmModal');
+            if (confirmModal) {
+                confirmModal.style.display = 'flex';
+            } else {
+                // Fallback: directly go to main menu
+                goToMainMenu();
+            }
+        } else {
+            // Not in a game, go directly to main menu
+            goToMainMenu();
+        }
+    }
+
+    function goToMainMenu() {
+        // Show lobby and reset to main menu
+        const lobbyOverlay = document.getElementById('lobbyOverlay');
+        if (lobbyOverlay) {
+            lobbyOverlay.classList.remove('hidden');
+            lobbyOverlay.style.display = 'flex';
+            lobbyOverlay.style.visibility = 'visible';
+            lobbyOverlay.style.pointerEvents = 'auto';
+            lobbyOverlay.style.opacity = '1';
+        }
+        
+        // Stop timers if running
+        if (window.GameTimer) {
+            window.GameTimer.stop();
+        }
+        
+        // Show main menu
+        if (window.showLobbyMainMenu) {
+            window.showLobbyMainMenu();
+        }
+        
+        // Update header to main menu mode
+        setMainMenuMode(true);
     }
 
     // ==================== Public API ====================
@@ -324,7 +396,9 @@
         updateDisplay,
         isOpen: () => isOpen,
         show,
-        hide
+        hide,
+        setMainMenuMode,
+        goToMainMenu
     };
 
     // Initialize when DOM is ready

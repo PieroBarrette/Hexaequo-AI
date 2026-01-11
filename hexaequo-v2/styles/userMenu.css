@@ -15,10 +15,15 @@
     transition: background 0.3s ease, border-color 0.3s ease;
 }
 
+/* Hide header when in game */
+.site-header.hidden {
+    display: none !important;
+}
+
 .site-header-content {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: space-between;
     max-width: 1200px;
     margin: 0 auto;
     min-height: 44px;
@@ -26,6 +31,56 @@
 
 .header-spacer {
     flex: 1;
+}
+
+/* ==================== Header Logo ==================== */
+.header-logo-link {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.header-logo-link:hover {
+    opacity: 0.8;
+    transform: translateX(-50%) scale(1.05);
+}
+
+.header-logo-img {
+    width: 36px;
+    height: auto;
+    transition: filter 0.3s ease;
+}
+
+/* Dark mode: logo inverted to white */
+body:not([data-theme="light"]) .header-logo-img {
+    filter: invert(1);
+}
+
+/* Hide header logo on main menu (logo is in the page content) */
+.site-header.main-menu .header-logo-link {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-50%) scale(0.8);
+}
+
+/* Show header logo on other pages with animation */
+.site-header:not(.main-menu) .header-logo-link {
+    animation: headerLogoEnter 0.4s ease-out;
+}
+
+@keyframes headerLogoEnter {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) scale(0.8);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) scale(1);
+    }
 }
 
 /* ==================== User Menu Container ==================== */
