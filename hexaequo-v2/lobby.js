@@ -871,11 +871,25 @@
         
         lobby.roomActions?.style.setProperty('display', 'flex');
         
-        // Set up real-time room list updates
-        setupRoomListListeners();
+        // Initialize matchmaking component (Phase 2)
+        if (window.Matchmaking) {
+            const userElo = currentUser?.elo || 1000;
+            window.Matchmaking.init({
+                elo: userElo,
+                onMatchFound: handleMatchFound,
+                onQueueStatusChange: (status) => {
+                    console.log('[Lobby] Queue status changed:', status);
+                }
+            });
+        }
         
-        // Fetch initial room list
-        fetchRoomList();
+        // Initialize QR Code modal (Phase 2)
+        if (window.QrCodeModal) {
+            window.QrCodeModal.init();
+        }
+        
+        // Check for invite code in URL
+        checkInviteCode();
     }
 
     function onConnectionError(message) {
@@ -962,6 +976,84 @@
         });
     }
 
+    // ==================== Matchmaking Functions (Phase 2) ====================
+    
+    /**
+     * Check URL for invite code and handle invitation flow
+     */
+    function checkInviteCode() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const inviteCode = urlParams.get('invite');
+        
+        if (!inviteCode) return;
+        
+        console.log('[Lobby] Found invite code in URL:', inviteCode);
+        
+        // Clear the invite code from URL (without page reload)
+        const newUrl = window.location.pathname + window.location.hash;
+        window.history.replaceState({}, document.title, newUrl);
+        
+        // Get invitation info first
+        socket.emit('get-invitation-info', { code: inviteCode }, (response) => {
+            if (!response.success) {
+                showError(response.error || i18nT('errors.invalidInvite'));
+                return;
+            }
+            
+            // Accept the invitation
+            acceptInvitation(inviteCode, response);
+        });
+    }
+    
+    /**
+     * Accept an invitation and join the game
+     */
+    function acceptInvitation(code, inviteInfo) {
+        console.log('[Lobby] Accepting invitation:', code, inviteInfo);
+        
+        socket.emit('accept-invitation', { code }, (response) => {
+            if (!response.success) {
+                showError(response.error || i18nT('errors.failedToJoin'));
+                return;
+            }
+            
+            console.log('[Lobby] Invitation accepted, joined room:', response.roomCode);
+            currentRoomCode = response.roomCode;
+            
+            // Store opponent info
+            currentOpponent = {
+                name: response.opponentInfo?.name || inviteInfo.creatorPseudo || 'Guest',
+                elo: response.opponentInfo?.elo,
+                isGuest: response.opponentInfo?.isGuest ?? true
+            };
+            
+            // Start the game as white (guest)
+            startOnlineGame({
+                playerColor: response.color || 'white',
+                gameState: response.gameState,
+                opponentInfo: currentOpponent,
+                timeControl: response.timeMode
+            });
+        });
+    }
+    
+    /**
+     * Handle match found from matchmaking queue
+     */
+    function handleMatchFound(data) {
+        console.log('[Lobby] Match found:', data);
+        
+        currentRoomCode = data.roomCode;
+        currentOpponent = data.opponentInfo || { name: 'Opponent', elo: null, isGuest: true };
+        
+        startOnlineGame({
+            playerColor: data.color,
+            gameState: data.gameState,
+            opponentInfo: currentOpponent,
+            timeControl: data.timeMode
+        });
+    }
+
     // ==================== Room List Functions ====================
     
     // Debounce helper
@@ -977,7 +1069,7 @@
         };
     }
     
-    // Fetch room list from server
+    // Fetch room list from server (legacy - kept for compatibility)
     function fetchRoomList() {
         if (!socket || !socket.connected) {
             console.log('[Lobby] Cannot fetch rooms - not connected');

@@ -176,38 +176,75 @@ import { validateMove } from './modules/moveValidator.js';
 - **Socket events**: `docs/SOCKET_EVENTS.md` (complete protocol spec)
 - **ELO system**: `backend/services/eloService.js` (K-factor logic, rating calculations, time mode multipliers)
 - **ELO tests**: `backend/tests/eloService.test.js` (validates multipliers and calculations)
-- **Frontend entry**: `hexaequo-v2/index.html` (1139 lines - lobby, game UI, modals)
-- **Multiplayer client**: `hexaequo-v2/multiplayer.js` (691 lines - Socket.IO client wrapper)
-- **Backend socket server**: `backend/socket/socketHandler.js` (503 lines - room management, move handling)
-- **AI engine**: `hexaequo-v2/ai.js` (1110 lines - minimax, evaluation, move generation)
-- **Database schema**: `backend/models/schema.js` (PostgreSQL tables)
+- **Frontend entry**: `hexaequo-v2/index.html` (lobby, game UI, modals)
+- **Multiplayer client**: `hexaequo-v2/multiplayer.js` (Socket.IO client wrapper)
+- **Backend socket server**: `backend/socket/socketHandler.js` (room management, move handling, matchmaking events)
+- **AI engine**: `hexaequo-v2/ai.js` (minimax, evaluation, move generation)
+- **Database schema**: `backend/models/schema.js` (PostgreSQL tables incl. Phase 2)
 - **DB migration (Phase 0)**: `backend/scripts/migration_phase0.js` (ELO defaults + new tables)
+- **Matchmaking service**: `backend/services/matchmakingService.js` (queue logic, FIFO matching)
+- **Invitation service**: `backend/services/invitationService.js` (invitation flow management)
+- **Matchmaking UI**: `hexaequo-v2/components/matchmaking.js` (Play/Invite buttons, queue state)
 
-## Future Features Architecture (Phase 1-4)
+## Phase 2: Matchmaking System (IMPLEMENTED)
 
-### New Frontend Components (`hexaequo-v2/components/`)
+### Matchmaking Flow
+1. **Play Button**: User clicks Play → joins matchmaking queue with time mode preference
+2. **Queue Matching**: Event-driven FIFO - when player joins, server searches for oldest compatible match
+3. **Match Criteria**: Same time_mode + ELO within both players' acceptable ranges
+4. **Match Found**: Server creates room, emits `match-found` to both players → auto-redirects to game
+
+### Invitation Flow
+1. **Invite Button**: User clicks Invite → server generates 8-char alphanumeric code (24h expiry)
+2. **Share**: User shares link (`?invite=CODE`) or QR code
+3. **Accept**: Recipient opens link → `checkInviteCode()` validates → `acceptInvitation()` creates room
+4. **Join**: Both players redirected to game
+
+### Phase 2 Components (Implemented)
+**Frontend** (`hexaequo-v2/components/`):
+- `matchmaking.js` - Play/Invite button handlers, queue UI, waiting state
+- `qrCodeModal.js` - QR code generation modal (pure JS canvas, no external lib)
+
+**Backend Models** (`backend/models/`):
+- `userPreferencesModel.js` - User matchmaking preferences (time_mode, elo_range)
+- `matchmakingQueueModel.js` - Queue CRUD with FIFO `findMatch()`, 5min expiry
+- `invitationModel.js` - Invitation code generation/validation, 24h expiry
+
+**Backend Services** (`backend/services/`):
+- `matchmakingService.js` - Queue logic with memory fallback, `joinQueue()` triggers immediate match search
+- `invitationService.js` - Invitation flow management
+
+**Socket Events** (in `socketHandler.js`):
+- `join-matchmaking-queue`, `leave-matchmaking-queue`, `matchmaking-status`
+- `create-invitation`, `get-invitation-info`, `accept-invitation`, `cancel-invitation`
+- `match-found` (emitted to both players when matched)
+
+**Routes**: `backend/routes/matchmakingRoutes.js` → `/api/matchmaking/*`
+
+### Database Tables (Phase 2)
+```sql
+user_preferences (user_id, preferred_time_mode, elo_range_min, elo_range_max)
+matchmaking_queue (id, user_id, elo_rating, time_mode, elo_range_min, elo_range_max, joined_at, expires_at)
+invitations (id, code, creator_id, time_mode, expires_at, used, used_by, used_at)
+```
+
+## Future Features Architecture (Phase 3-4)
+
+### Pending Frontend Components (`hexaequo-v2/components/`)
 - `userMenu.js` - Menu hamburger utilisateur (Phase 1)
-- `matchmaking.js` - Système Play/Invite (Phase 2)
-- `qrCodeModal.js` - Modal QR code invitation (Phase 2)
 - `chat.js` - Chat in-game (Phase 3)
 - `profile.js` - Page profil utilisateur (Phase 4)
 - `gameHistory.js` - Liste historique parties (Phase 4)
 - `replayViewer.js` - Lecteur de replay (Phase 4)
 
-### New Backend Components
+### Pending Backend Components
 **Models**:
-- `userPreferencesModel.js` - Préférences matchmaking (Phase 2)
-- `matchmakingQueueModel.js` - File d'attente (Phase 2)
-- `invitationModel.js` - Codes invitation (Phase 2)
 - `chatMessageModel.js` - Messages chat (Phase 3)
 
 **Services**:
-- `matchmakingService.js` - Logique matching (Phase 2)
-- `invitationService.js` - Gestion invitations (Phase 2)
 - `chatService.js` - Gestion chat (Phase 3)
 
 **Controllers**:
-- `matchmakingController.js` - REST endpoints matchmaking (Phase 2)
 - `chatController.js` - REST endpoints chat (Phase 3)
 
 ## Next Steps for New Features

@@ -13,6 +13,8 @@
     <title>Hexaequo</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="styles/userMenu.css">
+    <link rel="stylesheet" href="styles/matchmaking.css">
+    <link rel="stylesheet" href="styles/qrCodeModal.css">
     <link rel="manifest" href="manifest.json">
     <!-- i18n module - must load before other scripts -->
     <script src="i18n.js" type="module"></script>
@@ -190,71 +192,27 @@
                                 <option value="bullet" data-i18n="lobby.bullet">Bullet: 2|1</option>
                             </select>
                         </div>
-                        <button class="lobby-btn primary" id="lobbyCreateRoomBtn" data-i18n="lobby.createRoom">Create Room</button>
                         
-                        <!-- Room Browser Section -->
-                        <div class="room-browser-section">
-                            <div class="room-browser-header">
-                                <span class="room-browser-title" data-i18n="lobby.availableRooms">Available Rooms</span>
-                                <button class="refresh-btn" id="refreshRoomsBtn" data-i18n-title="lobby.refresh" title="Refresh">↻</button>
-                            </div>
-                            
-                            <!-- Filters (collapsible) -->
-                            <button class="filter-toggle" id="filterToggleBtn">
-                                <span data-i18n="lobby.filters">Filters</span>
-                                <span class="toggle-icon">▼</span>
-                            </button>
-                            <div class="room-filters" id="roomFilters">
-                                <div class="filter-group">
-                                    <span class="filter-label" data-i18n="lobby.time">Time:</span>
-                                    <div class="filter-checkboxes">
-                                        <label><input type="checkbox" id="filterNone" checked> <span data-i18n="lobby.none">None</span></label>
-                                        <label><input type="checkbox" id="filterClassic" checked> Classic</label>
-                                        <label><input type="checkbox" id="filterRapid" checked> Rapid</label>
-                                        <label><input type="checkbox" id="filterBlitz" checked> Blitz</label>
-                                        <label><input type="checkbox" id="filterBullet" checked> Bullet</label>
-                                    </div>
-                                </div>
-                                <div class="filter-group">
-                                    <span class="filter-label" data-i18n="lobby.player">Player:</span>
-                                    <div class="filter-checkboxes">
-                                        <label><input type="checkbox" id="filterGuests" checked> <span data-i18n="lobby.guests">Guests</span></label>
-                                        <label><input type="checkbox" id="filterUsers" checked> <span data-i18n="lobby.users">Users</span></label>
-                                    </div>
-                                </div>
-                                <div class="filter-group elo-filter">
-                                    <span class="filter-label" data-i18n="lobby.elo">ELO:</span>
-                                    <div class="elo-range">
-                                        <input type="number" id="eloMin" class="elo-input" data-i18n-placeholder="lobby.min" placeholder="Min" min="0" max="3000">
-                                        <span>-</span>
-                                        <input type="number" id="eloMax" class="elo-input" data-i18n-placeholder="lobby.max" placeholder="Max" min="0" max="3000">
-                                    </div>
+                        <!-- Matchmaking Buttons (Phase 2) -->
+                        <div class="matchmaking-section" id="matchmakingSection">
+                            <button class="lobby-btn primary matchmaking-btn" id="matchmakingPlayBtn" data-i18n="lobby.play">Play</button>
+                            <button class="lobby-btn secondary matchmaking-btn" id="matchmakingInviteBtn" data-i18n="lobby.invite">Invite</button>
+                        </div>
+                        
+                        <!-- Matchmaking Waiting (hidden by default) -->
+                        <div id="matchmakingWaiting" class="matchmaking-waiting" style="display: none;">
+                            <div class="waiting-animation">
+                                <div class="spinner"></div>
+                                <div class="waiting-text">
+                                    <span data-i18n="lobby.searchingOpponent">Searching for opponent...</span>
+                                    <span class="waiting-timer" id="matchmakingTimer">0:00</span>
                                 </div>
                             </div>
-                            
-                            <!-- Room List Table -->
-                            <div class="room-list-container">
-                                <table class="room-list-table">
-                                    <thead>
-                                        <tr>
-                                            <th class="sortable" data-sort="timeControl" data-i18n="lobby.time">Time <span class="sort-arrow"></span></th>
-                                            <th class="sortable" data-sort="creatorName" data-i18n="lobby.player">Player <span class="sort-arrow"></span></th>
-                                            <th class="sortable" data-sort="creatorElo" data-i18n="lobby.elo">ELO <span class="sort-arrow"></span></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="roomListBody">
-                                        <!-- Rooms will be populated here -->
-                                    </tbody>
-                                </table>
-                                <div class="room-list-empty" id="roomListEmpty">
-                                    <p data-i18n="lobby.noRoomsAvailable">No rooms available</p>
-                                    <p class="empty-hint" data-i18n="lobby.createOrWait">Create a room or wait for others to join</p>
-                                </div>
-                            </div>
+                            <button class="lobby-btn secondary" id="matchmakingCancelBtn" data-i18n="lobby.cancel">Cancel</button>
                         </div>
                     </div>
                     
-                    <!-- Waiting for opponent (shows above room list when active) -->
+                    <!-- Waiting for opponent (shows when hosting via invite) -->
                     <div id="lobbyWaitingSection" class="lobby-waiting" style="display: none;">
                         <div class="waiting-animation">
                             <div class="spinner"></div>
@@ -493,6 +451,27 @@
         </div>
     </div>
 
+    <!-- QR Code Invitation Modal (Phase 2) -->
+    <div id="qrModalBackdrop" class="qr-modal-backdrop" style="display: none;"></div>
+    <div id="qrCodeModal" class="qr-code-modal" style="display: none;">
+        <div class="qr-modal-content">
+            <button id="closeQrModalBtn" class="qr-modal-close" aria-label="Close">×</button>
+            <h3 class="qr-modal-title" data-i18n="lobby.inviteFriend">Invite a Friend</h3>
+            <div class="qr-code-container">
+                <canvas id="qrCodeCanvas" width="200" height="200"></canvas>
+            </div>
+            <div class="invite-code-section">
+                <span class="invite-code-label" data-i18n="lobby.inviteCode">Invite Code:</span>
+                <span id="inviteCodeDisplay" class="invite-code-value">--------</span>
+            </div>
+            <div class="qr-modal-actions">
+                <button id="copyInviteLinkBtn" class="lobby-btn primary" data-i18n="lobby.copyLink">Copy Link</button>
+                <button id="shareInviteBtn" class="lobby-btn secondary" data-i18n="lobby.share">Share</button>
+            </div>
+            <p class="qr-modal-hint" data-i18n="lobby.inviteHint">Share this link or scan the QR code to join your game</p>
+        </div>
+    </div>
+
     <!-- Menu Overlay (legacy - kept for game mode select, now hidden from hamburger) -->
     <div id="menuOverlay" style="display: none;">
         <div class="menu-content">
@@ -636,6 +615,8 @@
     <script src="timer.js"></script>
     <script src="lobby.js"></script>
     <script src="components/userMenu.js"></script>
+    <script src="components/matchmaking.js"></script>
+    <script src="components/qrCodeModal.js"></script>
     <script src="multiplayer.js"></script>
     <script src="ai.js"></script>
     <script src="graphics.js"></script>

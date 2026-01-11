@@ -25,6 +25,7 @@ const gameRoutes = require('./routes/gameRoutes');
 const roomRoutes = require('./routes/roomRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const matchmakingRoutes = require('./routes/matchmakingRoutes');
 
 // Initialize Express
 const app = express();
@@ -85,6 +86,7 @@ app.use('/api/games', gameRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/matchmaking', matchmakingRoutes);
 
 // Create HTTP server with Express app FIRST
 const httpServer = createServer(app);

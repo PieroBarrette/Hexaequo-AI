@@ -278,6 +278,23 @@ const Multiplayer = (function () {
                 if (onDrawDeclined) onDrawDeclined(data);
             });
 
+            // Matchmaking events (Phase 2)
+            socket.on('match-found', (data) => {
+                console.log('Match found:', data.roomCode);
+                roomCode = data.roomCode;
+                playerColor = data.color;
+                isOnlineMode = true;
+                saveRoomInfo();
+                
+                // Notify Matchmaking component
+                if (window.Matchmaking) {
+                    window.Matchmaking.handleMatchFound(data);
+                }
+                
+                // Also trigger onOpponentJoined for compatibility
+                if (onOpponentJoined) onOpponentJoined(data);
+            });
+
         } catch (err) {
             reject(err);
         }

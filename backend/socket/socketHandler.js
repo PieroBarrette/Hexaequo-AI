@@ -9,6 +9,8 @@ const jwt = require('jsonwebtoken');
 const { JWT_SECRET, FRONTEND_URL } = require('../config/env');
 const roomService = require('../services/roomService');
 const gameService = require('../services/gameService');
+const matchmakingService = require('../services/matchmakingService');
+const invitationService = require('../services/invitationService');
 const { User } = require('../models');
 
 // Track connected sockets
@@ -478,8 +480,249 @@ function initializeSocket(httpServer) {
                 await roomService.leaveAsSpectator(socket.id);
             }
 
+            // Remove from matchmaking queue on disconnect
+            await matchmakingService.leaveQueue(socket.userId, socket.id);
+
             connectedSockets.delete(socket.id);
             console.log(`Client disconnected: ${socket.id}`);
+        });
+
+        // ===== Matchmaking (Phase 2) =====
+
+        /**
+         * Join matchmaking queue
+         * Event-driven: immediately searches for a match when joining
+         */
+        socket.on('join-matchmaking-queue', async (data, callback) => {
+            try {
+                const { timeMode, elo, preferences } = data;
+                const pseudo = socket.pseudo || data.pseudo || 'Guest';
+                const userElo = elo || 1000; // Default ELO
+                
+                console.log(`[Matchmaking] ${pseudo} joining queue - timeMode: ${timeMode}, elo: ${userElo}`);
+                
+                const result = await matchmakingService.joinQueue(
+                    socket.userId,
+                    socket.id,
+                    pseudo,
+                    userElo,
+                    timeMode || 'classic',
+                    preferences || {}
+                );
+                
+                if (result.matched) {
+                    // Match found! Notify both players
+                    const { room, opponent } = result;
+                    
+                    // Get opponent's socket
+                    const opponentSocket = io.sockets.sockets.get(opponent.socketId);
+                    
+                    if (opponentSocket) {
+                        // Opponent is the host (black) - they were waiting longer
+                        opponentSocket.join(result.roomCode);
+                        opponentSocket.emit('match-found', {
+                            roomCode: result.roomCode,
+                            color: 'black',
+                            gameState: room.gameState,
+                            timeMode: room.timeMode,
+                            opponentInfo: {
+                                name: pseudo,
+                                elo: userElo,
+                                isGuest: !socket.userId
+                            }
+                        });
+                    }
+                    
+                    // Current player is the guest (white) - they triggered the match
+                    socket.join(result.roomCode);
+                    
+                    // Update socket tracking
+                    const socketInfo = connectedSockets.get(socket.id);
+                    if (socketInfo) socketInfo.roomCode = result.roomCode;
+                    
+                    callback({
+                        success: true,
+                        matched: true,
+                        roomCode: result.roomCode,
+                        color: 'white',
+                        gameState: room.gameState,
+                        timeMode: room.timeMode,
+                        opponentInfo: {
+                            name: opponent.pseudo,
+                            elo: opponent.elo,
+                            isGuest: !opponent.userId
+                        }
+                    });
+                } else {
+                    // No match yet, player is in queue
+                    callback({
+                        success: true,
+                        matched: false,
+                        inQueue: true,
+                        position: result.queueEntry?.position
+                    });
+                }
+            } catch (err) {
+                console.error('[Matchmaking] Join queue error:', err);
+                callback({ success: false, error: err.message });
+            }
+        });
+
+        /**
+         * Leave matchmaking queue
+         */
+        socket.on('leave-matchmaking-queue', async (data, callback) => {
+            try {
+                const removed = await matchmakingService.leaveQueue(socket.userId, socket.id);
+                console.log(`[Matchmaking] ${socket.pseudo || 'Guest'} left queue`);
+                callback({ success: true, removed });
+            } catch (err) {
+                console.error('[Matchmaking] Leave queue error:', err);
+                callback({ success: false, error: err.message });
+            }
+        });
+
+        /**
+         * Get matchmaking queue status
+         */
+        socket.on('matchmaking-status', async (data, callback) => {
+            try {
+                const status = await matchmakingService.getQueueStatus(socket.userId, socket.id);
+                callback({ success: true, ...status });
+            } catch (err) {
+                console.error('[Matchmaking] Status error:', err);
+                callback({ success: false, error: err.message });
+            }
+        });
+
+        // ===== Invitations (Phase 2) =====
+
+        /**
+         * Create invitation link
+         */
+        socket.on('create-invitation', async (data, callback) => {
+            try {
+                const { timeMode, allowSpectators } = data;
+                const pseudo = socket.pseudo || data.pseudo || 'Guest';
+                
+                const roomSettings = {
+                    timeMode: timeMode || 'classic',
+                    allowSpectators: allowSpectators !== false
+                };
+                
+                const invitation = await invitationService.createInvitation(
+                    socket.userId,
+                    pseudo,
+                    roomSettings
+                );
+                
+                console.log(`[Invitation] Created by ${pseudo}: ${invitation.code}`);
+                
+                callback({
+                    success: true,
+                    code: invitation.code,
+                    url: invitation.url,
+                    expiresAt: invitation.expiresAt
+                });
+            } catch (err) {
+                console.error('[Invitation] Create error:', err);
+                callback({ success: false, error: err.message });
+            }
+        });
+
+        /**
+         * Get invitation info (before accepting)
+         */
+        socket.on('get-invitation-info', async (data, callback) => {
+            try {
+                const { code } = data;
+                const info = await invitationService.getInvitationInfo(code);
+                
+                if (!info.valid) {
+                    return callback({ success: false, error: info.reason });
+                }
+                
+                callback({
+                    success: true,
+                    creatorPseudo: info.creatorPseudo,
+                    timeMode: info.timeMode,
+                    expiresAt: info.expiresAt
+                });
+            } catch (err) {
+                console.error('[Invitation] Get info error:', err);
+                callback({ success: false, error: err.message });
+            }
+        });
+
+        /**
+         * Accept invitation and join game
+         */
+        socket.on('accept-invitation', async (data, callback) => {
+            try {
+                const { code } = data;
+                const pseudo = socket.pseudo || data.pseudo || 'Guest';
+                
+                const result = await invitationService.acceptInvitation(
+                    code,
+                    socket.userId,
+                    pseudo,
+                    socket.id
+                );
+                
+                if (!result.valid) {
+                    return callback({ success: false, error: result.error });
+                }
+                
+                console.log(`[Invitation] ${pseudo} accepted invitation ${code} → room ${result.roomCode}`);
+                
+                // Join the room as guest (white)
+                const room = await roomService.joinRoom(result.roomCode, {
+                    guestId: socket.userId,
+                    guestPseudo: pseudo,
+                    guestSocketId: socket.id
+                });
+                
+                socket.join(result.roomCode);
+                
+                // Update socket tracking
+                const socketInfo = connectedSockets.get(socket.id);
+                if (socketInfo) socketInfo.roomCode = result.roomCode;
+                
+                // Notify the host if they're connected
+                socket.to(result.roomCode).emit('opponent-joined', {
+                    pseudo,
+                    isGuest: !socket.userId
+                });
+                
+                callback({
+                    success: true,
+                    roomCode: result.roomCode,
+                    color: 'white',
+                    timeMode: result.timeMode,
+                    gameState: room.gameState,
+                    opponentInfo: {
+                        name: result.creatorPseudo,
+                        isGuest: !result.creatorId
+                    }
+                });
+            } catch (err) {
+                console.error('[Invitation] Accept error:', err);
+                callback({ success: false, error: err.message });
+            }
+        });
+
+        /**
+         * Cancel invitation
+         */
+        socket.on('cancel-invitation', async (data, callback) => {
+            try {
+                const { code } = data;
+                const cancelled = await invitationService.cancelInvitation(code, socket.userId);
+                callback({ success: true, cancelled });
+            } catch (err) {
+                console.error('[Invitation] Cancel error:', err);
+                callback({ success: false, error: err.message });
+            }
         });
 
         // ===== Chat (optional) =====

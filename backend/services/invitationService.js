@@ -18,8 +18,8 @@
  * 8. Les 2 joueurs rejoignent la room
  * 
  * Exports:
- * - createInvitation(userId, roomSettings) → {code, url, expires_at}
- * - acceptInvitation(code, userId) → {valid, roomCode?, error?}
+ * - createInvitation(userId, pseudo, roomSettings) → {code, url, expires_at}
+ * - acceptInvitation(code, userId, pseudo, socketId) → {valid, roomCode?, error?}
  * - getInvitationInfo(code) → {valid, creator, settings, expires_at}
  * - cancelInvitation(code, userId) → boolean
  */
@@ -27,11 +27,239 @@
 const invitationModel = require('../models/invitationModel');
 const roomService = require('./roomService');
 
-// TODO: Implémenter Phase 2
+// Base URL for invitation links
+const BASE_URL = process.env.FRONTEND_URL || 'https://hexaequo.com';
+
+// In-memory fallback
+const memoryInvitations = new Map();
+let useMemoryStore = false;
+
+/**
+ * Create a new invitation
+ */
+async function createInvitation(userId, pseudo, roomSettings = {}) {
+    try {
+        const invitation = await withFallback(
+            () => invitationModel.createInvitation(userId, pseudo, roomSettings),
+            () => createMemoryInvitation(userId, pseudo, roomSettings)
+        );
+        
+        return {
+            code: invitation.code,
+            url: `${BASE_URL}/?invite=${invitation.code}`,
+            expiresAt: invitation.expiresAt,
+            roomSettings: invitation.roomSettings
+        };
+    } catch (err) {
+        console.error('[Invitation] Create error:', err);
+        throw err;
+    }
+}
+
+/**
+ * Accept an invitation and create/join room
+ */
+async function acceptInvitation(code, acceptorId, acceptorPseudo, acceptorSocketId) {
+    try {
+        // Validate invitation
+        const validation = await withFallback(
+            () => invitationModel.isValidInvitation(code),
+            () => isMemoryInvitationValid(code)
+        );
+        
+        if (!validation.valid) {
+            return { valid: false, error: validation.reason };
+        }
+        
+        const invitation = validation.invitation;
+        
+        // Mark as used
+        await withFallback(
+            () => invitationModel.useInvitation(code),
+            () => useMemoryInvitation(code)
+        );
+        
+        // Create room with invitation settings
+        // Creator is host (black), acceptor will join as guest (white)
+        const room = await roomService.createRoom({
+            hostId: invitation.creatorUserId,
+            hostPseudo: invitation.creatorPseudo || 'Guest',
+            hostSocketId: null, // Creator will join via socket later
+            timeMode: invitation.roomSettings?.timeMode || 'none',
+            allowSpectators: invitation.roomSettings?.allowSpectators ?? true
+        });
+        
+        return {
+            valid: true,
+            roomCode: room.code,
+            timeMode: invitation.roomSettings?.timeMode || 'none',
+            creatorId: invitation.creatorUserId,
+            creatorPseudo: invitation.creatorPseudo
+        };
+    } catch (err) {
+        console.error('[Invitation] Accept error:', err);
+        return { valid: false, error: err.message };
+    }
+}
+
+/**
+ * Get invitation info (for display before accepting)
+ */
+async function getInvitationInfo(code) {
+    try {
+        const validation = await withFallback(
+            () => invitationModel.isValidInvitation(code),
+            () => isMemoryInvitationValid(code)
+        );
+        
+        if (!validation.valid) {
+            return { valid: false, reason: validation.reason };
+        }
+        
+        const invitation = validation.invitation;
+        
+        return {
+            valid: true,
+            creatorPseudo: invitation.creatorPseudo || 'Guest',
+            timeMode: invitation.roomSettings?.timeMode || 'none',
+            expiresAt: invitation.expiresAt
+        };
+    } catch (err) {
+        console.error('[Invitation] Get info error:', err);
+        return { valid: false, reason: 'Error retrieving invitation' };
+    }
+}
+
+/**
+ * Cancel an invitation
+ */
+async function cancelInvitation(code, userId) {
+    try {
+        return await withFallback(
+            () => invitationModel.cancelInvitation(code, userId),
+            () => cancelMemoryInvitation(code, userId)
+        );
+    } catch (err) {
+        console.error('[Invitation] Cancel error:', err);
+        return false;
+    }
+}
+
+/**
+ * Cleanup expired invitations
+ */
+async function cleanupExpired() {
+    try {
+        const count = await withFallback(
+            () => invitationModel.cleanupExpired(),
+            () => cleanupMemoryInvitations()
+        );
+        
+        if (count > 0) {
+            console.log(`[Invitation] Cleaned up ${count} expired invitations`);
+        }
+        
+        return count;
+    } catch (err) {
+        console.error('[Invitation] Cleanup error:', err);
+        return 0;
+    }
+}
+
+// ==================== Memory Fallback ====================
+
+function generateCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    for (let i = 0; i < 8; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+}
+
+function createMemoryInvitation(userId, pseudo, roomSettings) {
+    const code = generateCode();
+    const invitation = {
+        id: `mem_${Date.now()}`,
+        code,
+        creatorUserId: userId,
+        creatorPseudo: pseudo,
+        roomSettings,
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        used: false
+    };
+    
+    memoryInvitations.set(code, invitation);
+    return invitation;
+}
+
+function isMemoryInvitationValid(code) {
+    const invitation = memoryInvitations.get(code?.toUpperCase());
+    
+    if (!invitation) {
+        return { valid: false, reason: 'Invitation not found' };
+    }
+    if (invitation.used) {
+        return { valid: false, reason: 'Invitation already used' };
+    }
+    if (invitation.expiresAt < new Date()) {
+        return { valid: false, reason: 'Invitation expired' };
+    }
+    
+    return { valid: true, invitation };
+}
+
+function useMemoryInvitation(code) {
+    const invitation = memoryInvitations.get(code?.toUpperCase());
+    if (invitation) {
+        invitation.used = true;
+        return true;
+    }
+    return false;
+}
+
+function cancelMemoryInvitation(code, userId) {
+    const invitation = memoryInvitations.get(code?.toUpperCase());
+    if (invitation && (!invitation.creatorUserId || invitation.creatorUserId === userId)) {
+        memoryInvitations.delete(code?.toUpperCase());
+        return true;
+    }
+    return false;
+}
+
+function cleanupMemoryInvitations() {
+    const now = new Date();
+    let count = 0;
+    
+    for (const [code, invitation] of memoryInvitations.entries()) {
+        if (invitation.expiresAt < now || invitation.used) {
+            memoryInvitations.delete(code);
+            count++;
+        }
+    }
+    
+    return count;
+}
+
+// Wrapper to try database first, then memory store
+async function withFallback(dbOperation, memoryOperation) {
+    if (useMemoryStore) {
+        return memoryOperation();
+    }
+    try {
+        return await dbOperation();
+    } catch (err) {
+        console.log('[Invitation] Database unavailable, using memory store');
+        useMemoryStore = true;
+        return memoryOperation();
+    }
+}
 
 module.exports = {
-    // createInvitation,
-    // acceptInvitation,
-    // getInvitationInfo,
-    // cancelInvitation
+    createInvitation,
+    acceptInvitation,
+    getInvitationInfo,
+    cancelInvitation,
+    cleanupExpired
 };

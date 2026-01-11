@@ -2,20 +2,94 @@
  * matchmaking.css - Styles matchmaking (Phase 2)
  * 
  * Éléments à styler:
- * - .matchmaking-container: Container des 2 boutons côte à côte
- * - .matchmaking-btn-play: Bouton "Play" (accent color)
- * - .matchmaking-btn-invite: Bouton "Invite" (secondary color)
+ * - .matchmaking-section: Container des 2 boutons côte à côte
+ * - .matchmaking-btn: Boutons Play/Invite
  * - .matchmaking-waiting: État attente avec loader
- * - .matchmaking-timer: Timer d'attente (0:00 format)
- * - .matchmaking-cancel: Bouton cancel pendant attente
- * 
- * Animations:
- * - Pulse/spinner sur loader attente
- * - Transition boutons hover/active
- * 
- * Responsive:
- * - Mobile: Boutons empilés ou 50/50
- * - Desktop: Boutons côte à côte avec gap
+ * - .waiting-timer: Timer d'attente (0:00 format)
  */
 
-/* TODO: Implémenter Phase 2 */
+/* Matchmaking Section - Two buttons side by side */
+.matchmaking-section {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+    width: 100%;
+}
+
+.matchmaking-section .matchmaking-btn {
+    flex: 1;
+    padding: 14px 20px;
+    font-size: 1.1em;
+    font-weight: 600;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.matchmaking-section .matchmaking-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.matchmaking-section .matchmaking-btn:active {
+    transform: translateY(0);
+}
+
+/* Matchmaking Waiting State */
+.matchmaking-waiting {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 24px;
+    background: var(--surface-color, #1a1a2e);
+    border-radius: 12px;
+    margin-top: 16px;
+}
+
+.matchmaking-waiting .waiting-animation {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.matchmaking-waiting .waiting-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.matchmaking-waiting .waiting-timer {
+    font-size: 1.5em;
+    font-weight: 600;
+    color: var(--accent-color, #4a9eff);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Spinner animation */
+.matchmaking-waiting .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border-color, #333);
+    border-top-color: var(--accent-color, #4a9eff);
+    border-radius: 50%;
+    animation: matchmaking-spin 1s linear infinite;
+}
+
+@keyframes matchmaking-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Mobile Responsive */
+@media (max-width: 480px) {
+    .matchmaking-section {
+        flex-direction: column;
+    }
+    
+    .matchmaking-section .matchmaking-btn {
+        width: 100%;
+    }
+}
