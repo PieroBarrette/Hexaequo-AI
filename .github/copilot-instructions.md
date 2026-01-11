@@ -202,10 +202,11 @@ import { validateMove } from './modules/moveValidator.js';
 4. **Match Found**: Server creates room, emits `match-found` to both players → auto-redirects to game
 
 ### Invitation Flow
-1. **Invite Button**: User clicks Invite → server generates 8-char alphanumeric code (24h expiry)
-2. **Share**: User shares link (`?invite=CODE`) or QR code
-3. **Accept**: Recipient opens link → `checkInviteCode()` validates → `acceptInvitation()` creates room
-4. **Join**: Both players redirected to game
+1. **Invite Button**: User clicks Invite → server creates room + generates 8-char alphanumeric code (24h expiry)
+2. **Creator Waits**: Creator is now host (black) in room, waiting for opponent
+3. **Share**: Creator shares link (`?invite=CODE`) or QR code
+4. **Accept**: Recipient opens link → `checkInviteCode()` validates → `acceptInvitation()` joins existing room
+5. **Game Starts**: Creator receives `opponent-joined` event, both players in game
 
 ### Phase 2 Components (Implemented)
 **Frontend** (`hexaequo-v2/components/`):

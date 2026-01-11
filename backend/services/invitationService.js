@@ -36,19 +36,31 @@ let useMemoryStore = false;
 
 /**
  * Create a new invitation
+ * Creates a room immediately so the creator can wait
  */
-async function createInvitation(userId, pseudo, roomSettings = {}) {
+async function createInvitation(userId, pseudo, socketId, roomSettings = {}) {
     try {
+        // Create room first so creator is waiting
+        const room = await roomService.createRoom({
+            hostId: userId,
+            hostPseudo: pseudo || 'Guest',
+            hostSocketId: socketId,
+            timeMode: roomSettings.timeMode || 'none',
+            allowSpectators: roomSettings.allowSpectators ?? true
+        });
+        
         const invitation = await withFallback(
-            () => invitationModel.createInvitation(userId, pseudo, roomSettings),
-            () => createMemoryInvitation(userId, pseudo, roomSettings)
+            () => invitationModel.createInvitation(userId, pseudo, { ...roomSettings, roomCode: room.code }),
+            () => createMemoryInvitation(userId, pseudo, { ...roomSettings, roomCode: room.code })
         );
         
         return {
             code: invitation.code,
             url: `${BASE_URL}/?invite=${invitation.code}`,
             expiresAt: invitation.expiresAt,
-            roomSettings: invitation.roomSettings
+            roomSettings: invitation.roomSettings,
+            roomCode: room.code,
+            gameState: room.gameState
         };
     } catch (err) {
         console.error('[Invitation] Create error:', err);
@@ -57,7 +69,7 @@ async function createInvitation(userId, pseudo, roomSettings = {}) {
 }
 
 /**
- * Accept an invitation and create/join room
+ * Accept an invitation and join existing room
  */
 async function acceptInvitation(code, acceptorId, acceptorPseudo, acceptorSocketId) {
     try {
@@ -72,6 +84,11 @@ async function acceptInvitation(code, acceptorId, acceptorPseudo, acceptorSocket
         }
         
         const invitation = validation.invitation;
+        const roomCode = invitation.roomSettings?.roomCode;
+        
+        if (!roomCode) {
+            return { valid: false, error: 'Invitation has no associated room' };
+        }
         
         // Mark as used
         await withFallback(
@@ -79,22 +96,20 @@ async function acceptInvitation(code, acceptorId, acceptorPseudo, acceptorSocket
             () => useMemoryInvitation(code)
         );
         
-        // Create room with invitation settings
-        // Creator is host (black), acceptor will join as guest (white)
-        const room = await roomService.createRoom({
-            hostId: invitation.creatorUserId,
-            hostPseudo: invitation.creatorPseudo || 'Guest',
-            hostSocketId: null, // Creator will join via socket later
-            timeMode: invitation.roomSettings?.timeMode || 'none',
-            allowSpectators: invitation.roomSettings?.allowSpectators ?? true
+        // Join existing room as guest (white)
+        const room = await roomService.joinRoom(roomCode, {
+            guestId: acceptorId,
+            guestPseudo: acceptorPseudo || 'Guest',
+            guestSocketId: acceptorSocketId
         });
         
         return {
             valid: true,
-            roomCode: room.code,
+            roomCode: roomCode,
             timeMode: invitation.roomSettings?.timeMode || 'none',
             creatorId: invitation.creatorUserId,
-            creatorPseudo: invitation.creatorPseudo
+            creatorPseudo: invitation.creatorPseudo,
+            gameState: room.gameState
         };
     } catch (err) {
         console.error('[Invitation] Accept error:', err);
@@ -131,10 +146,25 @@ async function getInvitationInfo(code) {
 }
 
 /**
- * Cancel an invitation
+ * Cancel an invitation and clean up the associated room
  */
 async function cancelInvitation(code, userId) {
     try {
+        // Get invitation to find room code
+        const validation = await withFallback(
+            () => invitationModel.isValidInvitation(code),
+            () => isMemoryInvitationValid(code)
+        );
+        
+        // If invitation exists and has a room, delete it
+        if (validation.valid && validation.invitation?.roomSettings?.roomCode) {
+            try {
+                await roomService.deleteRoom(validation.invitation.roomSettings.roomCode);
+            } catch (e) {
+                console.log('[Invitation] Room cleanup during cancel failed (may already be deleted):', e.message);
+            }
+        }
+        
         return await withFallback(
             () => invitationModel.cancelInvitation(code, userId),
             () => cancelMemoryInvitation(code, userId)

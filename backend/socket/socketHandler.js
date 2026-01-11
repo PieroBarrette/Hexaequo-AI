@@ -356,7 +356,7 @@ function initializeSocket(httpServer) {
             try {
                 const { roomCode, playerId, playerColor } = data;
                 
-                const room = await roomService.getByCode(roomCode);
+                const room = await roomService.getRoomByCode(roomCode);
                 if (!room) {
                     return callback({ success: false, error: 'Room not found' });
                 }
@@ -389,7 +389,7 @@ function initializeSocket(httpServer) {
             try {
                 const { roomCode, playerId, playerColor } = data;
                 
-                const room = await roomService.getByCode(roomCode);
+                const room = await roomService.getRoomByCode(roomCode);
                 if (!room) {
                     return callback({ success: false, error: 'Room not found' });
                 }
@@ -415,7 +415,7 @@ function initializeSocket(httpServer) {
             try {
                 const { roomCode, playerId, playerColor } = data;
                 
-                const room = await roomService.getByCode(roomCode);
+                const room = await roomService.getRoomByCode(roomCode);
                 if (!room) {
                     return callback({ success: false, error: 'Room not found' });
                 }
@@ -442,7 +442,7 @@ function initializeSocket(httpServer) {
             try {
                 const { roomCode, playerId, playerColor } = data;
                 
-                const room = await roomService.getByCode(roomCode);
+                const room = await roomService.getRoomByCode(roomCode);
                 if (!room) {
                     return callback({ success: false, error: 'Room not found' });
                 }
@@ -711,6 +711,7 @@ function initializeSocket(httpServer) {
 
         /**
          * Create invitation link
+         * Creates a room immediately so the creator is waiting
          */
         socket.on('create-invitation', async (data, callback) => {
             try {
@@ -725,16 +726,27 @@ function initializeSocket(httpServer) {
                 const invitation = await invitationService.createInvitation(
                     socket.userId,
                     pseudo,
+                    socket.id,  // Pass socket ID so room is created with correct hostSocketId
                     roomSettings
                 );
                 
-                console.log(`[Invitation] Created by ${pseudo}: ${invitation.code}`);
+                // Join the room as host (black)
+                socket.join(invitation.roomCode);
+                
+                // Update socket tracking
+                const socketInfo = connectedSockets.get(socket.id);
+                if (socketInfo) socketInfo.roomCode = invitation.roomCode;
+                
+                console.log(`[Invitation] Created by ${pseudo}: ${invitation.code} → room ${invitation.roomCode}`);
                 
                 callback({
                     success: true,
                     code: invitation.code,
                     url: invitation.url,
-                    expiresAt: invitation.expiresAt
+                    expiresAt: invitation.expiresAt,
+                    roomCode: invitation.roomCode,
+                    gameState: invitation.gameState,
+                    color: 'black'  // Creator is always black (host)
                 });
             } catch (err) {
                 console.error('[Invitation] Create error:', err);
@@ -774,6 +786,7 @@ function initializeSocket(httpServer) {
                 const { code } = data;
                 const pseudo = socket.pseudo || data.pseudo || 'Guest';
                 
+                // acceptInvitation already joins the room as guest
                 const result = await invitationService.acceptInvitation(
                     code,
                     socket.userId,
@@ -787,13 +800,7 @@ function initializeSocket(httpServer) {
                 
                 console.log(`[Invitation] ${pseudo} accepted invitation ${code} → room ${result.roomCode}`);
                 
-                // Join the room as guest (white)
-                const room = await roomService.joinRoom(result.roomCode, {
-                    guestId: socket.userId,
-                    guestPseudo: pseudo,
-                    guestSocketId: socket.id
-                });
-                
+                // Join socket room
                 socket.join(result.roomCode);
                 
                 // Update socket tracking
@@ -802,8 +809,12 @@ function initializeSocket(httpServer) {
                 
                 // Notify the host if they're connected
                 socket.to(result.roomCode).emit('opponent-joined', {
-                    pseudo,
-                    isGuest: !socket.userId
+                    gameState: result.gameState,
+                    opponent: {
+                        pseudo,
+                        color: 'white',
+                        isGuest: !socket.userId
+                    }
                 });
                 
                 callback({
@@ -811,7 +822,7 @@ function initializeSocket(httpServer) {
                     roomCode: result.roomCode,
                     color: 'white',
                     timeMode: result.timeMode,
-                    gameState: room.gameState,
+                    gameState: result.gameState,
                     opponentInfo: {
                         name: result.creatorPseudo,
                         isGuest: !result.creatorId

@@ -100,11 +100,8 @@ exports.joinRoom = async (code, { guestId, guestPseudo, guestSocketId }) => {
         throw conflict('Failed to join room');
     }
 
-    return {
-        roomCode: code,
-        color: 'white',
-        timeMode: updatedRoom.time_mode
-    };
+    // Return full formatted room for matchmaking compatibility
+    return formatRoomResponse(updatedRoom);
 };
 
 /**

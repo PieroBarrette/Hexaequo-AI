@@ -156,6 +156,82 @@ Leave the current room.
 
 ---
 
+### `resign`
+Player resigns from the game.
+
+**Payload:**
+```javascript
+{
+    roomCode: "A1B2",
+    playerId: "player_1234567890_abc123def",
+    playerColor: "black"  // The resigning player's color
+}
+```
+
+**Callback Response:**
+```javascript
+{ success: true, winnerColor: "white" }
+```
+
+---
+
+### `propose-draw`
+Propose a draw (Ex Aequo) to opponent.
+
+**Payload:**
+```javascript
+{
+    roomCode: "A1B2",
+    playerId: "player_1234567890_abc123def",
+    playerColor: "black"
+}
+```
+
+**Callback Response:**
+```javascript
+{ success: true }
+```
+
+---
+
+### `accept-draw`
+Accept opponent's draw proposal.
+
+**Payload:**
+```javascript
+{
+    roomCode: "A1B2",
+    playerId: "player_1234567890_abc123def",
+    playerColor: "white"
+}
+```
+
+**Callback Response:**
+```javascript
+{ success: true, isDraw: true }
+```
+
+---
+
+### `decline-draw`
+Decline opponent's draw proposal.
+
+**Payload:**
+```javascript
+{
+    roomCode: "A1B2",
+    playerId: "player_1234567890_abc123def",
+    playerColor: "white"
+}
+```
+
+**Callback Response:**
+```javascript
+{ success: true }
+```
+
+---
+
 ### `request-rematch`
 Request a rematch after game ends.
 
@@ -305,6 +381,45 @@ Opponent wants to play again.
 
 ### `opponent-left-endgame`
 Opponent closed the endgame screen.
+
+**Payload:** _(none)_
+
+---
+
+### `opponent-resigned`
+Opponent resigned from the game.
+
+**Payload:**
+```javascript
+{
+    winnerColor: "white",
+    resignedColor: "black"
+}
+```
+
+---
+
+### `draw-proposed`
+Opponent proposes a draw.
+
+**Payload:**
+```javascript
+{
+    proposedBy: "black"  // Color of the player proposing draw
+}
+```
+
+---
+
+### `draw-accepted`
+Opponent accepted your draw proposal.
+
+**Payload:** _(none)_
+
+---
+
+### `draw-declined`
+Opponent declined your draw proposal.
 
 **Payload:** _(none)_
 

@@ -865,8 +865,13 @@
             console.log('[Lobby] Opponent joined!', data);
             // Get our color from Multiplayer module
             const playerColor = window.Multiplayer.playerColor;
-            // Store opponent info
-            currentOpponent = data.opponentInfo || { name: i18nT('lobby.guest'), elo: null, isGuest: true };
+            // Store opponent info (handle both 'opponentInfo' and 'opponent' keys for compatibility)
+            const oppData = data.opponentInfo || data.opponent || {};
+            currentOpponent = { 
+                name: oppData.pseudo || oppData.name || i18nT('lobby.guest'), 
+                elo: oppData.elo || null, 
+                isGuest: oppData.isGuest ?? true 
+            };
             startOnlineGame({ 
                 playerColor, 
                 gameState: data.gameState, 

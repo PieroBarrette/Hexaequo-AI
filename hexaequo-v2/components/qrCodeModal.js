@@ -152,10 +152,17 @@ const QrCodeModal = (function() {
                 timeMode: timeMode
             }, (response) => {
                 if (response.success) {
+                    // Set room info in Multiplayer since we're now in a room
+                    if (window.Multiplayer && response.roomCode) {
+                        window.Multiplayer.setRoomInfo(response.roomCode, response.color || 'black');
+                    }
                     resolve({
                         code: response.code,
                         url: response.url,
-                        expiresAt: response.expiresAt
+                        expiresAt: response.expiresAt,
+                        roomCode: response.roomCode,
+                        gameState: response.gameState,
+                        color: response.color
                     });
                 } else {
                     reject(new Error(response.error || 'Failed to create invitation'));
