@@ -2068,8 +2068,7 @@ window.onload = function () {
                 await window.Multiplayer.respondDraw(true);
                 hideDrawProposalNotification();
                 pendingDrawProposal = false;
-                // End the game for the acceptor as well
-                endGame('Ex Aequo', 'agreement');
+                // Game will end via draw-accepted event (sent to all players)
             } catch (err) {
                 console.error('Failed to accept draw:', err);
             }

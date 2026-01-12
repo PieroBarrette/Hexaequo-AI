@@ -435,8 +435,8 @@ function initializeSocket(httpServer) {
                     return callback({ success: false, error: 'Room not found' });
                 }
 
-                // Notify opponent that draw was accepted
-                socket.to(roomCode).emit('draw-accepted');
+                // Notify ALL players in the room that draw was accepted (including the acceptor)
+                io.to(roomCode).emit('draw-accepted');
 
                 // Update room status
                 await roomService.updateStatus(roomCode, 'finished');
