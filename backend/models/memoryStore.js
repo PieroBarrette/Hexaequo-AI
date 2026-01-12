@@ -115,11 +115,13 @@ async function joinAsGuest(code, { guestId, guestPseudo, guestSocketId }) {
     const room = rooms.get(code?.toUpperCase());
     if (!room || room.status !== 'waiting') return null;
     
+    console.debug('[memoryStore.joinAsGuest] Setting guest - code:', code, 'guestId:', guestId, 'guestSocketId:', guestSocketId);
     room.guest_id = guestId;
     room.guest_pseudo = guestPseudo;
     room.guest_socket_id = guestSocketId;
     room.status = 'playing';
     room.updated_at = new Date();
+    console.debug('[memoryStore.joinAsGuest] Room after update:', { host_socket_id: room.host_socket_id, guest_socket_id: room.guest_socket_id, status: room.status });
     
     return room;
 }
@@ -139,12 +141,14 @@ async function updateSocketId(code, color, socketId) {
     const room = rooms.get(code?.toUpperCase());
     if (!room) return;
     
+    console.debug('[memoryStore.updateSocketId] Updating - code:', code, 'color:', color, 'newSocketId:', socketId);
     if (color === 'black') {
         room.host_socket_id = socketId;
     } else {
         room.guest_socket_id = socketId;
     }
     room.updated_at = new Date();
+    console.debug('[memoryStore.updateSocketId] Room after update:', { host_socket_id: room.host_socket_id, guest_socket_id: room.guest_socket_id });
 }
 
 async function updateStatus(code, status) {

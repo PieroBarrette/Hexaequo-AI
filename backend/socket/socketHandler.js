@@ -153,6 +153,8 @@ function initializeSocket(httpServer) {
                 const { roomCode } = data;
                 const pseudo = socket.pseudo || data.pseudo || 'Guest';
 
+                console.debug('[join-room] Request from socket:', socket.id, 'playerId:', playerId, 'roomCode:', roomCode);
+
                 const room = await roomService.getRoomByCode(roomCode);
                 
                 if (!room) {
@@ -199,6 +201,7 @@ function initializeSocket(httpServer) {
                 }
 
                 // Join as guest (white)
+                console.debug('[join-room] Joining as guest with socketId:', socket.id);
                 await roomService.joinRoom(roomCode, {
                     guestId: playerId,
                     guestPseudo: pseudo,
@@ -206,6 +209,7 @@ function initializeSocket(httpServer) {
                 });
 
                 socket.join(roomCode);
+                console.debug('[join-room] Guest joined successfully, socket joined room:', roomCode);
                 
                 // Update socket tracking
                 const socketInfo = connectedSockets.get(socket.id);
@@ -260,15 +264,21 @@ function initializeSocket(httpServer) {
             try {
                 const { roomCode, gameState, previousState, jumpPath, moveData } = data;
 
+                console.debug('[make-move] Received from socket:', socket.id, 'roomCode:', roomCode);
+
                 const room = await roomService.getRoomByCode(roomCode);
                 if (!room) {
+                    console.debug('[make-move] Room not found:', roomCode);
                     return callback({ success: false, error: 'Room not found' });
                 }
 
                 // Verify player is in this room
+                console.debug('[make-move] Room socketIds - host:', room.host.socketId, 'guest:', room.guest?.socketId);
+                console.debug('[make-move] Current socket.id:', socket.id);
                 const isHost = room.host.socketId === socket.id;
                 const isGuest = room.guest?.socketId === socket.id;
                 if (!isHost && !isGuest) {
+                    console.debug('[make-move] Socket ID mismatch! isHost:', isHost, 'isGuest:', isGuest);
                     return callback({ success: false, error: 'Not in this room' });
                 }
 

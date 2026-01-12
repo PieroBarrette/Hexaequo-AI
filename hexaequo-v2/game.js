@@ -2102,7 +2102,7 @@ window.onload = function () {
     // Handler for when opponent proposes a draw
     function onDrawProposed(data) {
         console.log('Opponent proposes draw', data);
-        const opponentName = data?.proposerName || opponentInfo?.name || i18nT('game.opponent');
+        const opponentName = data?.proposerName || getOpponentName();
         showDrawProposalNotification(opponentName);
     }
     
@@ -2118,7 +2118,7 @@ window.onload = function () {
     function onDrawDeclined(data) {
         console.log('Draw declined');
         pendingDrawProposal = false;
-        const opponentName = opponentInfo?.name || i18nT('game.opponent');
+        const opponentName = getOpponentName();
         showDrawDeclinedToast(opponentName);
     }
     

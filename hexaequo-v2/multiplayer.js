@@ -362,12 +362,15 @@ const Multiplayer = (function () {
 
             const userInfo = getUserInfo();
             console.log('[Multiplayer] Joining room with userInfo:', userInfo);
+            console.debug('[joinRoom] Before emit - playerId:', playerId, 'socket.id:', socket.id);
             socket.emit('join-room', { roomCode: code.toUpperCase(), playerId, userInfo }, (response) => {
                 console.log('[Multiplayer] Join room response:', response);
+                console.debug('[joinRoom] After response - stored roomCode:', response.roomCode, 'socket.id:', socket.id);
                 if (response.success) {
                     roomCode = response.roomCode;
                     playerColor = response.color;
                     isOnlineMode = true;
+                    console.debug('[joinRoom] Stored module vars - roomCode:', roomCode, 'playerColor:', playerColor, 'playerId:', playerId);
                     
                     // Save room info for reconnection
                     saveRoomInfo();
@@ -413,6 +416,8 @@ const Multiplayer = (function () {
                 reject(new Error('Not in a room'));
                 return;
             }
+
+            console.debug('[sendMove] Sending move - roomCode:', roomCode, 'playerId:', playerId, 'socket.id:', socket.id);
 
             socket.emit('make-move', {
                 roomCode,
