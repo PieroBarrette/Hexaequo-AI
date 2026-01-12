@@ -122,7 +122,8 @@
     "mainMenu": "Main Menu",
     "quickSettings": "Quick Settings",
     "aiThinking": "AI is thinking...",
-    "opponent": "Opponent"
+    "opponent": "Opponent",
+    "opponentLeftGame": "Your opponent has left the game."
   },
   "gameOver": {
     "title": "Game Over",

@@ -855,6 +855,62 @@ button:active {
     color: #fff;
 }
 
+/* Online Game Actions in Hamburger Menu */
+.hamburger-online-actions {
+    padding: 0 20px 16px;
+}
+
+.hamburger-online-actions.hidden {
+    display: none;
+}
+
+.hamburger-separator {
+    height: 1px;
+    background: var(--border-color);
+    margin-bottom: 16px;
+}
+
+.hamburger-action-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.hamburger-action-btn:last-child {
+    margin-bottom: 0;
+}
+
+.hamburger-action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.hamburger-action-btn svg {
+    flex-shrink: 0;
+}
+
+.draw-action-btn:hover:not(:disabled) {
+    background: rgba(102, 170, 255, 0.1);
+    border-color: #66aaff;
+    color: #66aaff;
+}
+
+.resign-action-btn:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
 /* Confirmation Modal */
 .confirm-modal {
     position: fixed;

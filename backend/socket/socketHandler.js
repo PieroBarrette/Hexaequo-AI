@@ -267,7 +267,7 @@ function initializeSocket(httpServer) {
          */
         socket.on('make-move', async (data, callback) => {
             try {
-                const { roomCode, gameState, previousState, jumpPath, moveData } = data;
+                const { roomCode, gameState, previousState, jumpPath, moveData, timerState } = data;
 
                 console.debug('[make-move] Received from socket:', socket.id, 'roomCode:', roomCode);
 
@@ -313,16 +313,18 @@ function initializeSocket(httpServer) {
                     });
                 }
 
-                // Broadcast to opponent
+                // Broadcast to opponent with timer state
                 socket.to(roomCode).emit('opponent-moved', {
                     gameState,
                     previousState,
-                    jumpPath
+                    jumpPath,
+                    timerState
                 });
 
                 console.log(`Move in room ${roomCode} by ${playerColor}`);
 
-                callback({ success: true });
+                // Return timer state in callback for sender's sync
+                callback({ success: true, timerState });
             } catch (err) {
                 console.error('Move error:', err);
                 callback({ success: false, error: err.message });

@@ -438,12 +438,19 @@ const Multiplayer = (function () {
 
             console.debug('[sendMove] Sending move - roomCode:', roomCode, 'playerId:', playerId, 'socket.id:', socket.id);
 
+            // Get current timer state to sync with opponent
+            let timerState = null;
+            if (window.GameTimer && window.GameTimer.isEnabled()) {
+                timerState = window.GameTimer.getState();
+            }
+
             socket.emit('make-move', {
                 roomCode,
                 playerId,
                 gameState,
                 previousState,
-                jumpPath
+                jumpPath,
+                timerState
             }, (response) => {
                 if (response.success) {
                     // Sync timer from server response

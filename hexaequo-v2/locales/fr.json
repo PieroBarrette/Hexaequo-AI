@@ -122,7 +122,8 @@
     "mainMenu": "Menu principal",
     "quickSettings": "Paramètres rapides",
     "aiThinking": "L'IA réfléchit...",
-    "opponent": "Adversaire"
+    "opponent": "Adversaire",
+    "opponentLeftGame": "Votre adversaire a quitté la partie."
   },
   "gameOver": {
     "title": "Fin de partie",

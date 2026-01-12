@@ -1792,24 +1792,66 @@ window.onload = function () {
             window.Multiplayer.leaveEndgame().then(() => {
                 return window.Multiplayer.leaveRoom();
             }).then(() => {
+                // Remove game over popup
+                const gameOverPopup = document.getElementById('gameOver');
+                if (gameOverPopup) {
+                    gameOverPopup.remove();
+                }
+                
                 // Reset to 2 player mode
                 resetGame();
                 setOnlineMode(false);
+                
                 // Update game mode selector if exists
                 const gameModeSelect = document.getElementById('gameModeSelect');
                 if (gameModeSelect) {
                     gameModeSelect.value = '2player';
                 }
+                
                 // Close online modal if open
                 const onlineOverlay = document.getElementById('onlineOverlay');
                 if (onlineOverlay) {
                     onlineOverlay.classList.remove('open');
                 }
+                
+                // Return to lobby
+                returnToLobby();
             }).catch(err => {
                 console.error('Failed to leave room:', err);
             });
         }
     }
+    
+    // Return to lobby screen
+    function returnToLobby() {
+        // Stop timers if running
+        if (window.GameTimer) {
+            window.GameTimer.stop();
+        }
+        
+        // Show lobby overlay
+        const lobbyOverlay = document.getElementById('lobbyOverlay');
+        if (lobbyOverlay) {
+            lobbyOverlay.classList.remove('hidden');
+            lobbyOverlay.style.display = 'flex';
+            lobbyOverlay.style.visibility = 'visible';
+            lobbyOverlay.style.pointerEvents = 'auto';
+            lobbyOverlay.style.opacity = '1';
+        }
+        
+        // Show user menu when returning to lobby
+        if (window.UserMenu?.show) {
+            window.UserMenu.show();
+        }
+        
+        // Reset to main menu view in lobby
+        if (window.showLobbyMainMenu) {
+            window.showLobbyMainMenu();
+        }
+    }
+    
+    // Expose returnToLobby for external use
+    window.returnToLobby = returnToLobby;
 
     // Called when opponent signals they're ready for rematch
     function onOpponentReadyForRematch() {

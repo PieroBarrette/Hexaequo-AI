@@ -357,22 +357,6 @@
         <canvas id="gameCanvas" width="800" height="600"></canvas>
         <canvas id="inventoryCanvas" width="800" height="600"></canvas>
         
-        <!-- Online Game Actions (Resign / Ex Aequo) -->
-        <div id="onlineGameActions" class="online-game-actions hidden">
-            <button id="resignBtn" class="game-action-btn resign-btn" data-i18n-title="game.resign" title="Resign">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M5 4h2v16H5V4zm4 0h2v8h6l-3-3 1.5-1.5L20 12l-4.5 4.5L14 15l3-3H9V4z"/>
-                </svg>
-            </button>
-            <button id="proposeDrawBtn" class="game-action-btn draw-btn" data-i18n-title="game.proposeExAequo" title="Propose Ex Aequo">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 3L4 7v2h1l1.5 9h11L19 9h1V7l-8-4zm0 2.24L16.47 7.5H7.53L12 5.24zM7.04 16L5.94 10h12.12l-1.1 6H7.04z"/>
-                    <circle cx="7" cy="18" r="2"/>
-                    <circle cx="17" cy="18" r="2"/>
-                </svg>
-            </button>
-        </div>
-        
         <!-- Draw Proposal Notification -->
         <div id="drawProposalNotification" class="draw-proposal-notification hidden">
             <span id="drawProposalText" data-i18n="game.opponentProposesExAequo">Opponent proposes Ex Aequo</span>
@@ -441,6 +425,25 @@
                         <span class="slider"></span>
                     </label>
                 </div>
+            </div>
+            
+            <!-- Online Game Actions (Resign / Ex Aequo) - only visible in online mode -->
+            <div id="onlineGameActions" class="hamburger-online-actions hidden">
+                <div class="hamburger-separator"></div>
+                <button id="proposeDrawBtn" class="hamburger-action-btn draw-action-btn" data-i18n="game.proposeExAequo">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 3L4 7v2h1l1.5 9h11L19 9h1V7l-8-4zm0 2.24L16.47 7.5H7.53L12 5.24zM7.04 16L5.94 10h12.12l-1.1 6H7.04z"/>
+                        <circle cx="7" cy="18" r="2"/>
+                        <circle cx="17" cy="18" r="2"/>
+                    </svg>
+                    <span>Propose Ex Aequo</span>
+                </button>
+                <button id="resignBtn" class="hamburger-action-btn resign-action-btn" data-i18n="game.resign">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M5 4h2v16H5V4zm4 0h2v8h6l-3-3 1.5-1.5L20 12l-4.5 4.5L14 15l3-3H9V4z"/>
+                    </svg>
+                    <span>Resign</span>
+                </button>
             </div>
             
             <div class="hamburger-footer">
@@ -955,12 +958,24 @@
             };
 
             window.Multiplayer.onOpponentLeft = () => {
-                alert('Your opponent has left the game.');
+                alert(window.i18n?.t('game.opponentLeftGame') || 'Your opponent has left the game.');
+                
+                // Remove game over popup if present
+                const gameOverPopup = document.getElementById('gameOver');
+                if (gameOverPopup) {
+                    gameOverPopup.remove();
+                }
+                
                 window.Multiplayer.clearRoomInfo();
                 window.resetGame();
                 gameModeSelect.value = '2player';
                 window.toggleGameMode(false);
                 closeOnlineModal();
+                
+                // Return to lobby
+                if (window.returnToLobby) {
+                    window.returnToLobby();
+                }
             };
 
             window.Multiplayer.onGameCancelledEarly = (data) => {
