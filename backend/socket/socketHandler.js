@@ -74,13 +74,17 @@ function initializeSocket(httpServer) {
     io.use(async (socket, next) => {
         const token = socket.handshake.auth.token;
         
+        console.debug('[Socket Auth] Token present:', !!token);
+        
         if (token) {
             try {
                 const decoded = jwt.verify(token, JWT_SECRET);
                 socket.userId = decoded.userId;
                 socket.pseudo = decoded.pseudo;
+                console.debug('[Socket Auth] Authenticated user:', socket.userId, socket.pseudo);
             } catch (err) {
                 // Token invalid but allow anonymous connections
+                console.debug('[Socket Auth] Token invalid:', err.message);
                 socket.userId = null;
                 socket.pseudo = null;
             }
@@ -89,6 +93,7 @@ function initializeSocket(httpServer) {
         // Generate guest ID if not authenticated
         if (!socket.userId) {
             socket.guestId = `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            console.debug('[Socket Auth] Generated guest ID:', socket.guestId);
         }
         
         next();
@@ -96,7 +101,7 @@ function initializeSocket(httpServer) {
 
     io.on('connection', (socket) => {
         const playerId = socket.userId || socket.guestId;
-        console.log(`Client connected: ${socket.id} (${socket.pseudo || 'guest'})`);
+        console.log(`Client connected: ${socket.id} (${socket.pseudo || 'guest'}) playerId: ${playerId}`);
 
         // Store socket info
         connectedSockets.set(socket.id, {

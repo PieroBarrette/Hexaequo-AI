@@ -47,13 +47,22 @@ const Multiplayer = (function () {
     let onDrawAccepted = null;
     let onDrawDeclined = null;
 
-    // Get or create player ID (persisted in localStorage)
+    // Get or create player ID
+    // Uses authenticated user ID when logged in, falls back to guest ID
     function getPlayerId() {
-        let id = localStorage.getItem('hexaequoPlayerId');
-        if (!id) {
-            id = 'player_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-            localStorage.setItem('hexaequoPlayerId', id);
+        // Check if user is authenticated via GameLobby
+        const currentUser = window.GameLobby?.getUser();
+        if (currentUser && currentUser.id) {
+            console.debug('[getPlayerId] Using authenticated user ID:', currentUser.id);
+            return currentUser.id;
         }
+        // Fall back to guest ID (persisted in localStorage)
+        let id = localStorage.getItem('hexaequoGuestId');
+        if (!id) {
+            id = 'guest_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('hexaequoGuestId', id);
+        }
+        console.debug('[getPlayerId] Using guest ID:', id);
         return id;
     }
 
@@ -111,6 +120,10 @@ const Multiplayer = (function () {
                 .then(data => debugLog('Health check data:', data))
                 .catch(err => debugError('Health check failed:', err.message));
             
+            // Get auth token for authenticated socket connection
+            const authToken = localStorage.getItem('hexaequo_session');
+            debugLog('Auth token present:', !!authToken);
+            
             socket = io(SERVER_URL, {
                 // Start with polling then upgrade to websocket (more reliable on cloud platforms)
                 transports: ['polling', 'websocket'],
@@ -122,7 +135,9 @@ const Multiplayer = (function () {
                 // Force new connection each time
                 forceNew: true,
                 // Explicit path
-                path: '/socket.io/'
+                path: '/socket.io/',
+                // Pass auth token if available
+                auth: authToken ? { token: authToken } : {}
             });
             
             debugLog('Socket.IO instance created, waiting for events...');
@@ -326,8 +341,10 @@ const Multiplayer = (function () {
                 return;
             }
 
+            // Refresh playerId in case user logged in after socket init
+            playerId = getPlayerId();
             const userInfo = getUserInfo();
-            console.log('[Multiplayer] Creating room with userInfo:', userInfo, 'timeControl:', timeControl);
+            console.log('[Multiplayer] Creating room with userInfo:', userInfo, 'timeControl:', timeControl, 'playerId:', playerId);
             socket.emit('create-room', { playerId, userInfo, timeControl: timeControl || 'classic' }, (response) => {
                 if (response.success) {
                     roomCode = response.roomCode;
@@ -360,8 +377,10 @@ const Multiplayer = (function () {
                 return;
             }
 
+            // Refresh playerId in case user logged in after socket init
+            playerId = getPlayerId();
             const userInfo = getUserInfo();
-            console.log('[Multiplayer] Joining room with userInfo:', userInfo);
+            console.log('[Multiplayer] Joining room with userInfo:', userInfo, 'playerId:', playerId);
             console.debug('[joinRoom] Before emit - playerId:', playerId, 'socket.id:', socket.id);
             socket.emit('join-room', { roomCode: code.toUpperCase(), playerId, userInfo }, (response) => {
                 console.log('[Multiplayer] Join room response:', response);
@@ -532,11 +551,13 @@ const Multiplayer = (function () {
 
     // Set room info (used when match is found via matchmaking callback)
     function setRoomInfo(code, color) {
+        // Refresh playerId in case user logged in after socket init
+        playerId = getPlayerId();
         roomCode = code;
         playerColor = color;
         isOnlineMode = true;
         saveRoomInfo();
-        console.log(`[Multiplayer] Room info set: roomCode=${roomCode}, color=${playerColor}`);
+        console.log(`[Multiplayer] Room info set: roomCode=${roomCode}, color=${playerColor}, playerId=${playerId}`);
     }
 
     // Notify opponent that player is leaving the endgame screen (before leaving room)
