@@ -1191,18 +1191,20 @@ window.onload = function () {
         GameGraphics.onAllAnimationsComplete(function() {
             // Send move to server if in online mode and it was our turn (turn has now switched)
             // This must happen BEFORE checkGameEnd so the winning move is sent
-            if (isOnlineMode && stateBefore && !isMyTurn(activePlayer) && canvas.style.pointerEvents !== 'none') {
+            // Only send if not in a multi-jump sequence (turn hasn't ended yet)
+            if (isOnlineMode && stateBefore && !isMyTurn(activePlayer) && !multiJumping && canvas.style.pointerEvents !== 'none') {
                 sendOnlineMove(stateBefore, jumpPathForOnline);
                 jumpPathForOnline = null;
             }
 
             // Check if the game has ended (after sending the move)
-            if (checkGameEnd()) {
+            // Only check if not in a multi-jump sequence (turn hasn't ended yet)
+            if (!multiJumping && checkGameEnd()) {
                 return;
             }
 
             // Check if AI should play (using new config system or legacy isAiMode)
-            if (isCurrentPlayerAi() && canvas.style.pointerEvents !== 'none') {
+            if (!multiJumping && isCurrentPlayerAi() && canvas.style.pointerEvents !== 'none') {
                 sendToAI();
             }
         });
@@ -1284,18 +1286,20 @@ window.onload = function () {
         GameGraphics.onAllAnimationsComplete(function() {
             // Send move to server if in online mode and it was our turn (turn has now switched)
             // This must happen BEFORE checkGameEnd so the winning move is sent
-            if (isOnlineMode && stateBefore && !isMyTurn(activePlayer) && canvas.style.pointerEvents !== 'none') {
+            // Only send if not in a multi-jump sequence (turn hasn't ended yet)
+            if (isOnlineMode && stateBefore && !isMyTurn(activePlayer) && !multiJumping && canvas.style.pointerEvents !== 'none') {
                 sendOnlineMove(stateBefore, jumpPathForOnline);
                 jumpPathForOnline = null; // Clear after sending
             }
 
             // Check if the game has ended (after sending the move)
-            if (checkGameEnd()) {
+            // Only check if not in a multi-jump sequence (turn hasn't ended yet)
+            if (!multiJumping && checkGameEnd()) {
                 return;
             }
 
             // Check if AI should play (using new config system or legacy isAiMode)
-            if (isCurrentPlayerAi() && canvas.style.pointerEvents !== 'none') {
+            if (!multiJumping && isCurrentPlayerAi() && canvas.style.pointerEvents !== 'none') {
                 sendToAI();
             }
         });
@@ -1324,18 +1328,20 @@ window.onload = function () {
         GameGraphics.onAllAnimationsComplete(function() {
             // Send move to server if in online mode and it was our turn (turn has now switched)
             // This must happen BEFORE checkGameEnd so the winning move is sent
-            if (isOnlineMode && stateBefore && !isMyTurn(activePlayer) && canvas.style.pointerEvents !== 'none') {
+            // Only send if not in a multi-jump sequence (turn hasn't ended yet)
+            if (isOnlineMode && stateBefore && !isMyTurn(activePlayer) && !multiJumping && canvas.style.pointerEvents !== 'none') {
                 sendOnlineMove(stateBefore, jumpPathForOnline);
                 jumpPathForOnline = null; // Clear after sending
             }
 
             // Check if the game has ended (after sending the move)
-            if (checkGameEnd()) {
+            // Only check if not in a multi-jump sequence (turn hasn't ended yet)
+            if (!multiJumping && checkGameEnd()) {
                 return;
             }
 
             // Check if AI should play (using new config system or legacy isAiMode)
-            if (isCurrentPlayerAi() && canvas.style.pointerEvents !== 'none') {
+            if (!multiJumping && isCurrentPlayerAi() && canvas.style.pointerEvents !== 'none') {
                 sendToAI();
             }
         });
