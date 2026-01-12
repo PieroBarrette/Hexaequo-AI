@@ -1311,24 +1311,24 @@ select {
 
 .close-rules-btn {
     background: transparent;
-    border: none;
+    border: 1px solid var(--border-color);
     color: var(--text-primary);
-    font-size: 28px;
+    font-size: 20px;
     cursor: pointer;
     padding: 0;
-    width: 40px;
-    height: 40px;
-    aspect-ratio: 1;
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 50%;
-    transition: background 0.2s ease;
+    border-radius: 6px;
+    transition: background 0.2s ease, border-color 0.2s ease;
     flex-shrink: 0;
 }
 
 .close-rules-btn:hover {
     background: var(--border-color);
+    border-color: var(--accent-color);
 }
 
 .pdf-container {
@@ -1463,10 +1463,9 @@ select {
     }
 
     .close-rules-btn {
-        width: 36px;
-        height: 36px;
-        aspect-ratio: 1;
-        font-size: 24px;
+        width: 32px;
+        height: 32px;
+        font-size: 18px;
     }
 
     .rules-footer {
@@ -1576,9 +1575,9 @@ select {
 }
 
 .close-online-btn {
-    background: none;
-    border: none;
-    font-size: 1.5em;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    font-size: 1.2em;
     cursor: pointer;
     color: var(--text-secondary);
     padding: 0;
@@ -1586,18 +1585,18 @@ select {
     width: 32px;
     height: 32px;
     min-height: 32px;
-    aspect-ratio: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 50%;
-    transition: background 0.2s, color 0.2s;
+    border-radius: 6px;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
     flex-shrink: 0;
 }
 
 .close-online-btn:hover {
     background: var(--border-color);
     color: var(--text-primary);
+    border-color: var(--accent-color);
 }
 
 .online-content {
@@ -2992,24 +2991,25 @@ body:not([data-theme="light"]) .lobby-logo-img {
     top: 10px;
     right: 15px;
     background: transparent;
-    border: none;
+    border: 1px solid var(--border-color);
     color: var(--text-secondary);
-    font-size: 1.8rem;
+    font-size: 1.4rem;
     cursor: pointer;
     line-height: 1;
-    transition: color 0.2s;
+    transition: color 0.2s, background 0.2s, border-color 0.2s;
     width: 36px;
     height: 36px;
-    aspect-ratio: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 50%;
+    border-radius: 6px;
     padding: 0;
 }
 
 .profile-close-btn:hover {
     color: var(--text-primary);
+    background: var(--border-color);
+    border-color: var(--accent-color);
 }
 
 .profile-title {
@@ -3085,8 +3085,7 @@ body:not([data-theme="light"]) .lobby-logo-img {
 .game-action-btn {
     width: 40px;
     height: 40px;
-    aspect-ratio: 1;
-    border-radius: 50%;
+    border-radius: 6px;
     border: 2px solid var(--border-color);
     background: var(--bg-container);
     color: var(--text-secondary);
@@ -3101,7 +3100,7 @@ body:not([data-theme="light"]) .lobby-logo-img {
 
 .game-action-btn:hover {
     opacity: 1;
-    transform: scale(1.1);
+    background: var(--border-color);
 }
 
 .game-action-btn:disabled {
@@ -3160,8 +3159,7 @@ body:not([data-theme="light"]) .lobby-logo-img {
 .draw-response-btn {
     width: 28px;
     height: 28px;
-    aspect-ratio: 1;
-    border-radius: 50%;
+    border-radius: 4px;
     border: none;
     cursor: pointer;
     display: flex;
@@ -3178,7 +3176,6 @@ body:not([data-theme="light"]) .lobby-logo-img {
 
 .accept-btn:hover {
     background: #5CBF60;
-    transform: scale(1.1);
 }
 
 .decline-btn {
@@ -3188,7 +3185,6 @@ body:not([data-theme="light"]) .lobby-logo-img {
 
 .decline-btn:hover {
     background: #ff5246;
-    transform: scale(1.1);
 }
 
 /* Toast notification for declined draw */
