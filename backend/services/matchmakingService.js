@@ -117,6 +117,8 @@ async function findAndCreateMatch(userId, socketId, pseudo, elo, timeMode, prefe
             return { matched: false };
         }
         
+        console.debug('[Matchmaking] Found opponent:', { id: opponent.id, pseudo: opponent.pseudo, elo: opponent.elo, socketId: opponent.socketId });
+        
         // Remove both players from queue
         await leaveQueue(userId, socketId);
         await leaveQueue(opponent.userId, opponent.socketId);

@@ -667,6 +667,8 @@ function initializeSocket(httpServer) {
                     const socketInfo = connectedSockets.get(socket.id);
                     if (socketInfo) socketInfo.roomCode = result.roomCode;
                     
+                    console.debug('[Matchmaking] Match found - opponent:', opponent);
+                    
                     callback({
                         success: true,
                         matched: true,
@@ -675,8 +677,8 @@ function initializeSocket(httpServer) {
                         gameState: room.gameState,
                         timeMode: room.timeMode,
                         opponentInfo: {
-                            name: opponent.pseudo,
-                            elo: opponent.elo,
+                            name: opponent.pseudo || room.host?.pseudo || 'Guest',
+                            elo: opponent.elo || 1000,
                             isGuest: !opponent.userId
                         }
                     });

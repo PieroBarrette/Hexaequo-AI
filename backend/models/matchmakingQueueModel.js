@@ -102,15 +102,16 @@ async function findMatch(userId, socketId, elo, timeMode, preferences = {}) {
     // 4. Not expired
     // 5. Not myself
     const result = await query(
-        `SELECT * FROM matchmaking_queue 
-         WHERE time_mode = $1
-           AND expires_at > NOW()
-           AND socket_id != $2
-           AND ($3::uuid IS NULL OR user_id IS NULL OR user_id != $3)
-           AND elo BETWEEN $4 AND $5
-           AND $6 BETWEEN (elo + COALESCE((preferences->>'elo_range_min')::int, -200)) 
-                       AND (elo + COALESCE((preferences->>'elo_range_max')::int, 200))
-         ORDER BY created_at ASC
+        `SELECT mq.*, u.pseudo FROM matchmaking_queue mq
+         LEFT JOIN users u ON mq.user_id = u.id
+         WHERE mq.time_mode = $1
+           AND mq.expires_at > NOW()
+           AND mq.socket_id != $2
+           AND ($3::uuid IS NULL OR mq.user_id IS NULL OR mq.user_id != $3)
+           AND mq.elo BETWEEN $4 AND $5
+           AND $6 BETWEEN (mq.elo + COALESCE((mq.preferences->>'elo_range_min')::int, -200)) 
+                       AND (mq.elo + COALESCE((mq.preferences->>'elo_range_max')::int, 200))
+         ORDER BY mq.created_at ASC
          LIMIT 1`,
         [timeMode, socketId, userId, elo + myEloMin, elo + myEloMax, elo]
     );
@@ -195,6 +196,7 @@ function formatQueueEntry(row) {
         id: row.id,
         userId: row.user_id,
         socketId: row.socket_id,
+        pseudo: row.pseudo || 'Guest',
         elo: row.elo,
         timeMode: row.time_mode,
         preferences: typeof row.preferences === 'string' ? JSON.parse(row.preferences) : row.preferences,
