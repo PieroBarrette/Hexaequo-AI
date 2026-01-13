@@ -90,7 +90,6 @@ const schemas = {
             email: { type: 'string', maxLength: 255 },
             username: { type: 'string', minLength: 3, maxLength: 30 },
             pseudo: { type: 'string', minLength: 3, maxLength: 30, pattern: /^[a-zA-Z0-9_-]+$/ },
-            displayName: { type: 'string', minLength: 3, maxLength: 30 },
             password: { type: 'string', minLength: 4, maxLength: 128 }
         }
     },

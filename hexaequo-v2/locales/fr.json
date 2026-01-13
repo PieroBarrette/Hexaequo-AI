@@ -89,7 +89,6 @@
     "register": "Inscription",
     "username": "Nom d'utilisateur",
     "password": "Mot de passe",
-    "displayName": "Nom affiché (optionnel)",
     "createAccount": "Créer un compte",
     "loginFailed": "Échec de la connexion",
     "registrationFailed": "Échec de l'inscription",

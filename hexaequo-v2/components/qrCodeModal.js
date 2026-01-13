@@ -69,7 +69,12 @@ const QrCodeModal = (function() {
         }
         
         if (backBtn) {
-            backBtn.addEventListener('click', showConfirmation);
+            backBtn.addEventListener('click', () => {
+                console.log('[QrCodeModal] Back button clicked');
+                showConfirmation();
+            });
+        } else {
+            console.warn('[QrCodeModal] Back button not found!');
         }
         
         // Confirmation dialog handlers
@@ -186,8 +191,12 @@ const QrCodeModal = (function() {
      * Show confirmation dialog before closing
      */
     function showConfirmation() {
+        console.log('[QrCodeModal] showConfirmation called, confirmDialog:', confirmDialog);
         if (confirmDialog) {
+            console.log('[QrCodeModal] Adding open class to confirmDialog');
             confirmDialog.classList.add('open');
+        } else {
+            console.error('[QrCodeModal] confirmDialog is null!');
         }
     }
     
@@ -195,6 +204,7 @@ const QrCodeModal = (function() {
      * Hide confirmation dialog
      */
     function hideConfirmation() {
+        console.log('[QrCodeModal] hideConfirmation called');
         if (confirmDialog) {
             confirmDialog.classList.remove('open');
         }
@@ -204,6 +214,7 @@ const QrCodeModal = (function() {
      * Confirm close - cancel invitation and close modal
      */
     async function confirmClose() {
+        console.log('[QrCodeModal] confirmClose called');
         hideConfirmation();
         
         // Cancel the invitation on server

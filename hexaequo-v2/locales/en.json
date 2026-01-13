@@ -89,7 +89,6 @@
     "register": "Register",
     "username": "Username",
     "password": "Password",
-    "displayName": "Display Name (optional)",
     "createAccount": "Create Account",
     "loginFailed": "Login failed",
     "registrationFailed": "Registration failed",

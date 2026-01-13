@@ -13,16 +13,16 @@ const authService = require('../services/authService');
  */
 exports.signup = async (req, res, next) => {
     try {
-        // Support both email/username and pseudo/displayName for frontend compatibility
+        // Support both email/username for registration - pseudo is same as username
         const email = req.body.email || req.body.username;
-        const pseudo = req.body.pseudo || req.body.displayName || req.body.username;
+        const pseudo = req.body.pseudo || req.body.username;
         const { password } = req.body;
 
         // Validate required fields
         if (!email || !pseudo || !password) {
             return res.status(400).json({
                 success: false,
-                error: 'Email/username, pseudo/displayName, and password are required'
+                error: 'Username and password are required'
             });
         }
 

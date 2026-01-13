@@ -79,7 +79,6 @@
         loginUsername: null,
         loginPassword: null,
         registerUsername: null,
-        registerDisplayName: null,
         registerPassword: null,
         authError: null,
         backFromAuthBtn: null,
@@ -138,7 +137,6 @@
         lobby.loginUsername = document.getElementById('loginUsername');
         lobby.loginPassword = document.getElementById('loginPassword');
         lobby.registerUsername = document.getElementById('registerUsername');
-        lobby.registerDisplayName = document.getElementById('registerDisplayName');
         lobby.registerPassword = document.getElementById('registerPassword');
         lobby.authError = document.getElementById('authError');
         lobby.backFromAuthBtn = document.getElementById('backFromAuthBtn');
@@ -1069,6 +1067,7 @@
                 socket = window.Multiplayer.getSocket();
                 
                 if (socket && socket.connected) {
+                    setupSocketListeners();
                     checkInviteCode();
                 } else {
                     alert(i18nT('errors.connectionFailed'));
@@ -1153,7 +1152,11 @@
      * Accept invitation from the landing modal
      */
     function acceptInvitationFromModal(asGuest) {
-        if (!currentInviteCode) return;
+        console.log('[Lobby] acceptInvitationFromModal called, asGuest:', asGuest, 'currentInviteCode:', currentInviteCode);
+        if (!currentInviteCode) {
+            console.error('[Lobby] No currentInviteCode!');
+            return;
+        }
         
         hideInviteLandingModal();
         acceptInvitation(currentInviteCode, currentInviteInfo, asGuest);
@@ -1164,11 +1167,18 @@
      */
     function acceptInvitation(code, inviteInfo, asGuest = false) {
         console.log('[Lobby] Accepting invitation:', code, inviteInfo, asGuest ? '(as guest)' : '');
+        console.log('[Lobby] Socket available:', !!socket, 'Connected:', socket?.connected);
+        
+        if (!socket || !socket.connected) {
+            console.error('[Lobby] Socket not available for accept-invitation!');
+            showError(i18nT('errors.connectionFailed'));
+            return;
+        }
         
         const payload = { 
             code,
             asGuest,
-            pseudo: asGuest ? i18nT('lobby.guest') : (currentUser?.displayName || currentUser?.username || i18nT('lobby.guest'))
+            pseudo: asGuest ? i18nT('lobby.guest') : (currentUser?.pseudo || currentUser?.username || i18nT('lobby.guest'))
         };
         
         socket.emit('accept-invitation', payload, (response) => {
@@ -1800,7 +1810,6 @@
         e.preventDefault();
         
         const username = lobby.registerUsername?.value?.trim();
-        const displayName = lobby.registerDisplayName?.value?.trim();
         const password = lobby.registerPassword?.value;
         
         if (!username || !password) {
@@ -1824,8 +1833,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     username, 
-                    password,
-                    displayName: displayName || username
+                    password
                 })
             });
             
