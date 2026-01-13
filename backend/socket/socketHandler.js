@@ -802,13 +802,15 @@ function initializeSocket(httpServer) {
          */
         socket.on('accept-invitation', async (data, callback) => {
             try {
-                const { code } = data;
-                const pseudo = socket.pseudo || data.pseudo || 'Guest';
+                const { code, asGuest } = data;
+                // If user explicitly plays as guest, don't use socket.userId
+                const userId = asGuest ? null : socket.userId;
+                const pseudo = data.pseudo || socket.pseudo || 'Guest';
                 
                 // acceptInvitation already joins the room as guest
                 const result = await invitationService.acceptInvitation(
                     code,
-                    socket.userId,
+                    userId,
                     pseudo,
                     socket.id
                 );
@@ -817,7 +819,7 @@ function initializeSocket(httpServer) {
                     return callback({ success: false, error: result.error });
                 }
                 
-                console.log(`[Invitation] ${pseudo} accepted invitation ${code} → room ${result.roomCode}`);
+                console.log(`[Invitation] ${pseudo} accepted invitation ${code} → room ${result.roomCode}${asGuest ? ' (as guest)' : ''}`);
                 
                 // Join socket room
                 socket.join(result.roomCode);
@@ -832,7 +834,7 @@ function initializeSocket(httpServer) {
                     opponent: {
                         pseudo,
                         color: 'white',
-                        isGuest: !socket.userId
+                        isGuest: !userId
                     }
                 });
                 

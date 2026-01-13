@@ -117,16 +117,36 @@ const Matchmaking = (function() {
      */
     async function handleInviteClick() {
         try {
-            // Open QR code modal
+            // Open QR code modal with callback for when opponent joins
             if (window.QrCodeModal) {
                 window.QrCodeModal.open({
-                    timeMode: currentTimeMode
+                    timeMode: currentTimeMode,
+                    onOpponentJoined: handleOpponentJoinedFromInvite
                 });
             } else {
                 console.error('[Matchmaking] QrCodeModal not loaded');
             }
         } catch (err) {
             console.error('[Matchmaking] Create invitation error:', err);
+        }
+    }
+    
+    /**
+     * Handle opponent joining from invitation
+     * This is called when someone accepts our invitation
+     */
+    function handleOpponentJoinedFromInvite(data) {
+        console.log('[Matchmaking] Opponent joined from invite:', data);
+        
+        // This triggers the same flow as matchmaking match-found
+        if (onMatchFound) {
+            onMatchFound({
+                roomCode: window.Multiplayer?.roomCode,
+                color: window.Multiplayer?.playerColor || 'black',
+                gameState: data.gameState,
+                opponentInfo: data.opponent || data.opponentInfo,
+                timeMode: data.timeMode
+            });
         }
     }
     

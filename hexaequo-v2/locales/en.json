@@ -65,7 +65,22 @@
     "share": "Share",
     "inviteHint": "Share this link or scan the QR code to join your game",
     "notConnectedForInvite": "Connect to server to create an invitation",
-    "eloRange": "ELO Range:"
+    "eloRange": "ELO Range:",
+    "linkCopied": "Copied!",
+    "shareTitle": "Join my Hexaequo game!",
+    "shareText": "Click to join my game on Hexaequo"
+  },
+  "invite": {
+    "cancelConfirmTitle": "Cancel invitation?",
+    "cancelConfirmMessage": "The invitation link will expire and can no longer be used.",
+    "cancelYes": "Yes, Cancel",
+    "cancelNo": "Keep Waiting",
+    "joinGame": "Join Game",
+    "hostLabel": "Host:",
+    "joinAsUser": "Join Game",
+    "playAsGuest": "Play as Guest",
+    "expired": "This invitation has expired",
+    "invalid": "Invalid invitation code"
   },
   "auth": {
     "signIn": "Sign In",
@@ -206,6 +221,8 @@
     "invalidRoomCode": "Invalid room code",
     "cantJoinOwnRoom": "Can't join your own room",
     "enterUsernamePassword": "Please enter username and password",
-    "multiplayerNotAvailable": "Multiplayer not available"
+    "multiplayerNotAvailable": "Multiplayer not available",
+    "invalidInvite": "Invalid or expired invitation",
+    "failedToJoin": "Failed to join game"
   }
 }

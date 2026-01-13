@@ -7,10 +7,12 @@
  * - Bouton "Copy Link" 
  * - Boutons partage natif (Web Share API): Messenger, WhatsApp, Email, etc.
  * - Affichage code texte pour copie manuelle
+ * - Waiting state with timer while user waits for opponent
+ * - Back button with confirmation to cancel invitation
  * 
  * Format invitation:
  * - Code: 8 caractères alphanumériques
- * - Expiration: 24h
+ * - Expiration: 24h (or when creator closes modal)
  * - Room settings encodés (time_mode, etc.)
  */
 
@@ -19,6 +21,8 @@ const QrCodeModal = (function() {
     let isOpen = false;
     let currentCode = null;
     let currentUrl = null;
+    let waitingStartTime = null;
+    let timerInterval = null;
     
     // DOM Elements
     let modal = null;
@@ -26,8 +30,18 @@ const QrCodeModal = (function() {
     let codeDisplay = null;
     let copyBtn = null;
     let shareBtn = null;
-    let closeBtn = null;
+    let backBtn = null;
     let backdrop = null;
+    let waitingTimer = null;
+    
+    // Confirmation dialog elements
+    let confirmBackdrop = null;
+    let confirmDialog = null;
+    let confirmYesBtn = null;
+    let confirmNoBtn = null;
+    
+    // Callbacks
+    let onOpponentJoined = null;
     
     /**
      * Initialize modal elements
@@ -38,8 +52,15 @@ const QrCodeModal = (function() {
         codeDisplay = document.getElementById('inviteCodeDisplay');
         copyBtn = document.getElementById('copyInviteLinkBtn');
         shareBtn = document.getElementById('shareInviteBtn');
-        closeBtn = document.getElementById('closeQrModalBtn');
+        backBtn = document.getElementById('qrBackBtn');
         backdrop = document.getElementById('qrModalBackdrop');
+        waitingTimer = document.getElementById('qrWaitingTimer');
+        
+        // Confirmation dialog elements
+        confirmBackdrop = document.getElementById('inviteCancelBackdrop');
+        confirmDialog = document.getElementById('inviteCancelConfirm');
+        confirmYesBtn = document.getElementById('inviteCancelYesBtn');
+        confirmNoBtn = document.getElementById('inviteCancelNoBtn');
         
         // Set up event handlers
         if (copyBtn) {
@@ -54,18 +75,31 @@ const QrCodeModal = (function() {
             }
         }
         
-        if (closeBtn) {
-            closeBtn.addEventListener('click', close);
+        if (backBtn) {
+            backBtn.addEventListener('click', showConfirmation);
         }
         
-        if (backdrop) {
-            backdrop.addEventListener('click', close);
+        // Confirmation dialog handlers
+        if (confirmYesBtn) {
+            confirmYesBtn.addEventListener('click', confirmClose);
         }
         
-        // Close on Escape key
+        if (confirmNoBtn) {
+            confirmNoBtn.addEventListener('click', hideConfirmation);
+        }
+        
+        if (confirmBackdrop) {
+            confirmBackdrop.addEventListener('click', hideConfirmation);
+        }
+        
+        // Close on Escape key - show confirmation first
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && isOpen) {
-                close();
+                if (confirmDialog && confirmDialog.style.display !== 'none') {
+                    hideConfirmation();
+                } else {
+                    showConfirmation();
+                }
             }
         });
         
@@ -79,6 +113,7 @@ const QrCodeModal = (function() {
         if (isOpen) return;
         
         const timeMode = options.timeMode || 'classic';
+        onOpponentJoined = options.onOpponentJoined || null;
         
         try {
             // Create invitation via socket
@@ -106,6 +141,12 @@ const QrCodeModal = (function() {
                 backdrop.style.display = 'block';
             }
             
+            // Start waiting timer
+            startWaitingTimer();
+            
+            // Listen for opponent joining
+            setupOpponentJoinedListener();
+            
             isOpen = true;
         } catch (err) {
             console.error('[QrCodeModal] Error creating invitation:', err);
@@ -116,10 +157,148 @@ const QrCodeModal = (function() {
     }
     
     /**
-     * Close modal
+     * Start the waiting timer
      */
-    function close() {
+    function startWaitingTimer() {
+        waitingStartTime = Date.now();
+        updateWaitingTimer();
+        timerInterval = setInterval(updateWaitingTimer, 1000);
+    }
+    
+    /**
+     * Update waiting timer display
+     */
+    function updateWaitingTimer() {
+        if (!waitingTimer || !waitingStartTime) return;
+        
+        const elapsed = Math.floor((Date.now() - waitingStartTime) / 1000);
+        const minutes = Math.floor(elapsed / 60);
+        const seconds = elapsed % 60;
+        
+        waitingTimer.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+    
+    /**
+     * Stop the waiting timer
+     */
+    function stopWaitingTimer() {
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+        waitingStartTime = null;
+    }
+    
+    /**
+     * Setup listener for opponent joining
+     */
+    function setupOpponentJoinedListener() {
+        const socket = window.Multiplayer?.getSocket();
+        if (!socket) return;
+        
+        // Remove existing listener to prevent duplicates
+        socket.off('opponent-joined.qrmodal');
+        
+        // Listen for opponent joining - the host will receive this event
+        const handler = (data) => {
+            console.log('[QrCodeModal] Opponent joined via invitation!', data);
+            
+            // Close the modal without confirmation (opponent already joined)
+            closeWithoutConfirmation();
+            
+            // Call the callback if provided
+            if (onOpponentJoined) {
+                onOpponentJoined(data);
+            }
+        };
+        
+        socket.on('opponent-joined', handler);
+        
+        // Store reference for cleanup
+        socket._qrModalHandler = handler;
+    }
+    
+    /**
+     * Remove opponent joined listener
+     */
+    function removeOpponentJoinedListener() {
+        const socket = window.Multiplayer?.getSocket();
+        if (socket && socket._qrModalHandler) {
+            socket.off('opponent-joined', socket._qrModalHandler);
+            delete socket._qrModalHandler;
+        }
+    }
+    
+    /**
+     * Show confirmation dialog before closing
+     */
+    function showConfirmation() {
+        if (confirmDialog) {
+            confirmDialog.style.display = 'flex';
+        }
+        if (confirmBackdrop) {
+            confirmBackdrop.style.display = 'block';
+        }
+    }
+    
+    /**
+     * Hide confirmation dialog
+     */
+    function hideConfirmation() {
+        if (confirmDialog) {
+            confirmDialog.style.display = 'none';
+        }
+        if (confirmBackdrop) {
+            confirmBackdrop.style.display = 'none';
+        }
+    }
+    
+    /**
+     * Confirm close - cancel invitation and close modal
+     */
+    async function confirmClose() {
+        hideConfirmation();
+        
+        // Cancel the invitation on server
+        await cancelInvitationOnServer();
+        
+        closeWithoutConfirmation();
+    }
+    
+    /**
+     * Cancel invitation on server
+     */
+    async function cancelInvitationOnServer() {
+        if (!currentCode) return;
+        
+        return new Promise((resolve) => {
+            const socket = window.Multiplayer?.getSocket();
+            
+            if (!socket || !socket.connected) {
+                resolve();
+                return;
+            }
+            
+            socket.emit('cancel-invitation', { code: currentCode }, (response) => {
+                if (response.success) {
+                    console.log('[QrCodeModal] Invitation cancelled');
+                } else {
+                    console.warn('[QrCodeModal] Failed to cancel invitation:', response.error);
+                }
+                resolve();
+            });
+        });
+    }
+    
+    /**
+     * Close modal without confirmation (used when opponent joins)
+     */
+    function closeWithoutConfirmation() {
         if (!isOpen) return;
+        
+        hideConfirmation();
+        stopWaitingTimer();
+        removeOpponentJoinedListener();
         
         if (modal) {
             modal.style.display = 'none';
@@ -132,6 +311,14 @@ const QrCodeModal = (function() {
         currentCode = null;
         currentUrl = null;
         isOpen = false;
+    }
+    
+    /**
+     * Close modal (legacy - now shows confirmation)
+     */
+    function close() {
+        if (!isOpen) return;
+        showConfirmation();
     }
     
     /**
@@ -180,9 +367,10 @@ const QrCodeModal = (function() {
         try {
             await navigator.clipboard.writeText(currentUrl);
             
-            // Visual feedback
+            // Visual feedback with localized text
             const originalText = copyBtn.textContent;
-            copyBtn.textContent = '✓ Copied!';
+            const copiedText = window.i18nT ? window.i18nT('lobby.linkCopied') : '✓ Copied!';
+            copyBtn.textContent = `✓ ${copiedText}`;
             copyBtn.classList.add('copied');
             
             setTimeout(() => {
@@ -208,9 +396,12 @@ const QrCodeModal = (function() {
         if (!currentUrl || !navigator.share) return;
         
         try {
+            const shareTitle = window.i18nT ? window.i18nT('lobby.shareTitle') : 'Join my Hexaequo game!';
+            const shareText = window.i18nT ? window.i18nT('lobby.shareText') : 'Click to join my game on Hexaequo';
+            
             await navigator.share({
-                title: 'Join my Hexaequo game!',
-                text: 'Click to join my game on Hexaequo',
+                title: shareTitle,
+                text: shareText,
                 url: currentUrl
             });
         } catch (err) {
@@ -317,6 +508,7 @@ const QrCodeModal = (function() {
         init,
         open,
         close,
+        closeWithoutConfirmation,
         get isOpen() { return isOpen; },
         get currentCode() { return currentCode; },
         get currentUrl() { return currentUrl; }

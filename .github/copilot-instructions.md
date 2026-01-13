@@ -202,16 +202,24 @@ import { validateMove } from './modules/moveValidator.js';
 4. **Match Found**: Server creates room, emits `match-found` to both players → auto-redirects to game
 
 ### Invitation Flow
-1. **Invite Button**: User clicks Invite → server creates room + generates 8-char alphanumeric code (24h expiry)
-2. **Creator Waits**: Creator is now host (black) in room, waiting for opponent
-3. **Share**: Creator shares link (`?invite=CODE`) or QR code
-4. **Accept**: Recipient opens link → `checkInviteCode()` validates → `acceptInvitation()` joins existing room
-5. **Game Starts**: Creator receives `opponent-joined` event, both players in game
+1. **Invite Button**: User clicks Invite → opens QR modal → server creates room + generates 8-char code
+2. **Creator Waits**: QR modal shows waiting timer, creator is host (black) in room
+3. **Share**: Creator shares link (`?invite=CODE`), QR code, or uses Web Share API
+4. **Back Button**: Confirmation dialog warns that cancelling expires the invitation link
+5. **Landing Modal**: Recipient opens link → sees invite landing modal with host info + time control
+6. **Join Options**: Recipient can "Sign In", "Join Game" (if logged in), or "Play as Guest"
+7. **Accept**: Clicking join/guest → `acceptInvitation()` joins existing room
+8. **Game Starts**: Creator's QR modal auto-closes, both players transition to game
 
 ### Phase 2 Components (Implemented)
 **Frontend** (`hexaequo-v2/components/`):
 - `matchmaking.js` - Play/Invite button handlers, queue UI, waiting state
-- `qrCodeModal.js` - QR code generation modal (pure JS canvas, no external lib)
+- `qrCodeModal.js` - QR code modal with waiting timer, back button + confirmation dialog
+
+**Frontend Modals** (in `index.html`):
+- `qrCodeModal` - Invite creator modal with QR, copy link, share, waiting timer
+- `inviteCancelConfirm` - Confirmation dialog when cancelling invitation
+- `inviteLandingModal` - Recipient modal showing host info + join options
 
 **Backend Models** (`backend/models/`):
 - `userPreferencesModel.js` - User matchmaking preferences (time_mode, elo_range)
@@ -220,12 +228,13 @@ import { validateMove } from './modules/moveValidator.js';
 
 **Backend Services** (`backend/services/`):
 - `matchmakingService.js` - Queue logic with memory fallback, `joinQueue()` triggers immediate match search
-- `invitationService.js` - Invitation flow management
+- `invitationService.js` - Invitation flow management, `cancelInvitation()` deletes room
 
 **Socket Events** (in `socketHandler.js`):
 - `join-matchmaking-queue`, `leave-matchmaking-queue`, `matchmaking-status`
 - `create-invitation`, `get-invitation-info`, `accept-invitation`, `cancel-invitation`
 - `match-found` (emitted to both players when matched)
+- `opponent-joined` (emitted to host when invitee accepts)
 
 **Routes**: `backend/routes/matchmakingRoutes.js` → `/api/matchmaking/*`
 

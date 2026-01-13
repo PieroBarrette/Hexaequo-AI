@@ -468,7 +468,6 @@
     <div id="qrModalBackdrop" class="qr-modal-backdrop" style="display: none;"></div>
     <div id="qrCodeModal" class="qr-code-modal" style="display: none;">
         <div class="qr-modal-content">
-            <button id="closeQrModalBtn" class="qr-modal-close" aria-label="Close">×</button>
             <h3 class="qr-modal-title" data-i18n="lobby.inviteFriend">Invite a Friend</h3>
             <div class="qr-code-container">
                 <canvas id="qrCodeCanvas" width="200" height="200"></canvas>
@@ -482,6 +481,57 @@
                 <button id="shareInviteBtn" class="lobby-btn secondary" data-i18n="lobby.share">Share</button>
             </div>
             <p class="qr-modal-hint" data-i18n="lobby.inviteHint">Share this link or scan the QR code to join your game</p>
+            
+            <!-- Waiting indicator -->
+            <div class="qr-waiting-section">
+                <div class="waiting-animation">
+                    <div class="spinner"></div>
+                    <div class="waiting-text">
+                        <span data-i18n="lobby.waitingForOpponent">Waiting for opponent...</span>
+                        <span class="waiting-timer" id="qrWaitingTimer">0:00</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Back button -->
+            <button id="qrBackBtn" class="lobby-btn secondary qr-back-btn" data-i18n="lobby.back">Back</button>
+        </div>
+    </div>
+
+    <!-- Invite Confirmation Dialog -->
+    <div id="inviteCancelBackdrop" class="confirm-overlay" style="display: none;"></div>
+    <div id="inviteCancelConfirm" class="confirm-dialog" style="display: none;">
+        <div class="confirm-content">
+            <h3 class="confirm-title" data-i18n="invite.cancelConfirmTitle">Cancel invitation?</h3>
+            <p class="confirm-subtitle" data-i18n="invite.cancelConfirmMessage">The invitation link will expire and can no longer be used.</p>
+            <div class="confirm-buttons">
+                <button id="inviteCancelYesBtn" class="confirm-btn confirm-yes" data-i18n="invite.cancelYes">Yes, Cancel</button>
+                <button id="inviteCancelNoBtn" class="confirm-btn confirm-no" data-i18n="invite.cancelNo">Keep Waiting</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invite Landing Modal (for recipients) -->
+    <div id="inviteLandingBackdrop" class="qr-modal-backdrop" style="display: none;"></div>
+    <div id="inviteLandingModal" class="qr-code-modal invite-landing-modal" style="display: none;">
+        <div class="qr-modal-content">
+            <h3 class="qr-modal-title" data-i18n="invite.joinGame">Join Game</h3>
+            <div class="invite-landing-info">
+                <div class="invite-host-info">
+                    <span class="invite-label" data-i18n="invite.hostLabel">Host:</span>
+                    <span id="inviteHostPseudo" class="invite-value">---</span>
+                </div>
+                <div class="invite-time-info">
+                    <span class="invite-label" data-i18n="lobby.timeControl">Time Control:</span>
+                    <span id="inviteTimeMode" class="invite-value">---</span>
+                </div>
+            </div>
+            <div class="invite-landing-actions">
+                <button id="inviteJoinBtn" class="lobby-btn primary" data-i18n="invite.joinAsUser" style="display: none;">Join Game</button>
+                <button id="inviteGuestBtn" class="lobby-btn secondary" data-i18n="invite.playAsGuest">Play as Guest</button>
+                <button id="inviteSignInBtn" class="lobby-btn secondary" data-i18n="auth.signIn" style="display: none;">Sign In</button>
+            </div>
+            <button id="inviteLandingBackBtn" class="lobby-btn text-btn" data-i18n="lobby.back">Back</button>
         </div>
     </div>
 

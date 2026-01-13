@@ -993,6 +993,10 @@
 
     // ==================== Matchmaking Functions (Phase 2) ====================
     
+    // Invite landing modal state
+    let currentInviteCode = null;
+    let currentInviteInfo = null;
+    
     /**
      * Check URL for invite code and handle invitation flow
      */
@@ -1015,18 +1019,105 @@
                 return;
             }
             
-            // Accept the invitation
-            acceptInvitation(inviteCode, response);
+            // Show the invite landing modal
+            showInviteLandingModal(inviteCode, response);
         });
+    }
+    
+    /**
+     * Show the invite landing modal with game info
+     */
+    function showInviteLandingModal(code, inviteInfo) {
+        currentInviteCode = code;
+        currentInviteInfo = inviteInfo;
+        
+        const landingBackdrop = document.getElementById('inviteLandingBackdrop');
+        const landingModal = document.getElementById('inviteLandingModal');
+        const hostPseudoEl = document.getElementById('inviteHostPseudo');
+        const timeModeEl = document.getElementById('inviteTimeMode');
+        const joinBtn = document.getElementById('inviteJoinBtn');
+        const guestBtn = document.getElementById('inviteGuestBtn');
+        const signInBtn = document.getElementById('inviteSignInBtn');
+        const backBtn = document.getElementById('inviteLandingBackBtn');
+        
+        // Populate info
+        if (hostPseudoEl) {
+            hostPseudoEl.textContent = inviteInfo.creatorPseudo || i18nT('lobby.guest');
+        }
+        
+        if (timeModeEl) {
+            // Translate time mode
+            const timeModeKey = `lobby.${inviteInfo.timeMode}`;
+            timeModeEl.textContent = i18nT(timeModeKey) || inviteInfo.timeMode;
+        }
+        
+        // Show/hide buttons based on login status
+        const isLoggedIn = !!currentUser;
+        
+        if (joinBtn) {
+            joinBtn.style.display = isLoggedIn ? 'block' : 'none';
+            joinBtn.onclick = () => acceptInvitationFromModal(false);
+        }
+        
+        if (guestBtn) {
+            guestBtn.style.display = 'block';
+            guestBtn.onclick = () => acceptInvitationFromModal(true);
+        }
+        
+        if (signInBtn) {
+            signInBtn.style.display = isLoggedIn ? 'none' : 'block';
+            signInBtn.onclick = () => {
+                hideInviteLandingModal();
+                showAuthSection();
+            };
+        }
+        
+        if (backBtn) {
+            backBtn.onclick = hideInviteLandingModal;
+        }
+        
+        // Show modal
+        if (landingBackdrop) landingBackdrop.style.display = 'block';
+        if (landingModal) landingModal.style.display = 'flex';
+    }
+    
+    /**
+     * Hide the invite landing modal
+     */
+    function hideInviteLandingModal() {
+        const landingBackdrop = document.getElementById('inviteLandingBackdrop');
+        const landingModal = document.getElementById('inviteLandingModal');
+        
+        if (landingBackdrop) landingBackdrop.style.display = 'none';
+        if (landingModal) landingModal.style.display = 'none';
+        
+        currentInviteCode = null;
+        currentInviteInfo = null;
+    }
+    
+    /**
+     * Accept invitation from the landing modal
+     */
+    function acceptInvitationFromModal(asGuest) {
+        if (!currentInviteCode) return;
+        
+        hideInviteLandingModal();
+        acceptInvitation(currentInviteCode, currentInviteInfo, asGuest);
     }
     
     /**
      * Accept an invitation and join the game
      */
-    function acceptInvitation(code, inviteInfo) {
-        console.log('[Lobby] Accepting invitation:', code, inviteInfo);
+    function acceptInvitation(code, inviteInfo, asGuest = false) {
+        console.log('[Lobby] Accepting invitation:', code, inviteInfo, asGuest ? '(as guest)' : '');
         
-        socket.emit('accept-invitation', { code }, (response) => {
+        const payload = { 
+            code,
+            asGuest,
+            pseudo: asGuest ? i18nT('lobby.guest') : (currentUser?.displayName || currentUser?.username || i18nT('lobby.guest'))
+        };
+        
+        socket.emit('accept-invitation', payload, (response) => {
             if (!response.success) {
                 showError(response.error || i18nT('errors.failedToJoin'));
                 return;
@@ -1035,9 +1126,14 @@
             console.log('[Lobby] Invitation accepted, joined room:', response.roomCode);
             currentRoomCode = response.roomCode;
             
+            // Set room info in Multiplayer
+            if (window.Multiplayer && response.roomCode) {
+                window.Multiplayer.setRoomInfo(response.roomCode, response.color || 'white');
+            }
+            
             // Store opponent info
             currentOpponent = {
-                name: response.opponentInfo?.name || inviteInfo.creatorPseudo || 'Guest',
+                name: response.opponentInfo?.name || inviteInfo.creatorPseudo || i18nT('lobby.guest'),
                 elo: response.opponentInfo?.elo,
                 isGuest: response.opponentInfo?.isGuest ?? true
             };

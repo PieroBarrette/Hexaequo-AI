@@ -65,7 +65,22 @@
     "share": "Partager",
     "inviteHint": "Partagez ce lien ou scannez le QR code pour rejoindre votre partie",
     "notConnectedForInvite": "Connectez-vous au serveur pour créer une invitation",
-    "eloRange": "Plage ELO :"
+    "eloRange": "Plage ELO :",
+    "linkCopied": "Copié !",
+    "shareTitle": "Rejoins ma partie Hexaequo !",
+    "shareText": "Clique pour rejoindre ma partie sur Hexaequo"
+  },
+  "invite": {
+    "cancelConfirmTitle": "Annuler l'invitation ?",
+    "cancelConfirmMessage": "Le lien d'invitation expirera et ne pourra plus être utilisé.",
+    "cancelYes": "Oui, annuler",
+    "cancelNo": "Continuer d'attendre",
+    "joinGame": "Rejoindre la partie",
+    "hostLabel": "Hôte :",
+    "joinAsUser": "Rejoindre la partie",
+    "playAsGuest": "Jouer en tant qu'invité",
+    "expired": "Cette invitation a expiré",
+    "invalid": "Code d'invitation invalide"
   },
   "auth": {
     "signIn": "Connexion",
@@ -206,6 +221,8 @@
     "invalidRoomCode": "Code de salon invalide",
     "cantJoinOwnRoom": "Vous ne pouvez pas rejoindre votre propre salon",
     "enterUsernamePassword": "Veuillez entrer votre nom d'utilisateur et mot de passe",
-    "multiplayerNotAvailable": "Mode multijoueur non disponible"
+    "multiplayerNotAvailable": "Mode multijoueur non disponible",
+    "invalidInvite": "Invitation invalide ou expirée",
+    "failedToJoin": "Impossible de rejoindre la partie"
   }
 }
