@@ -255,7 +255,8 @@
             blackTime,
             whiteTime,
             activeTimer,
-            isRunning
+            isRunning,
+            gameStarted: isRunning || activeTimer !== null
         };
     }
 
@@ -306,12 +307,15 @@
         
         // Handle active timer - if game has started and there's an active timer
         if (serverState.gameStarted && serverState.activeTimer) {
-            activeTimer = serverState.activeTimer;
+            const newActiveTimer = serverState.activeTimer;
             
-            // Start local countdown for display purposes
+            // Always switch to the new active timer and restart countdown
+            // This ensures opponent's timer counts down locally after we make a move
+            activeTimer = newActiveTimer;
+            lastTickTime = performance.now();
+            
             if (!isRunning) {
                 isRunning = true;
-                lastTickTime = performance.now();
                 if (!timerInterval) {
                     timerInterval = setInterval(tick, 100);
                 }

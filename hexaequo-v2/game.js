@@ -2615,6 +2615,11 @@ window.onload = function () {
         updateDynamicLayout();
         drawGrid();
         
+        // Update resign/draw buttons visibility (hide for local games)
+        if (window.updateOnlineGameActionsVisibility) {
+            window.updateOnlineGameActionsVisibility();
+        }
+        
         // If black player is AI, trigger first move after a short delay
         setTimeout(() => {
             if (isCurrentPlayerAi() && !isOnlineMode) {
