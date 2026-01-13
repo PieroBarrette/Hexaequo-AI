@@ -7,7 +7,6 @@
  * - Bouton "Copy Link" 
  * - Boutons partage natif (Web Share API): Messenger, WhatsApp, Email, etc.
  * - Affichage code texte pour copie manuelle
- * - Waiting state with timer while user waits for opponent
  * - Back button with confirmation to cancel invitation
  * 
  * Format invitation:
@@ -21,8 +20,6 @@ const QrCodeModal = (function() {
     let isOpen = false;
     let currentCode = null;
     let currentUrl = null;
-    let waitingStartTime = null;
-    let timerInterval = null;
     
     // DOM Elements
     let modal = null;
@@ -32,10 +29,8 @@ const QrCodeModal = (function() {
     let shareBtn = null;
     let backBtn = null;
     let backdrop = null;
-    let waitingTimer = null;
     
     // Confirmation dialog elements
-    let confirmBackdrop = null;
     let confirmDialog = null;
     let confirmYesBtn = null;
     let confirmNoBtn = null;
@@ -54,10 +49,8 @@ const QrCodeModal = (function() {
         shareBtn = document.getElementById('shareInviteBtn');
         backBtn = document.getElementById('qrBackBtn');
         backdrop = document.getElementById('qrModalBackdrop');
-        waitingTimer = document.getElementById('qrWaitingTimer');
         
-        // Confirmation dialog elements
-        confirmBackdrop = document.getElementById('inviteCancelBackdrop');
+        // Confirmation dialog element (uses confirm-modal class)
         confirmDialog = document.getElementById('inviteCancelConfirm');
         confirmYesBtn = document.getElementById('inviteCancelYesBtn');
         confirmNoBtn = document.getElementById('inviteCancelNoBtn');
@@ -88,14 +81,10 @@ const QrCodeModal = (function() {
             confirmNoBtn.addEventListener('click', hideConfirmation);
         }
         
-        if (confirmBackdrop) {
-            confirmBackdrop.addEventListener('click', hideConfirmation);
-        }
-        
         // Close on Escape key - show confirmation first
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && isOpen) {
-                if (confirmDialog && confirmDialog.style.display !== 'none') {
+                if (confirmDialog && confirmDialog.classList.contains('open')) {
                     hideConfirmation();
                 } else {
                     showConfirmation();
@@ -141,9 +130,6 @@ const QrCodeModal = (function() {
                 backdrop.style.display = 'block';
             }
             
-            // Start waiting timer
-            startWaitingTimer();
-            
             // Listen for opponent joining
             setupOpponentJoinedListener();
             
@@ -154,39 +140,6 @@ const QrCodeModal = (function() {
                 window.showError(err.message || 'Failed to create invitation');
             }
         }
-    }
-    
-    /**
-     * Start the waiting timer
-     */
-    function startWaitingTimer() {
-        waitingStartTime = Date.now();
-        updateWaitingTimer();
-        timerInterval = setInterval(updateWaitingTimer, 1000);
-    }
-    
-    /**
-     * Update waiting timer display
-     */
-    function updateWaitingTimer() {
-        if (!waitingTimer || !waitingStartTime) return;
-        
-        const elapsed = Math.floor((Date.now() - waitingStartTime) / 1000);
-        const minutes = Math.floor(elapsed / 60);
-        const seconds = elapsed % 60;
-        
-        waitingTimer.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    }
-    
-    /**
-     * Stop the waiting timer
-     */
-    function stopWaitingTimer() {
-        if (timerInterval) {
-            clearInterval(timerInterval);
-            timerInterval = null;
-        }
-        waitingStartTime = null;
     }
     
     /**
@@ -234,10 +187,7 @@ const QrCodeModal = (function() {
      */
     function showConfirmation() {
         if (confirmDialog) {
-            confirmDialog.style.display = 'flex';
-        }
-        if (confirmBackdrop) {
-            confirmBackdrop.style.display = 'block';
+            confirmDialog.classList.add('open');
         }
     }
     
@@ -246,10 +196,7 @@ const QrCodeModal = (function() {
      */
     function hideConfirmation() {
         if (confirmDialog) {
-            confirmDialog.style.display = 'none';
-        }
-        if (confirmBackdrop) {
-            confirmBackdrop.style.display = 'none';
+            confirmDialog.classList.remove('open');
         }
     }
     
@@ -297,7 +244,6 @@ const QrCodeModal = (function() {
         if (!isOpen) return;
         
         hideConfirmation();
-        stopWaitingTimer();
         removeOpponentJoinedListener();
         
         if (modal) {

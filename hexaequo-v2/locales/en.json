@@ -58,6 +58,7 @@
     "you": "(You)",
     "play": "Play",
     "invite": "Invite",
+    "guestInviteRestriction": "Playing as a guest, sign in to invite",
     "searchingOpponent": "Searching for opponent...",
     "inviteFriend": "Invite a Friend",
     "inviteCode": "Invite Code:",

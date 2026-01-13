@@ -202,24 +202,26 @@ import { validateMove } from './modules/moveValidator.js';
 4. **Match Found**: Server creates room, emits `match-found` to both players → auto-redirects to game
 
 ### Invitation Flow
-1. **Invite Button**: User clicks Invite → opens QR modal → server creates room + generates 8-char code
-2. **Creator Waits**: QR modal shows waiting timer, creator is host (black) in room
+1. **Invite Button**: Only available to logged-in users (guests see sign-in prompt)
+2. **Create Invite**: User clicks Invite → opens QR modal → server creates room + generates 8-char code
 3. **Share**: Creator shares link (`?invite=CODE`), QR code, or uses Web Share API
 4. **Back Button**: Confirmation dialog warns that cancelling expires the invitation link
-5. **Landing Modal**: Recipient opens link → sees invite landing modal with host info + time control
-6. **Join Options**: Recipient can "Sign In", "Join Game" (if logged in), or "Play as Guest"
-7. **Accept**: Clicking join/guest → `acceptInvitation()` joins existing room
-8. **Game Starts**: Creator's QR modal auto-closes, both players transition to game
+5. **Early Detection**: Recipient opens link → invite code detected on page load → landing modal shown immediately
+6. **Landing Modal**: Shows host info + time control with "Sign In", "Join Game" (if logged in), or "Play as Guest"
+7. **Auth Flow**: If recipient signs in from landing modal → returns to landing modal after auth (pendingInviteAfterAuth)
+8. **Accept**: Clicking join/guest → `acceptInvitation()` joins existing room
+9. **Game Starts**: Creator's QR modal auto-closes, both players transition to game
 
 ### Phase 2 Components (Implemented)
 **Frontend** (`hexaequo-v2/components/`):
-- `matchmaking.js` - Play/Invite button handlers, queue UI, waiting state
-- `qrCodeModal.js` - QR code modal with waiting timer, back button + confirmation dialog
+- `matchmaking.js` - Play/Invite button handlers, queue UI, guest restriction for invite
+- `qrCodeModal.js` - QR code modal with back button + confirmation dialog
 
 **Frontend Modals** (in `index.html`):
-- `qrCodeModal` - Invite creator modal with QR, copy link, share, waiting timer
+- `qrCodeModal` - Invite creator modal with QR, copy link, share
 - `inviteCancelConfirm` - Confirmation dialog when cancelling invitation
 - `inviteLandingModal` - Recipient modal showing host info + join options
+- `guestInviteRestriction` - Message shown to guests with sign-in button
 
 **Backend Models** (`backend/models/`):
 - `userPreferencesModel.js` - User matchmaking preferences (time_mode, elo_range)

@@ -58,6 +58,7 @@
     "you": "(Vous)",
     "play": "Jouer",
     "invite": "Inviter",
+    "guestInviteRestriction": "Vous jouez en tant qu'invité, connectez-vous pour inviter",
     "searchingOpponent": "Recherche d'un adversaire...",
     "inviteFriend": "Inviter un ami",
     "inviteCode": "Code d'invitation :",

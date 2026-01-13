@@ -197,6 +197,11 @@
                         <div class="matchmaking-section" id="matchmakingSection">
                             <button class="lobby-btn primary matchmaking-btn" id="matchmakingPlayBtn" data-i18n="lobby.play">Play</button>
                             <button class="lobby-btn secondary matchmaking-btn" id="matchmakingInviteBtn" data-i18n="lobby.invite">Invite</button>
+                            <!-- Guest restriction message -->
+                            <div class="guest-invite-restriction" id="guestInviteRestriction" style="display: none;">
+                                <span class="restriction-text" data-i18n="lobby.guestInviteRestriction">Playing as a guest, sign in to invite</span>
+                                <button class="restriction-signin-btn" id="guestSignInBtn" data-i18n="auth.signIn">Sign In</button>
+                            </div>
                         </div>
                         
                         <!-- Matchmaking Waiting (hidden by default) -->
@@ -482,28 +487,16 @@
             </div>
             <p class="qr-modal-hint" data-i18n="lobby.inviteHint">Share this link or scan the QR code to join your game</p>
             
-            <!-- Waiting indicator -->
-            <div class="qr-waiting-section">
-                <div class="waiting-animation">
-                    <div class="spinner"></div>
-                    <div class="waiting-text">
-                        <span data-i18n="lobby.waitingForOpponent">Waiting for opponent...</span>
-                        <span class="waiting-timer" id="qrWaitingTimer">0:00</span>
-                    </div>
-                </div>
-            </div>
-            
             <!-- Back button -->
             <button id="qrBackBtn" class="lobby-btn secondary qr-back-btn" data-i18n="lobby.back">Back</button>
         </div>
     </div>
 
     <!-- Invite Confirmation Dialog -->
-    <div id="inviteCancelBackdrop" class="confirm-overlay" style="display: none;"></div>
-    <div id="inviteCancelConfirm" class="confirm-dialog" style="display: none;">
-        <div class="confirm-content">
-            <h3 class="confirm-title" data-i18n="invite.cancelConfirmTitle">Cancel invitation?</h3>
-            <p class="confirm-subtitle" data-i18n="invite.cancelConfirmMessage">The invitation link will expire and can no longer be used.</p>
+    <div id="inviteCancelConfirm" class="confirm-modal">
+        <div class="confirm-modal-content">
+            <p class="confirm-message" data-i18n="invite.cancelConfirmTitle">Cancel invitation?</p>
+            <p class="confirm-message"><small data-i18n="invite.cancelConfirmMessage">The invitation link will expire and can no longer be used.</small></p>
             <div class="confirm-buttons">
                 <button id="inviteCancelYesBtn" class="confirm-btn confirm-yes" data-i18n="invite.cancelYes">Yes, Cancel</button>
                 <button id="inviteCancelNoBtn" class="confirm-btn confirm-no" data-i18n="invite.cancelNo">Keep Waiting</button>
@@ -531,7 +524,6 @@
                 <button id="inviteGuestBtn" class="lobby-btn secondary" data-i18n="invite.playAsGuest">Play as Guest</button>
                 <button id="inviteSignInBtn" class="lobby-btn secondary" data-i18n="auth.signIn" style="display: none;">Sign In</button>
             </div>
-            <button id="inviteLandingBackBtn" class="lobby-btn text-btn" data-i18n="lobby.back">Back</button>
         </div>
     </div>
 

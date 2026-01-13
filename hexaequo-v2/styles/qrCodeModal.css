@@ -123,48 +123,6 @@
     margin: 0;
 }
 
-/* Waiting Section in QR Modal */
-.qr-waiting-section {
-    margin-top: 20px;
-    padding-top: 16px;
-    border-top: 1px solid var(--border-color, #333);
-}
-
-.qr-waiting-section .waiting-animation {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-}
-
-.qr-waiting-section .waiting-text {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    text-align: center;
-}
-
-.qr-waiting-section .waiting-timer {
-    font-size: 1.3em;
-    font-weight: 600;
-    color: var(--accent-color, #4a9eff);
-    font-variant-numeric: tabular-nums;
-}
-
-.qr-waiting-section .spinner {
-    width: 32px;
-    height: 32px;
-    border: 3px solid var(--border-color, #333);
-    border-top-color: var(--accent-color, #4a9eff);
-    border-radius: 50%;
-    animation: qr-spin 1s linear infinite;
-}
-
-@keyframes qr-spin {
-    to { transform: rotate(360deg); }
-}
-
 /* Back Button */
 .qr-back-btn {
     margin-top: 20px;
@@ -230,10 +188,6 @@
 }
 
 /* Light mode adjustments */
-[data-theme="light"] .qr-waiting-section {
-    border-top-color: #dee2e6;
-}
-
 [data-theme="light"] .invite-landing-info {
     background: #f8f9fa;
 }

@@ -24,6 +24,7 @@
     let currentUser = null;
     let sessionToken = null;
     let currentOpponent = null; // Stores opponent info for online games
+    let pendingInviteAfterAuth = null; // Stores invite info while user is signing in
     
     // Local game configuration
     let localGameConfig = {
@@ -199,8 +200,10 @@
         // Initialize language selector
         initializeLanguageSelect();
         
-        // Check for existing session
-        checkExistingSession();
+        // Check for existing session, then check for invite code
+        checkExistingSession().then(() => {
+            handleEarlyInviteCheck();
+        });
         
         // Initialize Matchmaking system (Phase 2)
         if (window.Matchmaking) {
@@ -667,6 +670,15 @@
         lobby.registerForm?.reset();
         hideAuthError();
     }
+    
+    /**
+     * Show auth section when coming from invite flow
+     * After successful auth, returns to invite modal
+     */
+    function showAuthSectionForInvite() {
+        showAuthSection();
+        // pendingInviteAfterAuth is already set before calling this
+    }
 
     // ==================== Game Start Functions ====================
     // Helper function for i18n
@@ -897,6 +909,9 @@
         
         lobby.roomActions?.style.setProperty('display', 'flex');
         
+        // Update matchmaking UI based on login status
+        updateMatchmakingUI();
+        
         // Note: Matchmaking and QrCodeModal are initialized at DOMContentLoaded
         // Here we just update the ELO for matchmaking if user is logged in
         if (window.Matchmaking && currentUser) {
@@ -999,12 +1014,13 @@
     
     /**
      * Check URL for invite code and handle invitation flow
+     * This should be called as soon as connection is established
      */
     function checkInviteCode() {
         const urlParams = new URLSearchParams(window.location.search);
         const inviteCode = urlParams.get('invite');
         
-        if (!inviteCode) return;
+        if (!inviteCode) return false;
         
         console.log('[Lobby] Found invite code in URL:', inviteCode);
         
@@ -1015,13 +1031,53 @@
         // Get invitation info first
         socket.emit('get-invitation-info', { code: inviteCode }, (response) => {
             if (!response.success) {
-                showError(response.error || i18nT('errors.invalidInvite'));
+                // Show browser alert for expired/invalid invite
+                const errorMessage = response.error || i18nT('errors.invalidInvite');
+                alert(errorMessage);
                 return;
             }
             
             // Show the invite landing modal
             showInviteLandingModal(inviteCode, response);
         });
+        
+        return true; // Indicate that an invite code was found
+    }
+    
+    /**
+     * Check for invite code immediately on page load (before connection)
+     * Returns true if an invite code is present in URL
+     */
+    function hasInviteCodeInUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.has('invite');
+    }
+    
+    /**
+     * Handle invite flow on page load
+     * Connects to server and processes invite code
+     */
+    async function handleEarlyInviteCheck() {
+        if (!hasInviteCodeInUrl()) return;
+        
+        console.log('[Lobby] Invite code detected in URL, connecting to process...');
+        
+        // Connect to server first
+        if (typeof window.Multiplayer !== 'undefined') {
+            try {
+                await window.Multiplayer.connect();
+                socket = window.Multiplayer.getSocket();
+                
+                if (socket && socket.connected) {
+                    checkInviteCode();
+                } else {
+                    alert(i18nT('errors.connectionFailed'));
+                }
+            } catch (err) {
+                console.error('[Lobby] Connection failed for invite:', err);
+                alert(i18nT('errors.connectionFailed'));
+            }
+        }
     }
     
     /**
@@ -1038,7 +1094,6 @@
         const joinBtn = document.getElementById('inviteJoinBtn');
         const guestBtn = document.getElementById('inviteGuestBtn');
         const signInBtn = document.getElementById('inviteSignInBtn');
-        const backBtn = document.getElementById('inviteLandingBackBtn');
         
         // Populate info
         if (hostPseudoEl) {
@@ -1065,15 +1120,14 @@
         }
         
         if (signInBtn) {
+            // Show sign in button if not logged in
             signInBtn.style.display = isLoggedIn ? 'none' : 'block';
             signInBtn.onclick = () => {
+                // Store invite info, show auth section, then return
+                pendingInviteAfterAuth = { code, info: inviteInfo };
                 hideInviteLandingModal();
-                showAuthSection();
+                showAuthSectionForInvite();
             };
-        }
-        
-        if (backBtn) {
-            backBtn.onclick = hideInviteLandingModal;
         }
         
         // Show modal
@@ -1636,6 +1690,34 @@
                 lobby.profileBtn.style.display = 'none';
             }
         }
+        
+        // Update matchmaking section based on login status
+        updateMatchmakingUI();
+    }
+    
+    /**
+     * Update matchmaking section UI based on login status
+     * Shows/hides invite button and guest restriction message
+     */
+    function updateMatchmakingUI() {
+        const inviteBtn = document.getElementById('matchmakingInviteBtn');
+        const guestRestriction = document.getElementById('guestInviteRestriction');
+        const guestSignInBtn = document.getElementById('guestSignInBtn');
+        
+        if (currentUser) {
+            // Logged in - show invite button, hide restriction
+            if (inviteBtn) inviteBtn.style.display = '';
+            if (guestRestriction) guestRestriction.style.display = 'none';
+        } else {
+            // Guest - hide invite button, show restriction
+            if (inviteBtn) inviteBtn.style.display = 'none';
+            if (guestRestriction) guestRestriction.style.display = 'flex';
+        }
+        
+        // Set up sign in button handler
+        if (guestSignInBtn) {
+            guestSignInBtn.onclick = () => showAuthSection();
+        }
     }
     
     function handleLoginBtnClick() {
@@ -1696,8 +1778,15 @@
                 // Update user menu display
                 window.UserMenu?.updateDisplay?.();
                 
-                // Go back to online options
-                showOnlineOptions();
+                // Check if we have a pending invite
+                if (pendingInviteAfterAuth) {
+                    const invite = pendingInviteAfterAuth;
+                    pendingInviteAfterAuth = null;
+                    showInviteLandingModal(invite.code, invite.info);
+                } else {
+                    // Go back to online options
+                    showOnlineOptions();
+                }
             } else {
                 showAuthError(data.error || i18nT('auth.loginFailed'));
             }
@@ -1765,8 +1854,14 @@
                 // Update user menu display
                 window.UserMenu?.updateDisplay?.();
                 
-                // Go back to online options
-                showOnlineOptions();
+                // Check if we have a pending invite to show
+                if (pendingInviteAfterAuth) {
+                    const invite = pendingInviteAfterAuth;
+                    pendingInviteAfterAuth = null;
+                    showInviteLandingModal(invite.code, invite.info);
+                } else {
+                    showOnlineOptions();
+                }
             } else {
                 showAuthError(data.error || i18nT('auth.registrationFailed'));
             }
