@@ -114,10 +114,15 @@ async function init() {
     // Check for saved language preference
     const savedLang = localStorage.getItem(STORAGE_KEY);
     
-    // Priority: saved > default (no browser detection to ensure English by default on first visit)
+    // Detect system/browser language
+    const systemLang = getSystemLanguage();
+    
+    // Priority: saved > system > default
     let targetLang = DEFAULT_LANGUAGE;
     if (savedLang && SUPPORTED_LANGUAGES[savedLang]) {
         targetLang = savedLang;
+    } else if (systemLang && SUPPORTED_LANGUAGES[systemLang]) {
+        targetLang = systemLang;
     }
     
     translations = await loadTranslations(targetLang);
@@ -128,6 +133,26 @@ async function init() {
     document.documentElement.lang = currentLanguage;
     
     console.log(`[i18n] Initialized with language: ${currentLanguage}`);
+}
+
+/**
+ * Detect the system/browser language
+ * Returns the language code if supported, otherwise null
+ */
+function getSystemLanguage() {
+    // Get browser language (e.g., 'en-US', 'fr', 'fr-FR')
+    const browserLang = navigator.language || navigator.userLanguage;
+    if (!browserLang) return null;
+    
+    // Extract base language code (e.g., 'en' from 'en-US')
+    const baseLang = browserLang.split('-')[0].toLowerCase();
+    
+    // Check if supported
+    if (SUPPORTED_LANGUAGES[baseLang]) {
+        return baseLang;
+    }
+    
+    return null;
 }
 
 /**

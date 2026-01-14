@@ -97,8 +97,141 @@
     };
 
     // ==================== Initialization ====================
-    function init() {
-        // Cache DOM elements
+    
+    /**
+     * Detect system theme preference
+     * Returns 'light' or 'dark'
+     */
+    function getSystemTheme() {
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+            return 'light';
+        }
+        return 'dark';
+    }
+    
+    /**
+     * Apply theme to the page
+     */
+    function applyTheme(theme) {
+        document.body.setAttribute('data-theme', theme);
+        
+        // Update theme toggle if it exists
+        const themeToggle = document.getElementById('themeToggle');
+        if (themeToggle) {
+            themeToggle.checked = theme === 'light';
+        }
+        
+        // Update meta theme color
+        const themeColor = document.querySelector('meta[name="theme-color"]');
+        if (themeColor) {
+            themeColor.content = theme === 'light' ? '#ffffff' : '#000000';
+        }
+    }
+    
+    /**
+     * Hide the loading screen with fade animation
+     */
+    function hideLoadingScreen() {
+        const loadingScreen = document.getElementById('loadingScreen');
+        if (loadingScreen) {
+            loadingScreen.classList.add('fade-out');
+            setTimeout(() => {
+                loadingScreen.style.display = 'none';
+            }, 300);
+        }
+    }
+    
+    /**
+     * Main initialization - handles async loading in correct order
+     */
+    async function init() {
+        // Step 1: Apply theme immediately (localStorage or system preference)
+        const savedTheme = localStorage.getItem('hexaequo.theme');
+        const theme = savedTheme || getSystemTheme();
+        applyTheme(theme);
+        
+        // Step 2: Initialize i18n (must complete before any UI text updates)
+        if (window.i18n) {
+            await window.i18n.init();
+        }
+        
+        // Step 3: Cache DOM elements
+        cacheDOM();
+        
+        // Step 4: Set up event listeners
+        setupEventListeners();
+        
+        // Step 5: Load saved preferences from localStorage
+        loadLocalGameConfig();
+        
+        // Step 6: Sync settings with existing toggles
+        syncSettingsFromGame();
+        
+        // Step 7: Initialize language selector (now safe to use i18nT)
+        initializeLanguageSelect();
+        
+        // Step 8: Check for existing session
+        await checkExistingSession();
+        
+        // Step 9: Update UI (now safe - i18n is loaded, user state known)
+        updateUserStatusUI();
+        
+        // Step 10: Update i18n DOM elements
+        if (window.i18n?.updateDOM) {
+            window.i18n.updateDOM();
+        }
+        
+        // Step 11: Initialize Matchmaking system (Phase 2)
+        if (window.Matchmaking) {
+            window.Matchmaking.init({
+                elo: currentUser?.elo || 1000,
+                onMatchFound: handleMatchFound,
+                onQueueStatusChange: (status) => {
+                    console.log('[Lobby] Queue status changed:', status);
+                }
+            });
+        }
+        
+        // Step 12: Initialize QR Code modal (Phase 2)
+        if (window.QrCodeModal) {
+            window.QrCodeModal.init({
+                onOpponentJoined: (data) => {
+                    console.log('[Lobby] Opponent joined via QR code:', data);
+                    
+                    // Host is always black in invitation mode
+                    const playerColor = 'black';
+                    
+                    // Parse opponent info
+                    const oppData = data.opponent || data.opponentInfo || {};
+                    const opponentInfo = { 
+                        name: oppData.pseudo || oppData.name || 'Opponent', 
+                        elo: oppData.elo || null
+                    };
+                    
+                    // Start the game
+                    startOnlineGame({
+                        playerColor: playerColor,
+                        gameState: data.gameState,
+                        opponentInfo: opponentInfo,
+                        timerState: data.timerState
+                    });
+                }
+            });
+        }
+        
+        // Step 13: Hide loading screen and check for invite
+        hideLoadingScreen();
+        
+        // Step 14: Handle invite code in URL (after everything is ready)
+        handleEarlyInviteCheck();
+        
+        console.log('[Lobby] Initialized');
+    }
+    
+    /**
+     * Cache all DOM elements
+     */
+    function cacheDOM() {
         lobby.overlay = document.getElementById('lobbyOverlay');
         lobby.playLocalBtn = document.getElementById('playLocalBtn');
         lobby.playOnlineBtn = document.getElementById('playOnlineBtn');
@@ -184,64 +317,6 @@
         // Filter toggle
         lobby.filterToggleBtn = document.getElementById('filterToggleBtn');
         lobby.roomFilters = document.getElementById('roomFilters');
-
-        // Set up event listeners
-        setupEventListeners();
-        
-        // Load saved preferences from localStorage
-        loadLocalGameConfig();
-        
-        // Sync settings with existing toggles
-        syncSettingsFromGame();
-        
-        // Initialize language selector
-        initializeLanguageSelect();
-        
-        // Check for existing session, then update UI and check for invite code
-        checkExistingSession().then(() => {
-            updateUserStatusUI();
-            handleEarlyInviteCheck();
-        });
-        
-        // Initialize Matchmaking system (Phase 2)
-        if (window.Matchmaking) {
-            window.Matchmaking.init({
-                elo: currentUser?.elo || 1000,
-                onMatchFound: handleMatchFound,
-                onQueueStatusChange: (status) => {
-                    console.log('[Lobby] Queue status changed:', status);
-                }
-            });
-        }
-        
-        // Initialize QR Code modal (Phase 2)
-        if (window.QrCodeModal) {
-            window.QrCodeModal.init({
-                onOpponentJoined: (data) => {
-                    console.log('[Lobby] Opponent joined via QR code:', data);
-                    
-                    // Host is always black in invitation mode
-                    const playerColor = 'black';
-                    
-                    // Parse opponent info
-                    const oppData = data.opponent || data.opponentInfo || {};
-                    const opponentInfo = { 
-                        name: oppData.pseudo || oppData.name || 'Opponent', 
-                        elo: oppData.elo || null
-                    };
-                    
-                    // Start the game
-                    startOnlineGame({
-                        playerColor: playerColor,
-                        gameState: data.gameState,
-                        opponentInfo: opponentInfo,
-                        timerState: data.timerState
-                    });
-                }
-            });
-        }
-        
-        console.log('[Lobby] Initialized');
     }
 
     // ==================== Event Listeners ====================
