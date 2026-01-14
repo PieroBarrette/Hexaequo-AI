@@ -271,16 +271,19 @@ exports.getSpectatorCount = async (code) => {
  * Format room response (internal -> external)
  */
 function formatRoomResponse(room) {
+    if (!room) return null;
+    
     return {
         code: room.code,
         host: {
-            id: room.host_id,
+            id: room.host_id, // Can be null for guests
             pseudo: room.host_pseudo,
             socketId: room.host_socket_id,
             color: 'black'
         },
-        guest: room.guest_id ? {
-            id: room.guest_id,
+        // Guest exists if guest_socket_id is set (even if guest_id is null/guest)
+        guest: (room.guest_id || room.guest_socket_id) ? {
+            id: room.guest_id, // Can be null for guests
             pseudo: room.guest_pseudo,
             socketId: room.guest_socket_id,
             color: 'white'

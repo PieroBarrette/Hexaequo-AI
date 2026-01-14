@@ -269,7 +269,9 @@ function initializeSocket(httpServer) {
             try {
                 const { roomCode, gameState, previousState, jumpPath, moveData, timerState } = data;
 
-                console.debug('[make-move] Received from socket:', socket.id, 'roomCode:', roomCode);
+                // Debug matching the "Not in this room" logic
+                console.debug(`[make-move] Request from ${socket.id} for room ${roomCode}`);
+                console.debug(`[make-move] PlayerId: ${playerId} (Auth: ${socket.userId || 'No'})`);
 
                 const room = await roomService.getRoomByCode(roomCode);
                 if (!room) {
@@ -278,12 +280,20 @@ function initializeSocket(httpServer) {
                 }
 
                 // Verify player is in this room
-                console.debug('[make-move] Room socketIds - host:', room.host.socketId, 'guest:', room.guest?.socketId);
-                console.debug('[make-move] Current socket.id:', socket.id);
-                const isHost = room.host.socketId === socket.id;
-                const isGuest = room.guest?.socketId === socket.id;
+                const hostSocket = room.host.socketId;
+                const guestSocket = room.guest?.socketId;
+                
+                console.debug('[make-move] Room Host Socket:', hostSocket);
+                console.debug('[make-move] Room Guest Socket:', guestSocket);
+                console.debug('[make-move] Calling Socket:', socket.id);
+                
+                const isHost = hostSocket === socket.id;
+                const isGuest = guestSocket === socket.id;
+                
                 if (!isHost && !isGuest) {
-                    console.debug('[make-move] Socket ID mismatch! isHost:', isHost, 'isGuest:', isGuest);
+                    console.error('[make-move] Socket ID mismatch!');
+                    console.error(`[make-move] Expected: ${hostSocket} or ${guestSocket}`);
+                    console.error(`[make-move] Received: ${socket.id}`);
                     return callback({ success: false, error: 'Not in this room' });
                 }
 
@@ -625,21 +635,25 @@ function initializeSocket(httpServer) {
         socket.on('join-matchmaking-queue', async (data, callback) => {
             try {
                 const { timeMode, elo, preferences } = data;
-                const pseudo = socket.pseudo || data.pseudo || 'Guest';
-                const userElo = elo || 1000; // Default ELO
+                // Use consistent "pseudo" from socket or data
+                const playerPseudo = socket.pseudo || data.pseudo || 'Guest';
+                // Use consistent ELO
+                const playerElo = elo || 1000;
                 
-                console.log(`[Matchmaking] ${pseudo} joining queue - timeMode: ${timeMode}, elo: ${userElo}`);
+                console.log(`[Matchmaking] ${playerPseudo} (ID: ${playerId}) joining queue`);
+                console.debug(`[Matchmaking] Config: Mode=${timeMode}, ELO=${playerElo}, Socket=${socket.id}`);
                 
                 const result = await matchmakingService.joinQueue(
-                    socket.userId,
+                    socket.userId, // Authenticated UUID or null
                     socket.id,
-                    pseudo,
-                    userElo,
+                    playerPseudo,
+                    playerElo,
                     timeMode || 'classic',
                     preferences || {}
                 );
                 
                 if (result.matched) {
+                    console.log(`[Matchmaking] Match found immediately for ${playerPseudo}`);
                     // Match found! Notify both players
                     const { room, opponent } = result;
                     
@@ -647,29 +661,34 @@ function initializeSocket(httpServer) {
                     const opponentSocket = io.sockets.sockets.get(opponent.socketId);
                     
                     if (opponentSocket) {
-                        // Opponent is the host (black) - they were waiting longer
+                        // Opponent is the host (black)
                         opponentSocket.join(result.roomCode);
+                        
+                        console.debug(`[Matchmaking] Notifying opponent (Host/Black): ${opponent.pseudo} (${opponent.socketId})`);
+                        
                         opponentSocket.emit('match-found', {
                             roomCode: result.roomCode,
                             color: 'black',
                             gameState: room.gameState,
                             timeMode: room.timeMode,
                             opponentInfo: {
-                                name: pseudo,
-                                elo: userElo,
+                                name: playerPseudo,
+                                elo: playerElo,
                                 isGuest: !socket.userId
                             }
                         });
+                    } else {
+                        console.warn(`[Matchmaking] Opponent socket ${opponent.socketId} not found!`);
                     }
                     
-                    // Current player is the guest (white) - they triggered the match
+                    // Current player is the guest (white)
                     socket.join(result.roomCode);
                     
                     // Update socket tracking
                     const socketInfo = connectedSockets.get(socket.id);
                     if (socketInfo) socketInfo.roomCode = result.roomCode;
                     
-                    console.debug('[Matchmaking] Match found - opponent:', opponent);
+                    console.debug(`[Matchmaking] Returning match to Joiner (Guest/White): ${playerPseudo}`);
                     
                     callback({
                         success: true,
@@ -686,6 +705,7 @@ function initializeSocket(httpServer) {
                     });
                 } else {
                     // No match yet, player is in queue
+                    console.log(`[Matchmaking] Added to queue: Pos=${result.queueEntry?.position}`);
                     callback({
                         success: true,
                         matched: false,

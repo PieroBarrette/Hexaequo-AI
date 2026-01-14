@@ -427,16 +427,23 @@ const Multiplayer = (function () {
     function sendMove(gameState, previousState, jumpPath = null) {
         return new Promise((resolve, reject) => {
             if (!socket || !socket.connected) {
+                console.warn('[Multiplayer] sendMove prevented: Socket not connected');
                 reject(new Error('Not connected to server'));
                 return;
             }
 
             if (!roomCode) {
+                console.warn('[Multiplayer] sendMove prevented: No roomCode set');
                 reject(new Error('Not in a room'));
                 return;
             }
 
-            console.debug('[sendMove] Sending move - roomCode:', roomCode, 'playerId:', playerId, 'socket.id:', socket.id);
+            console.debug('[sendMove] Sending move:', {
+                roomCode,
+                playerId,
+                socketId: socket.id,
+                isGuest: !playerId.includes('-') // Rough check if guest
+            });
 
             // Get current timer state to sync with opponent
             let timerState = null;
@@ -459,6 +466,7 @@ const Multiplayer = (function () {
                     }
                     resolve(response);
                 } else {
+                    console.error('[Multiplayer] sendMove failed response:', response);
                     reject(new Error(response.error || 'Failed to send move'));
                 }
             });
