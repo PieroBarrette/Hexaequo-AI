@@ -216,7 +216,30 @@
         
         // Initialize QR Code modal (Phase 2)
         if (window.QrCodeModal) {
-            window.QrCodeModal.init();
+            window.QrCodeModal.init({
+                onOpponentJoined: (data) => {
+                    console.log('[Lobby] Opponent joined via QR code:', data);
+                    
+                    // Host is always black in invitation mode
+                    const playerColor = 'black';
+                    
+                    // Parse opponent info
+                    const oppData = data.opponent || data.opponentInfo || {};
+                    const opponentInfo = { 
+                        name: oppData.pseudo || oppData.name || i18nT('lobby.guest'), 
+                        elo: oppData.elo || null, 
+                        isGuest: oppData.isGuest ?? true 
+                    };
+                    
+                    // Start the game
+                    startOnlineGame({
+                        playerColor: playerColor,
+                        gameState: data.gameState,
+                        opponentInfo: opponentInfo,
+                        timerState: data.timerState
+                    });
+                }
+            });
         }
         
         console.log('[Lobby] Initialized');
@@ -1708,7 +1731,7 @@
         }
         
         try {
-            const response = await fetch(`${API_BASE}/auth/me`, {
+            const response = await fetch(`${API_BASE}/users/me`, {
                 headers: {
                     'Authorization': `Bearer ${sessionToken}`
                 }
