@@ -49,16 +49,16 @@ function generateCode() {
 /**
  * Create a new invitation
  */
-async function createInvitation(creatorUserId, creatorPseudo, roomSettings = {}) {
+async function createInvitation(creatorUserId, creatorPseudo, creatorElo, roomSettings = {}) {
     const code = generateCode();
     const expiresAt = new Date(Date.now() + INVITATION_EXPIRATION_HOURS * 60 * 60 * 1000);
     
     try {
         const result = await query(
-            `INSERT INTO invitations (id, code, creator_user_id, creator_pseudo, room_settings, expires_at)
-             VALUES ($1, $2, $3, $4, $5, $6)
+            `INSERT INTO invitations (id, code, creator_user_id, creator_pseudo, creator_elo, room_settings, expires_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
              RETURNING *`,
-            [uuidv4(), code, creatorUserId, creatorPseudo, JSON.stringify(roomSettings), expiresAt]
+            [uuidv4(), code, creatorUserId, creatorPseudo, creatorElo, JSON.stringify(roomSettings), expiresAt]
         );
         
         return formatInvitation(result.rows[0]);
@@ -67,10 +67,10 @@ async function createInvitation(creatorUserId, creatorPseudo, roomSettings = {})
         if (err.code === '23505') {
             const newCode = generateCode();
             const result = await query(
-                `INSERT INTO invitations (id, code, creator_user_id, creator_pseudo, room_settings, expires_at)
-                 VALUES ($1, $2, $3, $4, $5, $6)
+                `INSERT INTO invitations (id, code, creator_user_id, creator_pseudo, creator_elo, room_settings, expires_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)
                  RETURNING *`,
-                [uuidv4(), newCode, creatorUserId, creatorPseudo, JSON.stringify(roomSettings), expiresAt]
+                [uuidv4(), newCode, creatorUserId, creatorPseudo, creatorElo, JSON.stringify(roomSettings), expiresAt]
             );
             return formatInvitation(result.rows[0]);
         }
@@ -188,6 +188,7 @@ function formatInvitation(row) {
         code: row.code,
         creatorUserId: row.creator_user_id,
         creatorPseudo: row.creator_pseudo,
+        creatorElo: row.creator_elo,
         roomSettings: typeof row.room_settings === 'string' ? JSON.parse(row.room_settings) : row.room_settings,
         createdAt: row.created_at,
         expiresAt: row.expires_at,

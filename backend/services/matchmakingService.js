@@ -45,9 +45,9 @@ async function joinQueue(userId, socketId, pseudo, elo, timeMode, preferences = 
             preferences = { ...userPrefs, ...preferences };
         }
         
-        // Add to queue
+        // Add to queue (pass pseudo so it's stored in DB for opponents to see)
         const queueEntry = await withFallback(
-            () => matchmakingQueueModel.addToQueue(userId, socketId, elo, timeMode, preferences),
+            () => matchmakingQueueModel.addToQueue(userId, socketId, pseudo, elo, timeMode, preferences),
             () => addToMemoryQueue(userId, socketId, pseudo, elo, timeMode, preferences)
         );
         

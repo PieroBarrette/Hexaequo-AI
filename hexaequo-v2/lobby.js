@@ -1089,14 +1089,27 @@
         const landingBackdrop = document.getElementById('inviteLandingBackdrop');
         const landingModal = document.getElementById('inviteLandingModal');
         const hostPseudoEl = document.getElementById('inviteHostPseudo');
+        const hostEloEl = document.getElementById('inviteHostElo');
         const timeModeEl = document.getElementById('inviteTimeMode');
         const joinBtn = document.getElementById('inviteJoinBtn');
         const guestBtn = document.getElementById('inviteGuestBtn');
         const signInBtn = document.getElementById('inviteSignInBtn');
         
-        // Populate info
+        // Populate info - show actual host name or Guest if it's a guest
         if (hostPseudoEl) {
-            hostPseudoEl.textContent = inviteInfo.creatorPseudo || i18nT('lobby.guest');
+            const hostName = inviteInfo.creatorPseudo || i18nT('lobby.guest');
+            hostPseudoEl.textContent = hostName;
+        }
+        
+        // Show host ELO if available
+        if (hostEloEl) {
+            if (inviteInfo.creatorElo && !inviteInfo.creatorIsGuest) {
+                hostEloEl.textContent = inviteInfo.creatorElo;
+                hostEloEl.style.display = '';
+            } else {
+                hostEloEl.textContent = '?';
+                hostEloEl.style.display = '';
+            }
         }
         
         if (timeModeEl) {
@@ -1175,10 +1188,14 @@
             return;
         }
         
+        // Include ELO when joining so host sees our rating
+        const userElo = asGuest ? null : (currentUser?.elo || null);
+        
         const payload = { 
             code,
             asGuest,
-            pseudo: asGuest ? i18nT('lobby.guest') : (currentUser?.pseudo || currentUser?.username || i18nT('lobby.guest'))
+            pseudo: asGuest ? i18nT('lobby.guest') : (currentUser?.pseudo || currentUser?.username || i18nT('lobby.guest')),
+            elo: userElo
         };
         
         socket.emit('accept-invitation', payload, (response) => {

@@ -734,8 +734,10 @@ function initializeSocket(httpServer) {
          */
         socket.on('create-invitation', async (data, callback) => {
             try {
-                const { timeMode, allowSpectators } = data;
+                const { timeMode, allowSpectators, elo } = data;
                 const pseudo = socket.pseudo || data.pseudo || 'Guest';
+                // Use provided ELO or default to null for guests
+                const userElo = elo || null;
                 
                 const roomSettings = {
                     timeMode: timeMode || 'classic',
@@ -745,6 +747,7 @@ function initializeSocket(httpServer) {
                 const invitation = await invitationService.createInvitation(
                     socket.userId,
                     pseudo,
+                    userElo,
                     socket.id,  // Pass socket ID so room is created with correct hostSocketId
                     roomSettings
                 );
@@ -788,6 +791,8 @@ function initializeSocket(httpServer) {
                 callback({
                     success: true,
                     creatorPseudo: info.creatorPseudo,
+                    creatorElo: info.creatorElo,
+                    creatorIsGuest: info.creatorIsGuest,
                     timeMode: info.timeMode,
                     expiresAt: info.expiresAt
                 });
@@ -802,10 +807,11 @@ function initializeSocket(httpServer) {
          */
         socket.on('accept-invitation', async (data, callback) => {
             try {
-                const { code, asGuest } = data;
+                const { code, asGuest, elo } = data;
                 // If user explicitly plays as guest, don't use socket.userId
                 const userId = asGuest ? null : socket.userId;
                 const pseudo = data.pseudo || socket.pseudo || 'Guest';
+                const acceptorElo = elo || null;
                 
                 // acceptInvitation already joins the room as guest
                 const result = await invitationService.acceptInvitation(
@@ -828,11 +834,12 @@ function initializeSocket(httpServer) {
                 const socketInfo = connectedSockets.get(socket.id);
                 if (socketInfo) socketInfo.roomCode = result.roomCode;
                 
-                // Notify the host if they're connected
+                // Notify the host if they're connected - include full opponent info
                 socket.to(result.roomCode).emit('opponent-joined', {
                     gameState: result.gameState,
                     opponent: {
                         pseudo,
+                        elo: acceptorElo,
                         color: 'white',
                         isGuest: !userId
                     }
@@ -846,6 +853,7 @@ function initializeSocket(httpServer) {
                     gameState: result.gameState,
                     opponentInfo: {
                         name: result.creatorPseudo,
+                        elo: result.creatorElo,
                         isGuest: !result.creatorId
                     }
                 });

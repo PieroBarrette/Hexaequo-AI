@@ -243,9 +243,15 @@ import { validateMove } from './modules/moveValidator.js';
 ### Database Tables (Phase 2)
 ```sql
 user_preferences (user_id, preferred_time_mode, elo_range_min, elo_range_max)
-matchmaking_queue (id, user_id, elo_rating, time_mode, elo_range_min, elo_range_max, joined_at, expires_at)
-invitations (id, code, creator_id, time_mode, expires_at, used, used_by, used_at)
+matchmaking_queue (id, user_id, socket_id, pseudo, elo, time_mode, preferences, created_at, expires_at)
+invitations (id, code, creator_user_id, creator_pseudo, creator_elo, room_settings, created_at, expires_at, used)
 ```
+
+### Data Flow: Matchmaking/Invitation Opponent Info
+- **Queue stores pseudo**: `matchmakingQueueModel.addToQueue()` stores the player's pseudo directly in DB
+- **Invitation stores creator info**: `invitationModel.createInvitation()` stores `creator_pseudo` and `creator_elo`
+- **Frontend passes ELO**: Both matchmaking and invitation emit user's ELO from `GameLobby.getUser()`
+- **opponentInfo returned**: Socket handlers return `{name, elo, isGuest}` for proper opponent display
 
 ## Future Features Architecture (Phase 3-4)
 

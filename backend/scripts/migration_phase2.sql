@@ -1,5 +1,6 @@
 -- Migration Phase 2: Add missing columns and tables for invitation/matchmaking system
 -- Run this script on the production database to add missing columns/tables
+-- Compatible with PostgreSQL 9.6+ (uses ADD COLUMN IF NOT EXISTS)
 
 -- ============================================
 -- User Preferences Table (Phase 2 - Matchmaking)
@@ -20,6 +21,7 @@ CREATE TABLE IF NOT EXISTS matchmaking_queue (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     socket_id VARCHAR(255) NOT NULL,
+    pseudo VARCHAR(50) DEFAULT 'Guest',
     elo INTEGER NOT NULL,
     time_mode VARCHAR(20) NOT NULL,
     preferences JSONB DEFAULT '{}'::jsonb,
@@ -32,6 +34,9 @@ CREATE INDEX IF NOT EXISTS idx_matchmaking_queue_elo ON matchmaking_queue(elo);
 CREATE INDEX IF NOT EXISTS idx_matchmaking_queue_expires ON matchmaking_queue(expires_at);
 CREATE INDEX IF NOT EXISTS idx_matchmaking_queue_user ON matchmaking_queue(user_id);
 
+-- Add pseudo column to matchmaking_queue if it doesn't exist (PostgreSQL 9.6+)
+ALTER TABLE matchmaking_queue ADD COLUMN IF NOT EXISTS pseudo VARCHAR(50) DEFAULT 'Guest';
+
 -- ============================================
 -- Invitations Table (Phase 2)
 -- ============================================
@@ -40,7 +45,8 @@ CREATE TABLE IF NOT EXISTS invitations (
     code VARCHAR(20) UNIQUE NOT NULL,
     creator_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     creator_pseudo VARCHAR(30),
-    room_settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+    creator_elo INTEGER,
+    room_settings JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP NOT NULL,
     used BOOLEAN DEFAULT FALSE
@@ -50,41 +56,61 @@ CREATE TABLE IF NOT EXISTS invitations (
 -- Invitations Table Updates (for existing table)
 -- ============================================
 
--- Add creator_pseudo column if it doesn't exist
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'invitations' AND column_name = 'creator_pseudo'
-    ) THEN
-        ALTER TABLE invitations ADD COLUMN creator_pseudo VARCHAR(30);
-        RAISE NOTICE 'Added creator_pseudo column to invitations table';
-    ELSE
-        RAISE NOTICE 'creator_pseudo column already exists';
-    END IF;
-END $$;
-
--- Add room_settings column if it doesn't exist (for time_mode storage)
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'invitations' AND column_name = 'room_settings'
-    ) THEN
-        ALTER TABLE invitations ADD COLUMN room_settings JSONB NOT NULL DEFAULT '{}'::jsonb;
-        RAISE NOTICE 'Added room_settings column to invitations table';
-    ELSE
-        RAISE NOTICE 'room_settings column already exists';
-    END IF;
-END $$;
+-- Add missing columns using IF NOT EXISTS (PostgreSQL 9.6+)
+ALTER TABLE invitations ADD COLUMN IF NOT EXISTS creator_pseudo VARCHAR(30);
+ALTER TABLE invitations ADD COLUMN IF NOT EXISTS creator_elo INTEGER;
+ALTER TABLE invitations ADD COLUMN IF NOT EXISTS room_settings JSONB DEFAULT '{}'::jsonb;
 
 -- Ensure indexes exist
 CREATE INDEX IF NOT EXISTS idx_invitations_code ON invitations(code);
 CREATE INDEX IF NOT EXISTS idx_invitations_creator ON invitations(creator_user_id);
 CREATE INDEX IF NOT EXISTS idx_invitations_expires ON invitations(expires_at);
 
--- Verify the table structure
-SELECT column_name, data_type, is_nullable 
+-- ============================================
+-- Cleanup Functions
+-- ============================================
+
+-- Drop existing functions first (return type may differ)
+DROP FUNCTION IF EXISTS cleanup_expired_invitations();
+DROP FUNCTION IF EXISTS cleanup_expired_queue();
+
+-- Function to clean up expired invitations
+CREATE FUNCTION cleanup_expired_invitations() 
+RETURNS INTEGER 
+LANGUAGE plpgsql
+AS $func$
+DECLARE
+    deleted_count INTEGER;
+BEGIN
+    DELETE FROM invitations WHERE expires_at < NOW() OR used = TRUE;
+    GET DIAGNOSTICS deleted_count = ROW_COUNT;
+    RETURN deleted_count;
+END;
+$func$;
+
+-- Function to clean up expired matchmaking queue entries
+CREATE FUNCTION cleanup_expired_queue() 
+RETURNS INTEGER 
+LANGUAGE plpgsql
+AS $func$
+DECLARE
+    deleted_count INTEGER;
+BEGIN
+    DELETE FROM matchmaking_queue WHERE expires_at < NOW();
+    GET DIAGNOSTICS deleted_count = ROW_COUNT;
+    RETURN deleted_count;
+END;
+$func$;
+
+-- ============================================
+-- Verify Results
+-- ============================================
+SELECT 'invitations' as table_name, column_name, data_type, is_nullable 
 FROM information_schema.columns 
 WHERE table_name = 'invitations' 
+ORDER BY ordinal_position;
+
+SELECT 'matchmaking_queue' as table_name, column_name, data_type, is_nullable 
+FROM information_schema.columns 
+WHERE table_name = 'matchmaking_queue' 
 ORDER BY ordinal_position;

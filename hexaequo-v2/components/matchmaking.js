@@ -175,9 +175,14 @@ const Matchmaking = (function() {
                 return;
             }
             
+            // Get current user info for pseudo
+            const currentUser = window.GameLobby?.getUser();
+            const pseudo = currentUser?.pseudo || currentUser?.username || 'Guest';
+            
             socket.emit('join-matchmaking-queue', {
                 timeMode: timeMode || 'classic',
                 elo: elo || 1000,
+                pseudo: pseudo,
                 preferences: preferences || {}
             }, (response) => {
                 if (response.success) {

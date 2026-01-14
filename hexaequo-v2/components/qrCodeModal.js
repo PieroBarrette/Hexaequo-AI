@@ -292,8 +292,15 @@ const QrCodeModal = (function() {
                 return;
             }
             
+            // Get user info for ELO
+            const currentUser = window.GameLobby?.getUser();
+            const userElo = currentUser?.elo || null;
+            const pseudo = currentUser?.pseudo || currentUser?.username || null;
+            
             socket.emit('create-invitation', {
-                timeMode: timeMode
+                timeMode: timeMode,
+                elo: userElo,
+                pseudo: pseudo
             }, (response) => {
                 if (response.success) {
                     // Set room info in Multiplayer since we're now in a room

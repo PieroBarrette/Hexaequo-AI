@@ -38,7 +38,7 @@ let useMemoryStore = false;
  * Create a new invitation
  * Creates a room immediately so the creator can wait
  */
-async function createInvitation(userId, pseudo, socketId, roomSettings = {}) {
+async function createInvitation(userId, pseudo, elo, socketId, roomSettings = {}) {
     try {
         // Create room first so creator is waiting
         const room = await roomService.createRoom({
@@ -50,8 +50,8 @@ async function createInvitation(userId, pseudo, socketId, roomSettings = {}) {
         });
         
         const invitation = await withFallback(
-            () => invitationModel.createInvitation(userId, pseudo, { ...roomSettings, roomCode: room.code }),
-            () => createMemoryInvitation(userId, pseudo, { ...roomSettings, roomCode: room.code })
+            () => invitationModel.createInvitation(userId, pseudo, elo, { ...roomSettings, roomCode: room.code }),
+            () => createMemoryInvitation(userId, pseudo, elo, { ...roomSettings, roomCode: room.code })
         );
         
         return {
@@ -109,6 +109,7 @@ async function acceptInvitation(code, acceptorId, acceptorPseudo, acceptorSocket
             timeMode: invitation.roomSettings?.timeMode || 'none',
             creatorId: invitation.creatorUserId,
             creatorPseudo: invitation.creatorPseudo,
+            creatorElo: invitation.creatorElo,
             gameState: room.gameState
         };
     } catch (err) {
@@ -136,6 +137,8 @@ async function getInvitationInfo(code) {
         return {
             valid: true,
             creatorPseudo: invitation.creatorPseudo || 'Guest',
+            creatorElo: invitation.creatorElo,
+            creatorIsGuest: !invitation.creatorUserId,
             timeMode: invitation.roomSettings?.timeMode || 'none',
             expiresAt: invitation.expiresAt
         };
@@ -207,13 +210,14 @@ function generateCode() {
     return code;
 }
 
-function createMemoryInvitation(userId, pseudo, roomSettings) {
+function createMemoryInvitation(userId, pseudo, elo, roomSettings) {
     const code = generateCode();
     const invitation = {
         id: `mem_${Date.now()}`,
         code,
         creatorUserId: userId,
         creatorPseudo: pseudo,
+        creatorElo: elo,
         roomSettings,
         createdAt: new Date(),
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),

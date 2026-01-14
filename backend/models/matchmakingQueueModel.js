@@ -35,7 +35,7 @@ const QUEUE_EXPIRATION_MINUTES = 5;
  * Add player to matchmaking queue
  * Replaces existing entry if player is already in queue
  */
-async function addToQueue(userId, socketId, elo, timeMode, preferences = {}) {
+async function addToQueue(userId, socketId, pseudo, elo, timeMode, preferences = {}) {
     // First remove any existing entry for this user
     if (userId) {
         await removeFromQueue(userId);
@@ -45,10 +45,10 @@ async function addToQueue(userId, socketId, elo, timeMode, preferences = {}) {
     const expiresAt = new Date(Date.now() + QUEUE_EXPIRATION_MINUTES * 60 * 1000);
     
     const result = await query(
-        `INSERT INTO matchmaking_queue (id, user_id, socket_id, elo, time_mode, preferences, expires_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `INSERT INTO matchmaking_queue (id, user_id, socket_id, pseudo, elo, time_mode, preferences, expires_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          RETURNING *`,
-        [uuidv4(), userId, socketId, elo, timeMode, JSON.stringify(preferences), expiresAt]
+        [uuidv4(), userId, socketId, pseudo || 'Guest', elo, timeMode, JSON.stringify(preferences), expiresAt]
     );
     
     return formatQueueEntry(result.rows[0]);
@@ -101,17 +101,17 @@ async function findMatch(userId, socketId, elo, timeMode, preferences = {}) {
     // 3. My ELO is within their acceptable range
     // 4. Not expired
     // 5. Not myself
+    // Note: pseudo is now stored directly in matchmaking_queue table, no need for JOIN
     const result = await query(
-        `SELECT mq.*, u.pseudo FROM matchmaking_queue mq
-         LEFT JOIN users u ON mq.user_id = u.id
-         WHERE mq.time_mode = $1
-           AND mq.expires_at > NOW()
-           AND mq.socket_id != $2
-           AND ($3::uuid IS NULL OR mq.user_id IS NULL OR mq.user_id != $3)
-           AND mq.elo BETWEEN $4 AND $5
-           AND $6 BETWEEN (mq.elo + COALESCE((mq.preferences->>'elo_range_min')::int, -200)) 
-                       AND (mq.elo + COALESCE((mq.preferences->>'elo_range_max')::int, 200))
-         ORDER BY mq.created_at ASC
+        `SELECT * FROM matchmaking_queue
+         WHERE time_mode = $1
+           AND expires_at > NOW()
+           AND socket_id != $2
+           AND ($3::uuid IS NULL OR user_id IS NULL OR user_id != $3)
+           AND elo BETWEEN $4 AND $5
+           AND $6 BETWEEN (elo + COALESCE((preferences->>'elo_range_min')::int, -200)) 
+                       AND (elo + COALESCE((preferences->>'elo_range_max')::int, 200))
+         ORDER BY created_at ASC
          LIMIT 1`,
         [timeMode, socketId, userId, elo + myEloMin, elo + myEloMax, elo]
     );
