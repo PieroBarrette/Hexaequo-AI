@@ -162,7 +162,6 @@
         lobby.filterRapid = document.getElementById('filterRapid');
         lobby.filterBlitz = document.getElementById('filterBlitz');
         lobby.filterBullet = document.getElementById('filterBullet');
-        lobby.filterGuests = document.getElementById('filterGuests');
         lobby.filterUsers = document.getElementById('filterUsers');
         lobby.eloMin = document.getElementById('eloMin');
         lobby.eloMax = document.getElementById('eloMax');
@@ -226,9 +225,8 @@
                     // Parse opponent info
                     const oppData = data.opponent || data.opponentInfo || {};
                     const opponentInfo = { 
-                        name: oppData.pseudo || oppData.name || i18nT('lobby.guest'), 
-                        elo: oppData.elo || null, 
-                        isGuest: oppData.isGuest ?? true 
+                        name: oppData.pseudo || oppData.name || 'Opponent', 
+                        elo: oppData.elo || null
                     };
                     
                     // Start the game
@@ -281,7 +279,6 @@
         lobby.filterRapid?.addEventListener('change', applyFiltersAndRender);
         lobby.filterBlitz?.addEventListener('change', applyFiltersAndRender);
         lobby.filterBullet?.addEventListener('change', applyFiltersAndRender);
-        lobby.filterGuests?.addEventListener('change', applyFiltersAndRender);
         lobby.filterUsers?.addEventListener('change', applyFiltersAndRender);
         lobby.eloMin?.addEventListener('input', debounce(applyFiltersAndRender, 300));
         lobby.eloMax?.addEventListener('input', debounce(applyFiltersAndRender, 300));
@@ -630,6 +627,12 @@
     }
 
     function showOnlineOptions() {
+        // Require sign-in to access online play
+        if (!currentUser) {
+            showAuthSection();
+            return;
+        }
+        
         document.querySelector('.mode-selection')?.style.setProperty('display', 'none');
         lobby.localConfigSection?.style.setProperty('display', 'none');
         lobby.onlineOptions?.style.setProperty('display', 'flex');
@@ -648,9 +651,6 @@
         // Reset online UI state
         lobby.roomActions?.style.setProperty('display', 'none');
         lobby.waitingSection?.style.setProperty('display', 'none');
-        
-        // Update user status display
-        updateUserStatusUI();
         
         // Connect to server
         connectToServer();
@@ -751,13 +751,11 @@
         } else if (mode === 'online') {
             // Determine which player is local and which is opponent based on playerColor
             const localUser = currentUser;
-            const localIsGuest = !localUser;
-            const localName = localUser ? (localUser.pseudo || localUser.username) : i18nT('lobby.guest');
-            const localElo = localIsGuest ? '?' : (localUser.elo || 1000);
+            const localName = localUser ? (localUser.pseudo || localUser.username) : 'Player';
+            const localElo = localUser?.elo || 1000;
             
-            const opponentIsGuest = !opponentInfo || opponentInfo.isGuest;
-            const opponentName = opponentInfo?.name || i18nT('lobby.guest');
-            const opponentElo = opponentIsGuest ? '?' : (opponentInfo?.elo || 1000);
+            const opponentName = opponentInfo?.name || 'Opponent';
+            const opponentElo = opponentInfo?.elo || '?';
             
             if (playerColor === 'black') {
                 // Local player is black
@@ -901,9 +899,8 @@
             // Store opponent info (handle both 'opponentInfo' and 'opponent' keys for compatibility)
             const oppData = data.opponentInfo || data.opponent || {};
             currentOpponent = { 
-                name: oppData.pseudo || oppData.name || i18nT('lobby.guest'), 
-                elo: oppData.elo || null, 
-                isGuest: oppData.isGuest ?? true 
+                name: oppData.pseudo || oppData.name || 'Opponent', 
+                elo: oppData.elo || null
             };
             startOnlineGame({ 
                 playerColor, 
@@ -1012,7 +1009,7 @@
             } else {
                 // Game is starting - we're the joining player (white)
                 // Store opponent info (black player)
-                currentOpponent = result.opponentInfo || { name: i18nT('lobby.guest'), elo: null, isGuest: true };
+                currentOpponent = result.opponentInfo || { name: 'Opponent', elo: null };
                 startOnlineGame({ 
                     playerColor: result.color, 
                     gameState: result.gameState,
@@ -1115,23 +1112,22 @@
         const hostEloEl = document.getElementById('inviteHostElo');
         const timeModeEl = document.getElementById('inviteTimeMode');
         const joinBtn = document.getElementById('inviteJoinBtn');
-        const guestBtn = document.getElementById('inviteGuestBtn');
         const signInBtn = document.getElementById('inviteSignInBtn');
         
-        // Populate info - show actual host name or Guest if it's a guest
+        // Populate info - show actual host name
         if (hostPseudoEl) {
-            const hostName = inviteInfo.creatorPseudo || i18nT('lobby.guest');
+            const hostName = inviteInfo.creatorPseudo || 'Host';
             hostPseudoEl.textContent = hostName;
         }
         
         // Show host ELO if available
         if (hostEloEl) {
-            if (inviteInfo.creatorElo && !inviteInfo.creatorIsGuest) {
+            if (inviteInfo.creatorElo) {
                 hostEloEl.textContent = inviteInfo.creatorElo;
                 hostEloEl.style.display = '';
             } else {
-                hostEloEl.textContent = '?';
-                hostEloEl.style.display = '';
+                hostEloEl.textContent = '';
+                hostEloEl.style.display = 'none';
             }
         }
         
@@ -1146,17 +1142,13 @@
         
         if (joinBtn) {
             joinBtn.style.display = isLoggedIn ? 'block' : 'none';
-            joinBtn.onclick = () => acceptInvitationFromModal(false);
-        }
-        
-        if (guestBtn) {
-            guestBtn.style.display = isLoggedIn ? 'none' : 'block';
-            guestBtn.onclick = () => acceptInvitationFromModal(true);
+            joinBtn.onclick = () => acceptInvitationFromModal();
         }
         
         if (signInBtn) {
             // Show sign in button if not logged in
             signInBtn.style.display = isLoggedIn ? 'none' : 'block';
+            signInBtn.textContent = i18nT('invite.signInToJoin');
             signInBtn.onclick = () => {
                 // Store invite info, show auth section, then return
                 pendingInviteAfterAuth = { code, info: inviteInfo };
@@ -1187,22 +1179,22 @@
     /**
      * Accept invitation from the landing modal
      */
-    function acceptInvitationFromModal(asGuest) {
-        console.log('[Lobby] acceptInvitationFromModal called, asGuest:', asGuest, 'currentInviteCode:', currentInviteCode);
+    function acceptInvitationFromModal() {
+        console.log('[Lobby] acceptInvitationFromModal called, currentInviteCode:', currentInviteCode);
         if (!currentInviteCode) {
             console.error('[Lobby] No currentInviteCode!');
             return;
         }
         
         hideInviteLandingModal();
-        acceptInvitation(currentInviteCode, currentInviteInfo, asGuest);
+        acceptInvitation(currentInviteCode, currentInviteInfo);
     }
     
     /**
      * Accept an invitation and join the game
      */
-    function acceptInvitation(code, inviteInfo, asGuest = false) {
-        console.log('[Lobby] Accepting invitation:', code, inviteInfo, asGuest ? '(as guest)' : '');
+    function acceptInvitation(code, inviteInfo) {
+        console.log('[Lobby] Accepting invitation:', code, inviteInfo);
         console.log('[Lobby] Socket available:', !!socket, 'Connected:', socket?.connected);
         
         if (!socket || !socket.connected) {
@@ -1211,14 +1203,16 @@
             return;
         }
         
-        // Include ELO when joining so host sees our rating
-        const userElo = asGuest ? null : (currentUser?.elo || null);
+        // User must be logged in at this point
+        if (!currentUser) {
+            showError(i18nT('invite.signInToJoin'));
+            return;
+        }
         
         const payload = { 
             code,
-            asGuest,
-            pseudo: asGuest ? i18nT('lobby.guest') : (currentUser?.pseudo || currentUser?.username || i18nT('lobby.guest')),
-            elo: userElo
+            pseudo: currentUser.pseudo || currentUser.username,
+            elo: currentUser.elo || null
         };
 
         console.log('[Lobby] accept-invitation payload', {
@@ -1243,9 +1237,8 @@
             
             // Store opponent info
             currentOpponent = {
-                name: response.opponentInfo?.name || inviteInfo.creatorPseudo || i18nT('lobby.guest'),
-                elo: response.opponentInfo?.elo,
-                isGuest: response.opponentInfo?.isGuest ?? true
+                name: response.opponentInfo?.name || inviteInfo.creatorPseudo || 'Host',
+                elo: response.opponentInfo?.elo
             };
             
             // Start the game as white (guest)
@@ -1265,7 +1258,7 @@
         console.log('[Lobby] Match found:', data);
         
         currentRoomCode = data.roomCode;
-        currentOpponent = data.opponentInfo || { name: 'Opponent', elo: null, isGuest: true };
+        currentOpponent = data.opponentInfo || { name: 'Opponent', elo: null };
         
         startOnlineGame({
             playerColor: data.color,
@@ -1330,7 +1323,6 @@
                 blitz: lobby.filterBlitz?.checked ?? true,
                 bullet: lobby.filterBullet?.checked ?? true
             },
-            showGuests: lobby.filterGuests?.checked ?? true,
             showUsers: lobby.filterUsers?.checked ?? true,
             eloMin: parseInt(lobby.eloMin?.value) || 0,
             eloMax: parseInt(lobby.eloMax?.value) || Infinity
@@ -1340,11 +1332,7 @@
             // Time control filter
             if (!filters.timeControls[room.timeControl]) return false;
             
-            // Guest/User filter
-            if (room.isGuest && !filters.showGuests) return false;
-            if (!room.isGuest && !filters.showUsers) return false;
-            
-            // ELO filter (only applies to non-guests with ELO)
+            // ELO filter
             if (room.creatorElo !== null) {
                 if (room.creatorElo < filters.eloMin) return false;
                 if (room.creatorElo > filters.eloMax) return false;
@@ -1458,7 +1446,7 @@
             
             // Player name cell
             const tdName = document.createElement('td');
-            tdName.textContent = room.creatorName || i18nT('lobby.guest');
+            tdName.textContent = room.creatorName || 'Unknown';
             if (isOwnRoom) {
                 tdName.textContent += ' ' + i18nT('lobby.you');
             }
@@ -1780,23 +1768,9 @@
             if (lobby.profileBtn) {
                 lobby.profileBtn.style.display = 'inline-block';
             }
-        } else {
-            // Guest
-            if (lobby.userDisplayName) {
-                lobby.userDisplayName.textContent = i18nT('lobby.guest');
-            }
-            if (lobby.userEloDisplay) {
-                lobby.userEloDisplay.textContent = '';
-            }
-            if (lobby.loginBtn) {
-                lobby.loginBtn.textContent = i18nT('auth.signIn');
-            }
-            if (lobby.profileBtn) {
-                lobby.profileBtn.style.display = 'none';
-            }
         }
         
-        // Update matchmaking section based on login status
+        // Update matchmaking section
         updateMatchmakingUI();
     }
     
@@ -1806,23 +1780,10 @@
      */
     function updateMatchmakingUI() {
         const inviteBtn = document.getElementById('matchmakingInviteBtn');
-        const guestRestriction = document.getElementById('guestInviteRestriction');
-        const guestSignInBtn = document.getElementById('guestSignInBtn');
         
-        if (currentUser) {
-            // Logged in - show invite button, hide restriction
-            if (inviteBtn) inviteBtn.style.display = '';
-            if (guestRestriction) guestRestriction.style.display = 'none';
-        } else {
-            // Guest - hide invite button, show restriction
-            if (inviteBtn) inviteBtn.style.display = 'none';
-            if (guestRestriction) guestRestriction.style.display = 'flex';
-        }
-        
-        // Set up sign in button handler
-        if (guestSignInBtn) {
-            guestSignInBtn.onclick = () => showAuthSection();
-        }
+        // Since users must be signed in to access online play,
+        // both Play and Invite buttons are always available
+        if (inviteBtn) inviteBtn.style.display = '';
     }
     
     function handleLoginBtnClick() {

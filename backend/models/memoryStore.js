@@ -63,9 +63,9 @@ async function create({ hostId, hostPseudo, hostSocketId, timeMode = 'none', all
         host_id: hostId,
         host_pseudo: hostPseudo,
         host_socket_id: hostSocketId,
-        guest_id: null,
-        guest_pseudo: null,
-        guest_socket_id: null,
+        white_id: null,
+        white_pseudo: null,
+        white_socket_id: null,
         time_mode: timeMode,
         allow_spectators: allowSpectators,
         status: 'waiting',
@@ -111,17 +111,17 @@ async function findAvailable({ status = 'waiting', timeMode, allowSpectators, pa
     };
 }
 
-async function joinAsGuest(code, { guestId, guestPseudo, guestSocketId }) {
+async function joinAsWhite(code, { whiteId, whitePseudo, whiteSocketId }) {
     const room = rooms.get(code?.toUpperCase());
     if (!room || room.status !== 'waiting') return null;
     
-    console.debug('[memoryStore.joinAsGuest] Setting guest - code:', code, 'guestId:', guestId, 'guestSocketId:', guestSocketId);
-    room.guest_id = guestId;
-    room.guest_pseudo = guestPseudo;
-    room.guest_socket_id = guestSocketId;
+    console.debug('[memoryStore.joinAsWhite] Setting white player - code:', code, 'whiteId:', whiteId, 'whiteSocketId:', whiteSocketId);
+    room.white_id = whiteId;
+    room.white_pseudo = whitePseudo;
+    room.white_socket_id = whiteSocketId;
     room.status = 'playing';
     room.updated_at = new Date();
-    console.debug('[memoryStore.joinAsGuest] Room after update:', { host_socket_id: room.host_socket_id, guest_socket_id: room.guest_socket_id, status: room.status });
+    console.debug('[memoryStore.joinAsWhite] Room after update:', { host_socket_id: room.host_socket_id, white_socket_id: room.white_socket_id, status: room.status });
     
     return room;
 }
@@ -145,10 +145,10 @@ async function updateSocketId(code, color, socketId) {
     if (color === 'black') {
         room.host_socket_id = socketId;
     } else {
-        room.guest_socket_id = socketId;
+        room.white_socket_id = socketId;
     }
     room.updated_at = new Date();
-    console.debug('[memoryStore.updateSocketId] Room after update:', { host_socket_id: room.host_socket_id, guest_socket_id: room.guest_socket_id });
+    console.debug('[memoryStore.updateSocketId] Room after update:', { host_socket_id: room.host_socket_id, white_socket_id: room.white_socket_id });
 }
 
 async function updateStatus(code, status) {
@@ -176,13 +176,13 @@ async function deleteRoom(code) {
     return rooms.delete(code?.toUpperCase());
 }
 
-async function removeGuest(code) {
+async function removeWhite(code) {
     const room = rooms.get(code?.toUpperCase());
     if (!room) return null;
     
-    room.guest_id = null;
-    room.guest_pseudo = null;
-    room.guest_socket_id = null;
+    room.white_id = null;
+    room.white_pseudo = null;
+    room.white_socket_id = null;
     room.status = 'waiting';
     room.updated_at = new Date();
     
@@ -249,13 +249,13 @@ module.exports = {
     create,
     findByCode,
     findAvailable,
-    joinAsGuest,
+    joinAsWhite,
     updateGameState,
     updateSocketId,
     updateStatus,
     resetForRematch,
     deleteRoom,
-    removeGuest,
+    removeWhite,
     cleanupOld,
     getInitialGameState,
     // Spectator exports

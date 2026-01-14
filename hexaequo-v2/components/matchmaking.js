@@ -175,9 +175,13 @@ const Matchmaking = (function() {
                 return;
             }
             
-            // Get current user info for pseudo
+            // Get current user info for pseudo - user must be signed in
             const currentUser = window.GameLobby?.getUser();
-            const pseudo = currentUser?.pseudo || currentUser?.username || 'Guest';
+            if (!currentUser) {
+                reject(new Error('User must be signed in to play online'));
+                return;
+            }
+            const pseudo = currentUser.pseudo || currentUser.username;
             
             socket.emit('join-matchmaking-queue', {
                 timeMode: timeMode || 'classic',

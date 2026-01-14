@@ -38,8 +38,8 @@
         profileBtn: null,
         settingsBtn: null,
         logoutBtn: null,
-        // Guest/Logged states
-        guestItems: null,
+        // Signed out/Logged in states
+        signedOutItems: null,
         loggedItems: null
     };
 
@@ -73,7 +73,7 @@
         elements.settingsBtn = document.getElementById('userMenuSettings');
         elements.settingsBtnLogged = document.getElementById('userMenuSettingsLogged');
         elements.logoutBtn = document.getElementById('userMenuLogout');
-        elements.guestItems = document.getElementById('userMenuGuestItems');
+        elements.signedOutItems = document.getElementById('userMenuGuestItems');
         elements.loggedItems = document.getElementById('userMenuLoggedItems');
     }
 
@@ -179,7 +179,7 @@
         
         if (user) {
             // User is logged in
-            elements.guestItems?.style.setProperty('display', 'none');
+            elements.signedOutItems?.style.setProperty('display', 'none');
             elements.loggedItems?.style.setProperty('display', 'block');
             elements.userSection?.style.setProperty('display', 'block');
             
@@ -194,8 +194,8 @@
                 elements.avatar.textContent = displayName.charAt(0).toUpperCase();
             }
         } else {
-            // Guest (not logged in)
-            elements.guestItems?.style.setProperty('display', 'block');
+            // Not logged in
+            elements.signedOutItems?.style.setProperty('display', 'block');
             elements.loggedItems?.style.setProperty('display', 'none');
             elements.userSection?.style.setProperty('display', 'none');
         }

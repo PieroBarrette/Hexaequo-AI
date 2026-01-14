@@ -127,17 +127,17 @@ async function findAndCreateMatch(userId, socketId, pseudo, elo, timeMode, prefe
         // The player who was waiting longer (opponent) becomes the host (black)
         const room = await roomService.createRoom({
             hostId: opponent.userId,
-            hostPseudo: opponent.pseudo || 'Guest',
+            hostPseudo: opponent.pseudo,
             hostSocketId: opponent.socketId,
             timeMode: timeMode,
             allowSpectators: true
         });
         
-        // Join the new player as guest (white)
+        // Join the new player as white (second player)
         const joinedRoom = await roomService.joinRoom(room.code, {
-            guestId: userId,
-            guestPseudo: pseudo || 'Guest',
-            guestSocketId: socketId
+            whiteId: userId,
+            whitePseudo: pseudo,
+            whiteSocketId: socketId
         });
         
         return {

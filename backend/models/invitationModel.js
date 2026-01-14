@@ -4,7 +4,7 @@
  * Table: invitations
  * - id UUID (PK)
  * - code VARCHAR(20) UNIQUE (8 chars alphanumériques)
- * - creator_user_id UUID (FK → users, nullable pour guests)
+ * - creator_user_id UUID (FK → users, required - authentication mandatory)
  * - room_settings JSONB (time_mode, etc.)
  * - created_at TIMESTAMP
  * - expires_at TIMESTAMP (défaut: created_at + 24h)

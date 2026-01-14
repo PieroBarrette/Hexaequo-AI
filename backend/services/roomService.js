@@ -76,9 +76,9 @@ exports.createRoom = async ({ hostId, hostPseudo, hostSocketId, timeMode = 'none
 };
 
 /**
- * Join room as guest
+ * Join room as white player (second player)
  */
-exports.joinRoom = async (code, { guestId, guestPseudo, guestSocketId }) => {
+exports.joinRoom = async (code, { whiteId, whitePseudo, whiteSocketId }) => {
     const room = await withFallback(
         () => Room.findByCode(code),
         () => memoryStore.findByCode(code)
@@ -92,8 +92,8 @@ exports.joinRoom = async (code, { guestId, guestPseudo, guestSocketId }) => {
     }
     
     const updatedRoom = await withFallback(
-        () => Room.joinAsGuest(code, { guestId, guestPseudo, guestSocketId }),
-        () => memoryStore.joinAsGuest(code, { guestId, guestPseudo, guestSocketId })
+        () => Room.joinAsWhite(code, { whiteId, whitePseudo, whiteSocketId }),
+        () => memoryStore.joinAsWhite(code, { whiteId, whitePseudo, whiteSocketId })
     );
     
     if (!updatedRoom) {
@@ -129,11 +129,11 @@ exports.leaveRoom = async (code, userId) => {
         return { deleted: true };
     }
 
-    // If guest leaves, room goes back to waiting
-    if (room.guest_id === userId) {
+    // If white player leaves, room goes back to waiting
+    if (room.white_id === userId) {
         await withFallback(
-            () => Room.removeGuest(code),
-            () => memoryStore.removeGuest(code)
+            () => Room.removeWhite(code),
+            () => memoryStore.removeWhite(code)
         );
         return { deleted: false };
     }
@@ -233,7 +233,7 @@ exports.joinAsSpectator = async (code, { userId, socketId, pseudo }) => {
         roomCode: code,
         gameState: room.game_state,
         host: room.host_pseudo,
-        guest: room.guest_pseudo
+        white: room.white_pseudo
     };
 };
 
@@ -276,16 +276,16 @@ function formatRoomResponse(room) {
     return {
         code: room.code,
         host: {
-            id: room.host_id, // Can be null for guests
+            id: room.host_id,
             pseudo: room.host_pseudo,
             socketId: room.host_socket_id,
             color: 'black'
         },
-        // Guest exists if guest_socket_id is set (even if guest_id is null/guest)
-        guest: (room.guest_id || room.guest_socket_id) ? {
-            id: room.guest_id, // Can be null for guests
-            pseudo: room.guest_pseudo,
-            socketId: room.guest_socket_id,
+        // White player exists if white_socket_id is set
+        white: (room.white_id || room.white_socket_id) ? {
+            id: room.white_id,
+            pseudo: room.white_pseudo,
+            socketId: room.white_socket_id,
             color: 'white'
         } : null,
         timeMode: room.time_mode,

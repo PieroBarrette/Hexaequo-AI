@@ -48,7 +48,7 @@ async function addToQueue(userId, socketId, pseudo, elo, timeMode, preferences =
         `INSERT INTO matchmaking_queue (id, user_id, socket_id, pseudo, elo, time_mode, preferences, expires_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          RETURNING *`,
-        [uuidv4(), userId, socketId, pseudo || 'Guest', elo, timeMode, JSON.stringify(preferences), expiresAt]
+        [uuidv4(), userId, socketId, pseudo, elo, timeMode, JSON.stringify(preferences), expiresAt]
     );
     
     return formatQueueEntry(result.rows[0]);
@@ -196,7 +196,7 @@ function formatQueueEntry(row) {
         id: row.id,
         userId: row.user_id,
         socketId: row.socket_id,
-        pseudo: row.pseudo || 'Guest',
+        pseudo: row.pseudo,
         elo: row.elo,
         timeMode: row.time_mode,
         preferences: typeof row.preferences === 'string' ? JSON.parse(row.preferences) : row.preferences,

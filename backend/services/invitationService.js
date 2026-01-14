@@ -43,7 +43,7 @@ async function createInvitation(userId, pseudo, elo, socketId, roomSettings = {}
         // Create room first so creator is waiting
         const room = await roomService.createRoom({
             hostId: userId,
-            hostPseudo: pseudo || 'Guest',
+            hostPseudo: pseudo,
             hostSocketId: socketId,
             timeMode: roomSettings.timeMode || 'none',
             allowSpectators: roomSettings.allowSpectators ?? true
@@ -111,11 +111,11 @@ async function acceptInvitation(code, acceptorId, acceptorPseudo, acceptorSocket
             () => useMemoryInvitation(code)
         );
         
-        // Join existing room as guest (white)
+        // Join existing room as white (second player)
         const room = await roomService.joinRoom(roomCode, {
-            guestId: acceptorId,
-            guestPseudo: acceptorPseudo || 'Guest',
-            guestSocketId: acceptorSocketId
+            whiteId: acceptorId,
+            whitePseudo: acceptorPseudo,
+            whiteSocketId: acceptorSocketId
         });
         
         return {
@@ -151,9 +151,8 @@ async function getInvitationInfo(code) {
         
         return {
             valid: true,
-            creatorPseudo: invitation.creatorPseudo || 'Guest',
+            creatorPseudo: invitation.creatorPseudo,
             creatorElo: invitation.creatorElo,
-            creatorIsGuest: !invitation.creatorUserId,
             timeMode: invitation.roomSettings?.timeMode || 'none',
             expiresAt: invitation.expiresAt
         };

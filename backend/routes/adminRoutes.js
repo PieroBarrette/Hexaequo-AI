@@ -513,7 +513,7 @@ router.get('/', (req, res) => {
                     try {
                         const queries = {
                             users: 'SELECT id, email, pseudo, elo_classic, elo_rapid, elo_blitz, games_played, wins, losses, created_at FROM users ORDER BY created_at DESC LIMIT 50',
-                            rooms: 'SELECT code, host_pseudo, guest_pseudo, time_mode, status, created_at, updated_at FROM rooms ORDER BY created_at DESC LIMIT 50',
+                            rooms: 'SELECT code, host_pseudo, white_pseudo, time_mode, status, created_at, updated_at FROM rooms ORDER BY created_at DESC LIMIT 50',
                             games: 'SELECT id, room_code, black_pseudo, white_pseudo, winner, result_reason, time_mode, started_at, finished_at FROM games ORDER BY started_at DESC LIMIT 50',
                             moves: 'SELECT id, game_id, move_number, player, move_type, to_q, to_r, created_at FROM moves ORDER BY created_at DESC LIMIT 100',
                             elo_history: 'SELECT id, user_id, time_mode, elo_before, elo_after, elo_change, created_at FROM elo_history ORDER BY created_at DESC LIMIT 50',

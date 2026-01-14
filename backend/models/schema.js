@@ -61,15 +61,15 @@ CREATE INDEX IF NOT EXISTS idx_users_elo_blitz ON users(elo_blitz DESC);
 CREATE TABLE IF NOT EXISTS rooms (
     code VARCHAR(8) PRIMARY KEY,
     
-    -- Host player
+    -- Host player (black)
     host_id UUID REFERENCES users(id) ON DELETE SET NULL,
     host_socket_id VARCHAR(255),
     host_pseudo VARCHAR(30),
     
-    -- Guest player
-    guest_id UUID REFERENCES users(id) ON DELETE SET NULL,
-    guest_socket_id VARCHAR(255),
-    guest_pseudo VARCHAR(30),
+    -- White player (second player to join)
+    white_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    white_socket_id VARCHAR(255),
+    white_pseudo VARCHAR(30),
     
     -- Room settings
     time_mode VARCHAR(20) DEFAULT 'none', -- none, classic, rapid, blitz

@@ -4,8 +4,7 @@
  * Tests pour valider:
  * 1. DEFAULT_ELO = 1000
  * 2. Multiplicateurs de cadence fonctionnent correctement
- * 3. Parties avec guests ont multiplicateur 0
- * 4. Parties sans timer (none) ont multiplicateur 0
+ * 3. Parties sans timer (none) ont multiplicateur 0
  * 
  * Usage: node backend/tests/eloService.test.js
  */
@@ -145,32 +144,7 @@ test('Friendly game should preserve ratings', () => {
     assertEqual(result.newRatingB, 1300);
 });
 
-// Test 5: Guest games
-console.log('\n📋 Test Group: Guest Games');
-
-test('Game with guest player A should have no ELO change', () => {
-    const playerA = { rating: 1200, gamesPlayed: 50, isGuest: true };
-    const playerB = { rating: 1000, gamesPlayed: 50, isGuest: false };
-    
-    const result = calculateNewRatings(playerA, playerB, 1, 'rapid');
-    
-    assertEqual(result.changeA, 0, 'Player A change');
-    assertEqual(result.changeB, 0, 'Player B change');
-    assertEqual(result.reason, 'guest_game', 'Reason');
-});
-
-test('Game with guest player B should have no ELO change', () => {
-    const playerA = { rating: 1200, gamesPlayed: 50, isGuest: false };
-    const playerB = { rating: 1000, gamesPlayed: 50, isGuest: true };
-    
-    const result = calculateNewRatings(playerA, playerB, 0, 'classic');
-    
-    assertEqual(result.changeA, 0, 'Player A change');
-    assertEqual(result.changeB, 0, 'Player B change');
-    assertEqual(result.reason, 'guest_game', 'Reason');
-});
-
-// Test 6: Time mode multipliers
+// Test 5: Time mode multipliers
 console.log('\n📋 Test Group: Time Mode Multipliers');
 
 test('Classic game should give more ELO than rapid (multiplier 1.2)', () => {
@@ -216,7 +190,7 @@ test('Bullet game should give least ELO (multiplier 0.75)', () => {
     assertEqual(bulletResult.multiplier, 0.75);
 });
 
-// Test 7: Realistic game scenarios
+// Test 6: Realistic game scenarios
 console.log('\n📋 Test Group: Realistic Game Scenarios');
 
 test('New players equal rating - winner gains, loser loses', () => {

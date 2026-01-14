@@ -84,7 +84,7 @@ exports.updatePreferences = async (req, res, next) => {
 exports.createInvitation = async (req, res, next) => {
     try {
         const userId = req.user?.id;
-        const pseudo = req.user?.pseudo || 'Guest';
+        const pseudo = req.user?.pseudo;
         const { timeMode, allowSpectators } = req.body;
         
         const roomSettings = {
@@ -140,7 +140,7 @@ exports.acceptInvitation = async (req, res, next) => {
     try {
         const { code } = req.params;
         const userId = req.user?.id;
-        const pseudo = req.user?.pseudo || req.body.pseudo || 'Guest';
+        const pseudo = req.user?.pseudo || req.body.pseudo;
         
         const result = await invitationService.acceptInvitation(code, userId, pseudo, null);
         

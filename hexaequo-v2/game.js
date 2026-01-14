@@ -1516,7 +1516,7 @@ window.onload = function () {
                 return opponent.name;
             }
         }
-        return i18nT('lobby.guest');
+        return 'Opponent';
     }
 
     // End the game and display the winner
@@ -1949,12 +1949,6 @@ window.onload = function () {
         console.log('[Game] ELO updated:', data);
         const eloDisplay = document.getElementById('eloUpdateDisplay');
         if (!eloDisplay) return;
-        
-        // Don't show ELO update for guests
-        if (data.isGuest) {
-            eloDisplay.style.display = 'none';
-            return;
-        }
         
         const isDarkTheme = !document.body.classList.contains('light-theme');
         const changeText = data.change >= 0 ? `+${data.change}` : `${data.change}`;

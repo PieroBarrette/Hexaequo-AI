@@ -197,11 +197,6 @@
                         <div class="matchmaking-section" id="matchmakingSection">
                             <button class="lobby-btn primary matchmaking-btn" id="matchmakingPlayBtn" data-i18n="lobby.play">Play</button>
                             <button class="lobby-btn secondary matchmaking-btn" id="matchmakingInviteBtn" data-i18n="lobby.invite">Invite</button>
-                            <!-- Guest restriction message -->
-                            <div class="guest-invite-restriction" id="guestInviteRestriction" style="display: none;">
-                                <span class="restriction-text" data-i18n="lobby.guestInviteRestriction">Playing as a guest, sign in to invite</span>
-                                <button class="restriction-signin-btn" id="guestSignInBtn" data-i18n="auth.signIn">Sign In</button>
-                            </div>
                         </div>
                         
                         <!-- Matchmaking Waiting (hidden by default) -->
@@ -520,8 +515,7 @@
             </div>
             <div class="invite-landing-actions">
                 <button id="inviteJoinBtn" class="lobby-btn primary" data-i18n="invite.joinAsUser" style="display: none;">Join Game</button>
-                <button id="inviteGuestBtn" class="lobby-btn secondary" data-i18n="invite.playAsGuest">Play as Guest</button>
-                <button id="inviteSignInBtn" class="lobby-btn secondary" data-i18n="auth.signIn" style="display: none;">Sign In</button>
+                <button id="inviteSignInBtn" class="lobby-btn secondary" data-i18n="invite.signInToJoin">Sign in to join</button>
             </div>
         </div>
     </div>

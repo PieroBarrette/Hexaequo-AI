@@ -118,7 +118,12 @@ AI uses **minimax with alpha-beta pruning** + **transposition table**:
 - `rapid`: 1.0 (standard)
 - `classic`: 1.2 (more points for longer games)
 
-**Guest games**: Any game with a guest player has multiplier 0 (no ELO change)
+### Authentication Requirements
+**Online play requires sign-in** - no guest/anonymous play:
+- Main menu shows "Sign in to play online" button if not authenticated
+- Lobby is only accessible to logged-in users
+- Local play (vs AI or pass-and-play) always available without sign-in
+- Invite links redirect to sign-in if not authenticated, then back to invite
 
 ### Module System Nuances
 - **Frontend**: Pure ES modules (`type: "module"` in script tags or `import` statements)

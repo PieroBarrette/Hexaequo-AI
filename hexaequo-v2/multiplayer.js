@@ -48,7 +48,7 @@ const Multiplayer = (function () {
     let onDrawDeclined = null;
 
     // Get or create player ID
-    // Uses authenticated user ID when logged in, falls back to guest ID
+    // Requires authenticated user - guests are no longer supported for online play
     function getPlayerId() {
         // Check if user is authenticated via GameLobby
         const currentUser = window.GameLobby?.getUser();
@@ -56,14 +56,9 @@ const Multiplayer = (function () {
             console.debug('[getPlayerId] Using authenticated user ID:', currentUser.id);
             return currentUser.id;
         }
-        // Fall back to guest ID (persisted in localStorage)
-        let id = localStorage.getItem('hexaequoGuestId');
-        if (!id) {
-            id = 'guest_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-            localStorage.setItem('hexaequoGuestId', id);
-        }
-        console.debug('[getPlayerId] Using guest ID:', id);
-        return id;
+        // No authenticated user - this shouldn't happen as online play requires sign-in
+        console.warn('[getPlayerId] No authenticated user found');
+        return null;
     }
 
     // Initialize Socket.IO connection
@@ -323,14 +318,13 @@ const Multiplayer = (function () {
             const userInfo = {
                 userId: currentUser.id,  // User ID for ELO updates
                 name: currentUser.pseudo || currentUser.username,
-                elo: currentUser.elo || 1000,
-                isGuest: false
+                elo: currentUser.elo || 1000
             };
             console.log('[Multiplayer] Returning userInfo:', userInfo);
             return userInfo;
         }
-        console.log('[Multiplayer] No user found, returning Guest');
-        return { name: 'Guest', elo: null, isGuest: true };
+        console.log('[Multiplayer] No user found - authentication required');
+        return null;
     }
 
     // Create a new room
@@ -441,8 +435,7 @@ const Multiplayer = (function () {
             console.debug('[sendMove] Sending move:', {
                 roomCode,
                 playerId,
-                socketId: socket.id,
-                isGuest: !playerId.includes('-') // Rough check if guest
+                socketId: socket.id
             });
 
             // Get current timer state to sync with opponent

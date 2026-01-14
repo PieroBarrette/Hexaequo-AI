@@ -83,30 +83,27 @@ function initializeSocket(httpServer) {
                 socket.pseudo = decoded.pseudo;
                 console.debug('[Socket Auth] Authenticated user:', socket.userId, socket.pseudo);
             } catch (err) {
-                // Token invalid but allow anonymous connections
+                // Token invalid
                 console.debug('[Socket Auth] Token invalid:', err.message);
                 socket.userId = null;
                 socket.pseudo = null;
             }
         }
         
-        // Generate guest ID if not authenticated
-        if (!socket.userId) {
-            socket.guestId = `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            console.debug('[Socket Auth] Generated guest ID:', socket.guestId);
-        }
+        // Note: We allow unauthenticated connections for socket, but online play requires authentication
+        // This is checked at the room/matchmaking/invitation level
         
         next();
     });
 
     io.on('connection', (socket) => {
-        const playerId = socket.userId || socket.guestId;
-        console.log(`Client connected: ${socket.id} (${socket.pseudo || 'guest'}) playerId: ${playerId}`);
+        const playerId = socket.userId;
+        console.log(`Client connected: ${socket.id} (${socket.pseudo || 'anonymous'}) playerId: ${playerId || 'none'}`);
 
         // Store socket info
         connectedSockets.set(socket.id, {
             userId: playerId,
-            pseudo: socket.pseudo || 'Guest',
+            pseudo: socket.pseudo || null,
             roomCode: null
         });
 
@@ -117,8 +114,13 @@ function initializeSocket(httpServer) {
          */
         socket.on('create-room', async (data, callback) => {
             try {
+                // Require authentication for creating rooms
+                if (!playerId) {
+                    return callback({ success: false, error: 'Authentication required' });
+                }
+                
                 const { timeMode, allowSpectators } = data;
-                const pseudo = socket.pseudo || data.pseudo || 'Guest';
+                const pseudo = socket.pseudo || data.pseudo;
 
                 const room = await roomService.createRoom({
                     hostId: playerId,
@@ -155,8 +157,13 @@ function initializeSocket(httpServer) {
          */
         socket.on('join-room', async (data, callback) => {
             try {
+                // Require authentication for joining rooms
+                if (!playerId) {
+                    return callback({ success: false, error: 'Authentication required' });
+                }
+                
                 const { roomCode } = data;
-                const pseudo = socket.pseudo || data.pseudo || 'Guest';
+                const pseudo = socket.pseudo || data.pseudo;
 
                 console.debug('[join-room] Request from socket:', socket.id, 'playerId:', playerId, 'roomCode:', roomCode);
 
@@ -179,12 +186,12 @@ function initializeSocket(httpServer) {
                         color: 'black',
                         gameState: room.gameState,
                         reconnected: true,
-                        opponentConnected: !!room.guest
+                        opponentConnected: !!room.white
                     });
                 }
 
-                // Check if reconnecting as guest
-                if (room.guest?.id === playerId) {
+                // Check if reconnecting as white player
+                if (room.white?.id === playerId) {
                     await roomService.updateSocketId(roomCode, 'white', socket.id);
                     socket.join(roomCode);
                     
@@ -205,16 +212,16 @@ function initializeSocket(httpServer) {
                     return callback({ success: false, error: 'Room is full' });
                 }
 
-                // Join as guest (white)
-                console.debug('[join-room] Joining as guest with socketId:', socket.id);
+                // Join as white player (second player)
+                console.debug('[join-room] Joining as white player with socketId:', socket.id);
                 await roomService.joinRoom(roomCode, {
-                    guestId: playerId,
-                    guestPseudo: pseudo,
-                    guestSocketId: socket.id
+                    whiteId: playerId,
+                    whitePseudo: pseudo,
+                    whiteSocketId: socket.id
                 });
 
                 socket.join(roomCode);
-                console.debug('[join-room] Guest joined successfully, socket joined room:', roomCode);
+                console.debug('[join-room] White player joined successfully, socket joined room:', roomCode);
                 
                 // Update socket tracking
                 const socketInfo = connectedSockets.get(socket.id);
@@ -281,18 +288,18 @@ function initializeSocket(httpServer) {
 
                 // Verify player is in this room
                 const hostSocket = room.host.socketId;
-                const guestSocket = room.guest?.socketId;
+                const whiteSocket = room.white?.socketId;
                 
                 console.debug('[make-move] Room Host Socket:', hostSocket);
-                console.debug('[make-move] Room Guest Socket:', guestSocket);
+                console.debug('[make-move] Room White Socket:', whiteSocket);
                 console.debug('[make-move] Calling Socket:', socket.id);
                 
                 const isHost = hostSocket === socket.id;
-                const isGuest = guestSocket === socket.id;
+                const isWhite = whiteSocket === socket.id;
                 
-                if (!isHost && !isGuest) {
+                if (!isHost && !isWhite) {
                     console.error('[make-move] Socket ID mismatch!');
-                    console.error(`[make-move] Expected: ${hostSocket} or ${guestSocket}`);
+                    console.error(`[make-move] Expected: ${hostSocket} or ${whiteSocket}`);
                     console.error(`[make-move] Received: ${socket.id}`);
                     return callback({ success: false, error: 'Not in this room' });
                 }
@@ -566,7 +573,7 @@ function initializeSocket(httpServer) {
                     status: room.status,
                     players: {
                         black: { pseudo: room.host.pseudo, connected: !!room.host.socketId },
-                        white: room.guest ? { pseudo: room.guest.pseudo, connected: !!room.guest.socketId } : null
+                        white: room.white ? { pseudo: room.white.pseudo, connected: !!room.white.socketId } : null
                     },
                     spectators: spectatorCount,
                     gameState: room.gameState
@@ -634,9 +641,13 @@ function initializeSocket(httpServer) {
          */
         socket.on('join-matchmaking-queue', async (data, callback) => {
             try {
+                // Require authentication for matchmaking
+                if (!socket.userId) {
+                    return callback({ success: false, error: 'Authentication required' });
+                }
+                
                 const { timeMode, elo, preferences } = data;
-                // Use consistent "pseudo" from socket or data
-                const playerPseudo = socket.pseudo || data.pseudo || 'Guest';
+                const playerPseudo = socket.pseudo || data.pseudo;
                 // Use consistent ELO
                 const playerElo = elo || 1000;
                 
@@ -673,22 +684,21 @@ function initializeSocket(httpServer) {
                             timeMode: room.timeMode,
                             opponentInfo: {
                                 name: playerPseudo,
-                                elo: playerElo,
-                                isGuest: !socket.userId
+                                elo: playerElo
                             }
                         });
                     } else {
                         console.warn(`[Matchmaking] Opponent socket ${opponent.socketId} not found!`);
                     }
                     
-                    // Current player is the guest (white)
+                    // Current player is white (second player)
                     socket.join(result.roomCode);
                     
                     // Update socket tracking
                     const socketInfo = connectedSockets.get(socket.id);
                     if (socketInfo) socketInfo.roomCode = result.roomCode;
                     
-                    console.debug(`[Matchmaking] Returning match to Joiner (Guest/White): ${playerPseudo}`);
+                    console.debug(`[Matchmaking] Returning match to Joiner (White): ${playerPseudo}`);
                     
                     callback({
                         success: true,
@@ -698,9 +708,8 @@ function initializeSocket(httpServer) {
                         gameState: room.gameState,
                         timeMode: room.timeMode,
                         opponentInfo: {
-                            name: opponent.pseudo || room.host?.pseudo || 'Guest',
-                            elo: opponent.elo || 1000,
-                            isGuest: !opponent.userId
+                            name: opponent.pseudo || room.host?.pseudo || 'Opponent',
+                            elo: opponent.elo || 1000
                         }
                     });
                 } else {
@@ -725,7 +734,7 @@ function initializeSocket(httpServer) {
         socket.on('leave-matchmaking-queue', async (data, callback) => {
             try {
                 const removed = await matchmakingService.leaveQueue(socket.userId, socket.id);
-                console.log(`[Matchmaking] ${socket.pseudo || 'Guest'} left queue`);
+                console.log(`[Matchmaking] ${socket.pseudo || 'User'} left queue`);
                 callback({ success: true, removed });
             } catch (err) {
                 console.error('[Matchmaking] Leave queue error:', err);
@@ -754,9 +763,14 @@ function initializeSocket(httpServer) {
          */
         socket.on('create-invitation', async (data, callback) => {
             try {
+                // Require authentication for creating invitations
+                if (!socket.userId) {
+                    return callback({ success: false, error: 'Authentication required' });
+                }
+                
                 const { timeMode, allowSpectators, elo } = data;
-                const pseudo = socket.pseudo || data.pseudo || 'Guest';
-                // Use provided ELO or default to null for guests
+                const pseudo = socket.pseudo || data.pseudo;
+                // Use provided ELO or default
                 const userElo = elo || null;
                 
                 const roomSettings = {
@@ -812,7 +826,6 @@ function initializeSocket(httpServer) {
                     success: true,
                     creatorPseudo: info.creatorPseudo,
                     creatorElo: info.creatorElo,
-                    creatorIsGuest: info.creatorIsGuest,
                     timeMode: info.timeMode,
                     expiresAt: info.expiresAt
                 });
@@ -827,22 +840,25 @@ function initializeSocket(httpServer) {
          */
         socket.on('accept-invitation', async (data, callback) => {
             try {
-                const { code, asGuest, elo } = data;
-                // If user explicitly plays as guest, don't use socket.userId
-                const userId = asGuest ? null : socket.userId;
-                const pseudo = data.pseudo || socket.pseudo || 'Guest';
+                // Require authentication for accepting invitations
+                if (!socket.userId) {
+                    return callback({ success: false, error: 'Authentication required' });
+                }
+                
+                const { code, elo } = data;
+                const userId = socket.userId;
+                const pseudo = data.pseudo || socket.pseudo;
                 const acceptorElo = elo || null;
 
                 console.debug('[Invitation] accept-invitation payload', {
                     code,
-                    asGuest,
                     pseudo,
                     userId,
                     acceptorElo,
                     socketId: socket.id
                 });
                 
-                // acceptInvitation already joins the room as guest
+                // acceptInvitation already joins the room as white player
                 const result = await invitationService.acceptInvitation(
                     code,
                     userId,
@@ -854,7 +870,7 @@ function initializeSocket(httpServer) {
                     return callback({ success: false, error: result.error });
                 }
                 
-                console.log(`[Invitation] ${pseudo} accepted invitation ${code} → room ${result.roomCode}${asGuest ? ' (as guest)' : ''}`);
+                console.log(`[Invitation] ${pseudo} accepted invitation ${code} → room ${result.roomCode}`);
                 
                 // Join socket room
                 socket.join(result.roomCode);
@@ -869,8 +885,7 @@ function initializeSocket(httpServer) {
                     opponent: {
                         pseudo,
                         elo: acceptorElo,
-                        color: 'white',
-                        isGuest: !userId
+                        color: 'white'
                     }
                 });
                 
@@ -882,8 +897,7 @@ function initializeSocket(httpServer) {
                     gameState: result.gameState,
                     opponentInfo: {
                         name: result.creatorPseudo,
-                        elo: result.creatorElo,
-                        isGuest: !result.creatorId
+                        elo: result.creatorElo
                     }
                 });
             } catch (err) {
@@ -910,7 +924,7 @@ function initializeSocket(httpServer) {
 
         socket.on('chat-message', (data) => {
             const { roomCode, message } = data;
-            const pseudo = socket.pseudo || 'Guest';
+            const pseudo = socket.pseudo || 'Anonymous';
             
             socket.to(roomCode).emit('chat-message', {
                 pseudo,

@@ -21,7 +21,7 @@ const CONFIG = {
     // Default starting ELO
     DEFAULT_ELO: 1000,
     // ELO multipliers by time mode
-    // Games with guests OR no timer have multiplier 0 (no ELO change)
+    // No timer games have multiplier 0 (no ELO change)
     ELO_MULTIPLIERS: {
         none: 0,      // Friendly/unrated - no ELO change
         bullet: 0.75, // Fast games - less variation
@@ -59,8 +59,8 @@ function expectedScore(ratingA, ratingB) {
 
 /**
  * Calculate new ratings after a game
- * @param {Object} playerA - { rating, gamesPlayed, isGuest? }
- * @param {Object} playerB - { rating, gamesPlayed, isGuest? }
+ * @param {Object} playerA - { rating, gamesPlayed }
+ * @param {Object} playerB - { rating, gamesPlayed }
  * @param {number} result - 1 if A wins, 0 if B wins, 0.5 for draw
  * @param {string} timeMode - Time control mode (none, bullet, blitz, rapid, classic)
  * @returns {Object} { newRatingA, newRatingB, changeA, changeB, multiplier }
@@ -69,18 +69,15 @@ function calculateNewRatings(playerA, playerB, result, timeMode = 'rapid') {
     // Get multiplier for this time mode
     const multiplier = CONFIG.ELO_MULTIPLIERS[timeMode] ?? 1.0;
     
-    // Check if either player is a guest (no ELO change)
-    const isGuestGame = playerA.isGuest || playerB.isGuest;
-    
-    // No ELO changes for: guest games OR no timer (friendly)
-    if (multiplier === 0 || isGuestGame) {
+    // No ELO changes for: no timer (friendly)
+    if (multiplier === 0) {
         return {
             newRatingA: playerA.rating,
             newRatingB: playerB.rating,
             changeA: 0,
             changeB: 0,
             multiplier: 0,
-            reason: isGuestGame ? 'guest_game' : 'friendly_mode'
+            reason: 'friendly_mode'
         };
     }
     

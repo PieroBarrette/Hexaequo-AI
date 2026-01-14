@@ -56,7 +56,7 @@ async function create({ hostId, hostPseudo, hostSocketId, timeMode = 'none', all
 async function findByCode(code) {
     const result = await query(
         `SELECT code, host_id, host_pseudo, host_socket_id,
-                guest_id, guest_pseudo, guest_socket_id,
+                white_id, white_pseudo, white_socket_id,
                 time_mode, allow_spectators, status,
                 game_state, active_player, created_at, updated_at
          FROM rooms WHERE code = $1`,
@@ -115,15 +115,15 @@ async function findAvailable({ status = 'waiting', timeMode, allowSpectators, pa
 }
 
 /**
- * Join a room as guest
+ * Join a room as white player (second player)
  */
-async function joinAsGuest(code, { guestId, guestPseudo, guestSocketId }) {
+async function joinAsWhite(code, { whiteId, whitePseudo, whiteSocketId }) {
     const result = await query(
         `UPDATE rooms
-         SET guest_id = $1, guest_pseudo = $2, guest_socket_id = $3, status = 'playing'
+         SET white_id = $1, white_pseudo = $2, white_socket_id = $3, status = 'playing'
          WHERE code = $4 AND status = 'waiting'
          RETURNING *`,
-        [guestId, guestPseudo, guestSocketId, code.toUpperCase()]
+        [whiteId, whitePseudo, whiteSocketId, code.toUpperCase()]
     );
     
     return result.rows[0] || null;
@@ -148,7 +148,7 @@ async function updateGameState(code, gameState, activePlayer) {
  * Update player socket ID (for reconnection)
  */
 async function updateSocketId(code, color, socketId) {
-    const column = color === 'black' ? 'host_socket_id' : 'guest_socket_id';
+    const column = color === 'black' ? 'host_socket_id' : 'white_socket_id';
     
     await query(
         `UPDATE rooms SET ${column} = $1 WHERE code = $2`,
@@ -194,12 +194,12 @@ async function deleteRoom(code) {
 }
 
 /**
- * Remove guest from room
+ * Remove white player from room
  */
-async function removeGuest(code) {
+async function removeWhite(code) {
     const result = await query(
         `UPDATE rooms
-         SET guest_id = NULL, guest_pseudo = NULL, guest_socket_id = NULL, status = 'waiting'
+         SET white_id = NULL, white_pseudo = NULL, white_socket_id = NULL, status = 'waiting'
          WHERE code = $1
          RETURNING *`,
         [code.toUpperCase()]
@@ -252,13 +252,13 @@ module.exports = {
     create,
     findByCode,
     findAvailable,
-    joinAsGuest,
+    joinAsWhite,
     updateGameState,
     updateSocketId,
     updateStatus,
     resetForRematch,
     deleteRoom,
-    removeGuest,
+    removeWhite,
     cleanupOld,
     getInitialGameState
 };
