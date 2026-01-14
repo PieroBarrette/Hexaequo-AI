@@ -53,10 +53,19 @@ async function createInvitation(userId, pseudo, elo, socketId, roomSettings = {}
             () => invitationModel.createInvitation(userId, pseudo, elo, { ...roomSettings, roomCode: room.code }, room.code),
             () => createMemoryInvitation(userId, pseudo, elo, { ...roomSettings, roomCode: room.code }, room.code)
         );
+
+        const finalUrl = `${BASE_URL}/?invite=${invitation.code}`;
+        console.log('[Invitation] createInvitation', {
+            baseUrl: BASE_URL,
+            code: invitation.code,
+            roomCode: room.code,
+            url: finalUrl,
+            settings: invitation.roomSettings
+        });
         
         return {
             code: invitation.code,
-            url: `${BASE_URL}/?invite=${invitation.code}`,
+            url: finalUrl,
             expiresAt: invitation.expiresAt,
             roomSettings: invitation.roomSettings,
             roomCode: room.code,
@@ -73,6 +82,12 @@ async function createInvitation(userId, pseudo, elo, socketId, roomSettings = {}
  */
 async function acceptInvitation(code, acceptorId, acceptorPseudo, acceptorSocketId) {
     try {
+        console.log('[Invitation] acceptInvitation request', {
+            code,
+            acceptorId,
+            acceptorPseudo,
+            acceptorSocketId
+        });
         // Validate invitation
         const validation = await withFallback(
             () => invitationModel.isValidInvitation(code),

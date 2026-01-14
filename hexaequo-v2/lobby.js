@@ -1220,6 +1220,12 @@
             pseudo: asGuest ? i18nT('lobby.guest') : (currentUser?.pseudo || currentUser?.username || i18nT('lobby.guest')),
             elo: userElo
         };
+
+        console.log('[Lobby] accept-invitation payload', {
+            payload,
+            socketId: socket?.id,
+            socketConnected: socket?.connected
+        });
         
         socket.emit('accept-invitation', payload, (response) => {
             if (!response.success) {

@@ -115,6 +115,11 @@ const QrCodeModal = (function() {
             
             currentCode = result.code;
             currentUrl = result.url;
+            console.log('[QrCodeModal] Invitation created', {
+                code: currentCode,
+                url: currentUrl,
+                pageOrigin: window.location.origin
+            });
             
             // Display code
             if (codeDisplay) {
@@ -329,6 +334,7 @@ const QrCodeModal = (function() {
         if (!currentUrl) return;
         
         try {
+            console.log('[QrCodeModal] Copying invite link', { url: currentUrl });
             await navigator.clipboard.writeText(currentUrl);
             
             // Visual feedback with localized text
@@ -362,6 +368,8 @@ const QrCodeModal = (function() {
         try {
             const shareTitle = window.i18nT ? window.i18nT('lobby.shareTitle') : 'Join my Hexaequo game!';
             const shareText = window.i18nT ? window.i18nT('lobby.shareText') : 'Click to join my game on Hexaequo';
+
+            console.log('[QrCodeModal] Sharing invite link', { url: currentUrl });
             
             await navigator.share({
                 title: shareTitle,

@@ -832,6 +832,15 @@ function initializeSocket(httpServer) {
                 const userId = asGuest ? null : socket.userId;
                 const pseudo = data.pseudo || socket.pseudo || 'Guest';
                 const acceptorElo = elo || null;
+
+                console.debug('[Invitation] accept-invitation payload', {
+                    code,
+                    asGuest,
+                    pseudo,
+                    userId,
+                    acceptorElo,
+                    socketId: socket.id
+                });
                 
                 // acceptInvitation already joins the room as guest
                 const result = await invitationService.acceptInvitation(
