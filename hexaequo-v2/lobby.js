@@ -1127,7 +1127,7 @@
         }
         
         if (guestBtn) {
-            guestBtn.style.display = 'block';
+            guestBtn.style.display = isLoggedIn ? 'none' : 'block';
             guestBtn.onclick = () => acceptInvitationFromModal(true);
         }
         
@@ -1513,67 +1513,95 @@
     function startOnlineGame(data) {
         console.log('[Lobby] Starting online game', data);
         
-        // Close any open modals
-        if (window.QrCodeModal && window.QrCodeModal.isOpen) {
-            window.QrCodeModal.close();
-        }
-        
-        const playerColor = data.playerColor || window.Multiplayer.playerColor;
-        const opponentInfo = data.opponentInfo || currentOpponent;
-        
-        console.log('[Lobby] playerColor:', playerColor);
-        console.log('[Lobby] opponentInfo:', opponentInfo);
-        console.log('[Lobby] currentUser:', currentUser);
-        
-        // Set online mode directly in game.js (don't trigger gameModeSelect change which opens old modal)
-        if (window.setOnlineMode) {
-            window.setOnlineMode(true, playerColor);
-        }
-        
-        // Update Multiplayer module
-        if (window.Multiplayer) {
-            window.Multiplayer.setOnlineMode(true);
-        }
-        
-        // Update the gameModeSelect visually without triggering change event
-        const gameModeSelect = document.getElementById('gameModeSelect');
-        if (gameModeSelect) {
-            gameModeSelect.value = 'online';
-        }
-        
-        // Hide difficulty selector for online mode
-        const difficultyContainer = document.getElementById('difficultyContainer');
-        if (difficultyContainer) {
-            difficultyContainer.style.display = 'none';
-        }
-        
-        // Update player info displays with online mode data
-        updatePlayerInfoDisplays('online', null, playerColor, opponentInfo);
-        
-        // Set the time control and sync timer from server
-        const timeControl = data.timeControl || selectedTimeControl;
-        if (window.GameTimer) {
-            window.GameTimer.setTimeControl(timeControl);
-            window.GameTimer.setOnlineMode(true);
-            
-            // Sync timer state from server if available
-            if (data.timerState) {
-                window.GameTimer.syncFromServer(data.timerState);
+        try {
+            // Close any open modals
+            if (window.QrCodeModal && window.QrCodeModal.isOpen) {
+                window.QrCodeModal.close();
             }
+            
+            const playerColor = data.playerColor || window.Multiplayer.playerColor;
+            const opponentInfo = data.opponentInfo || currentOpponent;
+            
+            console.log('[Lobby] playerColor:', playerColor);
+            console.log('[Lobby] opponentInfo:', opponentInfo);
+            
+            // Set online mode directly in game.js
+            if (window.setOnlineMode) {
+                window.setOnlineMode(true, playerColor);
+            }
+            
+            // Update Multiplayer module
+            if (window.Multiplayer) {
+                window.Multiplayer.setOnlineMode(true);
+            }
+            
+            // Update the gameModeSelect visually without triggering change event
+            const gameModeSelect = document.getElementById('gameModeSelect');
+            if (gameModeSelect) {
+                gameModeSelect.value = 'online';
+            }
+            
+            // Hide difficulty selector for online mode
+            const difficultyContainer = document.getElementById('difficultyContainer');
+            if (difficultyContainer) {
+                difficultyContainer.style.display = 'none';
+            }
+            
+            // Update player info displays with online mode data
+            try {
+                updatePlayerInfoDisplays('online', null, playerColor, opponentInfo);
+            } catch (e) {
+                console.warn('[Lobby] Failed to update player info displays:', e);
+            }
+            
+            // Set the time control and sync timer from server
+            const timeControl = data.timeControl || selectedTimeControl;
+            if (window.GameTimer) {
+                try {
+                    window.GameTimer.setTimeControl(timeControl);
+                    window.GameTimer.setOnlineMode(true);
+                    
+                    // Sync timer state from server if available
+                    if (data.timerState) {
+                        window.GameTimer.syncFromServer(data.timerState);
+                    }
+                } catch (e) {
+                    console.warn('[Lobby] Failed to setup timer:', e);
+                }
+            }
+        } catch (err) {
+            console.error('[Lobby] Error during startOnlineGame setup:', err);
         }
         
-        // Hide lobby
-        hideLobby();
+        // CRITICAL: Hide lobby and trigger game engine
+        // These are wrapped in try-catches to ensure one failure doesn't stop the other
+        try {
+            console.log('[Lobby] Hiding lobby...');
+            hideLobby();
+        } catch (e) {
+            console.error('[Lobby] Failed to hide lobby:', e);
+            // Fallback: force overlay hiding via ID
+            const overlay = document.getElementById('lobbyOverlay');
+            if (overlay) overlay.style.display = 'none';
+        }
         
-        // Trigger new game
-        triggerNewGame();
+        try {
+            console.log('[Lobby] Triggering new game sequence...');
+            triggerNewGame();
+        } catch (e) {
+            console.error('[Lobby] Failed to trigger new game:', e);
+        }
         
         // Apply initial game state from server if available
         if (data.gameState && window.applyOnlineMove) {
             console.log('[Lobby] Applying initial game state from server');
             // Pass null as previousState to indicate initial sync
             setTimeout(() => {
-                window.applyOnlineMove(data.gameState, null);
+                try {
+                    window.applyOnlineMove(data.gameState, null);
+                } catch (e) {
+                    console.error('[Lobby] Failed to apply initial state:', e);
+                }
             }, 100); // Small delay to ensure board is reset
         } else {
             console.warn('[Lobby] No game state or applyFunction available:', { 
@@ -1630,10 +1658,17 @@
     }
 
     function triggerNewGame() {
-        // Click the New Game button in the existing menu
-        const newGameBtn = document.getElementById('newGameBtn');
-        if (newGameBtn) {
-            newGameBtn.click();
+        console.log('[Lobby] Triggering new game...');
+        if (window.resetGame) {
+            window.resetGame();
+        } else {
+            // Fallback to clicking button
+            const newGameBtn = document.getElementById('newGameBtn');
+            if (newGameBtn) {
+                newGameBtn.click();
+            } else {
+                console.warn('[Lobby] Could not trigger new game: resetGame not found and button missing');
+            }
         }
     }
 
