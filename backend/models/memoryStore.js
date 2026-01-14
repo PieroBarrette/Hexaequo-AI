@@ -14,7 +14,7 @@ const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 function generateCode() {
     let code = '';
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 8; i++) {
         code += CODE_CHARS.charAt(Math.floor(Math.random() * CODE_CHARS.length));
     }
     return code;

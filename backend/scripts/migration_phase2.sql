@@ -37,6 +37,10 @@ CREATE INDEX IF NOT EXISTS idx_matchmaking_queue_user ON matchmaking_queue(user_
 -- Add pseudo column to matchmaking_queue if it doesn't exist (PostgreSQL 9.6+)
 ALTER TABLE matchmaking_queue ADD COLUMN IF NOT EXISTS pseudo VARCHAR(50) DEFAULT 'Guest';
 
+-- Change Room Code length to 8 chars
+ALTER TABLE rooms ALTER COLUMN code TYPE VARCHAR(8);
+ALTER TABLE games ALTER COLUMN room_code TYPE VARCHAR(8);
+
 -- ============================================
 -- Invitations Table (Phase 2)
 -- ============================================

@@ -49,8 +49,9 @@ function generateCode() {
 /**
  * Create a new invitation
  */
-async function createInvitation(creatorUserId, creatorPseudo, creatorElo, roomSettings = {}) {
-    const code = generateCode();
+async function createInvitation(creatorUserId, creatorPseudo, creatorElo, roomSettings = {}, customCode = null) {
+    // Use custom code (e.g. room code) if provided, otherwise generate random
+    const code = customCode || generateCode();
     const expiresAt = new Date(Date.now() + INVITATION_EXPIRATION_HOURS * 60 * 60 * 1000);
     
     try {
@@ -63,8 +64,8 @@ async function createInvitation(creatorUserId, creatorPseudo, creatorElo, roomSe
         
         return formatInvitation(result.rows[0]);
     } catch (err) {
-        // Code collision (very rare), retry once
-        if (err.code === '23505') {
+        // Code collision (very rare), retry once if it was auto-generated
+        if (err.code === '23505' && !customCode) {
             const newCode = generateCode();
             const result = await query(
                 `INSERT INTO invitations (id, code, creator_user_id, creator_pseudo, creator_elo, room_settings, expires_at)

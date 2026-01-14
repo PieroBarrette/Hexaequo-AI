@@ -50,8 +50,8 @@ async function createInvitation(userId, pseudo, elo, socketId, roomSettings = {}
         });
         
         const invitation = await withFallback(
-            () => invitationModel.createInvitation(userId, pseudo, elo, { ...roomSettings, roomCode: room.code }),
-            () => createMemoryInvitation(userId, pseudo, elo, { ...roomSettings, roomCode: room.code })
+            () => invitationModel.createInvitation(userId, pseudo, elo, { ...roomSettings, roomCode: room.code }, room.code),
+            () => createMemoryInvitation(userId, pseudo, elo, { ...roomSettings, roomCode: room.code }, room.code)
         );
         
         return {
@@ -210,8 +210,8 @@ function generateCode() {
     return code;
 }
 
-function createMemoryInvitation(userId, pseudo, elo, roomSettings) {
-    const code = generateCode();
+function createMemoryInvitation(userId, pseudo, elo, roomSettings, customCode = null) {
+    const code = customCode || generateCode();
     const invitation = {
         id: `mem_${Date.now()}`,
         code,

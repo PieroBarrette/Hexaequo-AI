@@ -1567,6 +1567,20 @@
         
         // Trigger new game
         triggerNewGame();
+        
+        // Apply initial game state from server if available
+        if (data.gameState && window.applyOnlineMove) {
+            console.log('[Lobby] Applying initial game state from server');
+            // Pass null as previousState to indicate initial sync
+            setTimeout(() => {
+                window.applyOnlineMove(data.gameState, null);
+            }, 100); // Small delay to ensure board is reset
+        } else {
+            console.warn('[Lobby] No game state or applyFunction available:', { 
+                hasState: !!data.gameState, 
+                hasApply: !!window.applyOnlineMove 
+            });
+        }
     }
 
     // ==================== Profile Functions ====================

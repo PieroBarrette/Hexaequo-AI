@@ -59,7 +59,7 @@ CREATE INDEX IF NOT EXISTS idx_users_elo_blitz ON users(elo_blitz DESC);
 -- Rooms Table (Lobby/Matchmaking)
 -- ============================================
 CREATE TABLE IF NOT EXISTS rooms (
-    code VARCHAR(4) PRIMARY KEY,
+    code VARCHAR(8) PRIMARY KEY,
     
     -- Host player
     host_id UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -96,7 +96,7 @@ CREATE INDEX IF NOT EXISTS idx_rooms_created ON rooms(created_at DESC);
 -- ============================================
 CREATE TABLE IF NOT EXISTS games (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    room_code VARCHAR(4),
+    room_code VARCHAR(8),
     
     -- Players
     black_player_id UUID REFERENCES users(id) ON DELETE SET NULL,
