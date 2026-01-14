@@ -139,12 +139,18 @@ const Matchmaking = (function() {
         console.log('[Matchmaking] Opponent joined from invite:', data);
         
         // This triggers the same flow as matchmaking match-found
+        // Standardize: use opponentInfo with name/elo structure
+        const opponentInfo = data.opponent ? {
+            name: data.opponent.pseudo || data.opponent.name,
+            elo: data.opponent.elo
+        } : data.opponentInfo;
+        
         if (onMatchFound) {
             onMatchFound({
                 roomCode: window.Multiplayer?.roomCode,
                 color: window.Multiplayer?.playerColor || 'black',
                 gameState: data.gameState,
-                opponentInfo: data.opponent || data.opponentInfo,
+                opponentInfo: opponentInfo,
                 timeMode: data.timeMode
             });
         }

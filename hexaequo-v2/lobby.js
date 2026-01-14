@@ -197,8 +197,9 @@
         // Initialize language selector
         initializeLanguageSelect();
         
-        // Check for existing session, then check for invite code
+        // Check for existing session, then update UI and check for invite code
         checkExistingSession().then(() => {
+            updateUserStatusUI();
             handleEarlyInviteCheck();
         });
         
@@ -295,7 +296,7 @@
         });
         lobby.loginForm?.addEventListener('submit', handleLogin);
         lobby.registerForm?.addEventListener('submit', handleRegister);
-        lobby.backFromAuthBtn?.addEventListener('click', showOnlineOptions);
+        lobby.backFromAuthBtn?.addEventListener('click', showMainMenu);
         
         // Settings
         // Note: Settings button moved to user menu (Phase 1)
@@ -1186,7 +1187,7 @@
             return;
         }
         
-        hideInviteLandingModal();
+        // Pass stored values to acceptInvitation (modal hidden on success)
         acceptInvitation(currentInviteCode, currentInviteInfo);
     }
     
@@ -1226,6 +1227,9 @@
                 showError(response.error || i18nT('errors.failedToJoin'));
                 return;
             }
+            
+            // Hide landing modal only after successful connection
+            hideInviteLandingModal();
             
             console.log('[Lobby] Invitation accepted, joined room:', response.roomCode);
             currentRoomCode = response.roomCode;
@@ -1768,6 +1772,15 @@
             if (lobby.profileBtn) {
                 lobby.profileBtn.style.display = 'inline-block';
             }
+            // Update Play Online button text
+            if (lobby.playOnlineBtn) {
+                lobby.playOnlineBtn.textContent = i18nT('lobby.playOnline');
+            }
+        } else {
+            // Not logged in - show sign in prompt on button
+            if (lobby.playOnlineBtn) {
+                lobby.playOnlineBtn.textContent = i18nT('lobby.signInToPlayOnline');
+            }
         }
         
         // Update matchmaking section
@@ -1841,7 +1854,8 @@
                 // Load user settings from backend
                 await loadSettingsFromBackend();
                 
-                // Update user menu display
+                // Update UI displays
+                updateUserStatusUI();
                 window.UserMenu?.updateDisplay?.();
                 
                 // Check if we have a pending invite
@@ -1915,7 +1929,8 @@
                 saveSettingToBackend('showPreviousMove', currentSettings.showPreviousMove);
                 saveSettingToBackend('language', currentSettings.language);
                 
-                // Update user menu display
+                // Update UI displays
+                updateUserStatusUI();
                 window.UserMenu?.updateDisplay?.();
                 
                 // Check if we have a pending invite to show
