@@ -85,8 +85,10 @@ npm run db:cleanup  # Remove old/stale data
 ### Testing AI
 AI uses **minimax with alpha-beta pruning** + **transposition table**:
 - Depth controlled by `AI_SEARCH_DEPTH` (default 3) in `hexaequo-v2/ai.js`
+- **Level 0** (Beginner): `depth=0` — greedy evaluation, no lookahead (picks best immediate move)
+- **Levels 1-4**: Increasing minimax depth for stronger play
 - **Position hashing** for draw detection (3-fold repetition) via `getPositionHash(state)`
-- Test levels 1-4 via lobby UI (`blackAiLevel`/`whiteAiLevel` selects)
+- Test levels 0-4 via lobby UI (`blackAiLevel`/`whiteAiLevel` selects)
 
 ## Project-Specific Conventions
 

@@ -38,6 +38,7 @@ router.get('/rating', async (req, res, next) => {
 
         // Estimated ratings for AI difficulty levels
         const ratings = {
+            0: 400,
             1: 800,
             2: 1200,
             3: 1600,

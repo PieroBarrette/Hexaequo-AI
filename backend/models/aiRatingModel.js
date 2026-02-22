@@ -8,6 +8,7 @@ const { query } = require('../config/database');
 
 // Default estimated ratings for AI difficulty levels
 const DEFAULT_RATINGS = {
+    0: 400,   // Beginner
     1: 800,   // Easy
     2: 1200,  // Medium-Easy
     3: 1600,  // Medium
