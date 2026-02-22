@@ -384,8 +384,8 @@ exports.endGame = async (gameId, {
         winner,
         resultReason,
         eloChanges: {
-            black: blackEloChange,
-            white: whiteEloChange
+            black: { change: blackEloChange, oldElo: game.black_elo_before, newElo: blackEloAfter },
+            white: { change: whiteEloChange, oldElo: game.white_elo_before, newElo: whiteEloAfter }
         }
     };
 };

@@ -126,6 +126,13 @@ AI uses **minimax with alpha-beta pruning** + **transposition table**:
 **Friendly exclusion**: Time mode `'none'` has multiplier 0, so ELO change = 0.
 **Frontend ELO shape**: Always a flat number (normalized from `{classic, rapid, blitz}` object on session restore/login/register).
 
+**ELO event flow** (socket communication):
+- Server emits personalized `elo-updated` to each player's socket individually with `{ change, oldElo, newElo }`
+- `emitEloUpdatedToPlayers()` helper in `socketHandler.js` handles per-socket emission using room's host/white socket IDs
+- Frontend `onEloUpdated()` displays the change in the game-over popup; stores pending data if popup not yet created
+- Client-side dedup: only the winner (or black for draws) emits `game-ended`; resign/draw/timeout paths pass `skipReport=true` to `endGame()` since those are already handled server-side by their specific socket handlers
+- Server-side idempotency: `findGameByRoomCode()` returns `null` for already-completed games (filters `winner IS NULL`), so duplicate `game-ended` emissions are harmless
+
 ### Authentication Requirements
 **Online play requires sign-in** - no guest/anonymous play:
 - Main menu shows "Sign in to play online" button if not authenticated
@@ -210,6 +217,8 @@ import { validateMove } from './modules/moveValidator.js';
 6. **Root redirect preserves query params**: `index.html` uses JS redirect (not meta-refresh) to preserve `?invite=CODE` and other parameters when redirecting to `hexaequo-v2/index.html`
 7. **ELO shape normalization**: Backend `/users/me` returns `elo` as `{classic, rapid, blitz}` object, but login returns flat number. Frontend normalizes to number via `elo.classic ?? 1000` in `checkExistingSession()`, `handleLogin()`, and `handleRegister()`
 8. **`/users/me` response shape**: Returns `{ data: { pseudo, elo, ... } }` — access via `data.data`, not `data.user`
+9. **ELO game-end dedup**: `endGame()` in `game.js` uses `skipReport` param — resign/draw/timeout pass `true` since those paths already trigger `gameService.endGame()` server-side. For normal wins, only the winner emits `game-ended` (or black for draws)
+10. **ELO display race condition**: `elo-updated` socket event may arrive before the game-over popup is created. `onEloUpdated()` stores pending data in `pendingEloUpdate`; `endGame()` applies it after creating the `eloUpdateDisplay` div
 
 ## Key File References
 

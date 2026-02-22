@@ -17,6 +17,26 @@ const { User } = require('../models');
 const connectedSockets = new Map(); // socketId -> { userId, pseudo, roomCode }
 
 /**
+ * Emit personalized elo-updated event to each player's socket
+ * @param {Object} io - Socket.IO server instance
+ * @param {Object} room - Room object with host/white socket IDs
+ * @param {Object} eloChanges - { black: { change, oldElo, newElo }, white: { change, oldElo, newElo } }
+ */
+function emitEloUpdatedToPlayers(io, room, eloChanges) {
+    if (!room || !eloChanges) return;
+
+    const blackSocketId = room.host?.socketId;
+    const whiteSocketId = room.white?.socketId;
+
+    if (blackSocketId && eloChanges.black) {
+        io.to(blackSocketId).emit('elo-updated', eloChanges.black);
+    }
+    if (whiteSocketId && eloChanges.white) {
+        io.to(whiteSocketId).emit('elo-updated', eloChanges.white);
+    }
+}
+
+/**
  * Initialize Socket.IO with the HTTP server
  */
 function initializeSocket(httpServer) {
@@ -353,33 +373,29 @@ function initializeSocket(httpServer) {
          */
         socket.on('game-ended', async (data, callback) => {
             try {
-                const { roomCode, gameId, winner, reason, finalState } = data;
+                const { roomCode, winnerColor, reason, isDraw } = data;
 
-                // Look up game by ID or by room code
-                let resolvedGameId = gameId;
-                if (!resolvedGameId) {
-                    const game = await gameService.findGameByRoomCode(roomCode);
-                    if (game) resolvedGameId = game.id;
-                }
+                // Derive winner value for gameService
+                const winner = isDraw ? 'draw' : winnerColor;
 
-                // Get the room to retrieve original time mode
+                // Look up active game by room code (returns null if already completed)
+                const game = await gameService.findGameByRoomCode(roomCode);
+
+                // Get the room to retrieve original time mode and socket IDs
                 const room = await roomService.getRoomByCode(roomCode);
                 const originalTimeMode = room?.timeMode || undefined;
 
-                if (resolvedGameId) {
-                    const result = await gameService.endGame(resolvedGameId, {
+                if (game) {
+                    const result = await gameService.endGame(game.id, {
                         winner,
                         resultReason: reason,
-                        finalState,
                         originalTimeMode
                     });
 
-                    // Broadcast result to room
-                    io.to(roomCode).emit('game-result', {
-                        winner,
-                        reason,
-                        eloChanges: result.eloChanges
-                    });
+                    // Emit personalized elo-updated to each player's socket
+                    emitEloUpdatedToPlayers(io, room, result.eloChanges);
+                } else {
+                    console.log(`[game-ended] No active game found for room ${roomCode} (already completed or missing)`);
                 }
 
                 await roomService.updateStatus(roomCode, 'finished');
@@ -425,16 +441,20 @@ function initializeSocket(httpServer) {
                 // Notify opponent
                 socket.to(roomCode).emit('opponent-resigned', {
                     winnerColor,
-                    resignedColor: playerColor,
-                    eloChanges
+                    resignedColor: playerColor
                 });
+
+                // Emit personalized elo-updated to each player's socket
+                if (eloChanges) {
+                    emitEloUpdatedToPlayers(io, room, eloChanges);
+                }
 
                 // Update room status
                 await roomService.updateStatus(roomCode, 'finished');
                 
                 console.log(`Player ${playerColor} resigned in room ${roomCode}`);
 
-                callback({ success: true, winnerColor, eloChanges });
+                callback({ success: true, winnerColor });
             } catch (err) {
                 console.error('Resign error:', err);
                 callback({ success: false, error: err.message });
@@ -492,14 +512,19 @@ function initializeSocket(httpServer) {
                 }
 
                 // Notify ALL players in the room that draw was accepted (including the acceptor)
-                io.to(roomCode).emit('draw-accepted', { eloChanges });
+                io.to(roomCode).emit('draw-accepted', {});
+
+                // Emit personalized elo-updated to each player's socket
+                if (eloChanges) {
+                    emitEloUpdatedToPlayers(io, room, eloChanges);
+                }
 
                 // Update room status
                 await roomService.updateStatus(roomCode, 'finished');
                 
                 console.log(`Draw accepted in room ${roomCode}`);
 
-                callback({ success: true, isDraw: true, eloChanges });
+                callback({ success: true, isDraw: true });
             } catch (err) {
                 console.error('Accept draw error:', err);
                 callback({ success: false, error: err.message });

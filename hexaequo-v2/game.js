@@ -1522,7 +1522,7 @@ window.onload = function () {
     // End the game and display the winner
     // winner: 'Black', 'White', or 'Ex Aequo'
     // reason: explanation for why the game ended (e.g., 'capturing 6 discs', 'stalemate', 'threefold repetition')
-    function endGame(winner, reason = '') {
+    function endGame(winner, reason = '', skipReport = false) {
         // Prevent duplicate game over popups
         if (document.getElementById('gameOver')) {
             return;
@@ -1542,12 +1542,20 @@ window.onload = function () {
         }
         
         // Report game result to server for ELO calculation (online mode only)
-        if (isOnlineMode && window.Multiplayer) {
+        // skipReport=true when game was already ended server-side (resign, draw, timeout)
+        if (isOnlineMode && window.Multiplayer && !skipReport) {
             const isDraw = winner === 'Ex Aequo';
             const winnerColor = isDraw ? null : winner.toLowerCase();
-            window.Multiplayer.reportGameResult(winnerColor, reason, isDraw).catch(err => {
-                console.error('[Game] Failed to report game result:', err);
-            });
+            
+            // Only the winner reports (or black for draws) to avoid duplicate emissions
+            const myColor = onlinePlayerColor;
+            const shouldReport = isDraw ? (myColor === 'black') : (winnerColor === myColor);
+            
+            if (shouldReport) {
+                window.Multiplayer.reportGameResult(winnerColor, reason, isDraw).catch(err => {
+                    console.error('[Game] Failed to report game result:', err);
+                });
+            }
         }
         
         playSound('gameEnd');
@@ -1648,6 +1656,12 @@ window.onload = function () {
             eloDisplayDiv.style.fontWeight = '500';
             eloDisplayDiv.style.display = 'none'; // Hidden until ELO update arrives
             gameOverDiv.appendChild(eloDisplayDiv);
+            
+            // Apply pending ELO data if it arrived before the popup was created
+            if (pendingEloUpdate) {
+                applyEloDisplay(eloDisplayDiv, pendingEloUpdate);
+                pendingEloUpdate = null;
+            }
         }
 
         // Different UI for online mode vs local modes
@@ -1941,15 +1955,27 @@ window.onload = function () {
             window.GameTimer.stop();
         }
         const winner = data.winner === 'black' ? 'Black' : 'White';
-        endGame(winner, 'on time');
+        endGame(winner, 'on time', true);
     }
+
+    // Pending ELO update data (stored if elo-updated arrives before gameOver popup is created)
+    let pendingEloUpdate = null;
 
     // Handle ELO update from server
     function onEloUpdated(data) {
         console.log('[Game] ELO updated:', data);
         const eloDisplay = document.getElementById('eloUpdateDisplay');
-        if (!eloDisplay) return;
+        if (!eloDisplay) {
+            // Store for later — endGame() will apply it after creating the popup
+            pendingEloUpdate = data;
+            return;
+        }
         
+        applyEloDisplay(eloDisplay, data);
+    }
+
+    // Apply ELO data to the display element
+    function applyEloDisplay(eloDisplay, data) {
         const isDarkTheme = !document.body.classList.contains('light-theme');
         const changeText = data.change >= 0 ? `+${data.change}` : `${data.change}`;
         const changeColor = data.change >= 0 ? '#10b981' : '#ef4444';
@@ -2075,10 +2101,10 @@ window.onload = function () {
             
             try {
                 await window.Multiplayer.resign();
-                // End game with us as loser
+                // End game with us as loser (skipReport: resign already handled server-side)
                 const myColor = window.Multiplayer.playerColor;
                 const winnerColor = myColor === 'black' ? 'White' : 'Black';
-                endGame(winnerColor, 'abandonment');
+                endGame(winnerColor, 'abandonment', true);
             } catch (err) {
                 console.error('Failed to resign:', err);
             }
@@ -2135,10 +2161,10 @@ window.onload = function () {
     // Handler for when opponent resigns
     function onOpponentResigned(data) {
         console.log('Opponent resigned');
-        // End game with us as winner
+        // End game with us as winner (skipReport: resign already handled server-side)
         const myColor = window.Multiplayer.playerColor;
         const winner = myColor === 'black' ? 'Black' : 'White';
-        endGame(winner, 'abandonment');
+        endGame(winner, 'abandonment', true);
     }
     
     // Handler for when opponent proposes a draw
@@ -2153,7 +2179,7 @@ window.onload = function () {
         console.log('Draw accepted');
         hideDrawProposalNotification();
         pendingDrawProposal = false;
-        endGame('Ex Aequo', 'agreement');
+        endGame('Ex Aequo', 'agreement', true);
     }
     
     // Handler for when opponent declines our draw proposal
