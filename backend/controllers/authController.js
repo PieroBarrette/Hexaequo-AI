@@ -46,7 +46,8 @@ exports.signup = async (req, res, next) => {
             data: {
                 userId: result.userId,
                 email: result.email,
-                pseudo: result.pseudo
+                pseudo: result.pseudo,
+                refreshToken: result.refreshToken || null
             },
             meta: {
                 message: 'Account created successfully. Please check your email to verify your account.'

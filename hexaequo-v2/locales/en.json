@@ -94,7 +94,8 @@
     "registrationFailed": "Registration failed",
     "usernameMinLength": "Username must be at least 3 characters",
     "passwordMinLength": "Password must be at least 4 characters",
-    "fillAllFields": "Please fill in all required fields"
+    "fillAllFields": "Please fill in all required fields",
+    "keepSignedIn": "Keep me signed in"
   },
   "settings": {
     "title": "Settings",

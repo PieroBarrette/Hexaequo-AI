@@ -247,12 +247,20 @@
                     <form id="loginForm" class="auth-form">
                         <input type="text" id="loginUsername" data-i18n-placeholder="auth.username" placeholder="Username" autocomplete="username">
                         <input type="password" id="loginPassword" data-i18n-placeholder="auth.password" placeholder="Password" autocomplete="current-password">
+                        <label class="auth-remember">
+                            <input type="checkbox" id="loginRememberMe">
+                            <span data-i18n="auth.keepSignedIn">Keep me signed in</span>
+                        </label>
                         <button type="submit" class="lobby-btn primary" data-i18n="auth.signIn">Sign In</button>
                     </form>
                     
                     <form id="registerForm" class="auth-form" style="display: none;">
                         <input type="text" id="registerUsername" data-i18n-placeholder="auth.username" placeholder="Username" autocomplete="username">
                         <input type="password" id="registerPassword" data-i18n-placeholder="auth.password" placeholder="Password" autocomplete="new-password">
+                        <label class="auth-remember">
+                            <input type="checkbox" id="registerRememberMe">
+                            <span data-i18n="auth.keepSignedIn">Keep me signed in</span>
+                        </label>
                         <button type="submit" class="lobby-btn primary" data-i18n="auth.createAccount">Create Account</button>
                     </form>
                     

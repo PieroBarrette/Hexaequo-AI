@@ -78,7 +78,10 @@ exports.createUser = async ({ email, pseudo, password }) => {
     // Send verification email (async, don't wait)
     emailService.sendVerificationEmail(email, verificationToken).catch(console.error);
 
-    return { userId: user.id, email: user.email, pseudo: user.pseudo };
+    // Generate tokens so user is auto-logged-in after registration
+    const tokens = await generateTokens(user);
+
+    return { userId: user.id, email: user.email, pseudo: user.pseudo, ...tokens };
 };
 
 /**

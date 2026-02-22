@@ -23,8 +23,111 @@
     let currentRoomCode = null;
     let currentUser = null;
     let sessionToken = null;
+    let refreshToken = null;
     let currentOpponent = null; // Stores opponent info for online games
     let pendingInviteAfterAuth = null; // Stores invite info while user is signing in
+    
+    // ==================== Session Storage Helpers ====================
+    const SESSION_KEY = 'hexaequo_session';
+    const REFRESH_KEY = 'hexaequo_refresh';
+    const PERSIST_KEY = 'hexaequo_persistent';
+
+    /**
+     * Get the appropriate storage based on user's "keep me signed in" preference.
+     * Falls back: checks localStorage first, then sessionStorage.
+     */
+    function getTokenStorage() {
+        if (localStorage.getItem(PERSIST_KEY) === 'true') return localStorage;
+        if (sessionStorage.getItem(SESSION_KEY)) return sessionStorage;
+        if (localStorage.getItem(SESSION_KEY)) return localStorage;
+        return sessionStorage;
+    }
+
+    function getStoredToken(key) {
+        return localStorage.getItem(key) || sessionStorage.getItem(key);
+    }
+
+    function setSessionTokens(access, refresh, persistent) {
+        const storage = persistent ? localStorage : sessionStorage;
+        if (access) storage.setItem(SESSION_KEY, access);
+        if (refresh) storage.setItem(REFRESH_KEY, refresh);
+        // Always store preference in localStorage so we know where to look on next visit
+        localStorage.setItem(PERSIST_KEY, persistent ? 'true' : 'false');
+        // Clear the other storage to avoid stale tokens
+        const other = persistent ? sessionStorage : localStorage;
+        other.removeItem(SESSION_KEY);
+        other.removeItem(REFRESH_KEY);
+    }
+
+    function clearSessionTokens() {
+        localStorage.removeItem(SESSION_KEY);
+        localStorage.removeItem(REFRESH_KEY);
+        localStorage.removeItem(PERSIST_KEY);
+        sessionStorage.removeItem(SESSION_KEY);
+        sessionStorage.removeItem(REFRESH_KEY);
+    }
+
+    // ==================== Authenticated Fetch ====================
+    /**
+     * Wrapper around fetch that attaches auth headers and handles token refresh on 401.
+     */
+    async function authenticatedFetch(url, options = {}) {
+        const headers = { ...options.headers };
+        if (sessionToken) {
+            headers['Authorization'] = `Bearer ${sessionToken}`;
+        }
+
+        let response = await fetch(url, { ...options, headers });
+
+        // If 401 and we have a refresh token, attempt silent refresh
+        if (response.status === 401 && refreshToken) {
+            const refreshed = await refreshAccessToken();
+            if (refreshed) {
+                headers['Authorization'] = `Bearer ${sessionToken}`;
+                response = await fetch(url, { ...options, headers });
+            }
+        }
+
+        return response;
+    }
+
+    /**
+     * Attempt to refresh the access token using the stored refresh token.
+     * Returns true on success, false on failure.
+     */
+    async function refreshAccessToken() {
+        if (!refreshToken) return false;
+
+        try {
+            const response = await fetch(`${API_BASE}/auth/refresh`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refreshToken })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                sessionToken = data.data.accessToken;
+                refreshToken = data.data.refreshToken;
+                // Preserve the user's persistence preference
+                const persistent = localStorage.getItem(PERSIST_KEY) === 'true';
+                setSessionTokens(sessionToken, refreshToken, persistent);
+                console.log('[Lobby] Token refreshed successfully');
+                return true;
+            }
+        } catch (err) {
+            console.error('[Lobby] Token refresh failed:', err);
+        }
+
+        // Refresh failed — clear session
+        clearSessionTokens();
+        sessionToken = null;
+        refreshToken = null;
+        currentUser = null;
+        updateUserStatusUI();
+        window.UserMenu?.updateDisplay?.();
+        return false;
+    }
     
     // Local game configuration
     let localGameConfig = {
@@ -462,11 +565,10 @@
             pendingSettings = {};
             
             try {
-                await fetch(`${API_BASE}/users/me/settings`, {
+                await authenticatedFetch(`${API_BASE}/users/me/settings`, {
                     method: 'PATCH',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${sessionToken}`
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(settingsToSave)
                 });
@@ -482,9 +584,7 @@
         if (!sessionToken) return;
         
         try {
-            const response = await fetch(`${API_BASE}/users/me/settings`, {
-                headers: { 'Authorization': `Bearer ${sessionToken}` }
-            });
+            const response = await authenticatedFetch(`${API_BASE}/users/me/settings`);
             
             if (response.ok) {
                 const { data: settings } = await response.json();
@@ -1459,19 +1559,16 @@
 
     // ==================== Authentication Functions ====================
     async function checkExistingSession() {
-        // Check for stored session token
-        sessionToken = localStorage.getItem('hexaequo_session');
+        // Check for stored session token (could be in localStorage or sessionStorage)
+        sessionToken = getStoredToken(SESSION_KEY);
+        refreshToken = getStoredToken(REFRESH_KEY);
         if (!sessionToken) {
             currentUser = null;
             return;
         }
         
         try {
-            const response = await fetch(`${API_BASE}/users/me`, {
-                headers: {
-                    'Authorization': `Bearer ${sessionToken}`
-                }
-            });
+            const response = await authenticatedFetch(`${API_BASE}/users/me`);
             
             if (response.ok) {
                 const data = await response.json();
@@ -1489,8 +1586,9 @@
                 window.UserMenu?.updateDisplay?.();
             } else {
                 // Invalid session, clear it
-                localStorage.removeItem('hexaequo_session');
+                clearSessionTokens();
                 sessionToken = null;
+                refreshToken = null;
                 currentUser = null;
             }
         } catch (err) {
@@ -1588,6 +1686,7 @@
             
             if (response.ok) {
                 sessionToken = data.token;
+                refreshToken = data.data?.refreshToken || null;
                 currentUser = data.user;
                 // Normalize ELO to number
                 if (currentUser.elo && typeof currentUser.elo === 'object') {
@@ -1595,7 +1694,8 @@
                 } else if (currentUser.elo === undefined) {
                     currentUser.elo = 1000;
                 }
-                localStorage.setItem('hexaequo_session', sessionToken);
+                const persistent = document.getElementById('loginRememberMe')?.checked || false;
+                setSessionTokens(sessionToken, refreshToken, persistent);
                 console.log('[Lobby] Logged in as:', currentUser.pseudo);
                 
                 // Load user settings from backend
@@ -1658,6 +1758,7 @@
             
             if (response.ok) {
                 sessionToken = data.token;
+                refreshToken = data.data?.refreshToken || null;
                 currentUser = data.user;
                 // Normalize ELO to number (new users default to 1000)
                 if (currentUser.elo && typeof currentUser.elo === 'object') {
@@ -1665,7 +1766,8 @@
                 } else if (currentUser.elo === undefined) {
                     currentUser.elo = 1000;
                 }
-                localStorage.setItem('hexaequo_session', sessionToken);
+                const persistent = document.getElementById('registerRememberMe')?.checked || false;
+                setSessionTokens(sessionToken, refreshToken, persistent);
                 console.log('[Lobby] Registered and logged in as:', currentUser.pseudo);
                 
                 // Save current settings to backend for new user
@@ -1722,8 +1824,9 @@
             }
         }
         
-        localStorage.removeItem('hexaequo_session');
+        clearSessionTokens();
         sessionToken = null;
+        refreshToken = null;
         currentUser = null;
         
         updateUserStatusUI();
@@ -1752,6 +1855,7 @@
         getUser: () => currentUser,
         getOpponent: () => currentOpponent,
         getSessionToken: () => sessionToken,
+        authenticatedFetch,
         updatePlayerInfoDisplays,
         setTimeControl: (control) => {
             selectedTimeControl = control;

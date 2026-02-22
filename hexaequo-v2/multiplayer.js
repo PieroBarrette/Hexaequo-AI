@@ -115,8 +115,8 @@ const Multiplayer = (function () {
                 .then(data => debugLog('Health check data:', data))
                 .catch(err => debugError('Health check failed:', err.message));
             
-            // Get auth token for authenticated socket connection
-            const authToken = localStorage.getItem('hexaequo_session');
+            // Get auth token for authenticated socket connection (check both storages)
+            const authToken = localStorage.getItem('hexaequo_session') || sessionStorage.getItem('hexaequo_session');
             debugLog('Auth token present:', !!authToken);
             
             socket = io(SERVER_URL, {

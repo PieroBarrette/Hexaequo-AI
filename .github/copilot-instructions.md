@@ -134,6 +134,23 @@ AI uses **minimax with alpha-beta pruning** + **transposition table**:
 - Invite links redirect to sign-in if not authenticated, then back to invite
 - No guest feature exists — all online players must have an account
 
+### Keep Me Signed In / Token Refresh
+**"Keep me signed in" checkbox** on both Sign In and Register forms (unchecked by default):
+- **Checked**: tokens stored in `localStorage` (persist across browser sessions)
+- **Unchecked**: tokens stored in `sessionStorage` (cleared when browser closes)
+- Preference flag (`hexaequo_persistent`) always in `localStorage` so `checkExistingSession()` knows where to look
+
+**Token refresh** is fully wired up:
+- `refreshAccessToken()` calls `POST /api/auth/refresh` with stored refresh token
+- `authenticatedFetch()` wraps `fetch()` with auto-`Authorization` header + silent 401 retry via refresh
+- All authenticated API calls in lobby.js use `authenticatedFetch()` instead of raw `fetch()`
+- `window.GameLobby.authenticatedFetch` exposed for other modules
+
+**Storage keys**: `hexaequo_session` (access token), `hexaequo_refresh` (refresh token), `hexaequo_persistent` (preference flag)
+**multiplayer.js + userMenu.js**: Both check `localStorage` then `sessionStorage` for token reads/clears
+
+**Registration auto-login**: `authService.createUser()` now calls `generateTokens()` and returns tokens, so new users are immediately signed in.
+
 ### Module System Nuances
 - **Frontend**: Pure ES modules (`type: "module"` in script tags or `import` statements)
 - **Backend**: CommonJS (`require()`) for most files, except Socket.IO uses `const { Server } = require('socket.io')`

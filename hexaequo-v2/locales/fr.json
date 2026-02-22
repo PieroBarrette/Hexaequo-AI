@@ -94,7 +94,8 @@
     "registrationFailed": "Échec de l'inscription",
     "usernameMinLength": "Le nom d'utilisateur doit contenir au moins 3 caractères",
     "passwordMinLength": "Le mot de passe doit contenir au moins 4 caractères",
-    "fillAllFields": "Veuillez remplir tous les champs requis"
+    "fillAllFields": "Veuillez remplir tous les champs requis",
+    "keepSignedIn": "Rester connecté"
   },
   "settings": {
     "title": "Paramètres",

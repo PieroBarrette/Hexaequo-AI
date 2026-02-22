@@ -273,7 +273,7 @@
             await window.GameLobby.logout();
         } else {
             // Fallback: manual logout
-            const sessionToken = localStorage.getItem('hexaequo_session');
+            const sessionToken = localStorage.getItem('hexaequo_session') || sessionStorage.getItem('hexaequo_session');
             if (sessionToken) {
                 try {
                     const BACKEND_PORT = 3001;
@@ -289,7 +289,12 @@
                     console.error('[UserMenu] Logout error:', err);
                 }
             }
+            // Clear both storages
             localStorage.removeItem('hexaequo_session');
+            localStorage.removeItem('hexaequo_refresh');
+            localStorage.removeItem('hexaequo_persistent');
+            sessionStorage.removeItem('hexaequo_session');
+            sessionStorage.removeItem('hexaequo_refresh');
         }
         updateDisplay();
     }
