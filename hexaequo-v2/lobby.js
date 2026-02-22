@@ -27,6 +27,13 @@
     let pendingInviteAfterAuth = null; // Stores invite info while user is signing in
     
     // Local game configuration
+    let localGameConfig = {
+        blackPlayer: 'human',  // 'human' or 'ai'
+        blackAiLevel: 3,
+        whitePlayer: 'human',  // 'human' or 'ai'
+        whiteAiLevel: 3,
+        timeControl: 'none'
+    };
 
     // ==================== DOM Elements ====================
     const lobby = {
