@@ -6,6 +6,7 @@
  */
 
 const { notFound } = require('../middleware/errorHandler');
+const eloService = require('./eloService');
 
 // Try to use database models, fall back to memory store
 let Game, Move, User;
@@ -138,9 +139,12 @@ exports.createGame = async ({
     let blackEloBefore = 1000;
     let whiteEloBefore = 1000;
     
+    // Store the original time mode for ELO calculation (before remapping 'none' → 'classic')
+    const storageTimeMode = timeMode === 'none' ? 'classic' : timeMode;
+    
     if (!useMemoryStore) {
         try {
-            const eloColumn = `elo_${timeMode === 'none' ? 'classic' : timeMode}`;
+            const eloColumn = `elo_${storageTimeMode}`;
             
             if (blackPlayerId && User) {
                 const blackPlayer = await User.findById(blackPlayerId);
@@ -169,7 +173,7 @@ exports.createGame = async ({
             whitePlayerId,
             whitePseudo,
             whiteEloBefore,
-            timeMode: timeMode === 'none' ? 'classic' : timeMode
+            timeMode: storageTimeMode
         }),
         () => memoryGameStore.create({
             roomCode,
@@ -179,7 +183,7 @@ exports.createGame = async ({
             whitePlayerId,
             whitePseudo,
             whiteEloBefore,
-            timeMode: timeMode === 'none' ? 'classic' : timeMode
+            timeMode: storageTimeMode
         })
     );
 
@@ -247,11 +251,18 @@ exports.getMoves = async (gameId) => {
 
 /**
  * End game
+ * @param {string} gameId
+ * @param {Object} options
+ * @param {string} options.winner - 'black', 'white', or 'draw'
+ * @param {string} options.resultReason - reason for game end
+ * @param {Object} [options.finalState] - final game state
+ * @param {string} [options.originalTimeMode] - original time mode before remapping (for ELO; preserves 'none')
  */
 exports.endGame = async (gameId, {
     winner,
     resultReason,
-    finalState
+    finalState,
+    originalTimeMode
 }) => {
     const game = await withFallback(
         () => Game.findById(gameId),
@@ -261,14 +272,75 @@ exports.endGame = async (gameId, {
         throw notFound('Game');
     }
     
-    // Calculate ELO changes
-    const timeMode = game.time_mode;
-    const { blackEloAfter, whiteEloAfter, blackEloChange, whiteEloChange } = 
-        calculateEloChanges(
-            game.black_elo_before,
-            game.white_elo_before,
-            winner
+    // Use original time mode for ELO calculation (preserves 'none' for friendly)
+    const eloTimeMode = originalTimeMode || game.time_mode;
+    const storageTimeMode = game.time_mode; // The column used for ELO storage
+    const isDraw = winner === 'draw' || !winner;
+    
+    // Get games played counts for K-factor calculation
+    let blackGamesPlayed = 0;
+    let whiteGamesPlayed = 0;
+    if (!useMemoryStore && User) {
+        try {
+            if (game.black_player_id) {
+                const bp = await User.findById(game.black_player_id);
+                if (bp) blackGamesPlayed = bp.games_played || 0;
+            }
+            if (game.white_player_id) {
+                const wp = await User.findById(game.white_player_id);
+                if (wp) whiteGamesPlayed = wp.games_played || 0;
+            }
+        } catch (err) {
+            // Use default 0
+        }
+    }
+    
+    // Calculate ELO changes via eloService (handles K-factors, time mode multipliers, friendly exclusion)
+    let blackEloChange = 0;
+    let whiteEloChange = 0;
+    let blackEloAfter = game.black_elo_before;
+    let whiteEloAfter = game.white_elo_before;
+    
+    if (isDraw) {
+        // For draws, use calculateNewRatings directly with result=0.5
+        const result = eloService.calculateNewRatings(
+            { rating: game.black_elo_before, gamesPlayed: blackGamesPlayed },
+            { rating: game.white_elo_before, gamesPlayed: whiteGamesPlayed },
+            0.5,
+            eloTimeMode
         );
+        blackEloChange = result.changeA;
+        whiteEloChange = result.changeB;
+        blackEloAfter = result.newRatingA;
+        whiteEloAfter = result.newRatingB;
+    } else {
+        // Determine winner/loser data
+        const isBlackWinner = winner === 'black';
+        const winnerData = {
+            id: isBlackWinner ? game.black_player_id : game.white_player_id,
+            rating: isBlackWinner ? game.black_elo_before : game.white_elo_before,
+            gamesPlayed: isBlackWinner ? blackGamesPlayed : whiteGamesPlayed
+        };
+        const loserData = {
+            id: isBlackWinner ? game.white_player_id : game.black_player_id,
+            rating: isBlackWinner ? game.white_elo_before : game.black_elo_before,
+            gamesPlayed: isBlackWinner ? whiteGamesPlayed : blackGamesPlayed
+        };
+        
+        const eloResult = eloService.processGameResult(winnerData, loserData, eloTimeMode, false);
+        
+        if (isBlackWinner) {
+            blackEloChange = eloResult.winner.change;
+            whiteEloChange = eloResult.loser.change;
+            blackEloAfter = eloResult.winner.newRating;
+            whiteEloAfter = eloResult.loser.newRating;
+        } else {
+            whiteEloChange = eloResult.winner.change;
+            blackEloChange = eloResult.loser.change;
+            whiteEloAfter = eloResult.winner.newRating;
+            blackEloAfter = eloResult.loser.newRating;
+        }
+    }
     
     // Complete the game
     await withFallback(
@@ -288,18 +360,18 @@ exports.endGame = async (gameId, {
         })
     );
     
-    // Update player ELOs and stats (only if database available)
+    // Update player ELOs and stats (only if database available and ELO changes are non-zero)
     if (!useMemoryStore && User) {
         try {
             if (game.black_player_id) {
                 const blackResult = winner === 'black' ? 'win' : winner === 'white' ? 'loss' : 'draw';
-                await User.updateElo(game.black_player_id, timeMode, blackEloAfter, blackEloChange, gameId);
+                await User.updateElo(game.black_player_id, storageTimeMode, blackEloAfter, blackEloChange, gameId);
                 await User.updateStats(game.black_player_id, blackResult);
             }
             
             if (game.white_player_id) {
                 const whiteResult = winner === 'white' ? 'win' : winner === 'black' ? 'loss' : 'draw';
-                await User.updateElo(game.white_player_id, timeMode, whiteEloAfter, whiteEloChange, gameId);
+                await User.updateElo(game.white_player_id, storageTimeMode, whiteEloAfter, whiteEloChange, gameId);
                 await User.updateStats(game.white_player_id, whiteResult);
             }
         } catch (err) {
@@ -319,38 +391,14 @@ exports.endGame = async (gameId, {
 };
 
 /**
- * Calculate ELO changes
+ * Find active game by room code
  */
-function calculateEloChanges(blackElo, whiteElo, winner) {
-    const K = 32; // K-factor
-    
-    // Expected scores
-    const expectedBlack = 1 / (1 + Math.pow(10, (whiteElo - blackElo) / 400));
-    const expectedWhite = 1 - expectedBlack;
-    
-    // Actual scores
-    let actualBlack, actualWhite;
-    if (winner === 'black') {
-        actualBlack = 1;
-        actualWhite = 0;
-    } else if (winner === 'white') {
-        actualBlack = 0;
-        actualWhite = 1;
-    } else {
-        actualBlack = 0.5;
-        actualWhite = 0.5;
-    }
-    
-    // Calculate changes
-    const blackEloChange = Math.round(K * (actualBlack - expectedBlack));
-    const whiteEloChange = Math.round(K * (actualWhite - expectedWhite));
-    
-    return {
-        blackEloAfter: blackElo + blackEloChange,
-        whiteEloAfter: whiteElo + whiteEloChange,
-        blackEloChange,
-        whiteEloChange
-    };
+exports.findGameByRoomCode = async (roomCode) => {
+    return withFallback(
+        () => Game.findByRoomCode(roomCode),
+        () => memoryGameStore.findByRoomCode(roomCode)
+    );
+};
 }
 
 /**

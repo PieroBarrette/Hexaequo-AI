@@ -33,6 +33,25 @@ async function create({
 }
 
 /**
+ * Find active (unfinished) game by room code
+ */
+async function findByRoomCode(roomCode) {
+    const result = await query(
+        `SELECT g.*,
+                COUNT(m.id) as move_count
+         FROM games g
+         LEFT JOIN moves m ON m.game_id = g.id
+         WHERE g.room_code = $1 AND g.winner IS NULL
+         GROUP BY g.id
+         ORDER BY g.started_at DESC
+         LIMIT 1`,
+        [roomCode]
+    );
+    
+    return result.rows[0] || null;
+}
+
+/**
  * Find game by ID
  */
 async function findById(id) {
@@ -241,6 +260,7 @@ async function getHeadToHead(playerId1, playerId2) {
 module.exports = {
     create,
     findById,
+    findByRoomCode,
     findAll,
     getUserMatchHistory,
     complete,

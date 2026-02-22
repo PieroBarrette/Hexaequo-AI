@@ -114,7 +114,8 @@ exports.processGameResult = (winner, loser, timeMode, isDraw = false) => {
     const { newRatingA, newRatingB, changeA, changeB } = calculateNewRatings(
         { rating: winner.rating, gamesPlayed: winner.gamesPlayed },
         { rating: loser.rating, gamesPlayed: loser.gamesPlayed },
-        result
+        result,
+        timeMode
     );
 
     return {

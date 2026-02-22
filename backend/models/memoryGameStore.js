@@ -56,6 +56,16 @@ async function findById(id) {
     return game;
 }
 
+async function findByRoomCode(roomCode) {
+    for (const game of games.values()) {
+        if (game.room_code === roomCode && game.winner === null) {
+            game.move_count = (moves.get(game.id) || []).length;
+            return game;
+        }
+    }
+    return null;
+}
+
 async function findAll({ status, timeMode, playerId, page = 1, limit = 20 }) {
     let gameList = Array.from(games.values());
     
@@ -240,6 +250,7 @@ async function findMovesByGameId(gameId) {
 module.exports = {
     create,
     findById,
+    findByRoomCode,
     findAll,
     getUserMatchHistory,
     complete,

@@ -1000,11 +1000,23 @@
      */
     function checkInviteCode() {
         const urlParams = new URLSearchParams(window.location.search);
-        const inviteCode = urlParams.get('invite');
+        let inviteCode = urlParams.get('invite');
+        
+        // Fallback: check sessionStorage (survives page reload on mobile)
+        if (!inviteCode) {
+            inviteCode = sessionStorage.getItem('hexaequo_pending_invite');
+            if (inviteCode) {
+                sessionStorage.removeItem('hexaequo_pending_invite');
+                console.log('[Lobby] Restored invite code from sessionStorage:', inviteCode);
+            }
+        }
         
         if (!inviteCode) return false;
         
-        console.log('[Lobby] Found invite code in URL:', inviteCode);
+        console.log('[Lobby] Found invite code:', inviteCode);
+        
+        // Save to sessionStorage before removing from URL (resilience for mobile reloads)
+        sessionStorage.setItem('hexaequo_pending_invite', inviteCode);
         
         // Clear the invite code from URL (without page reload)
         const newUrl = window.location.pathname + window.location.hash;
@@ -1019,6 +1031,9 @@
                 return;
             }
             
+            // Clear sessionStorage once invite is successfully processed
+            sessionStorage.removeItem('hexaequo_pending_invite');
+            
             // Show the invite landing modal
             showInviteLandingModal(inviteCode, response);
         });
@@ -1032,7 +1047,7 @@
      */
     function hasInviteCodeInUrl() {
         const urlParams = new URLSearchParams(window.location.search);
-        return urlParams.has('invite');
+        return urlParams.has('invite') || !!sessionStorage.getItem('hexaequo_pending_invite');
     }
     
     /**
@@ -1435,7 +1450,11 @@
             
             if (response.ok) {
                 const data = await response.json();
-                currentUser = data.user;
+                currentUser = data.data;
+                // Normalize ELO to number (API returns {classic, rapid, blitz})
+                if (currentUser.elo && typeof currentUser.elo === 'object') {
+                    currentUser.elo = currentUser.elo.classic ?? 1000;
+                }
                 console.log('[Lobby] Session restored for:', currentUser.pseudo);
                 
                 // Load user settings from backend
@@ -1545,6 +1564,12 @@
             if (response.ok) {
                 sessionToken = data.token;
                 currentUser = data.user;
+                // Normalize ELO to number
+                if (currentUser.elo && typeof currentUser.elo === 'object') {
+                    currentUser.elo = currentUser.elo.classic ?? 1000;
+                } else if (currentUser.elo === undefined) {
+                    currentUser.elo = 1000;
+                }
                 localStorage.setItem('hexaequo_session', sessionToken);
                 console.log('[Lobby] Logged in as:', currentUser.pseudo);
                 
@@ -1609,6 +1634,12 @@
             if (response.ok) {
                 sessionToken = data.token;
                 currentUser = data.user;
+                // Normalize ELO to number (new users default to 1000)
+                if (currentUser.elo && typeof currentUser.elo === 'object') {
+                    currentUser.elo = currentUser.elo.classic ?? 1000;
+                } else if (currentUser.elo === undefined) {
+                    currentUser.elo = 1000;
+                }
                 localStorage.setItem('hexaequo_session', sessionToken);
                 console.log('[Lobby] Registered and logged in as:', currentUser.pseudo);
                 

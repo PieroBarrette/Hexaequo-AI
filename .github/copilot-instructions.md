@@ -107,6 +107,8 @@ AI uses **minimax with alpha-beta pruning** + **transposition table**:
 - **Socket handlers**: All WebSocket logic in `backend/socket/socketHandler.js`
 
 ### ELO Rating System (`backend/services/eloService.js`)
+**Active**: `eloService.js` is imported and used by `gameService.endGame()` for all ELO calculations.
+
 **K-factors vary by experience**:
 - New players (<30 games): `K_NEW_PLAYER = 40` (high volatility)
 - Established: `K_ESTABLISHED = 20`
@@ -119,6 +121,10 @@ AI uses **minimax with alpha-beta pruning** + **transposition table**:
 - `blitz`: 0.9
 - `rapid`: 1.0 (standard)
 - `classic`: 1.2 (more points for longer games)
+
+**ELO triggers**: Game end (capture win, timeout), resignation, and draw all trigger ELO via `gameService.endGame()`.
+**Friendly exclusion**: Time mode `'none'` has multiplier 0, so ELO change = 0.
+**Frontend ELO shape**: Always a flat number (normalized from `{classic, rapid, blitz}` object on session restore/login/register).
 
 ### Authentication Requirements
 **Online play requires sign-in** - no guest/anonymous play:
@@ -184,6 +190,9 @@ import { validateMove } from './modules/moveValidator.js';
 3. **Missing move history**: Server MUST append to `metadata.moveHistory` before broadcasting updates (used for replays + draw detection)
 4. **Socket.IO CORS**: Must whitelist origins in `backend/socket/socketHandler.js` (currently includes localhost, Render, GitHub Pages)
 5. **AI blocking UI**: Always use Web Worker (`ai-worker.js`) for AI calculations, never run minimax on main thread
+6. **Root redirect preserves query params**: `index.html` uses JS redirect (not meta-refresh) to preserve `?invite=CODE` and other parameters when redirecting to `hexaequo-v2/index.html`
+7. **ELO shape normalization**: Backend `/users/me` returns `elo` as `{classic, rapid, blitz}` object, but login returns flat number. Frontend normalizes to number via `elo.classic ?? 1000` in `checkExistingSession()`, `handleLogin()`, and `handleRegister()`
+8. **`/users/me` response shape**: Returns `{ data: { pseudo, elo, ... } }` — access via `data.data`, not `data.user`
 
 ## Key File References
 

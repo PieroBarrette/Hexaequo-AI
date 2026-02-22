@@ -355,11 +355,23 @@ function initializeSocket(httpServer) {
             try {
                 const { roomCode, gameId, winner, reason, finalState } = data;
 
-                if (gameId) {
-                    const result = await gameService.endGame(gameId, {
+                // Look up game by ID or by room code
+                let resolvedGameId = gameId;
+                if (!resolvedGameId) {
+                    const game = await gameService.findGameByRoomCode(roomCode);
+                    if (game) resolvedGameId = game.id;
+                }
+
+                // Get the room to retrieve original time mode
+                const room = await roomService.getRoomByCode(roomCode);
+                const originalTimeMode = room?.timeMode || undefined;
+
+                if (resolvedGameId) {
+                    const result = await gameService.endGame(resolvedGameId, {
                         winner,
                         resultReason: reason,
-                        finalState
+                        finalState,
+                        originalTimeMode
                     });
 
                     // Broadcast result to room
@@ -398,10 +410,23 @@ function initializeSocket(httpServer) {
                 // Determine winner (opposite color of resigning player)
                 const winnerColor = playerColor === 'black' ? 'white' : 'black';
                 
+                // Process ELO changes
+                let eloChanges = null;
+                const game = await gameService.findGameByRoomCode(roomCode);
+                if (game) {
+                    const result = await gameService.endGame(game.id, {
+                        winner: winnerColor,
+                        resultReason: 'resignation',
+                        originalTimeMode: room.timeMode
+                    });
+                    eloChanges = result.eloChanges;
+                }
+                
                 // Notify opponent
                 socket.to(roomCode).emit('opponent-resigned', {
                     winnerColor,
-                    resignedColor: playerColor
+                    resignedColor: playerColor,
+                    eloChanges
                 });
 
                 // Update room status
@@ -409,7 +434,7 @@ function initializeSocket(httpServer) {
                 
                 console.log(`Player ${playerColor} resigned in room ${roomCode}`);
 
-                callback({ success: true, winnerColor });
+                callback({ success: true, winnerColor, eloChanges });
             } catch (err) {
                 console.error('Resign error:', err);
                 callback({ success: false, error: err.message });
@@ -454,15 +479,27 @@ function initializeSocket(httpServer) {
                     return callback({ success: false, error: 'Room not found' });
                 }
 
+                // Process ELO changes for draw
+                let eloChanges = null;
+                const game = await gameService.findGameByRoomCode(roomCode);
+                if (game) {
+                    const result = await gameService.endGame(game.id, {
+                        winner: 'draw',
+                        resultReason: 'agreement',
+                        originalTimeMode: room.timeMode
+                    });
+                    eloChanges = result.eloChanges;
+                }
+
                 // Notify ALL players in the room that draw was accepted (including the acceptor)
-                io.to(roomCode).emit('draw-accepted');
+                io.to(roomCode).emit('draw-accepted', { eloChanges });
 
                 // Update room status
                 await roomService.updateStatus(roomCode, 'finished');
                 
                 console.log(`Draw accepted in room ${roomCode}`);
 
-                callback({ success: true, isDraw: true });
+                callback({ success: true, isDraw: true, eloChanges });
             } catch (err) {
                 console.error('Accept draw error:', err);
                 callback({ success: false, error: err.message });
