@@ -626,6 +626,31 @@
     }
 
     // ==================== Menu Navigation ====================
+    
+    /**
+     * Cancel any active waiting state (room, matchmaking queue, invitation)
+     */
+    function cancelWaiting() {
+        // Leave the multiplayer room
+        if (window.Multiplayer?.leaveRoom) {
+            window.Multiplayer.leaveRoom().catch(err => {
+                console.error('[Lobby] Error leaving room:', err);
+            });
+        }
+        
+        // Leave matchmaking queue if active
+        if (window.Matchmaking?.isInQueue) {
+            window.Matchmaking.cleanup();
+        }
+        
+        // Cancel any active invitation
+        if (window.QrCodeModal?.hide) {
+            window.QrCodeModal.hide();
+        }
+        
+        currentRoomCode = null;
+    }
+    
     function showMainMenu() {
         // Cancel any waiting room before going back
         if (currentRoomCode) {
