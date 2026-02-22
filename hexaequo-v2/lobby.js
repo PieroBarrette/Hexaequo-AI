@@ -1831,6 +1831,7 @@
         
         updateUserStatusUI();
         window.UserMenu?.updateDisplay?.();
+        showMainMenu();
         console.log('[Lobby] Logged out');
     }
     
