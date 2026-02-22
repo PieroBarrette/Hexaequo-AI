@@ -786,6 +786,7 @@
     // Difficulty names are now localized dynamically
     function getDifficultyName(level) {
         const keys = {
+            0: 'lobby.beginner',
             1: 'lobby.easy',
             2: 'lobby.normal',
             3: 'lobby.hard',
