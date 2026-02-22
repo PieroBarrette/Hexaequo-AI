@@ -399,7 +399,6 @@ exports.findGameByRoomCode = async (roomCode) => {
         () => memoryGameStore.findByRoomCode(roomCode)
     );
 };
-}
 
 /**
  * Get head-to-head stats
