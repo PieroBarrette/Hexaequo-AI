@@ -3006,7 +3006,7 @@ body:not([data-theme="light"]) .lobby-logo-img {
     gap: 12px;
 }
 
-.auth-form input {
+.auth-form input:not([type="checkbox"]) {
     padding: 12px 14px;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid var(--border-color);
@@ -3017,11 +3017,11 @@ body:not([data-theme="light"]) .lobby-logo-img {
     transition: border-color 0.2s;
 }
 
-.auth-form input::placeholder {
+.auth-form input:not([type="checkbox"])::placeholder {
     color: var(--text-secondary);
 }
 
-.auth-form input:focus {
+.auth-form input:not([type="checkbox"]):focus {
     border-color: var(--accent-color);
 }
 
