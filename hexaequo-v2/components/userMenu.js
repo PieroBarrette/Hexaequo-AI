@@ -231,11 +231,11 @@
         });
         
         if (tab === 'login') {
-            loginForm?.style.setProperty('display', 'block');
+            loginForm?.style.setProperty('display', 'flex');
             registerForm?.style.setProperty('display', 'none');
         } else {
             loginForm?.style.setProperty('display', 'none');
-            registerForm?.style.setProperty('display', 'block');
+            registerForm?.style.setProperty('display', 'flex');
         }
     }
 
