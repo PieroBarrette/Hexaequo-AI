@@ -233,15 +233,6 @@
                         </div>
                     </div>
                     
-                    <!-- Waiting for opponent (shows when hosting via invite) -->
-                    <div id="lobbyWaitingSection" class="lobby-waiting" style="display: none;">
-                        <div class="waiting-animation">
-                            <div class="spinner"></div>
-                            <span data-i18n="lobby.waitingForOpponent">Waiting for opponent...</span>
-                        </div>
-                        <button class="lobby-btn secondary" id="lobbyCancelBtn" data-i18n="lobby.cancel">Cancel</button>
-                    </div>
-                    
                     <button class="lobby-btn secondary" id="backFromOnlineBtn" data-i18n="lobby.back">Back</button>
                     <div id="lobbyError" class="lobby-error" style="display: none;"></div>
                 </div>
@@ -518,6 +509,7 @@
                 <div class="invite-host-info">
                     <span class="invite-label" data-i18n="invite.hostLabel">Host:</span>
                     <span id="inviteHostPseudo" class="invite-value">---</span>
+                    <span id="inviteHostElo" class="invite-value invite-elo">---</span>
                 </div>
                 <div class="invite-time-info">
                     <span class="invite-label" data-i18n="lobby.timeControl">Time Control:</span>

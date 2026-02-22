@@ -143,7 +143,7 @@ async function cancelInvitation(code, userId) {
     
     const result = await query(
         `DELETE FROM invitations 
-         WHERE code = $1 AND (creator_user_id = $2 OR creator_user_id IS NULL)
+         WHERE code = $1 AND creator_user_id = $2
          RETURNING id`,
         [code.toUpperCase(), userId]
     );

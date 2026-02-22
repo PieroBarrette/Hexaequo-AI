@@ -9,7 +9,7 @@
     'use strict';
 
     // ==================== Configuration ====================
-    const BACKEND_PORT = 3000;
+    const BACKEND_PORT = 3001;
     const SERVER_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
         ? `http://localhost:${BACKEND_PORT}`
         : 'https://hexaequo-server.onrender.com';
@@ -27,19 +27,6 @@
     let pendingInviteAfterAuth = null; // Stores invite info while user is signing in
     
     // Local game configuration
-    let localGameConfig = {
-        blackPlayer: 'human',  // 'human' or 'ai'
-        blackAiLevel: 3,
-        whitePlayer: 'human',  // 'human' or 'ai'
-        whiteAiLevel: 3,
-        timeControl: 'none'
-    };
-    
-    // Room list state
-    let allRooms = []; // All rooms from server
-    let filteredRooms = []; // Rooms after filtering
-    let sortColumn = null;
-    let sortDirection = 'asc'; // 'asc' or 'desc'
 
     // ==================== DOM Elements ====================
     const lobby = {
@@ -249,11 +236,6 @@
         lobby.onlineOptions = document.getElementById('onlineOptions');
         lobby.connectionStatus = document.getElementById('lobbyConnectionStatus');
         lobby.roomActions = document.getElementById('lobbyRoomActions');
-        lobby.createRoomBtn = document.getElementById('lobbyCreateRoomBtn');
-        lobby.roomCodeInput = document.getElementById('lobbyRoomCodeInput');
-        lobby.joinRoomBtn = document.getElementById('lobbyJoinRoomBtn');
-        lobby.waitingSection = document.getElementById('lobbyWaitingSection');
-        lobby.cancelBtn = document.getElementById('lobbyCancelBtn');
         lobby.backFromOnlineBtn = document.getElementById('backFromOnlineBtn');
         lobby.errorDisplay = document.getElementById('lobbyError');
         
@@ -286,20 +268,6 @@
         // Time control
         lobby.timeControlSelect = document.getElementById('timeControlSelect');
         
-        // Room browser
-        lobby.refreshRoomsBtn = document.getElementById('refreshRoomsBtn');
-        lobby.roomListBody = document.getElementById('roomListBody');
-        lobby.roomListEmpty = document.getElementById('roomListEmpty');
-        lobby.filterNone = document.getElementById('filterNone');
-        lobby.filterClassic = document.getElementById('filterClassic');
-        lobby.filterRapid = document.getElementById('filterRapid');
-        lobby.filterBlitz = document.getElementById('filterBlitz');
-        lobby.filterBullet = document.getElementById('filterBullet');
-        lobby.filterUsers = document.getElementById('filterUsers');
-        lobby.eloMin = document.getElementById('eloMin');
-        lobby.eloMax = document.getElementById('eloMax');
-        lobby.sortableHeaders = document.querySelectorAll('.room-list-table th.sortable');
-        
         lobby.rulesBtn = document.getElementById('lobbyRulesBtn');
         lobby.settingsBtn = document.getElementById('lobbySettingsBtn');
         
@@ -313,10 +281,6 @@
         
         // ELO display
         lobby.userEloDisplay = document.getElementById('userEloDisplay');
-        
-        // Filter toggle
-        lobby.filterToggleBtn = document.getElementById('filterToggleBtn');
-        lobby.roomFilters = document.getElementById('roomFilters');
     }
 
     // ==================== Event Listeners ====================
@@ -344,23 +308,7 @@
         });
         
         // Online options
-        lobby.createRoomBtn?.addEventListener('click', createRoom);
-        lobby.cancelBtn?.addEventListener('click', cancelWaiting);
         lobby.backFromOnlineBtn?.addEventListener('click', showMainMenu);
-        
-        // Room browser
-        lobby.refreshRoomsBtn?.addEventListener('click', refreshRoomList);
-        lobby.filterNone?.addEventListener('change', applyFiltersAndRender);
-        lobby.filterClassic?.addEventListener('change', applyFiltersAndRender);
-        lobby.filterRapid?.addEventListener('change', applyFiltersAndRender);
-        lobby.filterBlitz?.addEventListener('change', applyFiltersAndRender);
-        lobby.filterBullet?.addEventListener('change', applyFiltersAndRender);
-        lobby.filterUsers?.addEventListener('change', applyFiltersAndRender);
-        lobby.eloMin?.addEventListener('input', debounce(applyFiltersAndRender, 300));
-        lobby.eloMax?.addEventListener('input', debounce(applyFiltersAndRender, 300));
-        lobby.sortableHeaders?.forEach(th => {
-            th.addEventListener('click', () => handleSortClick(th.dataset.sort));
-        });
         
         // User status / auth
         lobby.loginBtn?.addEventListener('click', handleLoginBtnClick);
@@ -394,9 +342,6 @@
         lobby.profileModal?.addEventListener('click', (e) => {
             if (e.target === lobby.profileModal) closeProfileModal();
         });
-        
-        // Filter toggle
-        lobby.filterToggleBtn?.addEventListener('click', toggleFilters);
         
         // Main menu Rules button
         lobby.mainRulesBtn?.addEventListener('click', openRules);
@@ -1036,71 +981,6 @@
         lobby.roomActions?.style.setProperty('display', 'none');
     }
 
-    function createRoom() {
-        if (!isConnected) {
-            showError(i18nT('lobby.notConnected'));
-            return;
-        }
-        
-        hideError();
-        console.log('[Lobby] Creating room with time control:', selectedTimeControl);
-        
-        // Use Multiplayer module's createRoom which handles the protocol correctly
-        window.Multiplayer.createRoom(selectedTimeControl).then((result) => {
-            console.log('[Lobby] Room created:', result.roomCode, 'timeControl:', result.timeControl);
-            currentRoomCode = result.roomCode;
-            showWaitingForOpponent(result.roomCode);
-        }).catch((err) => {
-            console.error('[Lobby] Failed to create room:', err);
-            showError(err.message || i18nT('errors.failedToCreateRoom'));
-        });
-    }
-
-    function joinRoom(roomCode) {
-        if (!isConnected) {
-            showError(i18nT('lobby.notConnected'));
-            return;
-        }
-        
-        const code = roomCode || '';
-        if (!code || code.length !== 4) {
-            showError(i18nT('errors.invalidRoomCode'));
-            return;
-        }
-        
-        // Prevent joining own room (client-side check)
-        if (currentRoomCode && code.toUpperCase() === currentRoomCode.toUpperCase()) {
-            showError(i18nT('errors.cantJoinOwnRoom'));
-            return;
-        }
-        
-        hideError();
-        console.log('[Lobby] Joining room:', code);
-        
-        // Use Multiplayer module's joinRoom
-        window.Multiplayer.joinRoom(code).then((result) => {
-            console.log('[Lobby] Joined room:', result.roomCode, 'timeControl:', result.timeControl);
-            currentRoomCode = result.roomCode;
-            if (result.waiting) {
-                showWaitingForOpponent(result.roomCode);
-            } else {
-                // Game is starting - we're the joining player (white)
-                // Store opponent info (black player)
-                currentOpponent = result.opponentInfo || { name: 'Opponent', elo: null };
-                startOnlineGame({ 
-                    playerColor: result.color, 
-                    gameState: result.gameState,
-                    opponentInfo: currentOpponent,
-                    timeControl: result.timeControl,  // Use server's time control
-                    timerState: result.timerState     // Sync timer from server
-                });
-            }
-        }).catch((err) => {
-            console.error('[Lobby] Failed to join room:', err);
-            showError(err.message || i18nT('errors.failedToJoinRoom'));
-        });
-    }
-
     // ==================== Matchmaking Functions (Phase 2) ====================
     
     // Invite landing modal state
@@ -1321,7 +1201,7 @@
                 elo: response.opponentInfo?.elo
             };
             
-            // Start the game as white (guest)
+            // Start the game as white (invitee)
             startOnlineGame({
                 playerColor: response.color || 'white',
                 gameState: response.gameState,
@@ -1346,265 +1226,6 @@
             opponentInfo: currentOpponent,
             timeControl: data.timeMode
         });
-    }
-
-    // ==================== Room List Functions ====================
-    
-    // Debounce helper
-    function debounce(func, wait) {
-        let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
-            clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-        };
-    }
-    
-    // Fetch room list from server (legacy - kept for compatibility)
-    function fetchRoomList() {
-        if (!socket || !socket.connected) {
-            console.log('[Lobby] Cannot fetch rooms - not connected');
-            return;
-        }
-        
-        socket.emit('get-room-list', (response) => {
-            if (response.success) {
-                allRooms = response.rooms || [];
-                console.log('[Lobby] Fetched', allRooms.length, 'rooms');
-                applyFiltersAndRender();
-            } else {
-                console.error('[Lobby] Failed to fetch rooms:', response.error);
-                allRooms = [];
-                renderRoomList();
-            }
-        });
-    }
-    
-    // Refresh room list with animation
-    function refreshRoomList() {
-        const btn = lobby.refreshRoomsBtn;
-        if (btn) {
-            btn.classList.add('spinning');
-            setTimeout(() => btn.classList.remove('spinning'), 500);
-        }
-        fetchRoomList();
-    }
-    
-    // Apply filters to the room list
-    function applyFiltersAndRender() {
-        const filters = {
-            timeControls: {
-                none: lobby.filterNone?.checked ?? true,
-                classic: lobby.filterClassic?.checked ?? true,
-                rapid: lobby.filterRapid?.checked ?? true,
-                blitz: lobby.filterBlitz?.checked ?? true,
-                bullet: lobby.filterBullet?.checked ?? true
-            },
-            showUsers: lobby.filterUsers?.checked ?? true,
-            eloMin: parseInt(lobby.eloMin?.value) || 0,
-            eloMax: parseInt(lobby.eloMax?.value) || Infinity
-        };
-        
-        filteredRooms = allRooms.filter(room => {
-            // Time control filter
-            if (!filters.timeControls[room.timeControl]) return false;
-            
-            // ELO filter
-            if (room.creatorElo !== null) {
-                if (room.creatorElo < filters.eloMin) return false;
-                if (room.creatorElo > filters.eloMax) return false;
-            }
-            
-            return true;
-        });
-        
-        // Apply sorting
-        if (sortColumn) {
-            sortRooms();
-        }
-        
-        renderRoomList();
-    }
-    
-    // Handle sort header click
-    function handleSortClick(column) {
-        // Toggle direction if same column, else set to asc
-        if (sortColumn === column) {
-            sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
-        } else {
-            sortColumn = column;
-            sortDirection = 'asc';
-        }
-        
-        // Update header UI
-        lobby.sortableHeaders?.forEach(th => {
-            th.classList.remove('sort-asc', 'sort-desc');
-            if (th.dataset.sort === sortColumn) {
-                th.classList.add(sortDirection === 'asc' ? 'sort-asc' : 'sort-desc');
-            }
-        });
-        
-        sortRooms();
-        renderRoomList();
-    }
-    
-    // Sort the filtered rooms
-    function sortRooms() {
-        const timeControlOrder = { none: 0, bullet: 1, blitz: 2, rapid: 3, classic: 4 };
-        
-        filteredRooms.sort((a, b) => {
-            let comparison = 0;
-            
-            switch (sortColumn) {
-                case 'timeControl':
-                    comparison = timeControlOrder[a.timeControl] - timeControlOrder[b.timeControl];
-                    break;
-                case 'creatorName':
-                    comparison = (a.creatorName || '').localeCompare(b.creatorName || '');
-                    break;
-                case 'creatorElo':
-                    const eloA = a.creatorElo ?? -1;
-                    const eloB = b.creatorElo ?? -1;
-                    comparison = eloA - eloB;
-                    break;
-            }
-            
-            return sortDirection === 'desc' ? -comparison : comparison;
-        });
-    }
-    
-    // Render room list to DOM
-    function renderRoomList() {
-        const tbody = lobby.roomListBody;
-        const emptyMsg = lobby.roomListEmpty;
-        
-        if (!tbody) return;
-        
-        // Clear existing rows
-        tbody.innerHTML = '';
-        
-        // Time labels - these are universal abbreviations, kept as-is
-        const timeLabels = {
-            none: i18nT('lobby.none'),
-            classic: '15|0',
-            rapid: '10|5',
-            blitz: '5|3',
-            bullet: '2|1'
-        };
-        
-        if (filteredRooms.length === 0) {
-            emptyMsg?.style.setProperty('display', 'block');
-            return;
-        }
-        
-        emptyMsg?.style.setProperty('display', 'none');
-        
-        filteredRooms.forEach(room => {
-            const tr = document.createElement('tr');
-            tr.dataset.roomCode = room.roomCode;
-            
-            // Check if this is the user's own room
-            const isOwnRoom = currentRoomCode && room.roomCode.toUpperCase() === currentRoomCode.toUpperCase();
-            
-            if (isOwnRoom) {
-                tr.classList.add('own-room');
-                tr.title = 'Your room';
-            } else {
-                tr.addEventListener('click', () => joinRoom(room.roomCode));
-            }
-            
-            // Time control cell
-            const tdTime = document.createElement('td');
-            const badge = document.createElement('span');
-            badge.className = `time-badge ${room.timeControl}`;
-            badge.textContent = timeLabels[room.timeControl] || room.timeControl;
-            tdTime.appendChild(badge);
-            tr.appendChild(tdTime);
-            
-            // Player name cell
-            const tdName = document.createElement('td');
-            tdName.textContent = room.creatorName || 'Unknown';
-            if (isOwnRoom) {
-                tdName.textContent += ' ' + i18nT('lobby.you');
-            }
-            tr.appendChild(tdName);
-            
-            // ELO cell
-            const tdElo = document.createElement('td');
-            tdElo.textContent = room.creatorElo !== null ? room.creatorElo : '-';
-            tr.appendChild(tdElo);
-            
-            tbody.appendChild(tr);
-        });
-    }
-    
-    // Set up real-time room list updates
-    function setupRoomListListeners() {
-        if (!socket) return;
-        
-        // Remove existing listeners
-        socket.off('room-created');
-        socket.off('room-filled');
-        socket.off('room-cancelled');
-        
-        // New room created
-        socket.on('room-created', (room) => {
-            console.log('[Lobby] Room created:', room.roomCode);
-            // Add to list if not already present
-            if (!allRooms.find(r => r.roomCode === room.roomCode)) {
-                allRooms.push(room);
-                applyFiltersAndRender();
-            }
-        });
-        
-        // Room was joined (no longer available)
-        socket.on('room-filled', (data) => {
-            console.log('[Lobby] Room filled:', data.roomCode);
-            allRooms = allRooms.filter(r => r.roomCode !== data.roomCode);
-            applyFiltersAndRender();
-        });
-        
-        // Room was cancelled
-        socket.on('room-cancelled', (data) => {
-            console.log('[Lobby] Room cancelled:', data.roomCode);
-            allRooms = allRooms.filter(r => r.roomCode !== data.roomCode);
-            applyFiltersAndRender();
-        });
-    }
-
-    function showWaitingForOpponent(roomCode) {
-        // Show waiting section but keep room browser visible
-        lobby.waitingSection?.style.setProperty('display', 'flex');
-        
-        // Store current room code for own-room detection
-        currentRoomCode = roomCode;
-        
-        // Hide the create room button while waiting
-        if (lobby.createRoomBtn) {
-            lobby.createRoomBtn.style.display = 'none';
-        }
-    }
-
-    function cancelWaiting() {
-        if (currentRoomCode) {
-            // Use Multiplayer.leaveRoom which handles the protocol correctly
-            if (window.Multiplayer && window.Multiplayer.leaveRoom) {
-                window.Multiplayer.leaveRoom().catch(err => {
-                    console.error('[Lobby] Failed to leave room:', err);
-                });
-            }
-        }
-        currentRoomCode = null;
-        
-        lobby.waitingSection?.style.setProperty('display', 'none');
-        
-        // Show create room button again
-        if (lobby.createRoomBtn) {
-            lobby.createRoomBtn.style.display = '';
-        }
     }
 
     function startOnlineGame(data) {
@@ -1721,12 +1342,6 @@
         }
     }
     
-    // ==================== Filter Toggle ====================
-    function toggleFilters() {
-        lobby.filterToggleBtn?.classList.toggle('collapsed');
-        lobby.roomFilters?.classList.toggle('collapsed');
-    }
-
     // ==================== Utility Functions ====================
     function hideLobby() {
         if (lobby.overlay) {
@@ -1865,7 +1480,6 @@
     
     /**
      * Update matchmaking section UI based on login status
-     * Shows/hides invite button and guest restriction message
      */
     function updateMatchmakingUI() {
         const inviteBtn = document.getElementById('matchmakingInviteBtn');
@@ -2102,33 +1716,5 @@
         document.addEventListener('DOMContentLoaded', init);
     } else {
         init();
-    }
-
-    function onCreateRoom() {
-        const playerName = document.getElementById('playerNameInput').value.trim();
-        if (!playerName) {
-            alert('Please enter your name');
-            return;
-        }
-
-        window.isLocalMode = false;
-        window.isOnlineMode = true;
-
-        createRoom(playerName);
-    }
-
-    function onJoinRoom() {
-        const playerName = document.getElementById('playerNameInput').value.trim();
-        const roomCode = document.getElementById('roomCodeInput').value.trim();
-
-        if (!playerName || !roomCode) {
-            alert('Please enter both your name and room code');
-            return;
-        }
-
-        window.isLocalMode = false;
-        window.isOnlineMode = true;
-
-        joinRoom(playerName, roomCode);
     }
 })();

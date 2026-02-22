@@ -276,7 +276,7 @@
             const sessionToken = localStorage.getItem('hexaequo_session');
             if (sessionToken) {
                 try {
-                    const BACKEND_PORT = 3000;
+                    const BACKEND_PORT = 3001;
                     const SERVER_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
                         ? `http://localhost:${BACKEND_PORT}`
                         : 'https://hexaequo-server.onrender.com';

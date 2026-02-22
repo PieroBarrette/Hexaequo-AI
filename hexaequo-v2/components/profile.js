@@ -5,7 +5,7 @@
  * - Affichage pseudo + ELO (par cadence)
  * - Settings "online" au-dessus des onglets:
  *   - Plage ELO: ± X points (défaut ±200)
- *   - Toggle "Allow friendly games" (contre guests)
+ *   - Toggle "Allow friendly games" (unrated)
  * - Onglets:
  *   1. "Games History" (actif) → gameHistory.js
  *   2. "Stats" (coming soon)

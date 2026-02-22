@@ -8,7 +8,7 @@
  * Table (optionnelle): chat_messages
  * - id UUID (PK)
  * - room_code VARCHAR(10) (FK → rooms)
- * - user_id UUID (FK → users, nullable pour guests)
+ * - user_id UUID (FK → users)
  * - pseudo VARCHAR (pour affichage)
  * - message TEXT (max 200 chars)
  * - message_type VARCHAR(20) ('text' | 'quick')

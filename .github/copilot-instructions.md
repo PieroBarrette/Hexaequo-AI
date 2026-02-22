@@ -12,7 +12,7 @@ Hexaequo is a strategic hexagonal board game with a pure-JavaScript PWA frontend
 
 ### Critical Architecture Details
 - **NO `/frontend` or `/server` directories exist** - old references in docs are outdated
-- Frontend connects to backend on **port 3001** (see `hexaequo-v2/multiplayer.js`: `const BACKEND_PORT = 3001`)
+- Frontend connects to backend on **port 3001** (see `hexaequo-v2/multiplayer.js` and `hexaequo-v2/lobby.js`: `const BACKEND_PORT = 3001`)
 - Backend uses **PostgreSQL with memory fallback** (`backend/services/gameService.js` - `withFallback()` pattern)
 - AI runs in **Web Worker** (`hexaequo-v2/ai-worker.js`) to avoid blocking UI during minimax search
 
@@ -126,6 +126,7 @@ AI uses **minimax with alpha-beta pruning** + **transposition table**:
 - Lobby is only accessible to logged-in users
 - Local play (vs AI or pass-and-play) always available without sign-in
 - Invite links redirect to sign-in if not authenticated, then back to invite
+- No guest feature exists — all online players must have an account
 
 ### Module System Nuances
 - **Frontend**: Pure ES modules (`type: "module"` in script tags or `import` statements)
@@ -209,26 +210,25 @@ import { validateMove } from './modules/moveValidator.js';
 4. **Match Found**: Server creates room, emits `match-found` to both players → auto-redirects to game
 
 ### Invitation Flow
-1. **Invite Button**: Only available to logged-in users (guests see sign-in prompt)
+1. **Invite Button**: Only available to logged-in users
 2. **Create Invite**: User clicks Invite → opens QR modal → server creates room + generates 8-char code
 3. **Share**: Creator shares link (`?invite=CODE`), QR code, or uses Web Share API
 4. **Back Button**: Confirmation dialog warns that cancelling expires the invitation link
 5. **Early Detection**: Recipient opens link → invite code detected on page load → landing modal shown immediately
-6. **Landing Modal**: Shows host info + time control with "Sign In", "Join Game" (if logged in), or "Play as Guest"
+6. **Landing Modal**: Shows host info (pseudo + ELO) + time control with "Sign In" or "Join Game" (if logged in)
 7. **Auth Flow**: If recipient signs in from landing modal → returns to landing modal after auth (pendingInviteAfterAuth)
-8. **Accept**: Clicking join/guest → `acceptInvitation()` joins existing room
+8. **Accept**: Clicking join → `acceptInvitation()` joins existing room
 9. **Game Starts**: Creator's QR modal auto-closes, both players transition to game
 
 ### Phase 2 Components (Implemented)
 **Frontend** (`hexaequo-v2/components/`):
-- `matchmaking.js` - Play/Invite button handlers, queue UI, guest restriction for invite
+- `matchmaking.js` - Play/Invite button handlers, queue UI
 - `qrCodeModal.js` - QR code modal with back button + confirmation dialog
 
 **Frontend Modals** (in `index.html`):
 - `qrCodeModal` - Invite creator modal with QR, copy link, share
 - `inviteCancelConfirm` - Confirmation dialog when cancelling invitation
-- `inviteLandingModal` - Recipient modal showing host info + join options
-- `guestInviteRestriction` - Message shown to guests with sign-in button
+- `inviteLandingModal` - Recipient modal showing host info (pseudo + ELO) + join options
 
 **Backend Models** (`backend/models/`):
 - `userPreferencesModel.js` - User matchmaking preferences (time_mode, elo_range)
@@ -258,7 +258,7 @@ invitations (id, code, creator_user_id, creator_pseudo, creator_elo, room_settin
 - **Queue stores pseudo**: `matchmakingQueueModel.addToQueue()` stores the player's pseudo directly in DB
 - **Invitation stores creator info**: `invitationModel.createInvitation()` stores `creator_pseudo` and `creator_elo`
 - **Frontend passes ELO**: Both matchmaking and invitation emit user's ELO from `GameLobby.getUser()`
-- **opponentInfo returned**: Socket handlers return `{name, elo, isGuest}` for proper opponent display
+- **opponentInfo returned**: Socket handlers return `{name, elo}` for proper opponent display
 
 ## Future Features Architecture (Phase 3-4)
 

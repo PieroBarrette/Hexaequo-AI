@@ -2,394 +2,370 @@
 
 ## Overview
 
-The Hexaequo multiplayer server uses Socket.IO for real-time communication.
+The Hexaequo multiplayer server uses Socket.IO for real-time communication. Authentication is via JWT token passed in `socket.handshake.auth.token`.
 
 **Server URL:** 
 - Production: `wss://hexaequo-server.onrender.com`
-- Development: `ws://localhost:3000`
+- Development: `ws://localhost:3001`
 
 ## Connection
 
 ```javascript
 const socket = io(SERVER_URL, {
-    transports: ['websocket', 'polling'],
+    transports: ['polling', 'websocket'],
     reconnection: true,
     reconnectionAttempts: 5,
-    reconnectionDelay: 1000
+    reconnectionDelay: 1000,
+    auth: {
+        token: localStorage.getItem('hexaequo_session')
+    }
 });
 ```
 
+**Authentication middleware**: All connections are accepted, but `socket.userId` and `socket.pseudo` are only set if a valid JWT is provided. Events that require authentication check `socket.userId`.
+
 ---
 
-## Client → Server Events
+## Matchmaking Events
 
-### `create-room`
-Create a new game room.
+### `join-matchmaking-queue` (Client → Server)
+Join the matchmaking queue. Requires authentication.
 
 **Payload:**
 ```javascript
 {
-    playerId: "player_1234567890_abc123def",  // Unique player identifier
-    settings: {                                // Optional
-        timeMode: "rapid",                     // "none" | "classic" | "rapid" | "blitz"
-        allowSpectators: true
-    },
-    profile: {                                 // Optional
-        pseudo: "PlayerName",
-        elo: 1500
+    timeMode: "classic",       // "none" | "classic" | "rapid" | "blitz" | "bullet"
+    elo: 1000,                 // Player's current ELO
+    pseudo: "PlayerName",      // Display name
+    preferences: {             // Optional
+        eloRangeMin: 800,
+        eloRangeMax: 1200
     }
 }
 ```
 
 **Callback Response:**
 ```javascript
-// Success
+// Immediate match found
 {
     success: true,
-    roomCode: "A1B2",
-    color: "black",
+    matched: true,
+    roomCode: "A1B2C3D4",
+    color: "white",
     gameState: { ... },
-    waiting: true
+    opponentInfo: { name: "Opponent", elo: 1200 },
+    timeMode: "classic"
+}
+
+// Queued (no match yet)
+{
+    success: true,
+    matched: false,
+    message: "Added to queue"
 }
 
 // Error
 {
     success: false,
-    error: "Error message"
+    error: "Must be logged in"
+}
+```
+
+### `leave-matchmaking-queue` (Client → Server)
+Leave the matchmaking queue.
+
+**Callback Response:**
+```javascript
+{ success: true }
+```
+
+### `matchmaking-status` (Client → Server)
+Get current queue status.
+
+**Callback Response:**
+```javascript
+{
+    success: true,
+    inQueue: true,
+    position: 3,
+    waitTime: 45
+}
+```
+
+### `match-found` (Server → Client)
+Emitted to both matched players when a match is found via queue.
+
+**Payload:**
+```javascript
+{
+    roomCode: "A1B2C3D4",
+    color: "black",            // or "white"
+    gameState: { ... },
+    opponentInfo: {
+        name: "OpponentName",
+        elo: 1200
+    },
+    timeMode: "classic"
 }
 ```
 
 ---
 
-### `join-room`
-Join an existing game room.
+## Invitation Events
+
+### `create-invitation` (Client → Server)
+Create a game room + invitation code. Requires authentication.
 
 **Payload:**
 ```javascript
 {
-    roomCode: "A1B2",
-    playerId: "player_1234567890_abc123def",
-    profile: {                                 // Optional
+    timeMode: "classic",
+    pseudo: "PlayerName",
+    elo: 1000
+}
+```
+
+**Callback Response:**
+```javascript
+{
+    success: true,
+    code: "A1B2C3D4",         // 8-char invite code
+    url: "https://hexaequo.com?invite=A1B2C3D4",
+    roomCode: "X9Y8Z7W6"
+}
+```
+
+### `get-invitation-info` (Client → Server)
+Get invitation details before accepting. No auth required.
+
+**Payload:**
+```javascript
+{
+    code: "A1B2C3D4"
+}
+```
+
+**Callback Response:**
+```javascript
+{
+    success: true,
+    creatorPseudo: "HostName",
+    creatorElo: 1200,
+    timeMode: "classic"
+}
+```
+
+### `accept-invitation` (Client → Server)
+Accept an invitation and join the game. Requires authentication.
+
+**Payload:**
+```javascript
+{
+    code: "A1B2C3D4",
+    pseudo: "JoinerName",
+    elo: 1000
+}
+```
+
+**Callback Response:**
+```javascript
+{
+    success: true,
+    roomCode: "X9Y8Z7W6",
+    color: "white",
+    gameState: { ... },
+    opponentInfo: {
+        name: "HostName",
+        elo: 1200
+    },
+    timeMode: "classic"
+}
+```
+
+### `cancel-invitation` (Client → Server)
+Cancel a pending invitation. Deletes the room.
+
+**Payload:**
+```javascript
+{
+    code: "A1B2C3D4"
+}
+```
+
+**Callback Response:**
+```javascript
+{ success: true }
+```
+
+### `opponent-joined` (Server → Client)
+Emitted to the host when an invitee accepts.
+
+**Payload:**
+```javascript
+{
+    opponentInfo: {
+        pseudo: "JoinerName",
+        elo: 1000
+    },
+    gameState: { ... },
+    timerState: { ... }
+}
+```
+
+---
+
+## Room Events
+
+### `create-room` (Client → Server)
+Create a new game room. Requires authentication.
+
+**Payload:**
+```javascript
+{
+    playerId: "uuid-user-id",
+    userInfo: {
         pseudo: "PlayerName",
-        elo: 1500
+        elo: 1000
+    },
+    settings: {
+        timeMode: "classic"
     }
 }
 ```
 
 **Callback Response:**
 ```javascript
-// Success (new join)
 {
     success: true,
-    roomCode: "A1B2",
+    roomCode: "A1B2C3D4",
+    color: "black",
+    gameState: { ... },
+    waiting: true
+}
+```
+
+### `join-room` (Client → Server)
+Join an existing room or reconnect. Requires authentication.
+
+**Payload:**
+```javascript
+{
+    roomCode: "A1B2C3D4",
+    playerId: "uuid-user-id",
+    userInfo: {
+        pseudo: "PlayerName",
+        elo: 1000
+    }
+}
+```
+
+**Callback Response:**
+```javascript
+// New join
+{
+    success: true,
+    roomCode: "A1B2C3D4",
     color: "white",
     gameState: { ... },
-    waiting: false
+    waiting: false,
+    opponentInfo: { name: "HostName", elo: 1200 },
+    timerState: { ... }
 }
 
-// Success (reconnection)
+// Reconnection
 {
     success: true,
-    roomCode: "A1B2",
+    roomCode: "A1B2C3D4",
     color: "black",
     gameState: { ... },
     reconnected: true,
     opponentConnected: true
 }
-
-// Error
-{
-    success: false,
-    error: "Room not found" | "Room is full"
-}
 ```
 
----
-
-### `make-move`
-Submit a game move.
-
-**Payload:**
-```javascript
-{
-    roomCode: "A1B2",
-    playerId: "player_1234567890_abc123def",
-    gameState: { ... },      // New game state after move
-    previousState: { ... },   // State before move (for animations)
-    jumpPath: [               // Optional: for multi-jump sequences
-        { q: 0, r: 0 },
-        { q: 2, r: 0 },
-        { q: 4, r: 0 }
-    ]
-}
-```
-
-**Callback Response:**
-```javascript
-// Success
-{ success: true }
-
-// Error
-{
-    success: false,
-    error: "Not your turn" | "Invalid move" | "Room not found"
-}
-```
-
----
-
-### `leave-room`
+### `leave-room` (Client → Server)
 Leave the current room.
 
 **Payload:**
 ```javascript
 {
-    roomCode: "A1B2",
-    playerId: "player_1234567890_abc123def"
+    roomCode: "A1B2C3D4",
+    playerId: "uuid-user-id"
 }
 ```
 
-**Callback Response:**
+### `room-status` (Client → Server)
+Get current room status.
+
+**Payload:**
 ```javascript
-{ success: true }
+{ roomCode: "A1B2C3D4" }
 ```
 
 ---
 
-### `resign`
-Player resigns from the game.
+## Gameplay Events
+
+### `make-move` (Client → Server)
+Submit a game move.
 
 **Payload:**
 ```javascript
 {
-    roomCode: "A1B2",
-    playerId: "player_1234567890_abc123def",
-    playerColor: "black"  // The resigning player's color
-}
-```
-
-**Callback Response:**
-```javascript
-{ success: true, winnerColor: "white" }
-```
-
----
-
-### `propose-draw`
-Propose a draw (Ex Aequo) to opponent.
-
-**Payload:**
-```javascript
-{
-    roomCode: "A1B2",
-    playerId: "player_1234567890_abc123def",
-    playerColor: "black"
-}
-```
-
-**Callback Response:**
-```javascript
-{ success: true }
-```
-
----
-
-### `accept-draw`
-Accept opponent's draw proposal.
-
-**Payload:**
-```javascript
-{
-    roomCode: "A1B2",
-    playerId: "player_1234567890_abc123def",
-    playerColor: "white"
-}
-```
-
-**Callback Response:**
-```javascript
-{ success: true, isDraw: true }
-```
-
----
-
-### `decline-draw`
-Decline opponent's draw proposal.
-
-**Payload:**
-```javascript
-{
-    roomCode: "A1B2",
-    playerId: "player_1234567890_abc123def",
-    playerColor: "white"
-}
-```
-
-**Callback Response:**
-```javascript
-{ success: true }
-```
-
----
-
-### `request-rematch`
-Request a rematch after game ends.
-
-**Payload:**
-```javascript
-{
-    roomCode: "A1B2",
-    playerId: "player_1234567890_abc123def"
-}
-```
-
-**Callback Response:**
-```javascript
-{ success: true }
-```
-
----
-
-### `start-rematch`
-Start the rematch (when both players ready).
-
-**Payload:**
-```javascript
-{
-    roomCode: "A1B2",
-    playerId: "player_1234567890_abc123def"
-}
-```
-
-**Callback Response:**
-```javascript
-{
-    success: true,
-    gameState: { ... }  // Fresh initial state
-}
-```
-
----
-
-### `leave-endgame`
-Close the endgame screen.
-
-**Payload:**
-```javascript
-{
-    roomCode: "A1B2",
-    playerId: "player_1234567890_abc123def"
-}
-```
-
-**Callback Response:**
-```javascript
-{ success: true }
-```
-
----
-
-### `room-status`
-Get current room status (debug/admin).
-
-**Payload:**
-```javascript
-{
-    roomCode: "A1B2"
-}
-```
-
-**Callback Response:**
-```javascript
-{
-    success: true,
-    status: "playing",
-    players: {
-        black: { connected: true, playerId: "..." },
-        white: { connected: true, playerId: "..." }
-    },
-    gameState: { ... }
-}
-```
-
----
-
-## Server → Client Events
-
-### `opponent-joined`
-Opponent has joined the room.
-
-**Payload:**
-```javascript
-{
+    roomCode: "A1B2C3D4",
+    playerId: "uuid-user-id",
     gameState: { ... },
-    opponent: {              // Optional
-        pseudo: "OpponentName",
-        elo: 1600
-    }
+    previousState: { ... },
+    jumpPath: [{ q: 0, r: 0 }, { q: 2, r: 0 }],  // Optional
+    timerState: { ... }                               // Optional
 }
 ```
 
----
+**Callback Response:**
+```javascript
+{ success: true }
+```
 
-### `opponent-moved`
+### `opponent-moved` (Server → Client)
 Opponent has made a move.
 
 **Payload:**
 ```javascript
 {
-    gameState: { ... },      // New game state
-    previousState: { ... },   // State before move
-    jumpPath: [...]           // If multi-jump
+    gameState: { ... },
+    previousState: { ... },
+    jumpPath: [...],
+    timerState: { ... }
 }
 ```
 
----
-
-### `opponent-disconnected`
-Opponent lost connection.
-
-**Payload:** _(none)_
-
----
-
-### `opponent-reconnected`
-Opponent restored connection.
-
-**Payload:** _(none)_
-
----
-
-### `opponent-left`
-Opponent intentionally left the room.
-
-**Payload:** _(none)_
-
----
-
-### `opponent-ready-rematch`
-Opponent wants to play again.
+### `game-ended` (Client → Server)
+Report game result for ELO calculation.
 
 **Payload:**
 ```javascript
 {
-    color: "white"  // Opponent's color
+    roomCode: "A1B2C3D4",
+    winnerId: "uuid-winner-id",
+    loserId: "uuid-loser-id",
+    isDraw: false,
+    timeMode: "classic"
 }
 ```
 
----
-
-### `opponent-left-endgame`
-Opponent closed the endgame screen.
-
-**Payload:** _(none)_
-
----
-
-### `opponent-resigned`
-Opponent resigned from the game.
+### `resign` (Client → Server)
+Player resigns.
 
 **Payload:**
+```javascript
+{
+    roomCode: "A1B2C3D4",
+    playerId: "uuid-user-id",
+    playerColor: "black"
+}
+```
+
+### `opponent-resigned` (Server → Client)
 ```javascript
 {
     winnerColor: "white",
@@ -397,41 +373,47 @@ Opponent resigned from the game.
 }
 ```
 
+### `propose-draw` / `accept-draw` / `decline-draw` (Client → Server)
+Draw negotiation events.
+
+### `draw-proposed` / `draw-accepted` / `draw-declined` (Server → Client)
+Draw negotiation responses to opponent.
+
+### `request-rematch` / `start-rematch` (Client → Server)
+Rematch flow events.
+
+### `opponent-ready-rematch` / `game-reset` (Server → Client)
+Rematch response events.
+
 ---
 
-### `draw-proposed`
-Opponent proposes a draw.
+## Connection Status Events
+
+### `opponent-disconnected` (Server → Client)
+Opponent lost connection. No payload.
+
+### `opponent-reconnected` (Server → Client)
+Opponent restored connection. No payload.
+
+### `opponent-left` (Server → Client)
+Opponent intentionally left. No payload.
+
+### `opponent-left-endgame` / `leave-endgame`
+Post-game cleanup events.
+
+---
+
+## Chat Events
+
+### `chat-message` (Client → Server / Server → Client)
+In-game chat message (max 200 chars).
 
 **Payload:**
 ```javascript
 {
-    proposedBy: "black"  // Color of the player proposing draw
-}
-```
-
----
-
-### `draw-accepted`
-Opponent accepted your draw proposal.
-
-**Payload:** _(none)_
-
----
-
-### `draw-declined`
-Opponent declined your draw proposal.
-
-**Payload:** _(none)_
-
----
-
-### `game-reset`
-Both players ready for rematch, game restarting.
-
-**Payload:**
-```javascript
-{
-    gameState: { ... }  // Fresh initial state with swapped colors
+    roomCode: "A1B2C3D4",
+    message: "Good game!",
+    sender: "PlayerName"
 }
 ```
 
@@ -441,98 +423,27 @@ Both players ready for rematch, game restarting.
 
 ```javascript
 {
-    tiles: {
-        "0,0": "black",
-        "1,0": "black",
-        "-1,1": "white",
-        "0,1": "white"
-    },
-    pieces: {
-        "1,0": { type: "disc", color: "black" },
-        "-1,1": { type: "disc", color: "white" }
-    },
-    inventory: {
-        black: { tiles: 7, discs: 5, rings: 3 },
-        white: { tiles: 7, discs: 5, rings: 3 }
-    },
-    captured: {
-        black_discs: 0,
-        black_rings: 0,
-        white_discs: 0,
-        white_rings: 0
-    },
-    activePlayer: "black"
+    tiles: { "0,0": "black", "1,0": "black", ... },
+    pieces: { "1,0": { type: "disc", color: "black" }, ... },
+    inventory: { black: 7, white: 7 },
+    discInventory: { black: 5, white: 5 },
+    ringInventory: { black: 3, white: 3 },
+    captured: { black: { disc: 0, ring: 0 }, white: { disc: 0, ring: 0 } },
+    activePlayer: "black",
+    metadata: {
+        moveHistory: [...],
+        multiJumping: false
+    }
 }
 ```
 
 ---
 
-## Connection Status Events
+## Authentication
 
-### `connect`
-Successfully connected to server.
+All connections are allowed (for page load), but the following events require `socket.userId` (valid JWT):
+- `create-room`, `join-room`
+- `join-matchmaking-queue`
+- `create-invitation`, `accept-invitation`
 
-### `disconnect`
-Disconnected from server.
-
-### `connect_error`
-Connection attempt failed.
-
-**Error Object:**
-```javascript
-{
-    message: "Error description"
-}
-```
-
----
-
-## Error Handling
-
-Always provide callbacks to handle errors:
-
-```javascript
-socket.emit('create-room', payload, (response) => {
-    if (response.success) {
-        // Handle success
-    } else {
-        console.error('Error:', response.error);
-        // Show error to user
-    }
-});
-```
-
----
-
-## Reconnection Strategy
-
-1. Socket.IO handles automatic reconnection
-2. On reconnect, client should rejoin with same playerId
-3. Server preserves player state for 24 hours
-4. Use `join-room` with existing playerId to restore session
-
-```javascript
-socket.on('connect', () => {
-    if (currentRoomCode && currentPlayerId) {
-        socket.emit('join-room', {
-            roomCode: currentRoomCode,
-            playerId: currentPlayerId
-        }, (response) => {
-            if (response.reconnected) {
-                // Successfully rejoined
-            }
-        });
-    }
-});
-```
-
----
-
-## Best Practices
-
-1. **Always use callbacks** - Never fire-and-forget
-2. **Store playerId in localStorage** - For reconnection
-3. **Handle all server events** - Especially disconnection
-4. **Validate gameState locally** - Before sending moves
-5. **Show connection status** - Keep users informed
-6. **Implement retry logic** - For failed operations
+Events without auth return `{ success: false, error: "Must be logged in" }`.
