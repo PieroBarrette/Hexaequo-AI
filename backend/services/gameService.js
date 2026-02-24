@@ -111,13 +111,13 @@ exports.getGameReplay = async (gameId) => {
 /**
  * Get leaderboard
  */
-exports.getLeaderboard = async ({ timeMode = 'classic', page = 1, limit = 50 }) => {
+exports.getLeaderboard = async ({ page = 1, limit = 50 } = {}) => {
     // Leaderboard requires database - return empty if not available
     if (useMemoryStore) {
         return { players: [], total: 0, page, totalPages: 0 };
     }
     try {
-        return await User.getLeaderboard(timeMode, { page, limit });
+        return await User.getLeaderboard({ page, limit });
     } catch (err) {
         return { players: [], total: 0, page, totalPages: 0 };
     }
@@ -139,24 +139,19 @@ exports.createGame = async ({
     let blackEloBefore = 1000;
     let whiteEloBefore = 1000;
     
-    // Store the original time mode for ELO calculation (before remapping 'none' → 'classic')
-    const storageTimeMode = timeMode === 'none' ? 'classic' : timeMode;
-    
     if (!useMemoryStore) {
         try {
-            const eloColumn = `elo_${storageTimeMode}`;
-            
             if (blackPlayerId && User) {
                 const blackPlayer = await User.findById(blackPlayerId);
                 if (blackPlayer) {
-                    blackEloBefore = blackPlayer[eloColumn] || 1000;
+                    blackEloBefore = blackPlayer.elo || 1000;
                 }
             }
             
             if (whitePlayerId && User) {
                 const whitePlayer = await User.findById(whitePlayerId);
                 if (whitePlayer) {
-                    whiteEloBefore = whitePlayer[eloColumn] || 1000;
+                    whiteEloBefore = whitePlayer.elo || 1000;
                 }
             }
         } catch (err) {
@@ -173,7 +168,7 @@ exports.createGame = async ({
             whitePlayerId,
             whitePseudo,
             whiteEloBefore,
-            timeMode: storageTimeMode
+            timeMode
         }),
         () => memoryGameStore.create({
             roomCode,
@@ -183,7 +178,7 @@ exports.createGame = async ({
             whitePlayerId,
             whitePseudo,
             whiteEloBefore,
-            timeMode: storageTimeMode
+            timeMode
         })
     );
 
@@ -274,7 +269,6 @@ exports.endGame = async (gameId, {
     
     // Use original time mode for ELO calculation (preserves 'none' for friendly)
     const eloTimeMode = originalTimeMode || game.time_mode;
-    const storageTimeMode = game.time_mode; // The column used for ELO storage
     const isDraw = winner === 'draw' || !winner;
     
     // Get games played counts for K-factor calculation
@@ -360,18 +354,18 @@ exports.endGame = async (gameId, {
         })
     );
     
-    // Update player ELOs and stats (only if database available and ELO changes are non-zero)
+    // Update player ELOs and stats (only if database available)
     if (!useMemoryStore && User) {
         try {
             if (game.black_player_id) {
                 const blackResult = winner === 'black' ? 'win' : winner === 'white' ? 'loss' : 'draw';
-                await User.updateElo(game.black_player_id, storageTimeMode, blackEloAfter, blackEloChange, gameId);
+                await User.updateElo(game.black_player_id, blackEloAfter, blackEloChange, gameId);
                 await User.updateStats(game.black_player_id, blackResult);
             }
             
             if (game.white_player_id) {
                 const whiteResult = winner === 'white' ? 'win' : winner === 'black' ? 'loss' : 'draw';
-                await User.updateElo(game.white_player_id, storageTimeMode, whiteEloAfter, whiteEloChange, gameId);
+                await User.updateElo(game.white_player_id, whiteEloAfter, whiteEloChange, gameId);
                 await User.updateStats(game.white_player_id, whiteResult);
             }
         } catch (err) {

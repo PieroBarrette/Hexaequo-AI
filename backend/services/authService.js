@@ -113,11 +113,7 @@ exports.loginUser = async ({ email, password }) => {
             id: user.id,
             pseudo: user.pseudo,
             email: user.email,
-            elo: {
-                classic: user.elo_classic,
-                rapid: user.elo_rapid,
-                blitz: user.elo_blitz
-            }
+            elo: user.elo ?? 1000
         }
     };
 };

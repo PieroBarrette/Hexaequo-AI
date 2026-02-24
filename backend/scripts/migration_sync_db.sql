@@ -14,10 +14,10 @@
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Fix ELO defaults (was 1500 in early versions)
-ALTER TABLE users ALTER COLUMN elo_classic SET DEFAULT 1000;
-ALTER TABLE users ALTER COLUMN elo_rapid SET DEFAULT 1000;
-ALTER TABLE users ALTER COLUMN elo_blitz SET DEFAULT 1000;
+-- Fix ELO: single column (was elo_classic/rapid/blitz in early versions)
+-- migration_single_elo.sql handles the transition
+-- If already migrated, just ensure default is 1000
+ALTER TABLE users ALTER COLUMN elo SET DEFAULT 1000;
 
 -- ============================================
 -- SECTION 2: Rooms — ensure code is VARCHAR(8)

@@ -33,11 +33,7 @@ exports.getPublicProfile = async (userId) => {
         pseudo: user.pseudo,
         avatarUrl: user.avatar_url,
         countryCode: user.country_code,
-        elo: {
-            classic: user.elo_classic,
-            rapid: user.elo_rapid,
-            blitz: user.elo_blitz
-        },
+        elo: user.elo ?? 1000,
         stats: {
             gamesPlayed: user.games_played,
             wins: user.wins,
@@ -63,11 +59,7 @@ exports.getUserByPseudo = async (pseudo) => {
     return {
         id: user.id,
         pseudo: user.pseudo,
-        elo: {
-            classic: user.elo_classic,
-            rapid: user.elo_rapid,
-            blitz: user.elo_blitz
-        },
+        elo: user.elo ?? 1000,
         stats: {
             gamesPlayed: user.games_played,
             wins: user.wins,
@@ -163,8 +155,8 @@ exports.deleteUser = async (userId, password) => {
 /**
  * Get leaderboard
  */
-exports.getLeaderboard = async (timeMode, { page = 1, limit = 50 }) => {
-    return await User.getLeaderboard(timeMode, { page, limit });
+exports.getLeaderboard = async ({ page = 1, limit = 50 } = {}) => {
+    return await User.getLeaderboard({ page, limit });
 };
 
 /**
@@ -185,11 +177,7 @@ function formatUserResponse(user) {
         emailVerified: user.email_verified,
         avatarUrl: user.avatar_url,
         countryCode: user.country_code,
-        elo: {
-            classic: user.elo_classic,
-            rapid: user.elo_rapid,
-            blitz: user.elo_blitz
-        },
+        elo: user.elo ?? 1000,
         stats: {
             gamesPlayed: user.games_played,
             wins: user.wins,

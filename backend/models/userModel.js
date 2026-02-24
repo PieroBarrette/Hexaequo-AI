@@ -30,7 +30,7 @@ async function create({ email, pseudo, password }) {
 async function findById(id) {
     const result = await query(
         `SELECT id, email, pseudo, email_verified,
-                elo_classic, elo_rapid, elo_blitz,
+                elo,
                 games_played, wins, losses, draws,
                 settings, avatar_url, country_code,
                 created_at, last_seen
@@ -47,7 +47,7 @@ async function findById(id) {
 async function findByEmail(email) {
     const result = await query(
         `SELECT id, email, pseudo, password_hash, email_verified,
-                elo_classic, elo_rapid, elo_blitz,
+                elo,
                 games_played, wins, losses, draws,
                 settings, created_at
          FROM users WHERE email = $1`,
@@ -63,7 +63,7 @@ async function findByEmail(email) {
 async function findByPseudo(pseudo) {
     const result = await query(
         `SELECT id, email, pseudo, email_verified,
-                elo_classic, elo_rapid, elo_blitz,
+                elo,
                 games_played, wins, losses, draws,
                 settings, created_at
          FROM users WHERE LOWER(pseudo) = LOWER($1)`,
@@ -200,21 +200,19 @@ async function resetPassword(token, newPassword) {
 /**
  * Update ELO rating
  */
-async function updateElo(id, timeMode, newElo, eloChange, gameId) {
+async function updateElo(id, newElo, eloChange, gameId) {
     return transaction(async (client) => {
-        const column = `elo_${timeMode}`;
-        
         // Update user ELO
         await client.query(
-            `UPDATE users SET ${column} = $1 WHERE id = $2`,
+            `UPDATE users SET elo = $1 WHERE id = $2`,
             [newElo, id]
         );
         
         // Record in history
         await client.query(
-            `INSERT INTO elo_history (user_id, game_id, time_mode, elo_before, elo_after, elo_change)
-             VALUES ($1, $2, $3, $4, $5, $6)`,
-            [id, gameId, timeMode, newElo - eloChange, newElo, eloChange]
+            `INSERT INTO elo_history (user_id, game_id, elo_before, elo_after, elo_change)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [id, gameId, newElo - eloChange, newElo, eloChange]
         );
     });
 }
@@ -258,18 +256,17 @@ async function deleteUser(id) {
 /**
  * Get leaderboard
  */
-async function getLeaderboard(timeMode, { page = 1, limit = 50 }) {
-    const column = `elo_${timeMode}`;
+async function getLeaderboard({ page = 1, limit = 50 } = {}) {
     const offset = (page - 1) * limit;
     
     const [countResult, dataResult] = await Promise.all([
         query(`SELECT COUNT(*) FROM users WHERE games_played > 0`),
         query(
-            `SELECT id, pseudo, ${column} as elo, games_played, wins, losses, draws,
+            `SELECT id, pseudo, elo, games_played, wins, losses, draws,
                     CASE WHEN games_played > 0 THEN ROUND(wins::numeric / games_played * 100, 1) ELSE 0 END as win_rate
              FROM users
              WHERE games_played > 0
-             ORDER BY ${column} DESC
+             ORDER BY elo DESC
              LIMIT $1 OFFSET $2`,
             [limit, offset]
         )

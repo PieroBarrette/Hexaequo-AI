@@ -41,7 +41,8 @@ exports.signup = async (req, res, next) => {
             user: {
                 id: result.userId,
                 email: result.email,
-                pseudo: result.pseudo
+                pseudo: result.pseudo,
+                elo: 1000
             },
             data: {
                 userId: result.userId,
@@ -85,7 +86,7 @@ exports.login = async (req, res, next) => {
                 pseudo: result.user.pseudo,
                 username: result.user.email, // Alias
                 email: result.user.email,
-                elo: result.user.elo.classic || 1000, // Default ELO (Phase 0)
+                elo: result.user.elo ?? 1000,
                 gamesPlayed: 0,
                 gamesWon: 0
             },
@@ -96,7 +97,7 @@ exports.login = async (req, res, next) => {
                     id: result.user.id,
                     pseudo: result.user.pseudo,
                     email: result.user.email,
-                    elo: result.user.elo
+                    elo: result.user.elo ?? 1000
                 }
             }
         });

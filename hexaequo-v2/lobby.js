@@ -1573,9 +1573,11 @@
             if (response.ok) {
                 const data = await response.json();
                 currentUser = data.data;
-                // Normalize ELO to number (API returns {classic, rapid, blitz})
+                // Normalize ELO to number (backward compat: API may return object or number)
                 if (currentUser.elo && typeof currentUser.elo === 'object') {
                     currentUser.elo = currentUser.elo.classic ?? 1000;
+                } else if (currentUser.elo === undefined) {
+                    currentUser.elo = 1000;
                 }
                 console.log('[Lobby] Session restored for:', currentUser.pseudo);
                 
@@ -1688,7 +1690,7 @@
                 sessionToken = data.token;
                 refreshToken = data.data?.refreshToken || null;
                 currentUser = data.user;
-                // Normalize ELO to number
+                // Normalize ELO to number (backward compat)
                 if (currentUser.elo && typeof currentUser.elo === 'object') {
                     currentUser.elo = currentUser.elo.classic ?? 1000;
                 } else if (currentUser.elo === undefined) {
@@ -1760,7 +1762,7 @@
                 sessionToken = data.token;
                 refreshToken = data.data?.refreshToken || null;
                 currentUser = data.user;
-                // Normalize ELO to number (new users default to 1000)
+                // Normalize ELO to number (backward compat: new users always get flat 1000)
                 if (currentUser.elo && typeof currentUser.elo === 'object') {
                     currentUser.elo = currentUser.elo.classic ?? 1000;
                 } else if (currentUser.elo === undefined) {

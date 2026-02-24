@@ -397,7 +397,7 @@ router.get('/', (req, res) => {
             
             <div class="section">
                 <h3>📖 Read Database (SELECT Queries)</h3>
-                <textarea id="sqlQuery" placeholder="SELECT * FROM users LIMIT 20">SELECT id, email, pseudo, elo_classic, elo_rapid, elo_blitz, games_played, wins, created_at FROM users ORDER BY elo_classic DESC LIMIT 20</textarea>
+                <textarea id="sqlQuery" placeholder="SELECT * FROM users LIMIT 20">SELECT id, email, pseudo, elo, games_played, wins, created_at FROM users ORDER BY elo DESC LIMIT 20</textarea>
                 <div style="margin-top: 10px;">
                     <button onclick="executeQuery()" class="primary">▶️ Execute Query</button>
                     <button onclick="document.getElementById('sqlQuery').value=''">🗑️ Clear</button>
@@ -444,7 +444,7 @@ router.get('/', (req, res) => {
                         { label: 'Delete all spectators', sql: "DELETE FROM spectators" }
                     ],
                     update: [
-                        { label: 'Reset user ELO', sql: "UPDATE users SET elo_classic = 1000, elo_rapid = 1000, elo_blitz = 1000 WHERE pseudo = 'player1'" },
+                        { label: 'Reset user ELO', sql: "UPDATE users SET elo = 1000 WHERE pseudo = 'player1'" },
                         { label: 'Reset user statistics', sql: "UPDATE users SET games_played = 0, wins = 0, losses = 0, draws = 0 WHERE id = 'uuid-here'" },
                         { label: 'Change pseudo', sql: "UPDATE users SET pseudo = 'NewPseudo' WHERE pseudo = 'OldPseudo'" },
                         { label: 'Update room status', sql: "UPDATE rooms SET status = 'finished' WHERE code = 'ABCD'" }
@@ -512,11 +512,11 @@ router.get('/', (req, res) => {
                 async function loadTable(table) {
                     try {
                         const queries = {
-                            users: 'SELECT id, email, pseudo, elo_classic, elo_rapid, elo_blitz, games_played, wins, losses, created_at FROM users ORDER BY created_at DESC LIMIT 50',
+                            users: 'SELECT id, email, pseudo, elo, games_played, wins, losses, created_at FROM users ORDER BY created_at DESC LIMIT 50',
                             rooms: 'SELECT code, host_pseudo, white_pseudo, time_mode, status, created_at, updated_at FROM rooms ORDER BY created_at DESC LIMIT 50',
                             games: 'SELECT id, room_code, black_pseudo, white_pseudo, winner, result_reason, time_mode, started_at, finished_at FROM games ORDER BY started_at DESC LIMIT 50',
                             moves: 'SELECT id, game_id, move_number, player, move_type, to_q, to_r, created_at FROM moves ORDER BY created_at DESC LIMIT 100',
-                            elo_history: 'SELECT id, user_id, time_mode, elo_before, elo_after, elo_change, created_at FROM elo_history ORDER BY created_at DESC LIMIT 50',
+                            elo_history: 'SELECT id, user_id, elo_before, elo_after, elo_change, created_at FROM elo_history ORDER BY created_at DESC LIMIT 50',
                             refresh_tokens: 'SELECT id, user_id, expires_at, created_at FROM refresh_tokens ORDER BY created_at DESC LIMIT 50'
                         };
                         

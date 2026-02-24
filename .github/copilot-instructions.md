@@ -109,13 +109,15 @@ AI uses **minimax with alpha-beta pruning** + **transposition table**:
 ### ELO Rating System (`backend/services/eloService.js`)
 **Active**: `eloService.js` is imported and used by `gameService.endGame()` for all ELO calculations.
 
+**Single global ELO**: One `elo` column in `users` table (INTEGER, default 1000). No per-time-mode ratings.
+
 **K-factors vary by experience**:
 - New players (<30 games): `K_NEW_PLAYER = 40` (high volatility)
 - Established: `K_ESTABLISHED = 20`
 - High-rated (>2400): `K_HIGH_RATED = 10` (stable)
 
-**Default rating**: `DEFAULT_ELO = 1000` (Phase 0)
-**Time mode multipliers** (affect ELO change magnitude):
+**Default rating**: `DEFAULT_ELO = 1000`
+**Time mode multipliers** (affect ELO change magnitude, but all write to the same `elo` column):
 - `none`: 0 (friendly/unrated - no ELO change)
 - `bullet`: 0.75 (less variation for fast games)
 - `blitz`: 0.9
@@ -124,7 +126,7 @@ AI uses **minimax with alpha-beta pruning** + **transposition table**:
 
 **ELO triggers**: Game end (capture win, timeout), resignation, and draw all trigger ELO via `gameService.endGame()`.
 **Friendly exclusion**: Time mode `'none'` has multiplier 0, so ELO change = 0.
-**Frontend ELO shape**: Always a flat number (normalized from `{classic, rapid, blitz}` object on session restore/login/register).
+**Frontend ELO shape**: Always a flat number. Backend returns `elo` as a number in all endpoints (login, register, /users/me). Frontend keeps backward-compat normalization.
 
 **ELO event flow** (socket communication):
 - Server emits personalized `elo-updated` to each player's socket individually with `{ change, oldElo, newElo }`
@@ -132,6 +134,8 @@ AI uses **minimax with alpha-beta pruning** + **transposition table**:
 - Frontend `onEloUpdated()` displays the change in the game-over popup; stores pending data if popup not yet created
 - Client-side dedup: only the winner (or black for draws) emits `game-ended`; resign/draw/timeout paths pass `skipReport=true` to `endGame()` since those are already handled server-side by their specific socket handlers
 - Server-side idempotency: `findGameByRoomCode()` returns `null` for already-completed games (filters `winner IS NULL`), so duplicate `game-ended` emissions are harmless
+
+**DB migration**: `backend/scripts/migration_single_elo.sql` merges old `elo_classic/rapid/blitz` columns into single `elo` column
 
 ### Authentication Requirements
 **Online play requires sign-in** - no guest/anonymous play:
@@ -215,7 +219,7 @@ import { validateMove } from './modules/moveValidator.js';
 4. **Socket.IO CORS**: Must whitelist origins in `backend/socket/socketHandler.js` (currently includes localhost, Render, GitHub Pages)
 5. **AI blocking UI**: Always use Web Worker (`ai-worker.js`) for AI calculations, never run minimax on main thread
 6. **Root redirect preserves query params**: `index.html` uses JS redirect (not meta-refresh) to preserve `?invite=CODE` and other parameters when redirecting to `hexaequo-v2/index.html`
-7. **ELO shape normalization**: Backend `/users/me` returns `elo` as `{classic, rapid, blitz}` object, but login returns flat number. Frontend normalizes to number via `elo.classic ?? 1000` in `checkExistingSession()`, `handleLogin()`, and `handleRegister()`
+7. **ELO is always a flat number**: Backend returns `elo` as an integer in all endpoints. Frontend keeps backward-compat normalization (`typeof elo === 'object' ? elo.classic : elo`) but this path should never trigger with current backend.
 8. **`/users/me` response shape**: Returns `{ data: { pseudo, elo, ... } }` — access via `data.data`, not `data.user`
 9. **ELO game-end dedup**: `endGame()` in `game.js` uses `skipReport` param — resign/draw/timeout pass `true` since those paths already trigger `gameService.endGame()` server-side. For normal wins, only the winner emits `game-ended` (or black for draws)
 10. **ELO display race condition**: `elo-updated` socket event may arrive before the game-over popup is created. `onEloUpdated()` stores pending data in `pendingEloUpdate`; `endGame()` applies it after creating the `eloUpdateDisplay` div
@@ -225,6 +229,7 @@ import { validateMove } from './modules/moveValidator.js';
 
 - **Game rules**: `shared/game/moveValidator.js` (431 lines - ALL validation logic)
 - **Socket events**: `docs/SOCKET_EVENTS.md` (complete protocol spec)
+- **Single ELO migration**: `backend/scripts/migration_single_elo.sql` (merges elo_classic/rapid/blitz → elo)
 - **ELO system**: `backend/services/eloService.js` (K-factor logic, rating calculations, time mode multipliers)
 - **ELO tests**: `backend/tests/eloService.test.js` (validates multipliers and calculations)
 - **Frontend entry**: `hexaequo-v2/index.html` (lobby, game UI, modals)

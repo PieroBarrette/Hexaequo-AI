@@ -25,10 +25,8 @@ CREATE TABLE IF NOT EXISTS users (
     reset_token VARCHAR(255),
     reset_expires TIMESTAMP,
     
-    -- ELO Ratings per time control (default 1000 as of Phase 0)
-    elo_classic INTEGER DEFAULT 1000,
-    elo_rapid INTEGER DEFAULT 1000,
-    elo_blitz INTEGER DEFAULT 1000,
+    -- ELO Rating (single global rating, default 1000)
+    elo INTEGER DEFAULT 1000,
     
     -- Statistics
     games_played INTEGER DEFAULT 0,
@@ -51,9 +49,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_pseudo ON users(pseudo);
-CREATE INDEX IF NOT EXISTS idx_users_elo_classic ON users(elo_classic DESC);
-CREATE INDEX IF NOT EXISTS idx_users_elo_rapid ON users(elo_rapid DESC);
-CREATE INDEX IF NOT EXISTS idx_users_elo_blitz ON users(elo_blitz DESC);
+CREATE INDEX IF NOT EXISTS idx_users_elo ON users(elo DESC);
 
 -- ============================================
 -- Rooms Table (Lobby/Matchmaking)
@@ -196,7 +192,6 @@ CREATE TABLE IF NOT EXISTS elo_history (
     id SERIAL PRIMARY KEY,
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     game_id UUID REFERENCES games(id) ON DELETE CASCADE,
-    time_mode VARCHAR(20) NOT NULL,
     elo_before INTEGER NOT NULL,
     elo_after INTEGER NOT NULL,
     elo_change INTEGER NOT NULL,
@@ -204,7 +199,6 @@ CREATE TABLE IF NOT EXISTS elo_history (
 );
 
 CREATE INDEX IF NOT EXISTS idx_elo_history_user ON elo_history(user_id);
-CREATE INDEX IF NOT EXISTS idx_elo_history_user_mode ON elo_history(user_id, time_mode);
 
 -- ============================================
 -- Spectators Table
