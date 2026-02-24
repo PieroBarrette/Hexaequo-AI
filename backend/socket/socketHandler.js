@@ -11,6 +11,7 @@ const roomService = require('../services/roomService');
 const gameService = require('../services/gameService');
 const matchmakingService = require('../services/matchmakingService');
 const invitationService = require('../services/invitationService');
+const chatService = require('../services/chatService');
 const { User } = require('../models');
 
 // Track connected sockets
@@ -657,6 +658,9 @@ function initializeSocket(httpServer) {
 
                 if (!result?.deleted) {
                     socket.to(roomCode).emit('opponent-left');
+                } else {
+                    // Room deleted — clean up chat messages
+                    chatService.clearRoom(roomCode);
                 }
 
                 // Update socket tracking
@@ -982,17 +986,38 @@ function initializeSocket(httpServer) {
             }
         });
 
-        // ===== Chat (optional) =====
+        // ===== Chat =====
 
-        socket.on('chat-message', (data) => {
-            const { roomCode, message } = data;
+        socket.on('chat-message', (data, callback) => {
+            const { roomCode, message, type } = data;
+            const userId = socket.userId;
             const pseudo = socket.pseudo || 'Anonymous';
-            
+
+            // Verify sender is in a room
+            const socketInfo = connectedSockets.get(socket.id);
+            if (!socketInfo || socketInfo.roomCode !== roomCode) {
+                if (callback) callback({ success: false, error: 'not_in_room' });
+                return;
+            }
+
+            // Process through chatService (validates, rate-limits, stores)
+            const result = chatService.sendMessage(roomCode, userId, pseudo, message, type || 'text');
+
+            if (!result.success) {
+                if (callback) callback({ success: false, error: result.error });
+                return;
+            }
+
+            // Broadcast to opponent (excludes sender)
             socket.to(roomCode).emit('chat-message', {
-                pseudo,
-                message: message.substring(0, 200), // Limit message length
-                timestamp: Date.now()
+                pseudo: result.message.pseudo,
+                userId: result.message.userId,
+                message: result.message.message,
+                type: result.message.type,
+                timestamp: result.message.timestamp
             });
+
+            if (callback) callback({ success: true });
         });
     });
 

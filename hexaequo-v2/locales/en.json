@@ -225,5 +225,21 @@
     "multiplayerNotAvailable": "Multiplayer not available",
     "invalidInvite": "Invalid or expired invitation",
     "failedToJoin": "Failed to join game"
+  },
+  "chat": {
+    "title": "Chat",
+    "textTab": "Text",
+    "quickTab": "Quick",
+    "placeholder": "Type a message...",
+    "send": "Send",
+    "hello": "Hello!",
+    "goodLuck": "Good luck!",
+    "thanks": "Thanks!",
+    "oops": "Oops!",
+    "goodMove": "Good move!",
+    "sorry": "Sorry!",
+    "goodGame": "Good game!",
+    "gottaGo": "Gotta go!",
+    "rateLimited": "Slow down! Too many messages."
   }
 }

@@ -46,6 +46,8 @@ const Multiplayer = (function () {
     let onDrawProposed = null;
     let onDrawAccepted = null;
     let onDrawDeclined = null;
+    // Chat callback
+    let onChatMessage = null;
 
     // Get or create player ID
     // Requires authenticated user - guests are no longer supported for online play
@@ -286,6 +288,11 @@ const Multiplayer = (function () {
             socket.on('draw-declined', (data) => {
                 console.log('Draw declined');
                 if (onDrawDeclined) onDrawDeclined(data);
+            });
+
+            // Chat
+            socket.on('chat-message', (data) => {
+                if (onChatMessage) onChatMessage(data);
             });
 
             // Matchmaking events (Phase 2)
@@ -649,6 +656,21 @@ const Multiplayer = (function () {
         isOnlineMode = false;
     }
 
+    /**
+     * Send a chat message to the current room
+     * @param {string} message - text content or quick message key
+     * @param {string} type - 'text' or 'quick'
+     * @param {Function} [onError] - called with error string on failure
+     */
+    function sendChatMessage(message, type = 'text', onError) {
+        if (!socket || !roomCode) return;
+        socket.emit('chat-message', { roomCode, message, type }, (response) => {
+            if (response && !response.success && onError) {
+                onError(response.error);
+            }
+        });
+    }
+
     // Save room info to localStorage for reconnection
     function saveRoomInfo() {
         localStorage.setItem('hexaequoRoom', JSON.stringify({
@@ -703,6 +725,7 @@ const Multiplayer = (function () {
         resign,
         proposeDraw,
         respondDraw,
+        sendChatMessage,
         disconnect,
         clearRoomInfo,
         loadRoomInfo,
@@ -734,6 +757,7 @@ const Multiplayer = (function () {
         set onDrawProposed(fn) { onDrawProposed = fn; },
         set onDrawAccepted(fn) { onDrawAccepted = fn; },
         set onDrawDeclined(fn) { onDrawDeclined = fn; },
+        set onChatMessage(fn) { onChatMessage = fn; },
         set onConnectionStatusChange(fn) { onConnectionStatusChange = fn; },
         set onError(fn) { onError = fn; },
         

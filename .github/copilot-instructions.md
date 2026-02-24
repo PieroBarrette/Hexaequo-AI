@@ -235,6 +235,10 @@ import { validateMove } from './modules/moveValidator.js';
 - **Matchmaking service**: `backend/services/matchmakingService.js` (queue logic, FIFO matching)
 - **Invitation service**: `backend/services/invitationService.js` (invitation flow management)
 - **Matchmaking UI**: `hexaequo-v2/components/matchmaking.js` (Play/Invite buttons, queue state)
+- **Chat widget**: `hexaequo-v2/components/chat.js` (in-game chat, toggle button, text + quick tabs)
+- **Chat styles**: `hexaequo-v2/styles/chat.css` (chat widget layout, bubbles, responsive)
+- **Chat service**: `backend/services/chatService.js` (rate limiting, message validation, quick keys)
+- **Chat model**: `backend/models/chatMessageModel.js` (in-memory message store per room)
 
 ## Phase 2: Matchmaking System (IMPLEMENTED)
 
@@ -295,24 +299,48 @@ invitations (id, code, creator_user_id, creator_pseudo, creator_elo, room_settin
 - **Frontend passes ELO**: Both matchmaking and invitation emit user's ELO from `GameLobby.getUser()`
 - **opponentInfo returned**: Socket handlers return `{name, elo}` for proper opponent display
 
-## Future Features Architecture (Phase 3-4)
+## Future Features Architecture (Phase 4)
 
 ### Pending Frontend Components (`hexaequo-v2/components/`)
 - `userMenu.js` - Menu hamburger utilisateur (Phase 1)
-- `chat.js` - Chat in-game (Phase 3)
 - `profile.js` - Page profil utilisateur (Phase 4)
 - `gameHistory.js` - Liste historique parties (Phase 4)
 - `replayViewer.js` - Lecteur de replay (Phase 4)
 
 ### Pending Backend Components
-**Models**:
-- `chatMessageModel.js` - Messages chat (Phase 3)
-
-**Services**:
-- `chatService.js` - Gestion chat (Phase 3)
-
 **Controllers**:
-- `chatController.js` - REST endpoints chat (Phase 3)
+- `chatController.js` - REST endpoints chat (optional, for reconnection history)
+
+## Phase 3: In-Game Chat (IMPLEMENTED)
+
+### Chat Architecture
+- **Ephemeral**: Messages stored in-memory only (`chatMessageModel.js` Map), no DB persistence
+- **Two tabs**: Text (free-form, 200 char limit) + Quick (8 preset localized messages)
+- **Rate limiting**: 10 messages/minute per user, sliding window (`chatService.isRateLimited()`)
+- **Socket event**: `chat-message` bidirectional (sender excluded via `socket.to()`)
+- **Lifecycle**: Widget created on `setOnlineMode(true)`, destroyed on `returnToLobby()` / `goToMainMenu()`
+- **Post-game**: Chat stays active after game ends until player leaves
+- **Notification**: Unread badge on toggle button when panel closed (visual only, no sound)
+- **XSS protection**: HTML entities escaped in `chatService.sendMessage()`
+
+### Chat Components
+**Frontend** (`hexaequo-v2/`):
+- `components/chat.js` — IIFE widget, creates DOM dynamically, exposes `window.GameChat.initChat()` / `destroyChat()`
+- `styles/chat.css` — Fixed bottom-right, z-index 1500, dark theme, responsive (full-width on mobile)
+- `multiplayer.js` — `sendChatMessage(message, type, onError)` method + `onChatMessage` callback setter
+- `game.js` — chat lifecycle hooks in `setOnlineMode()`, `returnToLobby()`, `goToMainMenu()`
+
+**Backend** (`backend/`):
+- `models/chatMessageModel.js` — In-memory Map, `addMessage()`, `getMessages()`, `clearRoomMessages()`, 100 msg cap
+- `services/chatService.js` — `sendMessage()` with validation/rate-limit, `isRateLimited()`, `getQuickMessages()`
+- `socket/socketHandler.js` — `chat-message` handler with room membership check, chatService integration, callback
+
+### Chat Quick Message Keys
+`hello`, `goodLuck`, `thanks`, `oops`, `goodMove`, `sorry`, `goodGame`, `gottaGo`
+Localized in `locales/en.json` and `locales/fr.json` under `"chat"` section.
+
+### Chat Localization Keys
+`chat.title`, `chat.textTab`, `chat.quickTab`, `chat.placeholder`, `chat.send`, `chat.rateLimited` + all quick message keys
 
 ## Next Steps for New Features
 - **UI changes**: Edit `hexaequo-v2/index.html` + `styles.css`. Lobby controlled by `lobby.js`, in-game by `game.js`

@@ -51,9 +51,19 @@ function setOnlineMode(enabled, playerColor = null) {
     if (enabled) {
         isAiMode = false; // Ensure AI mode is off
         console.log('Online Mode enabled, playing as:', playerColor);
+        // Initialize chat for online games
+        const user = window.GameLobby?.getUser();
+        const pseudo = user?.pseudo || 'Me';
+        if (window.GameChat) {
+            window.GameChat.initChat(pseudo);
+        }
     } else {
         onlinePlayerColor = null;
         console.log('Online Mode disabled');
+        // Destroy chat when leaving online mode
+        if (window.GameChat) {
+            window.GameChat.destroyChat();
+        }
     }
     // Update resign/draw buttons visibility
     if (window.updateOnlineGameActionsVisibility) {
@@ -1844,6 +1854,10 @@ window.onload = function () {
     
     // Return to lobby screen
     function returnToLobby() {
+        // Destroy chat widget
+        if (window.GameChat) {
+            window.GameChat.destroyChat();
+        }
         // Stop timers if running
         if (window.GameTimer) {
             window.GameTimer.stop();
@@ -3028,9 +3042,12 @@ window.onload = function () {
 
     function playSound(action) {
         if (isSoundEnabled && sounds[action]) {
-            sounds[action].play();
+            sounds[action].currentTime = 0;
+            sounds[action].play().catch(() => {});
         }
     }
+    // Expose playSound globally for chat component
+    window.playSound = playSound;
 
     // Play button click sound when any button is clicked
     document.querySelectorAll('button').forEach(button => {
@@ -3385,6 +3402,11 @@ window.onload = function () {
     function goToMainMenu() {
         hideConfirmModal();
         closeHamburgerMenu();
+        
+        // Destroy chat widget
+        if (window.GameChat) {
+            window.GameChat.destroyChat();
+        }
         
         // Clear local game config
         window.localGameConfig = null;

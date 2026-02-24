@@ -225,5 +225,21 @@
     "multiplayerNotAvailable": "Mode multijoueur non disponible",
     "invalidInvite": "Invitation invalide ou expirée",
     "failedToJoin": "Impossible de rejoindre la partie"
+  },
+  "chat": {
+    "title": "Chat",
+    "textTab": "Texte",
+    "quickTab": "Rapide",
+    "placeholder": "Écrire un message...",
+    "send": "Envoyer",
+    "hello": "Salut !",
+    "goodLuck": "Bonne chance !",
+    "thanks": "Merci !",
+    "oops": "Oups !",
+    "goodMove": "Bien joué !",
+    "sorry": "Désolé !",
+    "goodGame": "Bonne partie !",
+    "gottaGo": "Je dois y aller !",
+    "rateLimited": "Doucement ! Trop de messages."
   }
 }
