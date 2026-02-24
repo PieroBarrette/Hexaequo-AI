@@ -219,6 +219,7 @@ import { validateMove } from './modules/moveValidator.js';
 8. **`/users/me` response shape**: Returns `{ data: { pseudo, elo, ... } }` — access via `data.data`, not `data.user`
 9. **ELO game-end dedup**: `endGame()` in `game.js` uses `skipReport` param — resign/draw/timeout pass `true` since those paths already trigger `gameService.endGame()` server-side. For normal wins, only the winner emits `game-ended` (or black for draws)
 10. **ELO display race condition**: `elo-updated` socket event may arrive before the game-over popup is created. `onEloUpdated()` stores pending data in `pendingEloUpdate`; `endGame()` applies it after creating the `eloUpdateDisplay` div
+11. **connectedSockets roomCode tracking**: Every code path that joins a socket to a room (create-room, join-room, accept-invitation, matchmaking match, reconnection) MUST also update `connectedSockets.get(socket.id).roomCode`. Missing this causes chat and other room-scoped features to silently fail (`not_in_room` error)
 
 ## Key File References
 
@@ -230,8 +231,9 @@ import { validateMove } from './modules/moveValidator.js';
 - **Multiplayer client**: `hexaequo-v2/multiplayer.js` (Socket.IO client wrapper)
 - **Backend socket server**: `backend/socket/socketHandler.js` (room management, move handling, matchmaking events)
 - **AI engine**: `hexaequo-v2/ai.js` (minimax, evaluation, move generation)
-- **Database schema**: `backend/models/schema.js` (PostgreSQL tables incl. Phase 2)
-- **DB migration (Phase 0)**: `backend/scripts/migration_phase0.js` (ELO defaults + new tables)
+- **Database schema**: `backend/models/schema.js` (PostgreSQL tables incl. Phase 2+3, canonical source of truth)
+- **DB sync migration**: `backend/scripts/migration_sync_db.sql` (idempotent script to bring any existing DB in sync)
+- **DB reset**: `backend/scripts/resetDb.js` (drops all tables incl. Phase 2+3, recreates from schema.js)
 - **Matchmaking service**: `backend/services/matchmakingService.js` (queue logic, FIFO matching)
 - **Invitation service**: `backend/services/invitationService.js` (invitation flow management)
 - **Matchmaking UI**: `hexaequo-v2/components/matchmaking.js` (Play/Invite buttons, queue state)

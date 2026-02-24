@@ -211,7 +211,7 @@ CREATE INDEX IF NOT EXISTS idx_elo_history_user_mode ON elo_history(user_id, tim
 -- ============================================
 CREATE TABLE IF NOT EXISTS spectators (
     id SERIAL PRIMARY KEY,
-    room_code VARCHAR(4) REFERENCES rooms(code) ON DELETE CASCADE,
+    room_code VARCHAR(8) REFERENCES rooms(code) ON DELETE CASCADE,
     user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     socket_id VARCHAR(255) NOT NULL,
     pseudo VARCHAR(30),
@@ -246,6 +246,7 @@ CREATE TABLE IF NOT EXISTS matchmaking_queue (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     socket_id VARCHAR(255) NOT NULL,
+    pseudo VARCHAR(50) NOT NULL,
     elo INTEGER NOT NULL,
     time_mode VARCHAR(20) NOT NULL,
     preferences JSONB DEFAULT '{}'::jsonb,
@@ -266,6 +267,7 @@ CREATE TABLE IF NOT EXISTS invitations (
     code VARCHAR(20) UNIQUE NOT NULL,
     creator_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     creator_pseudo VARCHAR(30),
+    creator_elo INTEGER,
     room_settings JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP NOT NULL,
@@ -308,17 +310,25 @@ CREATE TRIGGER update_rooms_updated_at
 
 -- Function to clean up old rooms
 CREATE OR REPLACE FUNCTION cleanup_old_rooms()
-RETURNS void AS $$
+RETURNS INTEGER AS $$
+DECLARE
+    deleted_count INTEGER;
 BEGIN
     DELETE FROM rooms WHERE updated_at < NOW() - INTERVAL '24 hours';
+    GET DIAGNOSTICS deleted_count = ROW_COUNT;
+    RETURN deleted_count;
 END;
 $$ LANGUAGE plpgsql;
 
 -- Function to clean up expired tokens
 CREATE OR REPLACE FUNCTION cleanup_expired_tokens()
-RETURNS void AS $$
+RETURNS INTEGER AS $$
+DECLARE
+    deleted_count INTEGER;
 BEGIN
     DELETE FROM refresh_tokens WHERE expires_at < NOW();
+    GET DIAGNOSTICS deleted_count = ROW_COUNT;
+    RETURN deleted_count;
 END;
 $$ LANGUAGE plpgsql;
 `;
@@ -361,6 +371,9 @@ async function dropSchema() {
         DROP FUNCTION IF EXISTS update_updated_at_column CASCADE;
         DROP FUNCTION IF EXISTS cleanup_old_rooms CASCADE;
         DROP FUNCTION IF EXISTS cleanup_expired_tokens CASCADE;
+        DROP FUNCTION IF EXISTS cleanup_expired_queue CASCADE;
+        DROP FUNCTION IF EXISTS cleanup_expired_invitations CASCADE;
+        DROP FUNCTION IF EXISTS cleanup_old_chat_messages CASCADE;
     `;
     
     try {

@@ -33,6 +33,10 @@ async function resetDatabase() {
         console.log('🗑️  Dropping existing tables...');
         
         const dropStatements = [
+            'DROP TABLE IF EXISTS chat_messages CASCADE',
+            'DROP TABLE IF EXISTS invitations CASCADE',
+            'DROP TABLE IF EXISTS matchmaking_queue CASCADE',
+            'DROP TABLE IF EXISTS user_preferences CASCADE',
             'DROP TABLE IF EXISTS spectators CASCADE',
             'DROP TABLE IF EXISTS saved_replays CASCADE',
             'DROP TABLE IF EXISTS elo_history CASCADE',
@@ -52,6 +56,9 @@ async function resetDatabase() {
         await client.query('DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE');
         await client.query('DROP FUNCTION IF EXISTS cleanup_old_rooms() CASCADE');
         await client.query('DROP FUNCTION IF EXISTS cleanup_expired_tokens() CASCADE');
+        await client.query('DROP FUNCTION IF EXISTS cleanup_expired_queue() CASCADE');
+        await client.query('DROP FUNCTION IF EXISTS cleanup_expired_invitations() CASCADE');
+        await client.query('DROP FUNCTION IF EXISTS cleanup_old_chat_messages() CASCADE');
         
         console.log('✅ Tables dropped\n');
         

@@ -199,6 +199,10 @@ function initializeSocket(httpServer) {
                     await roomService.updateSocketId(roomCode, 'black', socket.id);
                     socket.join(roomCode);
                     
+                    // Update socket tracking
+                    const socketInfo = connectedSockets.get(socket.id);
+                    if (socketInfo) socketInfo.roomCode = roomCode;
+                    
                     socket.to(roomCode).emit('opponent-reconnected');
                     
                     return callback({
@@ -215,6 +219,10 @@ function initializeSocket(httpServer) {
                 if (room.white?.id === playerId) {
                     await roomService.updateSocketId(roomCode, 'white', socket.id);
                     socket.join(roomCode);
+                    
+                    // Update socket tracking
+                    const socketInfo = connectedSockets.get(socket.id);
+                    if (socketInfo) socketInfo.roomCode = roomCode;
                     
                     socket.to(roomCode).emit('opponent-reconnected');
                     
@@ -740,6 +748,10 @@ function initializeSocket(httpServer) {
                     if (opponentSocket) {
                         // Opponent is the host (black)
                         opponentSocket.join(result.roomCode);
+                        
+                        // Update socket tracking for opponent
+                        const opponentInfo = connectedSockets.get(opponent.socketId);
+                        if (opponentInfo) opponentInfo.roomCode = result.roomCode;
                         
                         console.debug(`[Matchmaking] Notifying opponent (Host/Black): ${opponent.pseudo} (${opponent.socketId})`);
                         
