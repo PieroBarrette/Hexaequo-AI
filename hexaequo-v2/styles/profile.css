@@ -592,7 +592,7 @@
 .replay-viewer {
     position: fixed;
     inset: 0;
-    z-index: 2000;
+    z-index: 10001;
     background: var(--bg-body);
     color: var(--text-primary);
     display: flex;
