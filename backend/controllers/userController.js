@@ -5,6 +5,7 @@
  */
 
 const userService = require('../services/userService');
+const userPreferencesModel = require('../models/userPreferencesModel');
 
 /**
  * Get current user profile
@@ -137,6 +138,39 @@ exports.updateSettings = async (req, res, next) => {
             meta: {
                 message: 'Settings updated successfully'
             }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Get user preferences
+ * GET /api/users/me/preferences
+ */
+exports.getPreferences = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const prefs = await userPreferencesModel.getPreferences(userId);
+
+        res.json({ data: prefs });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Update user preferences
+ * PUT /api/users/me/preferences
+ */
+exports.updatePreferences = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const prefs = await userPreferencesModel.updatePreferences(userId, req.body);
+
+        res.json({
+            data: prefs,
+            meta: { message: 'Preferences updated successfully' }
         });
     } catch (error) {
         next(error);

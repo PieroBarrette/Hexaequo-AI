@@ -260,10 +260,9 @@
     }
 
     function openProfile() {
-        // Use lobby's profile modal
-        const profileModal = document.getElementById('profileModal');
-        if (profileModal) {
-            profileModal.style.display = 'flex';
+        // Open Phase 4 profile view
+        if (window.GameProfile?.openProfile) {
+            window.GameProfile.openProfile();
         }
     }
 

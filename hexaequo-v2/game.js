@@ -1562,7 +1562,12 @@ window.onload = function () {
             const shouldReport = isDraw ? (myColor === 'black') : (winnerColor === myColor);
             
             if (shouldReport) {
-                window.Multiplayer.reportGameResult(winnerColor, reason, isDraw).catch(err => {
+                // Include moveHistory for replay storage
+                const replayHistory = moveHistory.map(entry => ({
+                    gameState: entry.gameState,
+                    moveType: entry.moveType
+                }));
+                window.Multiplayer.reportGameResult(winnerColor, reason, isDraw, replayHistory).catch(err => {
                     console.error('[Game] Failed to report game result:', err);
                 });
             }

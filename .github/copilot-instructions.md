@@ -300,6 +300,10 @@ HTML structure:
 - **Chat styles**: `hexaequo-v2/styles/chat.css` (chat widget layout, bubbles, responsive)
 - **Chat service**: `backend/services/chatService.js` (rate limiting, message validation, quick keys)
 - **Chat model**: `backend/models/chatMessageModel.js` (in-memory message store per room)
+- **Profile component**: `hexaequo-v2/components/profile.js` (user info, preferences, tab navigation)
+- **Game history**: `hexaequo-v2/components/gameHistory.js` (paginated match list with result badges)
+- **Replay viewer**: `hexaequo-v2/components/replayViewer.js` (fullscreen canvas replay with navigation)
+- **Profile styles**: `hexaequo-v2/styles/profile.css` (profile, game history list, replay viewer styling)
 
 ## Phase 2: Matchmaking System (IMPLEMENTED)
 
@@ -364,9 +368,6 @@ invitations (id, code, creator_user_id, creator_pseudo, creator_elo, room_settin
 
 ### Pending Frontend Components (`hexaequo-v2/components/`)
 - `userMenu.js` - Menu hamburger utilisateur (Phase 1)
-- `profile.js` - Page profil utilisateur (Phase 4)
-- `gameHistory.js` - Liste historique parties (Phase 4)
-- `replayViewer.js` - Lecteur de replay (Phase 4)
 
 ### Pending Backend Components
 **Controllers**:
@@ -402,6 +403,65 @@ Localized in `locales/en.json` and `locales/fr.json` under `"chat"` section.
 
 ### Chat Localization Keys
 `chat.title`, `chat.textTab`, `chat.quickTab`, `chat.placeholder`, `chat.send`, `chat.rateLimited` + all quick message keys
+
+## Phase 4: Profile, Game History & Replay Viewer (IMPLEMENTED)
+
+### Profile View (`hexaequo-v2/components/profile.js`)
+- **Full-page overlay** (`#profileView`, z-index 100) replaces old modal
+- User info card: avatar (initial), pseudo, ELO, member-since date
+- **Online preferences**: ELO range (min/max inputs), friendly games toggle
+- Preferences API: `GET/PUT /api/users/me/preferences` (backend `userController.js`)
+- Two tabs: **Games History** (active default) and **Stats** (placeholder)
+- Opened via `window.GameProfile.openProfile()` from user menu hamburger
+
+### Game History (`hexaequo-v2/components/gameHistory.js`)
+- Paginated list from `GET /api/users/:id/matches?page=N&limit=20`
+- Each row: time mode icon, opponent pseudo+ELO, result badge (win/loss/draw), ELO change, date
+- Click → opens `GameReplay.openReplay(gameId)`
+- "Load more" button for pagination
+- Rendered inside profile tab content container
+
+### Replay Viewer (`hexaequo-v2/components/replayViewer.js`)
+- **Fullscreen overlay** (`#replayViewer`, z-index 2000) with standalone canvas renderer
+- Does NOT reuse `GameGraphics` singleton — has its own hex/tile/piece drawing functions
+- Fetches `GET /api/games/:id/replay` → uses `stateHistory` array (serialized state snapshots)
+- Navigation: first/prev/next/last/auto-play, progress slider, keyboard shortcuts (arrows, space, home/end, escape)
+- Player info header with ELO-before values and game result
+
+### Replay Data Pipeline
+- **Client** (`game.js` `endGame()`): Extracts `moveHistory` (array of `{gameState, moveType}`) and sends via `multiplayer.js reportGameResult()`
+- **Socket** (`socketHandler.js` `game-ended`): Passes `moveHistory` as `finalState.moveHistory` to `gameService.endGame()`
+- **Database**: Stored in `final_state` JSONB column of `games` table
+- **Replay API** (`gameService.getGameReplay()`): Returns `stateHistory` from `final_state.moveHistory` (fallback when `moves` table is empty)
+- **Note**: Only games completed AFTER this implementation have replay data
+
+### Serialized State Format (in stateHistory)
+```javascript
+{
+  tiles: { "0,0": "black", ... },
+  pieces: { "1,0": {type: "disc", color: "black"}, ... },
+  inventory: { black: {tiles: N, discs: N, rings: N}, white: {...} },
+  captured: { black_discs: N, black_rings: N, white_discs: N, white_rings: N },
+  activePlayer: "black"|"white"
+}
+```
+
+### Phase 4 Components
+**Frontend** (`hexaequo-v2/`):
+- `components/profile.js` — IIFE, `window.GameProfile.openProfile()` / `closeProfile()`
+- `components/gameHistory.js` — IIFE, `window.GameHistory.loadGames(userId, page, container)`
+- `components/replayViewer.js` — IIFE, `window.GameReplay.openReplay(gameId)` / `closeReplay()`
+- `styles/profile.css` — All Phase 4 styles (profile view, game history list, replay viewer)
+
+**Backend** (`backend/`):
+- `controllers/userController.js` — `getPreferences()`, `updatePreferences()` methods added
+- `routes/userRoutes.js` — `GET/PUT /me/preferences` with auth + validation
+- `middleware/validationMiddleware.js` — `updatePreferences` schema added
+
+### Phase 4 Localization Keys
+`profile.*` (title, back, memberSince, preferencesTitle, eloRangeLabel, friendlyGames, save*, tab*, statsComingSoon)
+`gameHistory.*` (loading, noGames, loadMore, error, vs, win, loss, draw)
+`replay.*` (loading, noData, move, wins)
 
 ## Next Steps for New Features
 - **UI changes**: Edit `hexaequo-v2/index.html` + `styles.css`. Lobby controlled by `lobby.js`, in-game by `game.js`

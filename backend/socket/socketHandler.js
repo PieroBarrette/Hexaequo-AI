@@ -382,7 +382,7 @@ function initializeSocket(httpServer) {
          */
         socket.on('game-ended', async (data, callback) => {
             try {
-                const { roomCode, winnerColor, reason, isDraw } = data;
+                const { roomCode, winnerColor, reason, isDraw, moveHistory } = data;
 
                 // Derive winner value for gameService
                 const winner = isDraw ? 'draw' : winnerColor;
@@ -398,7 +398,8 @@ function initializeSocket(httpServer) {
                     const result = await gameService.endGame(game.id, {
                         winner,
                         resultReason: reason,
-                        originalTimeMode
+                        originalTimeMode,
+                        finalState: moveHistory ? { moveHistory } : undefined
                     });
 
                     // Emit personalized elo-updated to each player's socket

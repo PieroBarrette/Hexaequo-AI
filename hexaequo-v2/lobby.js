@@ -1509,14 +1509,14 @@
 
     // ==================== Profile Functions ====================
     function openProfileModal() {
-        if (lobby.profileModal) {
-            lobby.profileModal.style.display = 'flex';
+        if (window.GameProfile?.openProfile) {
+            window.GameProfile.openProfile();
         }
     }
     
     function closeProfileModal() {
-        if (lobby.profileModal) {
-            lobby.profileModal.style.display = 'none';
+        if (window.GameProfile?.closeProfile) {
+            window.GameProfile.closeProfile();
         }
     }
     

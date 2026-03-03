@@ -193,8 +193,33 @@
   },
   "profile": {
     "title": "Profile",
-    "comingSoon": "🚧 Coming Soon 🚧",
-    "comingSoonHint": "Statistics, password change, and more features will be available here."
+    "back": "Back",
+    "memberSince": "Member since",
+    "preferencesTitle": "Online Preferences",
+    "eloRangeLabel": "ELO Range",
+    "friendlyGames": "Allow friendly games",
+    "savePreferences": "Save Preferences",
+    "saved": "Saved!",
+    "saveError": "Error saving preferences.",
+    "tabHistory": "Games History",
+    "tabStats": "Stats",
+    "statsComingSoon": "📊 Stats coming soon..."
+  },
+  "gameHistory": {
+    "loading": "Loading...",
+    "noGames": "No games played yet.",
+    "loadMore": "Load more",
+    "error": "Failed to load games.",
+    "vs": "vs",
+    "win": "Win",
+    "loss": "Loss",
+    "draw": "Draw"
+  },
+  "replay": {
+    "loading": "Loading replay...",
+    "noData": "No replay data available for this game.",
+    "move": "Move",
+    "wins": "wins"
   },
   "footer": {
     "rules": "Rules",

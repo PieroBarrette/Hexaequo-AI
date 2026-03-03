@@ -193,8 +193,33 @@
   },
   "profile": {
     "title": "Profil",
-    "comingSoon": "🚧 Bientôt disponible 🚧",
-    "comingSoonHint": "Statistiques, changement de mot de passe et d'autres fonctionnalités seront disponibles ici."
+    "back": "Retour",
+    "memberSince": "Membre depuis",
+    "preferencesTitle": "Préférences en ligne",
+    "eloRangeLabel": "Plage ELO",
+    "friendlyGames": "Autoriser les parties amicales",
+    "savePreferences": "Enregistrer",
+    "saved": "Enregistré !",
+    "saveError": "Erreur lors de la sauvegarde.",
+    "tabHistory": "Historique",
+    "tabStats": "Stats",
+    "statsComingSoon": "📊 Stats à venir..."
+  },
+  "gameHistory": {
+    "loading": "Chargement...",
+    "noGames": "Aucune partie jouée.",
+    "loadMore": "Charger plus",
+    "error": "Impossible de charger les parties.",
+    "vs": "vs",
+    "win": "Victoire",
+    "loss": "Défaite",
+    "draw": "Nul"
+  },
+  "replay": {
+    "loading": "Chargement du replay...",
+    "noData": "Aucune donnée de replay disponible pour cette partie.",
+    "move": "Coup",
+    "wins": "gagne"
   },
   "footer": {
     "rules": "Règles",

@@ -73,6 +73,47 @@ exports.getGameReplay = async (gameId) => {
         throw notFound('Game');
     }
 
+    // If moves table has data, use individual moves
+    if (replay.moves && replay.moves.length > 0) {
+        return {
+            gameId: replay.game.id,
+            players: {
+                black: {
+                    id: replay.game.black_player_id,
+                    pseudo: replay.game.black_pseudo,
+                    eloBefore: replay.game.black_elo_before,
+                    eloAfter: replay.game.black_elo_after
+                },
+                white: {
+                    id: replay.game.white_player_id,
+                    pseudo: replay.game.white_pseudo,
+                    eloBefore: replay.game.white_elo_before,
+                    eloAfter: replay.game.white_elo_after
+                }
+            },
+            moves: replay.moves.map(m => ({
+                moveNumber: m.move_number,
+                player: m.player,
+                type: m.move_type,
+                from: m.from_q !== null ? { q: m.from_q, r: m.from_r } : null,
+                to: { q: m.to_q, r: m.to_r },
+                captures: m.captures,
+                timestamp: m.created_at
+            })),
+            result: {
+                winner: replay.game.winner,
+                reason: replay.game.result_reason
+            },
+            timeMode: replay.game.time_mode,
+            startedAt: replay.game.started_at,
+            finishedAt: replay.game.finished_at
+        };
+    }
+
+    // Fallback: use moveHistory from final_state (state snapshots)
+    const finalState = replay.game.final_state;
+    const moveHistoryData = finalState?.moveHistory || [];
+
     return {
         gameId: replay.game.id,
         players: {
@@ -89,15 +130,7 @@ exports.getGameReplay = async (gameId) => {
                 eloAfter: replay.game.white_elo_after
             }
         },
-        moves: replay.moves.map(m => ({
-            moveNumber: m.move_number,
-            player: m.player,
-            type: m.move_type,
-            from: m.from_q !== null ? { q: m.from_q, r: m.from_r } : null,
-            to: { q: m.to_q, r: m.to_r },
-            captures: m.captures,
-            timestamp: m.created_at
-        })),
+        stateHistory: moveHistoryData,
         result: {
             winner: replay.game.winner,
             reason: replay.game.result_reason

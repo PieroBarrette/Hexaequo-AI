@@ -537,7 +537,7 @@ const Multiplayer = (function () {
     // Report game result to server for ELO calculation
     // winnerColor: 'black', 'white', or null for draw
     // reason: 'capturing 6 discs', 'on time', 'stalemate', etc.
-    function reportGameResult(winnerColor, reason, isDraw = false) {
+    function reportGameResult(winnerColor, reason, isDraw = false, moveHistory = null) {
         return new Promise((resolve, reject) => {
             if (!socket || !socket.connected || !roomCode) {
                 console.log('[Multiplayer] Cannot report game result - not in a room');
@@ -551,7 +551,8 @@ const Multiplayer = (function () {
                 roomCode,
                 winnerColor,
                 reason,
-                isDraw
+                isDraw,
+                moveHistory
             }, (response) => {
                 if (response.success) {
                     console.log('[Multiplayer] Game result reported successfully');

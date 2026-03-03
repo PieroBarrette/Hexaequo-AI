@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="styles/matchmaking.css">
     <link rel="stylesheet" href="styles/qrCodeModal.css">
     <link rel="stylesheet" href="styles/chat.css">
+    <link rel="stylesheet" href="styles/profile.css">
     <link rel="manifest" href="manifest.json">
     <!-- i18n module - must load before other scripts -->
     <script src="i18n.js" type="module"></script>
@@ -313,17 +314,7 @@
                     <button class="lobby-btn secondary" id="backFromSettingsBtn" data-i18n="lobby.back">Back</button>
                 </div>
                 
-                <!-- Profile Modal -->
-                <div class="profile-modal" id="profileModal" style="display: none;">
-                    <div class="profile-modal-content">
-                        <button class="profile-close-btn" id="profileCloseBtn">&times;</button>
-                        <h2 class="profile-title" data-i18n="profile.title">Profile</h2>
-                        <div class="profile-coming-soon">
-                            <p data-i18n="profile.comingSoon">🚧 Coming Soon 🚧</p>
-                            <p class="coming-soon-hint" data-i18n="profile.comingSoonHint">Statistics, password change, and more features will be available here.</p>
-                        </div>
-                    </div>
-                </div>
+                <!-- Profile Modal - replaced by profileView -->
             </div>
             
             <!-- Footer removed - Rules now in main menu, Settings in user menu -->
@@ -331,6 +322,91 @@
     </div>
 
     <h1 style="display: none;">Hexaequo</h1> <!-- Hidden for accessibility -->
+
+    <!-- Profile View (hidden by default, replaces lobby when opened) -->
+    <div id="profileView" class="profile-view" style="display: none;">
+        <div class="profile-header">
+            <button id="profileBackBtn" class="profile-back-btn" aria-label="Back">← <span data-i18n="profile.back">Back</span></button>
+            <h2 class="profile-header-title" data-i18n="profile.title">Profile</h2>
+        </div>
+        <div class="profile-content">
+            <!-- User Info Card -->
+            <div class="profile-info-card">
+                <div class="profile-avatar" id="profileAvatar">?</div>
+                <div class="profile-user-details">
+                    <span class="profile-pseudo" id="profilePseudo">—</span>
+                    <span class="profile-elo" id="profileElo">ELO: —</span>
+                    <span class="profile-member-since" id="profileMemberSince"></span>
+                </div>
+            </div>
+
+            <!-- Preferences Section -->
+            <div class="profile-preferences">
+                <h3 class="profile-section-title" data-i18n="profile.preferencesTitle">Online Preferences</h3>
+                <div class="profile-pref-row">
+                    <label data-i18n="profile.eloRangeLabel">ELO Range</label>
+                    <div class="profile-elo-range">
+                        <input type="number" id="prefEloMin" class="profile-elo-input" min="-500" max="0" value="-200">
+                        <span class="profile-elo-separator">to</span>
+                        <input type="number" id="prefEloMax" class="profile-elo-input" min="0" max="500" value="200">
+                    </div>
+                </div>
+                <div class="profile-pref-row">
+                    <label data-i18n="profile.friendlyGames">Allow friendly games</label>
+                    <label class="profile-toggle">
+                        <input type="checkbox" id="prefFriendlyGames" checked>
+                        <span class="profile-toggle-slider"></span>
+                    </label>
+                </div>
+                <button id="prefSaveBtn" class="profile-save-btn" data-i18n="profile.savePreferences">Save Preferences</button>
+                <span id="prefSaveStatus" class="profile-save-status"></span>
+            </div>
+
+            <!-- Tabs -->
+            <div class="profile-tabs">
+                <button class="profile-tab active" data-tab="history" data-i18n="profile.tabHistory">Games History</button>
+                <button class="profile-tab" data-tab="stats" data-i18n="profile.tabStats">Stats</button>
+            </div>
+
+            <!-- Tab Content -->
+            <div id="profileTabContent" class="profile-tab-content">
+                <!-- Populated by gameHistory.js or stats -->
+                <div id="profileStatsPlaceholder" class="profile-stats-placeholder" style="display: none;">
+                    <p data-i18n="profile.statsComingSoon">📊 Stats coming soon...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Replay Viewer Overlay (fullscreen, above profile) -->
+    <div id="replayViewer" class="replay-viewer" style="display: none;">
+        <div class="replay-header">
+            <button id="replayCloseBtn" class="replay-close-btn" aria-label="Close">&times;</button>
+            <div class="replay-game-info">
+                <span id="replayBlackInfo" class="replay-player-info replay-black">Black</span>
+                <span class="replay-vs">vs</span>
+                <span id="replayWhiteInfo" class="replay-player-info replay-white">White</span>
+            </div>
+            <div class="replay-result" id="replayResult"></div>
+        </div>
+        <div class="replay-canvas-container">
+            <canvas id="replayCanvas" width="600" height="600"></canvas>
+            <canvas id="replayInventoryCanvas" width="600" height="80"></canvas>
+        </div>
+        <div class="replay-controls">
+            <div class="replay-progress-container">
+                <input type="range" id="replayProgress" class="replay-progress" min="0" max="0" value="0">
+            </div>
+            <div class="replay-move-info" id="replayMoveInfo"></div>
+            <div class="replay-buttons">
+                <button id="replayFirst" class="replay-btn" title="First move">|◀</button>
+                <button id="replayPrev" class="replay-btn" title="Previous move">◀</button>
+                <button id="replayAutoPlay" class="replay-btn replay-play-btn" title="Auto-play">▶</button>
+                <button id="replayNext" class="replay-btn" title="Next move">▶</button>
+                <button id="replayLast" class="replay-btn" title="Last move">▶|</button>
+            </div>
+        </div>
+    </div>
     <button id="toggleCoordsBtn" style="display: none;">Coordinates</button>
     <button id="toggleColorSchemeBtn" style="display: none;">Color</button>
     <button id="toggleGridBtn" style="display: none;">Grid</button>
@@ -687,6 +763,9 @@
     <script src="components/qrCodeModal.js"></script>
     <script src="multiplayer.js"></script>
     <script src="components/chat.js"></script>
+    <script src="components/profile.js"></script>
+    <script src="components/gameHistory.js"></script>
+    <script src="components/replayViewer.js"></script>
     <script src="ai.js"></script>
     <script src="graphics.js"></script>
     <script src="game.js"></script>
