@@ -322,8 +322,15 @@
         // Step 14: Handle invite code in URL (after everything is ready)
         handleEarlyInviteCheck();
 
-        // Step 15: Handle ?replay=GAME_ID in URL (save to sessionStorage for game.js to pick up)
+        // Step 15: Handle ?replay=GAME_ID in URL → redirect to hash route
         checkReplayParam();
+        
+        // Step 16: Register routes and start the router
+        registerRoutes();
+        Router.start();
+        
+        // Step 17: Check for reconnection opportunity
+        checkReconnectBanner();
         
         console.log('[Lobby] Initialized');
     }
@@ -399,12 +406,12 @@
     // ==================== Event Listeners ====================
     function setupEventListeners() {
         // Main menu buttons
-        lobby.playLocalBtn?.addEventListener('click', showLocalConfig);
-        lobby.playOnlineBtn?.addEventListener('click', showOnlineOptions);
+        lobby.playLocalBtn?.addEventListener('click', () => Router.navigate('#/local'));
+        lobby.playOnlineBtn?.addEventListener('click', () => Router.navigate('#/online'));
         
         // Local config section
         lobby.startLocalGameBtn?.addEventListener('click', startConfiguredLocalGame);
-        lobby.backFromLocalBtn?.addEventListener('click', showMainMenu);
+        lobby.backFromLocalBtn?.addEventListener('click', () => Router.navigate('#/'));
         lobby.blackPlayerType?.addEventListener('change', handleBlackPlayerTypeChange);
         lobby.whitePlayerType?.addEventListener('change', handleWhitePlayerTypeChange);
         lobby.blackAiLevel?.addEventListener('change', () => {
@@ -421,7 +428,7 @@
         });
         
         // Online options
-        lobby.backFromOnlineBtn?.addEventListener('click', showMainMenu);
+        lobby.backFromOnlineBtn?.addEventListener('click', () => Router.navigate('#/'));
         
         // User status / auth
         lobby.loginBtn?.addEventListener('click', handleLoginBtnClick);
@@ -432,11 +439,11 @@
         });
         lobby.loginForm?.addEventListener('submit', handleLogin);
         lobby.registerForm?.addEventListener('submit', handleRegister);
-        lobby.backFromAuthBtn?.addEventListener('click', showMainMenu);
+        lobby.backFromAuthBtn?.addEventListener('click', () => Router.navigate('#/'));
         
         // Settings
         // Note: Settings button moved to user menu (Phase 1)
-        lobby.backFromSettingsBtn?.addEventListener('click', showMainMenu);
+        lobby.backFromSettingsBtn?.addEventListener('click', () => Router.navigate('#/'));
         lobby.themeToggle?.addEventListener('change', handleThemeChange);
         lobby.soundToggle?.addEventListener('change', handleSoundChange);
         lobby.validMovesToggle?.addEventListener('change', handleValidMovesChange);
@@ -708,13 +715,21 @@
         saveLocalGameConfig();
     }
     
-    function showLocalConfig() {
+    /**
+     * Hide all lobby sub-sections. Called before showing a specific section.
+     */
+    function hideAllLobbySections() {
         document.querySelector('.mode-selection')?.style.setProperty('display', 'none');
-        lobby.localConfigSection?.style.setProperty('display', 'flex');
+        lobby.localConfigSection?.style.setProperty('display', 'none');
         lobby.onlineOptions?.style.setProperty('display', 'none');
         lobby.settingsSection?.style.setProperty('display', 'none');
         lobby.authSection?.style.setProperty('display', 'none');
         document.querySelector('.lobby-footer')?.style.setProperty('display', 'none');
+    }
+
+    function showLocalConfig() {
+        hideAllLobbySections();
+        lobby.localConfigSection?.style.setProperty('display', 'flex');
         
         // Hide lobby logo (logo is in header on sub-pages)
         document.querySelector('.lobby-logo')?.classList.add('hidden');
@@ -760,12 +775,9 @@
             cancelWaiting();
         }
         
-        // Hide all sections
+        // Hide all sections then show main menu
+        hideAllLobbySections();
         document.querySelector('.mode-selection')?.style.setProperty('display', 'flex');
-        lobby.localConfigSection?.style.setProperty('display', 'none');
-        lobby.onlineOptions?.style.setProperty('display', 'none');
-        lobby.settingsSection?.style.setProperty('display', 'none');
-        lobby.authSection?.style.setProperty('display', 'none');
         
         // Show footer
         document.querySelector('.lobby-footer')?.style.setProperty('display', 'flex');
@@ -778,6 +790,9 @@
             window.UserMenu.setMainMenuMode(true);
         }
         
+        // Ensure lobby overlay is visible
+        ensureLobbyVisible();
+        
         hideError();
         hideAuthError();
     }
@@ -785,16 +800,12 @@
     function showOnlineOptions() {
         // Require sign-in to access online play
         if (!currentUser) {
-            showAuthSection();
+            Router.navigate('#/auth', { replace: true });
             return;
         }
         
-        document.querySelector('.mode-selection')?.style.setProperty('display', 'none');
-        lobby.localConfigSection?.style.setProperty('display', 'none');
+        hideAllLobbySections();
         lobby.onlineOptions?.style.setProperty('display', 'flex');
-        lobby.settingsSection?.style.setProperty('display', 'none');
-        lobby.authSection?.style.setProperty('display', 'none');
-        document.querySelector('.lobby-footer')?.style.setProperty('display', 'none');
         
         // Hide lobby logo (logo is in header on sub-pages)
         document.querySelector('.lobby-logo')?.classList.add('hidden');
@@ -803,6 +814,9 @@
         if (window.UserMenu?.setMainMenuMode) {
             window.UserMenu.setMainMenuMode(false);
         }
+        
+        // Ensure lobby overlay is visible
+        ensureLobbyVisible();
         
         // Reset online UI state
         lobby.roomActions?.style.setProperty('display', 'none');
@@ -813,34 +827,38 @@
     }
 
     function showSettings() {
-        document.querySelector('.mode-selection')?.style.setProperty('display', 'none');
-        lobby.localConfigSection?.style.setProperty('display', 'none');
-        lobby.onlineOptions?.style.setProperty('display', 'none');
+        hideAllLobbySections();
         lobby.settingsSection?.style.setProperty('display', 'flex');
-        lobby.authSection?.style.setProperty('display', 'none');
-        document.querySelector('.lobby-footer')?.style.setProperty('display', 'none');
+        
+        // Hide lobby logo
+        document.querySelector('.lobby-logo')?.classList.add('hidden');
         
         // Set header to show logo (not main menu)
         if (window.UserMenu?.setMainMenuMode) {
             window.UserMenu.setMainMenuMode(false);
         }
+        
+        // Ensure lobby overlay is visible
+        ensureLobbyVisible();
         
         // Sync settings
         syncSettingsFromGame();
     }
     
     function showAuthSection() {
-        document.querySelector('.mode-selection')?.style.setProperty('display', 'none');
-        lobby.localConfigSection?.style.setProperty('display', 'none');
-        lobby.onlineOptions?.style.setProperty('display', 'none');
-        lobby.settingsSection?.style.setProperty('display', 'none');
+        hideAllLobbySections();
         lobby.authSection?.style.setProperty('display', 'flex');
-        document.querySelector('.lobby-footer')?.style.setProperty('display', 'none');
+        
+        // Hide lobby logo
+        document.querySelector('.lobby-logo')?.classList.add('hidden');
         
         // Set header to show logo (not main menu)
         if (window.UserMenu?.setMainMenuMode) {
             window.UserMenu.setMainMenuMode(false);
         }
+        
+        // Ensure lobby overlay is visible
+        ensureLobbyVisible();
         
         // Clear forms
         lobby.loginForm?.reset();
@@ -991,6 +1009,9 @@
         
         // Hide lobby and start game
         hideLobby();
+        
+        // Navigate to game route
+        Router.navigate('#/game', { replace: true });
         
         // Trigger new game
         triggerNewGame();
@@ -1175,22 +1196,23 @@
     
     /**
      * Check for ?replay=GAME_ID URL parameter.
-     * Saves the game ID to sessionStorage and clears the URL param.
-     * game.js will pick it up after window.onload and open the replay viewer.
+     * Redirects to hash route #/replay/:id and clears the query param.
      */
     function checkReplayParam() {
         const urlParams = new URLSearchParams(window.location.search);
         const replayId = urlParams.get('replay');
         if (!replayId) return;
 
-        console.log('[Lobby] Replay param detected:', replayId);
-        sessionStorage.setItem('hexaequo_pending_replay', replayId);
+        console.log('[Lobby] Replay param detected, redirecting to hash route:', replayId);
 
-        // Clear the replay param from URL (without page reload)
+        // Clear the replay param from URL
         urlParams.delete('replay');
         const remaining = urlParams.toString();
-        const newUrl = window.location.pathname + (remaining ? '?' + remaining : '') + window.location.hash;
+        const newUrl = window.location.pathname + (remaining ? '?' + remaining : '');
         window.history.replaceState({}, document.title, newUrl);
+
+        // Save to sessionStorage for game.js to pick up after renderer is ready
+        sessionStorage.setItem('hexaequo_pending_replay', replayId);
     }
 
     /**
@@ -1497,6 +1519,8 @@
         try {
             console.log('[Lobby] Hiding lobby...');
             hideLobby();
+            // Navigate to game route
+            Router.navigate('#/game', { replace: true });
         } catch (e) {
             console.error('[Lobby] Failed to hide lobby:', e);
             // Fallback: force overlay hiding via ID
@@ -1567,7 +1591,30 @@
         if (window.UserMenu?.show) {
             window.UserMenu.show();
         }
-        showMainMenu();
+    }
+
+    /**
+     * Ensure lobby overlay is visible (used by route handlers).
+     * Unlike showLobby(), does not reset to main menu — preserves current section.
+     */
+    function ensureLobbyVisible() {
+        if (lobby.overlay) {
+            lobby.overlay.classList.remove('hidden');
+            lobby.overlay.style.display = '';
+            lobby.overlay.style.visibility = '';
+            lobby.overlay.style.pointerEvents = '';
+            lobby.overlay.style.opacity = '';
+        }
+        // Hide profile view if open (route takes precedence)
+        const profileView = document.getElementById('profileView');
+        if (profileView) profileView.style.display = 'none';
+        // Hide replay controls if open
+        const replayControls = document.getElementById('replayControls');
+        if (replayControls) replayControls.style.display = 'none';
+        // Show user menu
+        if (window.UserMenu?.show) {
+            window.UserMenu.show();
+        }
     }
 
     function triggerNewGame() {
@@ -1773,7 +1820,7 @@
                     handleEarlyInviteCheck();
                 } else {
                     // Go back to online options
-                    showOnlineOptions();
+                    Router.navigate('#/online');
                 }
             } else {
                 showAuthError(data.error || i18nT('auth.loginFailed'));
@@ -1860,7 +1907,7 @@
                     // Page was refreshed during auth — restore invite from sessionStorage
                     handleEarlyInviteCheck();
                 } else {
-                    showOnlineOptions();
+                    Router.navigate('#/online');
                 }
             } else {
                 showAuthError(data.error || i18nT('auth.registrationFailed'));
@@ -1897,7 +1944,7 @@
         
         updateUserStatusUI();
         window.UserMenu?.updateDisplay?.();
-        showMainMenu();
+        Router.navigate('#/');
         console.log('[Lobby] Logged out');
     }
     
@@ -1912,6 +1959,158 @@
         if (lobby.authError) {
             lobby.authError.style.display = 'none';
         }
+    }
+
+    // ==================== Route Registration ====================
+    
+    /**
+     * Register all hash routes with the Router.
+     * Route handlers call the existing show* functions to render the correct view.
+     */
+    function registerRoutes() {
+        // #/ — Main Menu
+        Router.on('/', () => {
+            showMainMenu();
+        });
+
+        // #/local — Local Game Setup
+        Router.on('/local', () => {
+            showLocalConfig();
+        });
+
+        // #/online — Online Lobby (auth guard)
+        Router.on('/online', () => {
+            showOnlineOptions();
+        });
+
+        // #/auth — Sign In / Register
+        Router.on('/auth', () => {
+            showAuthSection();
+        });
+
+        // #/settings — Settings
+        Router.on('/settings', () => {
+            showSettings();
+        });
+
+        // #/profile — Profile (auth guard)
+        Router.on('/profile', () => {
+            if (!currentUser) {
+                Router.navigate('#/auth', { replace: true });
+                return;
+            }
+            // Hide lobby overlay, show profile view
+            if (lobby.overlay) {
+                lobby.overlay.classList.add('hidden');
+            }
+            if (window.GameProfile?.openProfileDirect) {
+                window.GameProfile.openProfileDirect();
+            }
+        });
+
+        // #/replay/:id — Replay Viewer
+        Router.on('/replay/:id', ({ params }) => {
+            // Hide lobby overlay for replay
+            if (lobby.overlay) {
+                lobby.overlay.classList.add('hidden');
+            }
+            // Replay requires game.js renderer — save ID for game.js to pick up
+            if (window.GameReplay?.openReplayDirect) {
+                window.GameReplay.openReplayDirect(params.id);
+            } else {
+                // game.js not yet ready — save to sessionStorage for pickup
+                sessionStorage.setItem('hexaequo_pending_replay', params.id);
+            }
+        });
+
+        // #/game — Active Game
+        Router.on('/game', () => {
+            // If no game is active, check for reconnection opportunity
+            const lobbyOverlay = document.getElementById('lobbyOverlay');
+            const isInGame = lobbyOverlay && lobbyOverlay.classList.contains('hidden');
+            
+            if (!isInGame) {
+                // No active game — redirect to main menu with reconnect check
+                Router.navigate('#/', { replace: true });
+            }
+            // If a game IS active, do nothing — game is already displayed
+        });
+    }
+
+    // ==================== Reconnect Banner ====================
+    
+    /**
+     * Check localStorage for saved room info and show reconnect banner if a game was in progress.
+     */
+    function checkReconnectBanner() {
+        if (!window.Multiplayer?.loadRoomInfo) return;
+        
+        const roomInfo = window.Multiplayer.loadRoomInfo();
+        if (!roomInfo) return;
+
+        console.log('[Lobby] Found saved room info, showing reconnect banner:', roomInfo.roomCode);
+        
+        const banner = document.getElementById('reconnectBanner');
+        if (!banner) return;
+        
+        banner.style.display = 'block';
+        
+        const reconnectBtn = document.getElementById('reconnectBtn');
+        const dismissBtn = document.getElementById('reconnectDismissBtn');
+        
+        reconnectBtn?.addEventListener('click', async () => {
+            reconnectBtn.disabled = true;
+            reconnectBtn.textContent = '...';
+            
+            try {
+                // Connect socket if not connected
+                if (window.Multiplayer?.connect) {
+                    await window.Multiplayer.connect();
+                }
+                
+                // Attempt to rejoin room
+                if (window.Multiplayer?.rejoinRoom) {
+                    const result = await window.Multiplayer.rejoinRoom();
+                    if (result && result.success) {
+                        console.log('[Lobby] Reconnection successful');
+                        hideReconnectBanner();
+                        
+                        // Start the online game with reconnected data
+                        const opponentInfo = result.opponentInfo || { name: 'Opponent', elo: null };
+                        currentOpponent = opponentInfo;
+                        currentRoomCode = result.roomCode;
+                        
+                        startOnlineGame({
+                            playerColor: result.color,
+                            gameState: result.gameState,
+                            opponentInfo: opponentInfo,
+                            timeControl: result.timeMode
+                        });
+                        Router.navigate('#/game', { replace: true });
+                        return;
+                    }
+                }
+                
+                // Reconnection failed — room no longer exists
+                console.log('[Lobby] Room no longer exists, clearing room info');
+                window.Multiplayer.clearRoomInfo?.();
+                hideReconnectBanner();
+            } catch (err) {
+                console.error('[Lobby] Reconnection failed:', err);
+                window.Multiplayer.clearRoomInfo?.();
+                hideReconnectBanner();
+            }
+        }, { once: true });
+        
+        dismissBtn?.addEventListener('click', () => {
+            window.Multiplayer.clearRoomInfo?.();
+            hideReconnectBanner();
+        }, { once: true });
+    }
+    
+    function hideReconnectBanner() {
+        const banner = document.getElementById('reconnectBanner');
+        if (banner) banner.style.display = 'none';
     }
 
     // ==================== Public API ====================
@@ -1942,8 +2141,10 @@
     // Also expose as window.Lobby for compatibility
     window.Lobby = window.GameLobby;
     
-    // Expose showMainMenu for hamburger menu access
-    window.showLobbyMainMenu = showMainMenu;
+    // Expose showMainMenu for hamburger menu access (navigates via router)
+    window.showLobbyMainMenu = function() {
+        Router.navigate('#/');
+    };
 
     // Initialize when DOM is ready
     if (document.readyState === 'loading') {

@@ -5,6 +5,7 @@ const CACHE_NAME = 'hexaequo-v2';
 const urlsToCache = [
     './',
     './index.html',
+    './router.js',
     './game.js',
     './ai.js',
     './ai-worker.js',

@@ -2064,6 +2064,82 @@ select {
     50% { opacity: 0.4; }
 }
 
+/* ===== Reconnect Banner ===== */
+.reconnect-banner {
+    position: fixed;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10001;
+    background: var(--bg-card, #1a1a2e);
+    border: 1px solid var(--accent, #e94560);
+    border-radius: 12px;
+    padding: 12px 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    max-width: 420px;
+    width: calc(100% - 32px);
+    animation: reconnectSlideIn 0.3s ease-out;
+}
+
+@keyframes reconnectSlideIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.reconnect-banner-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.reconnect-banner-icon {
+    font-size: 1.3em;
+    flex-shrink: 0;
+}
+
+.reconnect-banner-text {
+    flex: 1;
+    font-size: 0.9em;
+    color: var(--text-primary, #eee);
+    min-width: 120px;
+}
+
+.reconnect-banner-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.reconnect-btn {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: none;
+    font-size: 0.85em;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.2s, opacity 0.2s;
+}
+
+.reconnect-btn-primary {
+    background: var(--accent, #e94560);
+    color: #fff;
+}
+
+.reconnect-btn-primary:hover {
+    opacity: 0.85;
+}
+
+.reconnect-btn-secondary {
+    background: transparent;
+    color: var(--text-secondary, #aaa);
+    border: 1px solid var(--text-secondary, #555);
+}
+
+.reconnect-btn-secondary:hover {
+    background: rgba(255,255,255,0.05);
+}
+
 /* ===== Main Lobby Styles ===== */
 .lobby-overlay {
     position: fixed;

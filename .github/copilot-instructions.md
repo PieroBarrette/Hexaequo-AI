@@ -16,6 +16,31 @@ Hexaequo is a strategic hexagonal board game with a pure-JavaScript PWA frontend
 - Backend uses **PostgreSQL with memory fallback** (`backend/services/gameService.js` - `withFallback()` pattern)
 - AI runs in **Web Worker** (`hexaequo-v2/ai-worker.js`) to avoid blocking UI during minimax search
 
+### Client-Side Hash Router (`hexaequo-v2/router.js`)
+Custom lightweight hash-based router. Exposed as `window.Router`.
+
+**Route Table**:
+| Hash | View | Auth Guard | Handler |
+|---|---|---|---|
+| `#/` | Main Menu | No | `showMainMenu()` |
+| `#/local` | Local Setup | No | `showLocalConfig()` |
+| `#/online` | Online Lobby | Yes → `#/auth` | `showOnlineOptions()` |
+| `#/auth` | Sign In / Register | No | `showAuthSection()` |
+| `#/settings` | Settings | No | `showSettings()` |
+| `#/profile` | Profile | Yes → `#/auth` | `GameProfile.openProfileDirect()` |
+| `#/replay/:id` | Replay Viewer | No | `GameReplay.openReplayDirect(id)` |
+| `#/game` | In-Game | Not navigable | Set by `startOnlineGame()` / `startConfiguredLocalGame()` |
+
+**API**: `Router.navigate(hash, {replace?})`, `Router.back()`, `Router.start()`, `Router.getCurrent()`, `Router.is(pattern)`, `Router.on(pattern, handler)`, `Router.resolve()`
+
+**Key Patterns**:
+- Route handlers call `*Direct()` variants (e.g., `openProfileDirect()`) to avoid re-navigation loops
+- Button clicks use `Router.navigate('#/route')` instead of calling show functions directly
+- Auth guards redirect to `#/auth` with `replace: true`; after login, navigate to `#/online`
+- `#/game` is set via `replace: true` when a game starts — not directly navigable
+- Reconnect banner: On page load, `checkReconnectBanner()` checks `localStorage.hexaequoRoom` (24h TTL) and shows a banner to rejoin an in-progress online game via `Multiplayer.rejoinRoom()`
+- All `returnToLobby()` / `goToMainMenu()` calls use `Router.navigate('#/')` with manual fallback
+
 ## Game State & Hex Grid System
 
 ### Hex Coordinates (Cube System)
@@ -281,6 +306,7 @@ HTML structure:
 
 ## Key File References
 
+- **Hash router**: `hexaequo-v2/router.js` (client-side hash routing, `window.Router`)
 - **Game rules**: `shared/game/moveValidator.js` (431 lines - ALL validation logic)
 - **Socket events**: `docs/SOCKET_EVENTS.md` (complete protocol spec)
 - **Single ELO migration**: `backend/scripts/migration_single_elo.sql` (merges elo_classic/rapid/blitz → elo)

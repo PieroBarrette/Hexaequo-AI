@@ -52,7 +52,14 @@
     }
 
     function setupEventListeners() {
-        els.backBtn?.addEventListener('click', closeProfile);
+        els.backBtn?.addEventListener('click', () => {
+            // Use Router navigation to go back
+            if (window.Router) {
+                window.Router.navigate('#/');
+            } else {
+                closeProfile();
+            }
+        });
 
         els.saveBtn?.addEventListener('click', savePreferences);
 
@@ -66,6 +73,22 @@
 
     // ==================== Profile Open / Close ====================
     function openProfile() {
+        if (!els.view) return;
+        els.view.style.display = 'flex';
+        // Navigate to profile route if not already there
+        if (window.Router && !window.Router.is('/profile')) {
+            window.Router.navigate('#/profile');
+            return; // Route handler will call openProfile again
+        }
+        loadUserInfo();
+        loadPreferences();
+        showTab('history');
+    }
+
+    /**
+     * Open profile view without triggering navigation (called by route handler).
+     */
+    function openProfileDirect() {
         if (!els.view) return;
         els.view.style.display = 'flex';
         loadUserInfo();
@@ -192,6 +215,7 @@
     window.GameProfile = {
         init,
         openProfile,
+        openProfileDirect,
         closeProfile
     };
 

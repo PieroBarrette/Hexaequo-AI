@@ -1877,24 +1877,25 @@ window.onload = function () {
             window.GameTimer.stop();
         }
         
-        // Show lobby overlay
-        const lobbyOverlay = document.getElementById('lobbyOverlay');
-        if (lobbyOverlay) {
-            lobbyOverlay.classList.remove('hidden');
-            lobbyOverlay.style.display = 'flex';
-            lobbyOverlay.style.visibility = 'visible';
-            lobbyOverlay.style.pointerEvents = 'auto';
-            lobbyOverlay.style.opacity = '1';
-        }
-        
-        // Show user menu when returning to lobby
-        if (window.UserMenu?.show) {
-            window.UserMenu.show();
-        }
-        
-        // Reset to main menu view in lobby
-        if (window.showLobbyMainMenu) {
-            window.showLobbyMainMenu();
+        // Navigate to main menu via router
+        if (window.Router) {
+            window.Router.navigate('#/');
+        } else {
+            // Fallback: show lobby overlay directly
+            const lobbyOverlay = document.getElementById('lobbyOverlay');
+            if (lobbyOverlay) {
+                lobbyOverlay.classList.remove('hidden');
+                lobbyOverlay.style.display = 'flex';
+                lobbyOverlay.style.visibility = 'visible';
+                lobbyOverlay.style.pointerEvents = 'auto';
+                lobbyOverlay.style.opacity = '1';
+            }
+            if (window.UserMenu?.show) {
+                window.UserMenu.show();
+            }
+            if (window.showLobbyMainMenu) {
+                window.showLobbyMainMenu();
+            }
         }
     }
     
@@ -3437,20 +3438,8 @@ window.onload = function () {
         // Reset the game back to initial state
         resetGame();
 
-        // Show lobby overlay
-        const lobbyOverlay = document.getElementById('lobbyOverlay');
-        if (lobbyOverlay) {
-            lobbyOverlay.classList.remove('hidden');
-            lobbyOverlay.style.display = 'flex';
-            lobbyOverlay.style.visibility = 'visible';
-            lobbyOverlay.style.pointerEvents = 'auto';
-            lobbyOverlay.style.opacity = '1';
-        }
-
-        // Show user menu
-        if (window.UserMenu?.show) {
-            window.UserMenu.show();
-        }
+        // Note: lobby overlay visibility is managed by the Router / replayViewer.closeReplay.
+        // exitReplayMode just resets game state — navigation is handled by the caller.
 
         console.log('[Replay] Exited replay mode');
     }
@@ -3711,24 +3700,25 @@ window.onload = function () {
             window.GameTimer.stop();
         }
         
-        // Show lobby overlay properly (remove hidden class and set display)
-        const lobbyOverlay = document.getElementById('lobbyOverlay');
-        if (lobbyOverlay) {
-            lobbyOverlay.classList.remove('hidden');
-            lobbyOverlay.style.display = 'flex';
-            lobbyOverlay.style.visibility = 'visible';
-            lobbyOverlay.style.pointerEvents = 'auto';
-            lobbyOverlay.style.opacity = '1';
-        }
-        
-        // Show user menu when returning to lobby
-        if (window.UserMenu?.show) {
-            window.UserMenu.show();
-        }
-        
-        // Reset to main menu view in lobby (the new game will call resetGame when started)
-        if (window.showLobbyMainMenu) {
-            window.showLobbyMainMenu();
+        // Navigate to main menu via router
+        if (window.Router) {
+            window.Router.navigate('#/');
+        } else {
+            // Fallback: show lobby overlay directly
+            const lobbyOverlay = document.getElementById('lobbyOverlay');
+            if (lobbyOverlay) {
+                lobbyOverlay.classList.remove('hidden');
+                lobbyOverlay.style.display = 'flex';
+                lobbyOverlay.style.visibility = 'visible';
+                lobbyOverlay.style.pointerEvents = 'auto';
+                lobbyOverlay.style.opacity = '1';
+            }
+            if (window.UserMenu?.show) {
+                window.UserMenu.show();
+            }
+            if (window.showLobbyMainMenu) {
+                window.showLobbyMainMenu();
+            }
         }
     }
     
@@ -3803,14 +3793,27 @@ window.onload = function () {
     });
 
     // ==================== Pending Replay from URL ====================
-    // lobby.js (DOMContentLoaded) saves ?replay=GAME_ID to sessionStorage.
+    // lobby.js saves ?replay=GAME_ID to sessionStorage or sets hash route.
     // We pick it up here (window.onload) after the renderer is ready.
     const pendingReplayId = sessionStorage.getItem('hexaequo_pending_replay');
     if (pendingReplayId) {
         sessionStorage.removeItem('hexaequo_pending_replay');
         console.log('[Game] Opening pending replay:', pendingReplayId);
-        if (window.GameReplay?.openReplay) {
+        if (window.GameReplay?.openReplayDirect) {
+            window.GameReplay.openReplayDirect(pendingReplayId);
+        } else if (window.GameReplay?.openReplay) {
             window.GameReplay.openReplay(pendingReplayId);
+        }
+    }
+    
+    // Check if current hash route is #/replay/:id (page was refreshed on replay)
+    if (window.Router) {
+        const current = window.Router.getCurrent();
+        if (current.route === '/replay/:id' && current.params.id) {
+            console.log('[Game] Resuming replay from hash route:', current.params.id);
+            if (window.GameReplay?.openReplayDirect) {
+                window.GameReplay.openReplayDirect(current.params.id);
+            }
         }
     }
 

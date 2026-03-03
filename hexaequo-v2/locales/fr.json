@@ -276,5 +276,10 @@
     "goodGame": "Bonne partie !",
     "gottaGo": "Je dois y aller !",
     "rateLimited": "Doucement ! Trop de messages."
+  },
+  "reconnect": {
+    "title": "Vous avez une partie en ligne en cours.",
+    "reconnectBtn": "Reconnecter",
+    "dismissBtn": "Ignorer"
   }
 }

@@ -417,11 +417,13 @@ const Multiplayer = (function () {
     function rejoinRoom() {
         const savedRoom = loadRoomInfo();
         if (savedRoom) {
-            joinRoom(savedRoom.roomCode).catch((err) => {
+            return joinRoom(savedRoom.roomCode).catch((err) => {
                 console.error('Failed to rejoin room:', err);
                 clearRoomInfo();
+                return null;
             });
         }
+        return Promise.resolve(null);
     }
 
     // Send a move to the server
@@ -716,6 +718,7 @@ const Multiplayer = (function () {
         connect,
         createRoom,
         joinRoom,
+        rejoinRoom,
         sendMove,
         leaveRoom,
         requestRematch,

@@ -87,27 +87,47 @@
         // Menu item clicks
         elements.signInBtn?.addEventListener('click', () => {
             close();
-            showAuthSection('login');
+            if (window.Router) {
+                window.Router.navigate('#/auth');
+            } else {
+                showAuthSection('login');
+            }
         });
         
         elements.registerBtn?.addEventListener('click', () => {
             close();
-            showAuthSection('register');
+            if (window.Router) {
+                window.Router.navigate('#/auth');
+            } else {
+                showAuthSection('register');
+            }
         });
         
         elements.profileBtn?.addEventListener('click', () => {
             close();
-            openProfile();
+            if (window.Router) {
+                window.Router.navigate('#/profile');
+            } else {
+                openProfile();
+            }
         });
         
         elements.settingsBtn?.addEventListener('click', () => {
             close();
-            showSettings();
+            if (window.Router) {
+                window.Router.navigate('#/settings');
+            } else {
+                showSettings();
+            }
         });
         
         elements.settingsBtnLogged?.addEventListener('click', () => {
             close();
-            showSettings();
+            if (window.Router) {
+                window.Router.navigate('#/settings');
+            } else {
+                showSettings();
+            }
         });
         
         elements.logoutBtn?.addEventListener('click', () => {
@@ -371,6 +391,12 @@
 
     function goToMainMenu() {
         // Show lobby and reset to main menu
+        if (window.Router) {
+            window.Router.navigate('#/');
+            return;
+        }
+        
+        // Fallback: manual lobby show
         const lobbyOverlay = document.getElementById('lobbyOverlay');
         if (lobbyOverlay) {
             lobbyOverlay.classList.remove('hidden');

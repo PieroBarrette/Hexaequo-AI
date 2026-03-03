@@ -475,7 +475,9 @@
         const item = document.createElement('div');
         item.className = 'game-history-item';
         item.addEventListener('click', () => {
-            if (window.GameReplay?.openReplay) {
+            if (window.Router) {
+                window.Router.navigate('#/replay/' + match.id);
+            } else if (window.GameReplay?.openReplay) {
                 window.GameReplay.openReplay(match.id);
             }
         });

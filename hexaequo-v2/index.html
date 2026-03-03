@@ -117,6 +117,18 @@
         </div>
     </div>
 
+    <!-- Reconnect Banner (shown when a game in progress is detected after refresh) -->
+    <div id="reconnectBanner" class="reconnect-banner" style="display: none;">
+        <div class="reconnect-banner-content">
+            <span class="reconnect-banner-icon">⚡</span>
+            <span class="reconnect-banner-text" data-i18n="reconnect.title">You have an online game in progress.</span>
+            <div class="reconnect-banner-actions">
+                <button id="reconnectBtn" class="reconnect-btn reconnect-btn-primary" data-i18n="reconnect.reconnectBtn">Reconnect</button>
+                <button id="reconnectDismissBtn" class="reconnect-btn reconnect-btn-secondary" data-i18n="reconnect.dismissBtn">Dismiss</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Main Lobby Overlay (shown on load) -->
     <div id="lobbyOverlay" class="lobby-overlay">
         <div class="lobby-content">
@@ -747,6 +759,7 @@
     </div>
 
     <script src="timer.js"></script>
+    <script src="router.js"></script>
     <script src="lobby.js"></script>
     <script src="components/userMenu.js"></script>
     <!-- QR Code library -->

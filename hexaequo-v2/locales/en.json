@@ -276,5 +276,10 @@
     "goodGame": "Good game!",
     "gottaGo": "Gotta go!",
     "rateLimited": "Slow down! Too many messages."
+  },
+  "reconnect": {
+    "title": "You have an online game in progress.",
+    "reconnectBtn": "Reconnect",
+    "dismissBtn": "Dismiss"
   }
 }

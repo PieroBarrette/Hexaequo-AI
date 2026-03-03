@@ -69,6 +69,15 @@
 
     // ==================== Open / Close ====================
     async function openReplay(gameId) {
+        // Navigate to replay route (route handler will call openReplayDirect)
+        if (window.Router && !window.Router.is('/replay/:id')) {
+            window.Router.navigate('#/replay/' + gameId);
+            return;
+        }
+        await openReplayDirect(gameId);
+    }
+
+    async function openReplayDirect(gameId) {
         stateHistory = [];
         currentIndex = 0;
         replayData = null;
@@ -155,11 +164,19 @@
 
         // Re-show profile view if it was open before
         if (profileWasOpen) {
-            const profileView = document.getElementById('profileView');
-            if (profileView) {
-                profileView.style.display = 'flex';
-            }
             profileWasOpen = false;
+            // Navigate to profile route
+            if (window.Router) {
+                window.Router.navigate('#/profile');
+            } else {
+                const profileView = document.getElementById('profileView');
+                if (profileView) profileView.style.display = 'flex';
+            }
+        } else {
+            // Navigate back to main menu
+            if (window.Router) {
+                window.Router.navigate('#/');
+            }
         }
 
         stateHistory = [];
@@ -255,6 +272,7 @@
     window.GameReplay = {
         init,
         openReplay,
+        openReplayDirect,
         closeReplay
     };
 
