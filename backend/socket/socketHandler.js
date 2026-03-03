@@ -12,10 +12,15 @@ const gameService = require('../services/gameService');
 const matchmakingService = require('../services/matchmakingService');
 const invitationService = require('../services/invitationService');
 const chatService = require('../services/chatService');
+const { diffStates } = require('../services/moveDiff');
 const { User } = require('../models');
 
 // Track connected sockets
 const connectedSockets = new Map(); // socketId -> { userId, pseudo, roomCode }
+
+// Track gameId per room for per-move recording
+const roomGameIds = new Map(); // roomCode -> gameId
+const roomMoveCounters = new Map(); // roomCode -> current move number
 
 /**
  * Emit personalized elo-updated event to each player's socket
@@ -266,6 +271,10 @@ function initializeSocket(httpServer) {
                     timeMode: room.timeMode
                 });
 
+                // Track gameId for per-move recording
+                roomGameIds.set(roomCode, gameRecord.gameId);
+                roomMoveCounters.set(roomCode, 0);
+
                 // Notify host that opponent joined
                 socket.to(roomCode).emit('opponent-joined', {
                     gameState: room.gameState,
@@ -343,20 +352,37 @@ function initializeSocket(httpServer) {
                 // Update game state
                 await roomService.updateGameState(roomCode, gameState, gameState.activePlayer);
 
-                // Record move in database if we have a gameId
-                if (moveData && moveData.gameId) {
-                    await gameService.recordMove(moveData.gameId, {
-                        moveNumber: moveData.moveNumber,
-                        player: playerColor,
-                        moveType: moveData.type,
-                        from: moveData.from,
-                        to: moveData.to,
-                        captures: moveData.captures,
-                        stateSnapshot: gameState,
-                        timeRemainingBlack: moveData.timeRemainingBlack,
-                        timeRemainingWhite: moveData.timeRemainingWhite,
-                        moveTime: moveData.moveTime
-                    });
+                // Record move in database (per-move recording)
+                const gameId = roomGameIds.get(roomCode);
+                if (gameId) {
+                    try {
+                        // Increment move counter
+                        const moveNumber = (roomMoveCounters.get(roomCode) || 0) + 1;
+                        roomMoveCounters.set(roomCode, moveNumber);
+
+                        // Diff states to extract move metadata
+                        const moveInfo = diffStates(currentState, gameState);
+
+                        // Extract timer info if available
+                        const timerBlack = timerState?.black ?? null;
+                        const timerWhite = timerState?.white ?? null;
+
+                        // Fire-and-forget: don't block the move broadcast
+                        gameService.recordMove(gameId, {
+                            moveNumber,
+                            player: playerColor,
+                            moveType: moveInfo.moveType,
+                            from: moveInfo.from,
+                            to: moveInfo.to,
+                            captures: moveInfo.captures,
+                            stateSnapshot: gameState,
+                            timeRemainingBlack: timerBlack,
+                            timeRemainingWhite: timerWhite,
+                            moveTime: null
+                        }).catch(err => console.error('[make-move] Failed to record move:', err.message));
+                    } catch (diffErr) {
+                        console.error('[make-move] Move diff/record error:', diffErr.message);
+                    }
                 }
 
                 // Broadcast to opponent with timer state
@@ -410,6 +436,10 @@ function initializeSocket(httpServer) {
 
                 await roomService.updateStatus(roomCode, 'finished');
 
+                // Clean up per-move tracking
+                roomGameIds.delete(roomCode);
+                roomMoveCounters.delete(roomCode);
+
                 console.log(`Game ended in room ${roomCode}: ${winner} wins by ${reason}`);
 
                 callback({ success: true });
@@ -461,6 +491,10 @@ function initializeSocket(httpServer) {
 
                 // Update room status
                 await roomService.updateStatus(roomCode, 'finished');
+
+                // Clean up per-move tracking
+                roomGameIds.delete(roomCode);
+                roomMoveCounters.delete(roomCode);
                 
                 console.log(`Player ${playerColor} resigned in room ${roomCode}`);
 
@@ -531,6 +565,10 @@ function initializeSocket(httpServer) {
 
                 // Update room status
                 await roomService.updateStatus(roomCode, 'finished');
+
+                // Clean up per-move tracking
+                roomGameIds.delete(roomCode);
+                roomMoveCounters.delete(roomCode);
                 
                 console.log(`Draw accepted in room ${roomCode}`);
 
@@ -778,6 +816,9 @@ function initializeSocket(httpServer) {
                             timeMode: room.timeMode
                         });
                         gameId = gameRecord.gameId;
+                        // Track gameId for per-move recording
+                        roomGameIds.set(result.roomCode, gameId);
+                        roomMoveCounters.set(result.roomCode, 0);
                         console.log(`[Matchmaking] Game record created: ${gameId}`);
                     } catch (gameErr) {
                         console.error('[Matchmaking] Failed to create game record:', gameErr);
@@ -992,6 +1033,9 @@ function initializeSocket(httpServer) {
                         timeMode: result.timeMode
                     });
                     gameId = gameRecord.gameId;
+                    // Track gameId for per-move recording
+                    roomGameIds.set(result.roomCode, gameId);
+                    roomMoveCounters.set(result.roomCode, 0);
                     console.log(`[Invitation] Game record created: ${gameId}`);
                 } catch (gameErr) {
                     console.error('[Invitation] Failed to create game record:', gameErr);

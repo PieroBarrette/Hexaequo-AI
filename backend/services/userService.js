@@ -127,8 +127,8 @@ exports.updateUserSettings = async (userId, updates) => {
 /**
  * Get user match history
  */
-exports.getUserMatchHistory = async (userId, { page = 1, limit = 20 }) => {
-    return await Game.getUserMatchHistory(userId, { page, limit });
+exports.getUserMatchHistory = async (userId, { page = 1, limit = 25, result, timeMode, opponentName, dateFrom, dateTo } = {}) => {
+    return await Game.getUserMatchHistory(userId, { page, limit, result, timeMode, opponentName, dateFrom, dateTo });
 };
 
 /**

@@ -171,7 +171,7 @@
         if (els.result && replayData.result) {
             const r = replayData.result;
             if (r.winner === 'draw') {
-                els.result.textContent = typeof i18nT === 'function' ? i18nT('gameHistory.draw') : 'Draw';
+                els.result.textContent = typeof i18nT === 'function' ? i18nT('gameHistory.exAequo') : 'Ex Aequo';
                 els.result.style.background = 'rgba(158,158,158,0.2)';
                 els.result.style.color = '#9e9e9e';
             } else {

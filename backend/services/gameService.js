@@ -73,68 +73,59 @@ exports.getGameReplay = async (gameId) => {
         throw notFound('Game');
     }
 
-    // If moves table has data, use individual moves
+    const playerInfo = {
+        black: {
+            id: replay.game.black_player_id,
+            pseudo: replay.game.black_pseudo,
+            eloBefore: replay.game.black_elo_before,
+            eloAfter: replay.game.black_elo_after
+        },
+        white: {
+            id: replay.game.white_player_id,
+            pseudo: replay.game.white_pseudo,
+            eloBefore: replay.game.white_elo_before,
+            eloAfter: replay.game.white_elo_after
+        }
+    };
+
+    const resultInfo = {
+        winner: replay.game.winner,
+        reason: replay.game.result_reason
+    };
+
+    // Primary path: use individual moves from moves table (state_snapshot per move)
     if (replay.moves && replay.moves.length > 0) {
+        // Map state_snapshot from each move into stateHistory format
+        // so the replay viewer receives the same shape it expects
+        const stateHistory = replay.moves
+            .filter(m => m.state_snapshot)
+            .map(m => ({
+                gameState: typeof m.state_snapshot === 'string' 
+                    ? JSON.parse(m.state_snapshot) 
+                    : m.state_snapshot,
+                moveType: m.move_type
+            }));
+
         return {
             gameId: replay.game.id,
-            players: {
-                black: {
-                    id: replay.game.black_player_id,
-                    pseudo: replay.game.black_pseudo,
-                    eloBefore: replay.game.black_elo_before,
-                    eloAfter: replay.game.black_elo_after
-                },
-                white: {
-                    id: replay.game.white_player_id,
-                    pseudo: replay.game.white_pseudo,
-                    eloBefore: replay.game.white_elo_before,
-                    eloAfter: replay.game.white_elo_after
-                }
-            },
-            moves: replay.moves.map(m => ({
-                moveNumber: m.move_number,
-                player: m.player,
-                type: m.move_type,
-                from: m.from_q !== null ? { q: m.from_q, r: m.from_r } : null,
-                to: { q: m.to_q, r: m.to_r },
-                captures: m.captures,
-                timestamp: m.created_at
-            })),
-            result: {
-                winner: replay.game.winner,
-                reason: replay.game.result_reason
-            },
+            players: playerInfo,
+            stateHistory,
+            result: resultInfo,
             timeMode: replay.game.time_mode,
             startedAt: replay.game.started_at,
             finishedAt: replay.game.finished_at
         };
     }
 
-    // Fallback: use moveHistory from final_state (state snapshots)
+    // Fallback: use moveHistory from final_state (legacy bulk approach)
     const finalState = replay.game.final_state;
     const moveHistoryData = finalState?.moveHistory || [];
 
     return {
         gameId: replay.game.id,
-        players: {
-            black: {
-                id: replay.game.black_player_id,
-                pseudo: replay.game.black_pseudo,
-                eloBefore: replay.game.black_elo_before,
-                eloAfter: replay.game.black_elo_after
-            },
-            white: {
-                id: replay.game.white_player_id,
-                pseudo: replay.game.white_pseudo,
-                eloBefore: replay.game.white_elo_before,
-                eloAfter: replay.game.white_elo_after
-            }
-        },
+        players: playerInfo,
         stateHistory: moveHistoryData,
-        result: {
-            winner: replay.game.winner,
-            reason: replay.game.result_reason
-        },
+        result: resultInfo,
         timeMode: replay.game.time_mode,
         startedAt: replay.game.started_at,
         finishedAt: replay.game.finished_at

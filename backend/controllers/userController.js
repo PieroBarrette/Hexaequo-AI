@@ -88,16 +88,39 @@ exports.getUserById = async (req, res, next) => {
 exports.getMatchHistory = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { page = 1, limit = 20 } = req.query;
+        const { page = 1, limit = 25, result, timeMode, opponentName, dateFrom, dateTo } = req.query;
 
-        const result = await userService.getUserMatchHistory(id, { page, limit });
+        // Parse and validate limit
+        const allowedLimits = [10, 25, 50];
+        let parsedLimit = parseInt(limit, 10);
+        if (!allowedLimits.includes(parsedLimit)) parsedLimit = 25;
+
+        // Parse result filter (comma-separated)
+        let resultFilter = undefined;
+        if (result) {
+            const allowed = ['win', 'loss', 'draw'];
+            resultFilter = result.split(',').filter(r => allowed.includes(r));
+            if (resultFilter.length === 0) resultFilter = undefined;
+        }
+
+        const filters = {
+            page: parseInt(page, 10) || 1,
+            limit: parsedLimit,
+            result: resultFilter,
+            timeMode: timeMode || undefined,
+            opponentName: opponentName || undefined,
+            dateFrom: dateFrom || undefined,
+            dateTo: dateTo || undefined
+        };
+
+        const matchResult = await userService.getUserMatchHistory(id, filters);
 
         res.json({
-            data: result.matches,
+            data: matchResult.matches,
             meta: {
-                total: result.total,
-                page: result.page,
-                totalPages: result.totalPages
+                total: matchResult.total,
+                page: matchResult.page,
+                totalPages: matchResult.totalPages
             }
         });
     } catch (error) {

@@ -208,12 +208,20 @@
   "gameHistory": {
     "loading": "Loading...",
     "noGames": "No games played yet.",
-    "loadMore": "Load more",
     "error": "Failed to load games.",
     "vs": "vs",
     "win": "Win",
     "loss": "Loss",
-    "draw": "Draw"
+    "exAequo": "Ex Aequo",
+    "filterResult": "Result",
+    "allModes": "All",
+    "searchOpponent": "Search opponent...",
+    "allTime": "All time",
+    "last7days": "7 days",
+    "last30days": "30 days",
+    "last3months": "3 months",
+    "showing": "Showing {0}-{1} of {2}",
+    "perPage": "per page"
   },
   "replay": {
     "loading": "Loading replay...",

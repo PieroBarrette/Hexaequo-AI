@@ -208,12 +208,20 @@
   "gameHistory": {
     "loading": "Chargement...",
     "noGames": "Aucune partie jouée.",
-    "loadMore": "Charger plus",
     "error": "Impossible de charger les parties.",
     "vs": "vs",
     "win": "Victoire",
     "loss": "Défaite",
-    "draw": "Nul"
+    "exAequo": "Ex Aequo",
+    "filterResult": "Résultat",
+    "allModes": "Tous",
+    "searchOpponent": "Chercher adversaire...",
+    "allTime": "Depuis toujours",
+    "last7days": "7 jours",
+    "last30days": "30 jours",
+    "last3months": "3 mois",
+    "showing": "Affichage {0}-{1} sur {2}",
+    "perPage": "par page"
   },
   "replay": {
     "loading": "Chargement du replay...",

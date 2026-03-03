@@ -303,7 +303,9 @@ HTML structure:
 - **Profile component**: `hexaequo-v2/components/profile.js` (user info, preferences, tab navigation)
 - **Game history**: `hexaequo-v2/components/gameHistory.js` (paginated match list with result badges)
 - **Replay viewer**: `hexaequo-v2/components/replayViewer.js` (fullscreen canvas replay with navigation)
-- **Profile styles**: `hexaequo-v2/styles/profile.css` (profile, game history list, replay viewer styling)
+- **Profile styles**: `hexaequo-v2/styles/profile.css` (profile, game history filters, numbered pagination, replay viewer styling)
+- **Move diff utility**: `backend/services/moveDiff.js` (server-side state diffing for per-move metadata)
+- **DB cleanup migration**: `backend/scripts/migration_cleanup_games.sql` (deletes all games+moves for clean deploy)
 
 ## Phase 2: Matchmaking System (IMPLEMENTED)
 
@@ -415,11 +417,25 @@ Localized in `locales/en.json` and `locales/fr.json` under `"chat"` section.
 - Opened via `window.GameProfile.openProfile()` from user menu hamburger
 
 ### Game History (`hexaequo-v2/components/gameHistory.js`)
-- Paginated list from `GET /api/users/:id/matches?page=N&limit=20`
-- Each row: time mode icon, opponent pseudo+ELO, result badge (win/loss/draw), ELO change, date
+- Filtered + paginated list from `GET /api/users/:id/matches?page=N&limit=25&result=win,loss&timeMode=rapid&opponentName=foo&dateFrom=ISO&dateTo=ISO`
+- Each row: time mode icon, opponent pseudo+ELO, result badge (win/loss/ex aequo), ELO change, date
 - Click → opens `GameReplay.openReplay(gameId)`
-- "Load more" button for pagination
 - Rendered inside profile tab content container
+
+**Filters** (`.gh-filter-bar`):
+- **Result checkboxes**: Win / Loss / Ex Aequo (colored labels: green, red, orange)
+- **Time mode dropdown**: All / bullet / blitz / rapid / classic / none
+- **Opponent search**: Text input with 300ms debounce
+- **Date presets**: All Time / 7 days / 30 days / 3 months (pill buttons, accent-colored active state)
+- All filters reset page to 1 on change
+
+**Numbered Pagination** (`.gh-pagination-bar`):
+- Prev/Next buttons (disabled at boundaries)
+- Page number buttons with ellipsis for large page counts (max 5 visible via `getVisiblePages()`)
+- "Showing X-Y of Z" info text
+- **Page size selector**: Dropdown with 10 / 25 / 50 options (default 25)
+
+**Terminology**: "Ex Aequo" is used in ALL languages instead of "Draw" or "Nul"
 
 ### Replay Viewer (`hexaequo-v2/components/replayViewer.js`)
 - **Fullscreen overlay** (`#replayViewer`, z-index 2000) with standalone canvas renderer
@@ -427,13 +443,15 @@ Localized in `locales/en.json` and `locales/fr.json` under `"chat"` section.
 - Fetches `GET /api/games/:id/replay` → uses `stateHistory` array (serialized state snapshots)
 - Navigation: first/prev/next/last/auto-play, progress slider, keyboard shortcuts (arrows, space, home/end, escape)
 - Player info header with ELO-before values and game result
+- Uses `gameHistory.exAequo` locale key (not `draw`) for result display
 
 ### Replay Data Pipeline
-- **Client** (`game.js` `endGame()`): Extracts `moveHistory` (array of `{gameState, moveType}`) and sends via `multiplayer.js reportGameResult()`
-- **Socket** (`socketHandler.js` `game-ended`): Passes `moveHistory` as `finalState.moveHistory` to `gameService.endGame()`
-- **Database**: Stored in `final_state` JSONB column of `games` table
-- **Replay API** (`gameService.getGameReplay()`): Returns `stateHistory` from `final_state.moveHistory` (fallback when `moves` table is empty)
-- **Note**: Only games completed AFTER this implementation have replay data
+- **Per-move recording** (PRIMARY): Socket handler records each move to `moves` table during gameplay via `gameService.recordMove()`
+- **Move diff utility** (`backend/services/moveDiff.js`): Server-side `diffStates(before, after)` extracts `{moveType, from, to, captures}` by comparing pre/post game states
+- **Room tracking**: `roomGameIds` Map + `roomMoveCounters` Map in `socketHandler.js` track roomCode→gameId and move numbers
+- **Replay API** (`gameService.getGameReplay()`): **Moves table is primary source** — maps `state_snapshot` from each move into `{gameState, moveType}` format. Falls back to `final_state.moveHistory` for legacy games
+- **Legacy fallback**: Games recorded before per-move implementation still work via `final_state` JSONB column
+- **Partial replays**: Games ending by resign/timeout have replay data up to the last recorded move
 
 ### Serialized State Format (in stateHistory)
 ```javascript
@@ -449,18 +467,33 @@ Localized in `locales/en.json` and `locales/fr.json` under `"chat"` section.
 ### Phase 4 Components
 **Frontend** (`hexaequo-v2/`):
 - `components/profile.js` — IIFE, `window.GameProfile.openProfile()` / `closeProfile()`
-- `components/gameHistory.js` — IIFE, `window.GameHistory.loadGames(userId, page, container)`
+- `components/gameHistory.js` — IIFE, `window.GameHistory.loadGames(userId, page, container)` — filters, numbered pagination, page size selector
 - `components/replayViewer.js` — IIFE, `window.GameReplay.openReplay(gameId)` / `closeReplay()`
-- `styles/profile.css` — All Phase 4 styles (profile view, game history list, replay viewer)
+- `styles/profile.css` — All Phase 4 styles (profile view, game history filters, numbered pagination, replay viewer)
 
 **Backend** (`backend/`):
-- `controllers/userController.js` — `getPreferences()`, `updatePreferences()` methods added
+- `controllers/userController.js` — `getPreferences()`, `updatePreferences()`, `getMatchHistory()` with filter query params
+- `services/moveDiff.js` — `diffStates(before, after)` for per-move metadata extraction
+- `models/gameModel.js` — `getUserMatchHistory()` with dynamic WHERE clause for filters (parameterized)
+- `models/memoryGameStore.js` — Same filter support for memory fallback
 - `routes/userRoutes.js` — `GET/PUT /me/preferences` with auth + validation
 - `middleware/validationMiddleware.js` — `updatePreferences` schema added
+- `scripts/migration_cleanup_games.sql` — Deletes all existing games + moves for clean per-move deployment
+
+### Game History Query Parameters
+| Parameter | Type | Values | Default |
+|---|---|---|---|
+| `page` | number | 1+ | 1 |
+| `limit` | number | 10, 25, 50 | 25 |
+| `result` | string | Comma-separated: `win`, `loss`, `draw` | all |
+| `timeMode` | string | `bullet`, `blitz`, `rapid`, `classic`, `none` | all |
+| `opponentName` | string | Partial match (ILIKE) | — |
+| `dateFrom` | string | ISO date | — |
+| `dateTo` | string | ISO date | — |
 
 ### Phase 4 Localization Keys
 `profile.*` (title, back, memberSince, preferencesTitle, eloRangeLabel, friendlyGames, save*, tab*, statsComingSoon)
-`gameHistory.*` (loading, noGames, loadMore, error, vs, win, loss, draw)
+`gameHistory.*` (loading, noGames, error, vs, win, loss, exAequo, filterResult, allModes, searchOpponent, allTime, last7days, last30days, last3months, showing, perPage)
 `replay.*` (loading, noData, move, wins)
 
 ## Next Steps for New Features

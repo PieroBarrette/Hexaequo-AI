@@ -126,16 +126,66 @@ async function findAll({ status, timeMode, playerId, page = 1, limit = 20 }) {
 }
 
 /**
- * Get user's match history
+ * Get user's match history with filters
  */
-async function getUserMatchHistory(userId, { page = 1, limit = 20 }) {
+async function getUserMatchHistory(userId, { page = 1, limit = 25, result: resultFilter, timeMode, opponentName, dateFrom, dateTo } = {}) {
     const offset = (page - 1) * limit;
+    
+    // Build dynamic WHERE clause
+    const conditions = ['(g.black_player_id = $1 OR g.white_player_id = $1)', 'g.winner IS NOT NULL'];
+    const params = [userId];
+    let paramIndex = 2;
+
+    // Time mode filter
+    if (timeMode) {
+        conditions.push(`g.time_mode = $${paramIndex}`);
+        params.push(timeMode);
+        paramIndex++;
+    }
+
+    // Opponent name filter (ILIKE search on the opponent's pseudo)
+    if (opponentName) {
+        conditions.push(`(CASE WHEN g.black_player_id = $1 THEN g.white_pseudo ELSE g.black_pseudo END) ILIKE $${paramIndex}`);
+        params.push(`%${opponentName}%`);
+        paramIndex++;
+    }
+
+    // Date range filters
+    if (dateFrom) {
+        conditions.push(`g.finished_at >= $${paramIndex}`);
+        params.push(dateFrom);
+        paramIndex++;
+    }
+    if (dateTo) {
+        conditions.push(`g.finished_at <= $${paramIndex}`);
+        params.push(dateTo);
+        paramIndex++;
+    }
+
+    // Result filter (win, loss, draw) — applied as a subquery wrapping the CASE expression
+    let resultCondition = '';
+    if (resultFilter && resultFilter.length > 0 && resultFilter.length < 3) {
+        const resultCases = resultFilter.map(r => {
+            if (r === 'win') return `((g.black_player_id = $1 AND g.winner = 'black') OR (g.white_player_id = $1 AND g.winner = 'white'))`;
+            if (r === 'loss') return `((g.black_player_id = $1 AND g.winner = 'white') OR (g.white_player_id = $1 AND g.winner = 'black'))`;
+            if (r === 'draw') return `g.winner = 'draw'`;
+            return null;
+        }).filter(Boolean);
+        if (resultCases.length > 0) {
+            resultCondition = `AND (${resultCases.join(' OR ')})`;
+        }
+    }
+
+    const whereClause = `WHERE ${conditions.join(' AND ')} ${resultCondition}`;
+    
+    // Count and data params
+    const countParams = params.slice();
+    const dataParams = [...params, limit, offset];
     
     const [countResult, dataResult] = await Promise.all([
         query(
-            `SELECT COUNT(*) FROM games 
-             WHERE (black_player_id = $1 OR white_player_id = $1) AND winner IS NOT NULL`,
-            [userId]
+            `SELECT COUNT(*) FROM games g ${whereClause}`,
+            countParams
         ),
         query(
             `SELECT 
@@ -167,10 +217,10 @@ async function getUserMatchHistory(userId, { page = 1, limit = 20 }) {
                     ELSE 'loss'
                 END as result
              FROM games g
-             WHERE (g.black_player_id = $1 OR g.white_player_id = $1) AND g.winner IS NOT NULL
+             ${whereClause}
              ORDER BY g.finished_at DESC
-             LIMIT $2 OFFSET $3`,
-            [userId, limit, offset]
+             LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+            dataParams
         )
     ]);
     

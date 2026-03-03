@@ -98,12 +98,52 @@ async function findAll({ status, timeMode, playerId, page = 1, limit = 20 }) {
     };
 }
 
-async function getUserMatchHistory(userId, { page = 1, limit = 20 }) {
+async function getUserMatchHistory(userId, { page = 1, limit = 25, result: resultFilter, timeMode, opponentName, dateFrom, dateTo } = {}) {
     let gameList = Array.from(games.values())
         .filter(g => 
             (g.black_player_id === userId || g.white_player_id === userId) && 
             g.winner !== null
         );
+
+    // Time mode filter
+    if (timeMode) {
+        gameList = gameList.filter(g => g.time_mode === timeMode);
+    }
+
+    // Opponent name filter
+    if (opponentName) {
+        const search = opponentName.toLowerCase();
+        gameList = gameList.filter(g => {
+            const opp = g.black_player_id === userId ? g.white_pseudo : g.black_pseudo;
+            return opp && opp.toLowerCase().includes(search);
+        });
+    }
+
+    // Date range filters
+    if (dateFrom) {
+        const from = new Date(dateFrom);
+        gameList = gameList.filter(g => g.finished_at && new Date(g.finished_at) >= from);
+    }
+    if (dateTo) {
+        const to = new Date(dateTo);
+        gameList = gameList.filter(g => g.finished_at && new Date(g.finished_at) <= to);
+    }
+
+    // Result filter
+    if (resultFilter && resultFilter.length > 0 && resultFilter.length < 3) {
+        gameList = gameList.filter(g => {
+            const isBlack = g.black_player_id === userId;
+            let result;
+            if ((isBlack && g.winner === 'black') || (!isBlack && g.winner === 'white')) {
+                result = 'win';
+            } else if (g.winner === 'draw') {
+                result = 'draw';
+            } else {
+                result = 'loss';
+            }
+            return resultFilter.includes(result);
+        });
+    }
     
     gameList.sort((a, b) => new Date(b.finished_at) - new Date(a.finished_at));
     
