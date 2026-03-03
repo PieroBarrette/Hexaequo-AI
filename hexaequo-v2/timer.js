@@ -347,6 +347,19 @@
     }
 
     /**
+     * Display static time values without starting countdown (for replay mode)
+     * @param {number} blackMs - Black's remaining time in milliseconds
+     * @param {number} whiteMs - White's remaining time in milliseconds
+     */
+    function displayStatic(blackMs, whiteMs) {
+        stop(); // Ensure no countdown is running
+        if (blackMs != null) blackTime = blackMs;
+        if (whiteMs != null) whiteTime = whiteMs;
+        activeTimer = null;
+        updateDisplay();
+    }
+
+    /**
      * Get remaining time for a player
      * @param {string} player - 'black' or 'white'
      * @returns {number|null} Time in milliseconds, or null if no timer
@@ -380,6 +393,7 @@
         setOnlineMode,
         isEnabled,
         getTime,
+        displayStatic,
         TIME_CONTROLS
     };
 

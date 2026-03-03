@@ -588,120 +588,58 @@
     color: var(--text-secondary);
 }
 
-/* ==================== Replay Viewer ==================== */
-.replay-viewer {
+/* ==================== Replay Controls Bar ==================== */
+.replay-controls-bar {
     position: fixed;
-    inset: 0;
-    z-index: 10001;
-    background: var(--bg-body);
-    color: var(--text-primary);
-    display: flex;
-    flex-direction: column;
-}
-
-.replay-header {
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 10002;
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 16px;
-    background: var(--bg-container);
-    border-bottom: 1px solid var(--border-color);
-    flex-shrink: 0;
+    gap: 8px;
+    padding: 8px 12px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+    background: rgba(18, 18, 18, 0.95);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid var(--border-color);
 }
 
-.replay-close-btn {
-    background: none;
-    border: none;
+.replay-ctrl-btn {
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-container);
     color: var(--text-primary);
-    font-size: 1.5rem;
     cursor: pointer;
-    padding: 4px 8px;
-    line-height: 1;
-    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
     transition: background 0.2s;
 }
 
-.replay-close-btn:hover {
+.replay-ctrl-btn:hover {
     background: var(--input-bg);
 }
 
-.replay-game-info {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    font-size: 0.9rem;
+.replay-ctrl-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
 }
 
-.replay-player-info {
-    font-weight: 600;
+.replay-close-btn {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.3);
 }
 
-.replay-player-info.replay-black {
-    color: var(--text-primary);
-}
-
-.replay-player-info.replay-white {
-    color: var(--text-secondary);
-}
-
-.replay-vs {
-    color: var(--text-secondary);
-    font-size: 0.8rem;
-}
-
-.replay-result {
-    font-size: 0.75rem;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 10px;
-    flex-shrink: 0;
-}
-
-/* ==================== Replay Canvas ==================== */
-.replay-canvas-container {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    position: relative;
-    padding: 8px;
-}
-
-.replay-canvas-container canvas {
-    max-width: 100%;
-    max-height: 100%;
-}
-
-#replayCanvas {
-    flex: 1;
-    width: 100%;
-}
-
-#replayInventoryCanvas {
-    width: 100%;
-    max-height: 80px;
-    flex-shrink: 0;
-}
-
-/* ==================== Replay Controls ==================== */
-.replay-controls {
-    padding: 8px 16px 16px;
-    background: var(--bg-container);
-    border-top: 1px solid var(--border-color);
-    flex-shrink: 0;
-    padding-bottom: calc(16px + env(safe-area-inset-bottom));
-}
-
-.replay-progress-container {
-    margin-bottom: 8px;
+.replay-close-btn:hover {
+    background: rgba(239, 68, 68, 0.3);
 }
 
 .replay-progress {
-    width: 100%;
+    flex: 1;
     height: 6px;
     -webkit-appearance: none;
     appearance: none;
@@ -709,6 +647,7 @@
     border-radius: 3px;
     outline: none;
     cursor: pointer;
+    min-width: 60px;
 }
 
 .replay-progress::-webkit-slider-thumb {
@@ -730,57 +669,29 @@
 }
 
 .replay-move-info {
-    text-align: center;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: var(--text-secondary);
-    margin-bottom: 8px;
-    min-height: 1.2em;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
-.replay-buttons {
-    display: flex;
-    justify-content: center;
-    gap: 8px;
+.replay-result-badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
-.replay-btn {
-    width: 44px;
-    height: 44px;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    background: var(--bg-container);
-    color: var(--text-primary);
-    font-size: 1rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.2s;
+.replay-result-win {
+    background: rgba(76, 175, 80, 0.2);
+    color: #4caf50;
 }
 
-.replay-btn:hover {
-    background: var(--input-bg);
-}
-
-.replay-btn:disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
-}
-
-.replay-play-btn.playing {
-    background: var(--accent-color);
-    color: white;
-}
-
-.replay-no-data {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex: 1;
-    color: var(--text-secondary);
-    font-size: 1rem;
-    text-align: center;
-    padding: 40px;
+.replay-result-draw {
+    background: rgba(158, 158, 158, 0.2);
+    color: #9e9e9e;
 }
 
 /* ==================== Responsive ==================== */
@@ -808,15 +719,6 @@
         width: 60px;
     }
 
-    .replay-buttons {
-        gap: 6px;
-    }
-
-    .replay-btn {
-        width: 40px;
-        height: 40px;
-    }
-
     /* Filter bar responsive */
     .gh-filter-row {
         flex-direction: column;
@@ -842,6 +744,26 @@
         height: 28px;
         font-size: 0.75rem;
     }
+
+    /* Replay controls responsive */
+    .replay-controls-bar {
+        gap: 6px;
+        padding: 6px 8px;
+        padding-bottom: calc(6px + env(safe-area-inset-bottom));
+    }
+
+    .replay-ctrl-btn {
+        width: 32px;
+        height: 32px;
+    }
+
+    .replay-move-info {
+        font-size: 0.7rem;
+    }
+
+    .replay-result-badge {
+        display: none; /* Hide on small screens to save space */
+    }
 }
 
 @media (max-width: 375px) {
@@ -866,11 +788,5 @@
     .gh-checkbox-label {
         padding: 2px 6px;
         font-size: 0.75rem;
-    }
-
-    .replay-btn {
-        width: 36px;
-        height: 36px;
-        font-size: 0.9rem;
     }
 }

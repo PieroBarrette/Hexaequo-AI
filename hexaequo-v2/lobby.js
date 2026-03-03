@@ -321,6 +321,9 @@
         
         // Step 14: Handle invite code in URL (after everything is ready)
         handleEarlyInviteCheck();
+
+        // Step 15: Handle ?replay=GAME_ID in URL (save to sessionStorage for game.js to pick up)
+        checkReplayParam();
         
         console.log('[Lobby] Initialized');
     }
@@ -1170,6 +1173,26 @@
         return true; // Indicate that an invite code was found
     }
     
+    /**
+     * Check for ?replay=GAME_ID URL parameter.
+     * Saves the game ID to sessionStorage and clears the URL param.
+     * game.js will pick it up after window.onload and open the replay viewer.
+     */
+    function checkReplayParam() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const replayId = urlParams.get('replay');
+        if (!replayId) return;
+
+        console.log('[Lobby] Replay param detected:', replayId);
+        sessionStorage.setItem('hexaequo_pending_replay', replayId);
+
+        // Clear the replay param from URL (without page reload)
+        urlParams.delete('replay');
+        const remaining = urlParams.toString();
+        const newUrl = window.location.pathname + (remaining ? '?' + remaining : '') + window.location.hash;
+        window.history.replaceState({}, document.title, newUrl);
+    }
+
     /**
      * Check for invite code immediately on page load (before connection)
      * Returns true if an invite code is present in URL

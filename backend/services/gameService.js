@@ -103,7 +103,9 @@ exports.getGameReplay = async (gameId) => {
                 gameState: typeof m.state_snapshot === 'string' 
                     ? JSON.parse(m.state_snapshot) 
                     : m.state_snapshot,
-                moveType: m.move_type
+                moveType: m.move_type,
+                timeRemainingBlack: m.time_remaining_black ?? null,
+                timeRemainingWhite: m.time_remaining_white ?? null
             }));
 
         return {

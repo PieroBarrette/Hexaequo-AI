@@ -302,7 +302,7 @@ HTML structure:
 - **Chat model**: `backend/models/chatMessageModel.js` (in-memory message store per room)
 - **Profile component**: `hexaequo-v2/components/profile.js` (user info, preferences, tab navigation)
 - **Game history**: `hexaequo-v2/components/gameHistory.js` (paginated match list with result badges)
-- **Replay viewer**: `hexaequo-v2/components/replayViewer.js` (fullscreen canvas replay with navigation)
+- **Replay viewer**: `hexaequo-v2/components/replayViewer.js` (thin navigation controller, delegates rendering to GameGraphics)
 - **Profile styles**: `hexaequo-v2/styles/profile.css` (profile, game history filters, numbered pagination, replay viewer styling)
 - **Move diff utility**: `backend/services/moveDiff.js` (server-side state diffing for per-move metadata)
 - **DB cleanup migration**: `backend/scripts/migration_cleanup_games.sql` (deletes all games+moves for clean deploy)
@@ -438,18 +438,25 @@ Localized in `locales/en.json` and `locales/fr.json` under `"chat"` section.
 **Terminology**: "Ex Aequo" is used in ALL languages instead of "Draw" or "Nul"
 
 ### Replay Viewer (`hexaequo-v2/components/replayViewer.js`)
-- **Fullscreen overlay** (`#replayViewer`, z-index 2000) with standalone canvas renderer
-- Does NOT reuse `GameGraphics` singleton — has its own hex/tile/piece drawing functions
-- Fetches `GET /api/games/:id/replay` → uses `stateHistory` array (serialized state snapshots)
-- Navigation: first/prev/next/last/auto-play, progress slider, keyboard shortcuts (arrows, space, home/end, escape)
-- Player info header with ELO-before values and game result
+- **Reuses main GameGraphics renderer** — no standalone canvas, full visual quality (animations, highlights, themes)
+- Thin navigation controller: prev/next buttons + progress slider + keyboard shortcuts (arrows, escape)
+- `#replayControls` fixed bar at bottom of screen (translucent backdrop-blur)
+- **`replayMode` flag** in game.js: blocks canvas interactions (`handleCanvasInteraction` returns early), `canMakeMove()` returns false
+- **`enterReplayMode(data)`**: Hides lobby, hides undo/redo/hamburger, populates toolbar player info, clears game state
+- **`loadReplayState(state, prev, timeData, index, total)`**: Deserializes state into game.js closure vars, queues animations via `queueAnimationsForStateChange()`, sets `lastMove` via `highlightLastMove()`, updates timer via `displayStatic()`
+- **`exitReplayMode()`**: Restores UI, resets game, shows lobby
+- **Silent replay**: No sounds during replay navigation
+- **Timer**: Static display per move using `GameTimer.displayStatic(blackMs, whiteMs)` — shows remaining time without countdown
+- **URL param**: `?replay=GAME_ID` — lobby.js detects on DOMContentLoaded and saves to `sessionStorage('hexaequo_pending_replay')`, game.js picks it up on `window.onload` and calls `GameReplay.openReplay()`
+- **Profile overlay**: Replay hides profile view, restores it on close (`profileWasOpen` tracking)
+- Fetches `GET /api/games/:id/replay` (public, no auth required) — uses `authenticatedFetch` with regular `fetch` fallback
 - Uses `gameHistory.exAequo` locale key (not `draw`) for result display
 
 ### Replay Data Pipeline
 - **Per-move recording** (PRIMARY): Socket handler records each move to `moves` table during gameplay via `gameService.recordMove()`
 - **Move diff utility** (`backend/services/moveDiff.js`): Server-side `diffStates(before, after)` extracts `{moveType, from, to, captures}` by comparing pre/post game states
 - **Room tracking**: `roomGameIds` Map + `roomMoveCounters` Map in `socketHandler.js` track roomCode→gameId and move numbers
-- **Replay API** (`gameService.getGameReplay()`): **Moves table is primary source** — maps `state_snapshot` from each move into `{gameState, moveType}` format. Falls back to `final_state.moveHistory` for legacy games
+- **Replay API** (`gameService.getGameReplay()`): **Moves table is primary source** — maps `state_snapshot` from each move into `{gameState, moveType, timeRemainingBlack, timeRemainingWhite}` format. Falls back to `final_state.moveHistory` for legacy games
 - **Legacy fallback**: Games recorded before per-move implementation still work via `final_state` JSONB column
 - **Partial replays**: Games ending by resign/timeout have replay data up to the last recorded move
 
@@ -469,7 +476,7 @@ Localized in `locales/en.json` and `locales/fr.json` under `"chat"` section.
 - `components/profile.js` — IIFE, `window.GameProfile.openProfile()` / `closeProfile()`
 - `components/gameHistory.js` — IIFE, `window.GameHistory.loadGames(userId, page, container)` — filters, numbered pagination, page size selector
 - `components/replayViewer.js` — IIFE, `window.GameReplay.openReplay(gameId)` / `closeReplay()`
-- `styles/profile.css` — All Phase 4 styles (profile view, game history filters, numbered pagination, replay viewer)
+- `styles/profile.css` — All Phase 4 styles (profile view, game history filters, numbered pagination, replay viewer styling)
 
 **Backend** (`backend/`):
 - `controllers/userController.js` — `getPreferences()`, `updatePreferences()`, `getMatchHistory()` with filter query params

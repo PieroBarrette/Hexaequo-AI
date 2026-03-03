@@ -378,34 +378,26 @@
         </div>
     </div>
 
-    <!-- Replay Viewer Overlay (fullscreen, above profile) -->
-    <div id="replayViewer" class="replay-viewer" style="display: none;">
-        <div class="replay-header">
-            <button id="replayCloseBtn" class="replay-close-btn" aria-label="Close">&times;</button>
-            <div class="replay-game-info">
-                <span id="replayBlackInfo" class="replay-player-info replay-black">Black</span>
-                <span class="replay-vs">vs</span>
-                <span id="replayWhiteInfo" class="replay-player-info replay-white">White</span>
-            </div>
-            <div class="replay-result" id="replayResult"></div>
-        </div>
-        <div class="replay-canvas-container">
-            <canvas id="replayCanvas" width="600" height="600"></canvas>
-            <canvas id="replayInventoryCanvas" width="600" height="80"></canvas>
-        </div>
-        <div class="replay-controls">
-            <div class="replay-progress-container">
-                <input type="range" id="replayProgress" class="replay-progress" min="0" max="0" value="0">
-            </div>
-            <div class="replay-move-info" id="replayMoveInfo"></div>
-            <div class="replay-buttons">
-                <button id="replayFirst" class="replay-btn" title="First move">|◀</button>
-                <button id="replayPrev" class="replay-btn" title="Previous move">◀</button>
-                <button id="replayAutoPlay" class="replay-btn replay-play-btn" title="Auto-play">▶</button>
-                <button id="replayNext" class="replay-btn" title="Next move">▶</button>
-                <button id="replayLast" class="replay-btn" title="Last move">▶|</button>
-            </div>
-        </div>
+    <!-- Replay Controls Bar (fixed bottom, shown only during replay mode) -->
+    <div id="replayControls" class="replay-controls-bar" style="display: none;">
+        <button id="replayCloseBtn" class="replay-ctrl-btn replay-close-btn" aria-label="Close replay">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 4L4 12M4 4l8 8"/>
+            </svg>
+        </button>
+        <button id="replayPrev" class="replay-ctrl-btn" title="Previous move" aria-label="Previous move">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M10 3L5 8l5 5"/>
+            </svg>
+        </button>
+        <input type="range" id="replayProgress" class="replay-progress" min="0" max="0" value="0">
+        <button id="replayNext" class="replay-ctrl-btn" title="Next move" aria-label="Next move">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M6 3l5 5-5 5"/>
+            </svg>
+        </button>
+        <span id="replayMoveInfo" class="replay-move-info"></span>
+        <span id="replayResultBadge" class="replay-result-badge"></span>
     </div>
     <button id="toggleCoordsBtn" style="display: none;">Coordinates</button>
     <button id="toggleColorSchemeBtn" style="display: none;">Color</button>

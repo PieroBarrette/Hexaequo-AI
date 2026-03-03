@@ -19,6 +19,10 @@ let aiDifficulty = 2; // 1: Easy, 2: Medium, 3: Hard
 let isOnlineMode = false;
 let onlinePlayerColor = null; // 'black' or 'white'
 
+// Replay mode
+let replayMode = false;
+let replayStateData = null; // Full replay API response when in replay mode
+
 // Global variables for valid moves indicator
 let showValidMoves = false;
 let showPreviousMove = true;
@@ -195,6 +199,8 @@ window.onload = function () {
 
     // Check if moves are allowed (for online mode: must be at end of history AND your turn)
     function canMakeMove() {
+        // Block all moves in replay mode
+        if (replayMode) return false;
         // Block all moves if game is over
         if (isGameOver()) return false;
         if (!isOnlineMode) return true;
@@ -566,6 +572,9 @@ window.onload = function () {
     // Unified event handler for both click and touch
     function handleCanvasInteraction(e) {
         e.preventDefault(); // Prevent default touch behavior
+
+        // In replay mode, block all interactions
+        if (replayMode) return;
 
         // In online mode, block input if it's not our turn OR if viewing history
         if (isOnlineMode && !canMakeMove()) {
@@ -3305,6 +3314,260 @@ window.onload = function () {
     }
     window.applyOnlineMove = applyOnlineMove;
 
+    // ==================== Replay Mode ====================
+
+    /**
+     * Enter replay mode: hide lobby, show game canvas with replay data,
+     * disable all game interactions.
+     */
+    function enterReplayMode(data) {
+        replayMode = true;
+        replayStateData = data;
+
+        // Stop any running timers
+        if (window.GameTimer) {
+            window.GameTimer.stop();
+        }
+
+        // Reset game state cleanly
+        Object.keys(pieces).forEach(key => delete pieces[key]);
+        Object.keys(tiles).forEach(key => delete tiles[key]);
+        captured = { black: { disc: 0, ring: 0 }, white: { disc: 0, ring: 0 } };
+        inventory = { black: 0, white: 0 };
+        discInventory = { black: 0, white: 0 };
+        ringInventory = { black: 0, white: 0 };
+        activePlayer = 'black';
+        selectedPiece = null;
+        multiJumping = false;
+        multiJumpPos = null;
+        lastMove = null;
+
+        // Hide lobby overlay
+        const lobbyOverlay = document.getElementById('lobbyOverlay');
+        if (lobbyOverlay) {
+            lobbyOverlay.classList.add('hidden');
+            lobbyOverlay.style.display = 'none';
+        }
+
+        // Hide user menu
+        if (window.UserMenu?.hide) {
+            window.UserMenu.hide();
+        }
+
+        // Hide game-specific UI elements
+        const undoBtn = document.getElementById('undoBtn');
+        const redoBtn = document.getElementById('redoBtn');
+        const hamburgerBtn = document.getElementById('hamburgerBtn');
+        if (undoBtn) undoBtn.style.display = 'none';
+        if (redoBtn) redoBtn.style.display = 'none';
+        if (hamburgerBtn) hamburgerBtn.style.display = 'none';
+
+        // Hide online game actions (resign/draw)
+        const resignBtn = document.getElementById('resignBtn');
+        const drawBtn = document.getElementById('drawBtn');
+        if (resignBtn) resignBtn.style.display = 'none';
+        if (drawBtn) drawBtn.style.display = 'none';
+
+        // Populate player info in toolbar
+        const players = data.players;
+        const blackInfo = document.getElementById('blackPlayerInfo');
+        const whiteInfo = document.getElementById('whitePlayerInfo');
+        if (blackInfo && players?.black) {
+            blackInfo.querySelector('.player-name').textContent = `● ${players.black.pseudo || '?'}`;
+            const rating = blackInfo.querySelector('.player-rating');
+            if (rating) rating.textContent = `(${players.black.eloBefore || '?'})`;
+        }
+        if (whiteInfo && players?.white) {
+            whiteInfo.querySelector('.player-name').textContent = `○ ${players.white.pseudo || '?'}`;
+            const rating = whiteInfo.querySelector('.player-rating');
+            if (rating) rating.textContent = `(${players.white.eloBefore || '?'})`;
+        }
+
+        // Setup timer for replay (display only, no countdown)
+        if (data.timeMode && data.timeMode !== 'none' && window.GameTimer) {
+            window.GameTimer.setTimeControl(data.timeMode);
+            // Show initial times from the time control
+            const timerRow = document.querySelector('.toolbar-timer-row');
+            if (timerRow) timerRow.style.display = 'flex';
+        } else {
+            const timerRow = document.querySelector('.toolbar-timer-row');
+            if (timerRow) timerRow.style.display = 'none';
+        }
+
+        // Update player indicator
+        const indicator = document.getElementById('playerIndicator');
+        if (indicator) {
+            indicator.textContent = i18nT('replay.move') + ' 0';
+            indicator.className = 'player-indicator';
+        }
+
+        // Clear animations and redraw
+        if (GameGraphics?.clearAnimations) GameGraphics.clearAnimations();
+        updateDynamicLayout();
+        drawGrid();
+
+        console.log('[Replay] Entered replay mode');
+    }
+    window.enterReplayMode = enterReplayMode;
+
+    /**
+     * Exit replay mode: restore normal game state and show lobby.
+     */
+    function exitReplayMode() {
+        replayMode = false;
+        replayStateData = null;
+
+        // Restore hidden UI elements
+        const undoBtn = document.getElementById('undoBtn');
+        const redoBtn = document.getElementById('redoBtn');
+        const hamburgerBtn = document.getElementById('hamburgerBtn');
+        if (undoBtn) undoBtn.style.display = '';
+        if (redoBtn) redoBtn.style.display = '';
+        if (hamburgerBtn) hamburgerBtn.style.display = '';
+
+        // Re-enable pointer events on canvas
+        canvas.style.pointerEvents = 'auto';
+
+        // Stop timer display
+        if (window.GameTimer) {
+            window.GameTimer.stop();
+            window.GameTimer.reset();
+        }
+
+        // Reset the game back to initial state
+        resetGame();
+
+        // Show lobby overlay
+        const lobbyOverlay = document.getElementById('lobbyOverlay');
+        if (lobbyOverlay) {
+            lobbyOverlay.classList.remove('hidden');
+            lobbyOverlay.style.display = 'flex';
+            lobbyOverlay.style.visibility = 'visible';
+            lobbyOverlay.style.pointerEvents = 'auto';
+            lobbyOverlay.style.opacity = '1';
+        }
+
+        // Show user menu
+        if (window.UserMenu?.show) {
+            window.UserMenu.show();
+        }
+
+        console.log('[Replay] Exited replay mode');
+    }
+    window.exitReplayMode = exitReplayMode;
+
+    /**
+     * Load a replay state into the game renderer.
+     * @param {object} serializedState - The serialized game state from the replay API
+     * @param {object|null} previousSerializedState - The previous state (for animations/highlight)
+     * @param {object|null} timeData - {timeRemainingBlack, timeRemainingWhite} from the move
+     * @param {number} moveIndex - Current move index for the indicator
+     * @param {number} totalMoves - Total number of moves
+     */
+    function loadReplayState(serializedState, previousSerializedState, timeData, moveIndex, totalMoves) {
+        if (!replayMode || !serializedState) return;
+
+        // Build the previous internal state for animation/highlight diffing
+        let prevInternal = null;
+        if (previousSerializedState) {
+            prevInternal = {
+                tiles: { ...previousSerializedState.tiles },
+                pieces: JSON.parse(JSON.stringify(previousSerializedState.pieces || {})),
+                inventory: previousSerializedState.inventory || {},
+                captured: previousSerializedState.captured || {},
+                activePlayer: previousSerializedState.activePlayer
+            };
+        }
+
+        // Build the current internal state
+        const currState = {
+            tiles: serializedState.tiles || {},
+            pieces: serializedState.pieces || {},
+            inventory: serializedState.inventory || {},
+            captured: serializedState.captured || {},
+            activePlayer: serializedState.activePlayer
+        };
+
+        // Queue animations if we have a previous state (stepping through)
+        if (prevInternal && animationsEnabled && GameGraphics?.queueMoveAnimation) {
+            // Clear any pending animations first
+            if (GameGraphics.clearAnimations) GameGraphics.clearAnimations();
+            queueAnimationsForStateChange(prevInternal, currState, null, true, false, false);
+        }
+
+        // Update closure variables from serialized state
+        // Clear current state
+        Object.keys(tiles).forEach(key => delete tiles[key]);
+        Object.keys(pieces).forEach(key => delete pieces[key]);
+
+        // Apply tiles
+        Object.assign(tiles, currState.tiles);
+
+        // Apply pieces
+        Object.assign(pieces, currState.pieces);
+
+        // Apply inventory (serialized format: {black: {tiles, discs, rings}, white: {...}})
+        const inv = currState.inventory;
+        inventory = {
+            black: inv.black?.tiles ?? 0,
+            white: inv.white?.tiles ?? 0
+        };
+        discInventory = {
+            black: inv.black?.discs ?? 0,
+            white: inv.white?.discs ?? 0
+        };
+        ringInventory = {
+            black: inv.black?.rings ?? 0,
+            white: inv.white?.rings ?? 0
+        };
+
+        // Apply captured (serialized format: {black_discs, black_rings, white_discs, white_rings})
+        const cap = currState.captured;
+        captured = {
+            black: { disc: cap.black_discs ?? 0, ring: cap.black_rings ?? 0 },
+            white: { disc: cap.white_discs ?? 0, ring: cap.white_rings ?? 0 }
+        };
+
+        // Update active player
+        activePlayer = currState.activePlayer;
+
+        // Compute and set lastMove highlight
+        if (prevInternal) {
+            highlightLastMove(prevInternal, currState);
+        } else {
+            lastMove = null;
+        }
+
+        // Clear selection state
+        selectedPiece = null;
+        multiJumping = false;
+        multiJumpPos = null;
+
+        // Update timer display (static, no countdown)
+        if (timeData && window.GameTimer) {
+            window.GameTimer.displayStatic(
+                timeData.timeRemainingBlack,
+                timeData.timeRemainingWhite
+            );
+        }
+
+        // Update move indicator
+        const indicator = document.getElementById('playerIndicator');
+        if (indicator) {
+            const moveLabel = i18nT('replay.move');
+            const playerLabel = activePlayer === 'black' ? '●' : '○';
+            indicator.textContent = `${moveLabel} ${moveIndex + 1} / ${totalMoves} ${playerLabel}`;
+            indicator.classList.toggle('player-black', activePlayer === 'black');
+            indicator.classList.toggle('player-white', activePlayer === 'white');
+        }
+
+        // Redraw
+        updateDynamicLayout();
+        drawGrid();
+        drawInventory();
+    }
+    window.loadReplayState = loadReplayState;
+
     // Start an online game
     function startOnlineGame(gameState) {
         // Apply the initial game state
@@ -3538,5 +3801,17 @@ window.onload = function () {
             }
         }
     });
+
+    // ==================== Pending Replay from URL ====================
+    // lobby.js (DOMContentLoaded) saves ?replay=GAME_ID to sessionStorage.
+    // We pick it up here (window.onload) after the renderer is ready.
+    const pendingReplayId = sessionStorage.getItem('hexaequo_pending_replay');
+    if (pendingReplayId) {
+        sessionStorage.removeItem('hexaequo_pending_replay');
+        console.log('[Game] Opening pending replay:', pendingReplayId);
+        if (window.GameReplay?.openReplay) {
+            window.GameReplay.openReplay(pendingReplayId);
+        }
+    }
 
 };
