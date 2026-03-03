@@ -177,6 +177,8 @@
   "confirmLeave": {
     "title": "Are you sure you want to leave?",
     "subtitle": "Game progress will be lost.",
+    "resignTitle": "Leaving counts as a resignation.",
+    "resignSubtitle": "Your ELO rating will be affected.",
     "yes": "Yes, Leave",
     "no": "Cancel"
   },

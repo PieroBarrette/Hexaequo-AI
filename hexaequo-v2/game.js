@@ -3392,6 +3392,17 @@ window.onload = function () {
     }
     
     function showConfirmModal() {
+        // Update confirm dialog text based on game mode
+        const messages = confirmModal.querySelectorAll('.confirm-message');
+        const titleEl = messages[0]; // First <p> — main message
+        const subtitleEl = messages[1]?.querySelector('small'); // Second <p> > <small>
+        if (isOnlineMode && !isGameOver()) {
+            if (titleEl) titleEl.textContent = i18nT('confirmLeave.resignTitle');
+            if (subtitleEl) subtitleEl.textContent = i18nT('confirmLeave.resignSubtitle');
+        } else {
+            if (titleEl) titleEl.textContent = i18nT('confirmLeave.title');
+            if (subtitleEl) subtitleEl.textContent = i18nT('confirmLeave.subtitle');
+        }
         confirmModal.classList.add('open');
     }
     
@@ -3399,10 +3410,26 @@ window.onload = function () {
         confirmModal.classList.remove('open');
     }
     
-    function goToMainMenu() {
+    async function goToMainMenu() {
         hideConfirmModal();
         closeHamburgerMenu();
         
+        // Online game in progress: treat as resignation
+        if (isOnlineMode && !isGameOver() && window.Multiplayer) {
+            try {
+                await window.Multiplayer.resign();
+                const myColor = window.Multiplayer.playerColor;
+                const winnerColor = myColor === 'black' ? 'White' : 'Black';
+                endGame(winnerColor, 'abandonment', true); // skipReport: resign handled server-side
+            } catch (err) {
+                console.error('Failed to resign on quit:', err);
+            }
+            // Don't go to lobby — game-over popup is now shown with ELO result.
+            // User will leave via the popup's "Leave" button (handleLeaveRoomClick).
+            return;
+        }
+        
+        // Local/AI game or post-game: go directly to lobby
         // Destroy chat widget
         if (window.GameChat) {
             window.GameChat.destroyChat();

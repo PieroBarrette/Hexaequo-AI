@@ -1180,6 +1180,29 @@
     }
     
     /**
+     * Disconnect old (unauthenticated) socket and reconnect with auth token.
+     * Called after login/register when a pending invite needs an authenticated socket.
+     */
+    async function reconnectSocketForInvite() {
+        if (typeof window.Multiplayer === 'undefined') return;
+        
+        console.log('[Lobby] Reconnecting socket with auth token for invite...');
+        // Disconnect old unauthenticated socket
+        window.Multiplayer.disconnect();
+        socket = null;
+        
+        // Reconnect — will pick up the new auth token from storage
+        await window.Multiplayer.connect();
+        socket = window.Multiplayer.getSocket();
+        if (socket && socket.connected) {
+            setupSocketListeners();
+            console.log('[Lobby] Socket reconnected with auth for invite');
+        } else {
+            console.error('[Lobby] Failed to reconnect socket for invite');
+        }
+    }
+    
+    /**
      * Handle invite flow on page load
      * Connects to server and processes invite code
      */
@@ -1719,6 +1742,8 @@
                 if (pendingInviteAfterAuth) {
                     const invite = pendingInviteAfterAuth;
                     pendingInviteAfterAuth = null;
+                    // Reconnect socket with auth token (old socket was unauthenticated)
+                    await reconnectSocketForInvite();
                     showInviteLandingModal(invite.code, invite.info);
                 } else if (sessionStorage.getItem('hexaequo_pending_invite')) {
                     // Page was refreshed during auth — restore invite from sessionStorage
@@ -1805,6 +1830,8 @@
                 if (pendingInviteAfterAuth) {
                     const invite = pendingInviteAfterAuth;
                     pendingInviteAfterAuth = null;
+                    // Reconnect socket with auth token (old socket was unauthenticated)
+                    await reconnectSocketForInvite();
                     showInviteLandingModal(invite.code, invite.info);
                 } else if (sessionStorage.getItem('hexaequo_pending_invite')) {
                     // Page was refreshed during auth — restore invite from sessionStorage

@@ -177,6 +177,8 @@
   "confirmLeave": {
     "title": "Voulez-vous vraiment quitter ?",
     "subtitle": "La progression de la partie sera perdue.",
+    "resignTitle": "Quitter compte comme un abandon.",
+    "resignSubtitle": "Votre classement ELO sera affecté.",
     "yes": "Oui, quitter",
     "no": "Annuler"
   },

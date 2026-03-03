@@ -229,6 +229,8 @@ import { validateMove } from './modules/moveValidator.js';
 14. **Chat close-on-click-outside**: Chat widget uses an overlay div (`.chat-overlay`, z-index 1499) matching the hamburger menu pattern. Escape key also closes. Quick messages grid is scrollable (`overflow-y: auto`) for small screens.
 15. **Toolbar player info IDs**: `blackPlayerInfo`/`whitePlayerInfo` IDs are on `.toolbar-player` divs inside `#undoRedoToolbar`, not standalone elements. JS uses `getElementById('blackPlayerInfo').querySelector('.player-name')` — never change these IDs or inner class names.
 16. **Canvas offset breakpoints**: `#gameCanvas` `margin-top` and `#inventoryCanvas` `top` must stay in sync across all breakpoints: base=70px, ≤480px=64px, ≤375px=58px, landscape phones=50px, landscape tablets=65px. Mismatches cause canvas/toolbar overlap.
+17. **Quit-as-resign**: `goToMainMenu()` checks `isOnlineMode && !isGameOver()` — if true, calls `Multiplayer.resign()` (reusing existing resign socket flow) then `endGame()` with `skipReport=true`, and early-returns. The game-over popup shows ELO result; user leaves via popup's "Leave" button (`handleLeaveRoomClick`). The confirmation dialog shows resign-specific warning text (`confirmLeave.resignTitle/resignSubtitle`). Local/AI games and post-game quit are unaffected.
+18. **Invite socket auth**: When a user arrives via invite link unauthenticated, `handleEarlyInviteCheck()` connects an unauthenticated socket. After login/register, `reconnectSocketForInvite()` MUST be called to disconnect the old socket and reconnect with the auth token. Without this, `accept-invitation` fails because the socket has no auth identity.
 
 ## Mobile Game UI Layout
 
