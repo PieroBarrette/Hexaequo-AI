@@ -224,6 +224,9 @@ import { validateMove } from './modules/moveValidator.js';
 9. **ELO game-end dedup**: `endGame()` in `game.js` uses `skipReport` param — resign/draw/timeout pass `true` since those paths already trigger `gameService.endGame()` server-side. For normal wins, only the winner emits `game-ended` (or black for draws)
 10. **ELO display race condition**: `elo-updated` socket event may arrive before the game-over popup is created. `onEloUpdated()` stores pending data in `pendingEloUpdate`; `endGame()` applies it after creating the `eloUpdateDisplay` div
 11. **connectedSockets roomCode tracking**: Every code path that joins a socket to a room (create-room, join-room, accept-invitation, matchmaking match, reconnection) MUST also update `connectedSockets.get(socket.id).roomCode`. Missing this causes chat and other room-scoped features to silently fail (`not_in_room` error)
+12. **Game record required for ELO**: `gameService.createGame()` MUST be called when a game starts in ALL paths (join-room, accept-invitation, matchmaking match). Without a DB game record, `findGameByRoomCode()` returns null and ELO calculation is silently skipped. All three paths now create game records.
+13. **Invite code persistence**: Invite code is stored in `sessionStorage('hexaequo_pending_invite')` and invite info in `sessionStorage('hexaequo_pending_invite_info')`. Both are cleared only after `acceptInvitation()` succeeds — never on `get-invitation-info` success. This ensures the invite survives page refreshes during the sign-in flow.
+14. **Chat close-on-click-outside**: Chat widget uses an overlay div (`.chat-overlay`, z-index 1499) matching the hamburger menu pattern. Escape key also closes. Quick messages grid is scrollable (`overflow-y: auto`) for small screens.
 
 ## Key File References
 

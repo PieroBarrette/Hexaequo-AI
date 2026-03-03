@@ -1153,11 +1153,15 @@
                 // Show browser alert for expired/invalid invite
                 const errorMessage = response.error || i18nT('errors.invalidInvite');
                 alert(errorMessage);
+                // Clear sessionStorage on invalid/expired invite
+                sessionStorage.removeItem('hexaequo_pending_invite');
+                sessionStorage.removeItem('hexaequo_pending_invite_info');
                 return;
             }
             
-            // Clear sessionStorage once invite is successfully processed
-            sessionStorage.removeItem('hexaequo_pending_invite');
+            // Keep sessionStorage alive — cleared only after acceptInvitation succeeds
+            // Also persist invite info for page-refresh resilience
+            sessionStorage.setItem('hexaequo_pending_invite_info', JSON.stringify(response));
             
             // Show the invite landing modal
             showInviteLandingModal(inviteCode, response);
@@ -1330,6 +1334,10 @@
                 showError(response.error || i18nT('errors.failedToJoin'));
                 return;
             }
+            
+            // Clear invite data from sessionStorage now that it's accepted
+            sessionStorage.removeItem('hexaequo_pending_invite');
+            sessionStorage.removeItem('hexaequo_pending_invite_info');
             
             // Hide landing modal only after successful connection
             hideInviteLandingModal();
@@ -1712,6 +1720,9 @@
                     const invite = pendingInviteAfterAuth;
                     pendingInviteAfterAuth = null;
                     showInviteLandingModal(invite.code, invite.info);
+                } else if (sessionStorage.getItem('hexaequo_pending_invite')) {
+                    // Page was refreshed during auth — restore invite from sessionStorage
+                    handleEarlyInviteCheck();
                 } else {
                     // Go back to online options
                     showOnlineOptions();
@@ -1795,6 +1806,9 @@
                     const invite = pendingInviteAfterAuth;
                     pendingInviteAfterAuth = null;
                     showInviteLandingModal(invite.code, invite.info);
+                } else if (sessionStorage.getItem('hexaequo_pending_invite')) {
+                    // Page was refreshed during auth — restore invite from sessionStorage
+                    handleEarlyInviteCheck();
                 } else {
                     showOnlineOptions();
                 }

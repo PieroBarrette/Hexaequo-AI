@@ -754,17 +754,6 @@ function initializeSocket(httpServer) {
                         if (opponentInfo) opponentInfo.roomCode = result.roomCode;
                         
                         console.debug(`[Matchmaking] Notifying opponent (Host/Black): ${opponent.pseudo} (${opponent.socketId})`);
-                        
-                        opponentSocket.emit('match-found', {
-                            roomCode: result.roomCode,
-                            color: 'black',
-                            gameState: room.gameState,
-                            timeMode: room.timeMode,
-                            opponentInfo: {
-                                name: playerPseudo,
-                                elo: playerElo
-                            }
-                        });
                     } else {
                         console.warn(`[Matchmaking] Opponent socket ${opponent.socketId} not found!`);
                     }
@@ -776,6 +765,38 @@ function initializeSocket(httpServer) {
                     const socketInfo = connectedSockets.get(socket.id);
                     if (socketInfo) socketInfo.roomCode = result.roomCode;
                     
+                    // Create game record for ELO tracking
+                    let gameId = null;
+                    try {
+                        const gameRecord = await gameService.createGame({
+                            roomCode: result.roomCode,
+                            blackPlayerId: opponent.userId,
+                            blackPseudo: opponent.pseudo,
+                            whitePlayerId: socket.userId,
+                            whitePseudo: playerPseudo,
+                            timeMode: room.timeMode
+                        });
+                        gameId = gameRecord.gameId;
+                        console.log(`[Matchmaking] Game record created: ${gameId}`);
+                    } catch (gameErr) {
+                        console.error('[Matchmaking] Failed to create game record:', gameErr);
+                    }
+                    
+                    // Notify opponent after game record created
+                    if (opponentSocket) {
+                        opponentSocket.emit('match-found', {
+                            roomCode: result.roomCode,
+                            color: 'black',
+                            gameState: room.gameState,
+                            gameId,
+                            timeMode: room.timeMode,
+                            opponentInfo: {
+                                name: playerPseudo,
+                                elo: playerElo
+                            }
+                        });
+                    }
+                    
                     console.debug(`[Matchmaking] Returning match to Joiner (White): ${playerPseudo}`);
                     
                     callback({
@@ -784,6 +805,7 @@ function initializeSocket(httpServer) {
                         roomCode: result.roomCode,
                         color: 'white',
                         gameState: room.gameState,
+                        gameId,
                         timeMode: room.timeMode,
                         opponentInfo: {
                             name: opponent.pseudo || room.host?.pseudo || 'Opponent',
@@ -957,9 +979,27 @@ function initializeSocket(httpServer) {
                 const socketInfo = connectedSockets.get(socket.id);
                 if (socketInfo) socketInfo.roomCode = result.roomCode;
                 
+                // Create game record for ELO tracking
+                let gameId = null;
+                try {
+                    const gameRecord = await gameService.createGame({
+                        roomCode: result.roomCode,
+                        blackPlayerId: result.creatorId,
+                        blackPseudo: result.creatorPseudo,
+                        whitePlayerId: userId,
+                        whitePseudo: pseudo,
+                        timeMode: result.timeMode
+                    });
+                    gameId = gameRecord.gameId;
+                    console.log(`[Invitation] Game record created: ${gameId}`);
+                } catch (gameErr) {
+                    console.error('[Invitation] Failed to create game record:', gameErr);
+                }
+                
                 // Notify the host if they're connected - include full opponent info
                 socket.to(result.roomCode).emit('opponent-joined', {
                     gameState: result.gameState,
+                    gameId,
                     opponent: {
                         pseudo,
                         elo: acceptorElo,
@@ -973,6 +1013,7 @@ function initializeSocket(httpServer) {
                     color: 'white',
                     timeMode: result.timeMode,
                     gameState: result.gameState,
+                    gameId,
                     opponentInfo: {
                         name: result.creatorPseudo,
                         elo: result.creatorElo

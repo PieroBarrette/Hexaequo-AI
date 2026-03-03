@@ -17,6 +17,7 @@ const GameChat = (function () {
     let toggleBtn = null;
     let badge = null;
     let panel = null;
+    let overlay = null;
     let messagesDiv = null;
     let inputField = null;
     let sendBtn = null;
@@ -55,10 +56,15 @@ const GameChat = (function () {
         if (widget && widget.parentNode) {
             widget.parentNode.removeChild(widget);
         }
+        if (overlay && overlay.parentNode) {
+            overlay.parentNode.removeChild(overlay);
+        }
+        document.removeEventListener('keydown', handleEscKey);
         widget = null;
         toggleBtn = null;
         badge = null;
         panel = null;
+        overlay = null;
         messagesDiv = null;
         inputField = null;
         sendBtn = null;
@@ -163,6 +169,15 @@ const GameChat = (function () {
         rateLimitMsg.textContent = t('chat.rateLimited');
         rateLimitMsg.style.display = 'none';
         panel.appendChild(rateLimitMsg);
+
+        // Overlay for click-outside-to-close
+        overlay = document.createElement('div');
+        overlay.className = 'chat-overlay';
+        overlay.addEventListener('click', closeChat);
+        document.body.appendChild(overlay);
+
+        // Escape key to close
+        document.addEventListener('keydown', handleEscKey);
 
         // Assemble
         widget.appendChild(panel);
@@ -269,6 +284,7 @@ const GameChat = (function () {
     function openChat() {
         isOpen = true;
         panel.style.display = 'flex';
+        if (overlay) overlay.classList.add('open');
         toggleBtn.classList.add('chat-toggle-active');
         unreadCount = 0;
         updateBadge();
@@ -278,7 +294,12 @@ const GameChat = (function () {
     function closeChat() {
         isOpen = false;
         panel.style.display = 'none';
+        if (overlay) overlay.classList.remove('open');
         toggleBtn.classList.remove('chat-toggle-active');
+    }
+
+    function handleEscKey(e) {
+        if (e.key === 'Escape' && isOpen) closeChat();
     }
 
     function updateBadge() {
