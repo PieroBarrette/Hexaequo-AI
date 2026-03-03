@@ -261,8 +261,11 @@
 
     function openProfile() {
         // Open Phase 4 profile view
+        console.log('[UserMenu] openProfile called, GameProfile:', !!window.GameProfile);
         if (window.GameProfile?.openProfile) {
             window.GameProfile.openProfile();
+        } else {
+            console.warn('[UserMenu] GameProfile not available');
         }
     }
 
