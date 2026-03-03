@@ -2,7 +2,7 @@
 
 .chat-widget {
     position: fixed;
-    bottom: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
     right: 16px;
     z-index: 1500;
     display: flex;
@@ -279,7 +279,7 @@
 /* ===== Responsive ===== */
 @media (max-width: 600px) {
     .chat-widget {
-        bottom: 12px;
+        bottom: calc(12px + env(safe-area-inset-bottom, 0px));
         right: 12px;
     }
     .chat-panel {

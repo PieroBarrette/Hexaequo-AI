@@ -159,7 +159,7 @@ h1 {
 
 #uiLayer {
     position: absolute;
-    top: 100px;
+    top: 70px;
     left: 0;
     width: 100%;
     padding: 10px;
@@ -179,18 +179,18 @@ h1 {
 #gameCanvas {
     display: block;
     width: 100%;
-    height: calc(100% - 100px);
+    height: calc(100% - 70px);
     flex: 1;
     touch-action: none;
-    margin-top: 100px;
+    margin-top: 70px;
 }
 
 #inventoryCanvas {
     position: absolute;
-    top: 200px; /* Below toolbar (100px) + player info boxes (~90px) + gap */
+    top: 70px; /* Starts right below toolbar — no floating panels to avoid */
     left: 0;
     width: 100%;
-    height: calc(100% - 200px);
+    height: calc(100% - 70px);
     pointer-events: none;
     touch-action: none;
 }
@@ -235,21 +235,100 @@ button:active {
     padding: 8px;
 }
 
-/* Undo/Redo Toolbar */
+/* Undo/Redo Toolbar — Compact top bar with player info */
 #undoRedoToolbar {
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 12px;
+    flex-direction: column;
     background: var(--bg-container);
     border-bottom: 1px solid var(--border-color);
     z-index: 5;
-    min-height: 100px;
+    padding: 6px 10px 4px;
+}
+
+.toolbar-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+}
+
+.toolbar-main-row {
+    gap: 8px;
+}
+
+/* Player info inside toolbar */
+.toolbar-player {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 70px;
+    flex-shrink: 1;
+}
+
+.toolbar-player-left {
+    margin-right: auto;
+}
+
+.toolbar-player-right {
+    margin-left: auto;
+}
+
+.toolbar-player .player-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100px;
+}
+
+.toolbar-player .player-rating {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+/* Timer row */
+.toolbar-timer-row {
+    justify-content: space-between;
+    padding: 2px 0 0;
+}
+
+.toolbar-timer-spacer {
+    flex: 1;
+}
+
+.player-timer {
+    font-size: 1rem;
+    font-weight: 700;
+    font-family: 'Courier New', monospace;
+    color: var(--text-primary);
+    padding: 3px 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    min-width: 58px;
+    text-align: center;
+}
+
+.player-timer.active {
+    background: #10b981;
+    color: #fff;
+}
+
+.player-timer.low-time {
+    background: #ef4444;
+    color: #fff;
+    animation: pulse-timer 0.5s ease-in-out infinite;
+}
+
+@keyframes pulse-timer {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
 }
 
 .undo-redo-btn {
@@ -398,22 +477,18 @@ button:active {
         padding: 10px;
     }
     
-    .player-info {
-        padding: 6px 10px;
-        min-width: 80px;
-    }
-    
-    .player-info .player-name {
+    .toolbar-player .player-name {
         font-size: 0.8rem;
+        max-width: 90px;
     }
     
-    .player-info .player-rating {
+    .toolbar-player .player-rating {
         font-size: 0.65rem;
     }
     
     /* Hamburger adjustments for tablets */
     .hamburger-btn {
-        bottom: 15px;
+        bottom: calc(15px + env(safe-area-inset-bottom, 0px));
         left: 15px;
     }
     
@@ -467,53 +542,50 @@ button:active {
     }
     
     /* Player info adjustments */
-    .player-info {
-        top: 90px; /* Below toolbar (80px min-height) + gap */
-        padding: 4px 8px;
-        min-width: 70px;
-    }
-    
-    .player-info .player-name {
+    .toolbar-player .player-name {
         font-size: 0.75rem;
+        max-width: 80px;
     }
     
-    .player-info .player-timer {
-        font-size: 1rem;
-        padding: 3px 6px;
+    .player-timer {
+        font-size: 0.9rem;
+        padding: 2px 6px;
     }
     
     /* Undo/Redo toolbar */
     #undoRedoToolbar {
-        min-height: 80px;
-        padding: 6px 10px;
-        gap: 8px;
+        padding: 4px 8px 2px;
+    }
+    
+    .toolbar-main-row {
+        gap: 6px;
     }
     
     .undo-redo-btn {
-        width: 36px;
-        height: 36px;
+        width: 32px;
+        height: 32px;
     }
     
     .player-indicator {
-        font-size: 11px;
-        padding: 3px 10px;
-        min-width: 100px;
+        font-size: 10px;
+        padding: 3px 8px;
+        min-width: 80px;
     }
     
     /* Canvas adjustments */
     #gameCanvas {
-        margin-top: 80px;
-        height: calc(100% - 80px);
+        margin-top: 64px;
+        height: calc(100% - 64px);
     }
     
     #inventoryCanvas {
-        top: 160px; /* Below toolbar (80px) + player info boxes (~70px) + gap */
-        height: calc(100% - 160px);
+        top: 64px;
+        height: calc(100% - 64px);
     }
     
     /* Hamburger menu */
     .hamburger-btn {
-        bottom: 12px;
+        bottom: calc(12px + env(safe-area-inset-bottom, 0px));
         left: 12px;
         width: 40px;
         height: 40px;
@@ -567,39 +639,40 @@ button:active {
 
 /* Small phones (iPhone SE, older devices) */
 @media (max-width: 375px) {
-    .player-info {
-        padding: 3px 6px;
-        min-width: 60px;
-    }
-    
-    .player-info .player-name {
+    .toolbar-player .player-name {
         font-size: 0.7rem;
+        max-width: 65px;
     }
     
-    .player-info .player-timer {
-        font-size: 0.9rem;
+    .player-timer {
+        font-size: 0.85rem;
+        padding: 2px 5px;
+        min-width: 50px;
     }
     
     #undoRedoToolbar {
-        min-height: 70px;
-        padding: 4px 8px;
-        gap: 6px;
+        padding: 3px 6px 2px;
     }
     
     .undo-redo-btn {
-        width: 32px;
-        height: 32px;
+        width: 28px;
+        height: 28px;
     }
     
     .player-indicator {
-        font-size: 10px;
-        padding: 2px 8px;
-        min-width: 90px;
+        font-size: 9px;
+        padding: 2px 6px;
+        min-width: 70px;
     }
     
     #gameCanvas {
-        margin-top: 70px;
-        height: calc(100% - 70px);
+        margin-top: 58px;
+        height: calc(100% - 58px);
+    }
+    
+    #inventoryCanvas {
+        top: 58px;
+        height: calc(100% - 58px);
     }
     
     .lobby-content {
@@ -659,49 +732,45 @@ button:active {
     
     /* Compact toolbar in landscape */
     #undoRedoToolbar {
-        min-height: 60px;
-        padding: 4px 8px;
+        padding: 2px 6px 1px;
+    }
+    
+    .toolbar-main-row {
+        gap: 4px;
     }
     
     .undo-redo-btn {
-        width: 32px;
-        height: 32px;
+        width: 28px;
+        height: 28px;
     }
     
     .player-indicator {
-        font-size: 10px;
-        padding: 2px 8px;
+        font-size: 9px;
+        padding: 2px 6px;
     }
     
-    /* Move player info to sides with compact layout */
-    .player-info {
-        top: 50%;
-        transform: translateY(-50%);
-        padding: 6px 8px;
-        flex-direction: column;
+    .toolbar-player .player-name {
+        font-size: 0.7rem;
     }
     
-    .player-info-left {
-        left: 5px;
-    }
-    
-    .player-info-right {
-        right: 5px;
+    .player-timer {
+        font-size: 0.8rem;
+        padding: 1px 4px;
     }
     
     #gameCanvas {
-        margin-top: 60px;
-        height: calc(100% - 60px);
+        margin-top: 50px;
+        height: calc(100% - 50px);
     }
     
     #inventoryCanvas {
-        top: 120px; /* Below toolbar (60px) + player info boxes (~50px) + gap */
-        height: calc(100% - 120px);
+        top: 50px;
+        height: calc(100% - 50px);
     }
     
     /* Hamburger menu positioning */
     .hamburger-btn {
-        bottom: 10px;
+        bottom: calc(10px + env(safe-area-inset-bottom, 0px));
         left: 10px;
         width: 36px;
         height: 36px;
@@ -746,17 +815,17 @@ button:active {
 /* Landscape mode - tablets (iPad Mini, iPad in landscape) */
 @media (min-width: 768px) and (max-height: 768px) and (orientation: landscape) {
     #undoRedoToolbar {
-        min-height: 70px;
+        padding: 4px 10px 2px;
     }
     
     #gameCanvas {
-        margin-top: 70px;
-        height: calc(100% - 70px);
+        margin-top: 65px;
+        height: calc(100% - 65px);
     }
     
-    .player-info {
-        top: 8px;
-        transform: none;
+    #inventoryCanvas {
+        top: 65px;
+        height: calc(100% - 65px);
     }
     
     .lobby-content {
@@ -775,7 +844,7 @@ button:active {
 /* Hamburger Menu Button */
 .hamburger-btn {
     position: fixed;
-    bottom: 20px;
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
     left: 20px;
     z-index: 2000;
     background: var(--hamburger-bg);
@@ -1081,70 +1150,8 @@ button:active {
     display: none;
 }
 
-/* Player Info Displays */
-.player-info {
-    position: absolute;
-    top: 110px; /* Below toolbar (100px min-height + 10px gap) */
-    z-index: 100;
-    background: var(--hamburger-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 8px 14px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    min-width: 100px;
-    box-shadow: 0 2px 8px var(--shadow-color);
-}
-
-.player-info-left {
-    left: 10px;
-}
-
-.player-info-right {
-    right: 10px;
-}
-
-.player-info .player-name {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.player-info .player-rating {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-}
-
-.player-info .player-timer {
-    font-size: 1.1rem;
-    font-weight: 700;
-    font-family: 'Courier New', monospace;
-    color: var(--text-primary);
-    margin-top: 4px;
-    padding: 4px 8px;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 4px;
-    min-width: 60px;
-    text-align: center;
-}
-
-.player-info .player-timer.active {
-    background: #10b981;
-    color: #fff;
-}
-
-.player-info .player-timer.low-time {
-    background: #ef4444;
-    color: #fff;
-    animation: pulse-timer 0.5s ease-in-out infinite;
-}
-
-@keyframes pulse-timer {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
-}
+/* Player Info Displays — now inside toolbar, no absolute positioning */
+/* Legacy selectors kept for JS querySelector compatibility */
 
 /* Time Control Select in Lobby */
 .time-control-select {

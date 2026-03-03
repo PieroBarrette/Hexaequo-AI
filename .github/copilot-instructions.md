@@ -227,6 +227,55 @@ import { validateMove } from './modules/moveValidator.js';
 12. **Game record required for ELO**: `gameService.createGame()` MUST be called when a game starts in ALL paths (join-room, accept-invitation, matchmaking match). Without a DB game record, `findGameByRoomCode()` returns null and ELO calculation is silently skipped. All three paths now create game records.
 13. **Invite code persistence**: Invite code is stored in `sessionStorage('hexaequo_pending_invite')` and invite info in `sessionStorage('hexaequo_pending_invite_info')`. Both are cleared only after `acceptInvitation()` succeeds — never on `get-invitation-info` success. This ensures the invite survives page refreshes during the sign-in flow.
 14. **Chat close-on-click-outside**: Chat widget uses an overlay div (`.chat-overlay`, z-index 1499) matching the hamburger menu pattern. Escape key also closes. Quick messages grid is scrollable (`overflow-y: auto`) for small screens.
+15. **Toolbar player info IDs**: `blackPlayerInfo`/`whitePlayerInfo` IDs are on `.toolbar-player` divs inside `#undoRedoToolbar`, not standalone elements. JS uses `getElementById('blackPlayerInfo').querySelector('.player-name')` — never change these IDs or inner class names.
+16. **Canvas offset breakpoints**: `#gameCanvas` `margin-top` and `#inventoryCanvas` `top` must stay in sync across all breakpoints: base=70px, ≤480px=64px, ≤375px=58px, landscape phones=50px, landscape tablets=65px. Mismatches cause canvas/toolbar overlap.
+
+## Mobile Game UI Layout
+
+### Toolbar Structure (`#undoRedoToolbar`)
+Player info, undo/redo, and timers are all inside a fixed toolbar at the top of the game view (no floating overlays):
+
+**Row 1** (`.toolbar-main-row`): `[Black name+ELO] [Undo] [Turn indicator] [Redo] [White name+ELO]`
+**Row 2** (`.toolbar-timer-row`, visible only in timed games): `[Black timer] [spacer] [White timer]`
+
+HTML structure:
+```html
+<div id="undoRedoToolbar">
+  <div class="toolbar-row toolbar-main-row">
+    <div id="blackPlayerInfo" class="toolbar-player toolbar-player-left">
+      <span class="player-name">...</span>
+      <span class="player-rating">...</span>
+    </div>
+    <button id="undoBtn">↩</button>
+    <div id="playerIndicator">...</div>
+    <button id="redoBtn">↪</button>
+    <div id="whitePlayerInfo" class="toolbar-player toolbar-player-right">
+      <span class="player-name">...</span>
+      <span class="player-rating">...</span>
+    </div>
+  </div>
+  <div class="toolbar-row toolbar-timer-row">
+    <span id="blackTimer" class="player-timer">5:00</span>
+    <div class="toolbar-timer-spacer"></div>
+    <span id="whiteTimer" class="player-timer">5:00</span>
+  </div>
+</div>
+```
+
+### Safe-Area Insets (iPhone Gesture Bar)
+- `viewport-fit=cover` is set in `<meta name="viewport">` (required for `env()` to work)
+- Hamburger menu button: `bottom: calc(12px + env(safe-area-inset-bottom))` (landscape phones only)
+- Chat widget: `padding-bottom: env(safe-area-inset-bottom)` in base + mobile breakpoints
+- See `styles.css` landscape phone media query for all safe-area adjustments
+
+### Responsive Breakpoints (Game View)
+| Breakpoint | Canvas offset | Toolbar padding | Notes |
+|---|---|---|---|
+| Base (>480px) | 70px | 6px 10px 4px | Default 2-row toolbar |
+| ≤480px portrait | 64px | 4px 6px 2px | Smaller fonts, 34px buttons |
+| ≤375px portrait | 58px | 2px 4px 2px | Minimal padding |
+| Landscape phones (≤896px, h≤500px) | 50px | 2px 4px 1px | Single dense row, 26px buttons |
+| Landscape tablets (min-w 897px, h≤500px) | 65px | — | Relaxed landscape |
 
 ## Key File References
 

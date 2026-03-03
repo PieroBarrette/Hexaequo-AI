@@ -336,30 +336,35 @@
     <button id="toggleGridBtn" style="display: none;">Grid</button>
 
     <div id="gameContainer">
-        <!-- Player Info Displays -->
-        <div id="blackPlayerInfo" class="player-info player-info-left">
-            <span class="player-name" data-i18n="lobby.black">Black</span>
-            <span class="player-rating"></span>
-            <span class="player-timer" id="blackTimer"></span>
-        </div>
-        <div id="whitePlayerInfo" class="player-info player-info-right">
-            <span class="player-name" data-i18n="lobby.white">White</span>
-            <span class="player-rating"></span>
-            <span class="player-timer" id="whiteTimer"></span>
-        </div>
-        
         <div id="undoRedoToolbar">
-            <button id="undoBtn" class="undo-redo-btn" data-i18n-title="game.undo" title="Undo">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M13 8c0-1.66-1.34-3-3-3H5l2-2m0 8l-2-2"/>
-                </svg>
-            </button>
-            <div id="playerIndicator" class="player-indicator player-black" data-i18n="game.playerBlack">Player: Black</div>
-            <button id="redoBtn" class="undo-redo-btn" data-i18n-title="game.redo" title="Redo">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M3 8c0-1.66 1.34-3 3-3h5l-2-2m0 8l2-2"/>
-                </svg>
-            </button>
+            <!-- Row 1: Player info + controls -->
+            <div class="toolbar-row toolbar-main-row">
+                <div id="blackPlayerInfo" class="toolbar-player toolbar-player-left">
+                    <span class="player-name" data-i18n="lobby.black">Black</span>
+                    <span class="player-rating"></span>
+                </div>
+                <button id="undoBtn" class="undo-redo-btn" data-i18n-title="game.undo" title="Undo">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M13 8c0-1.66-1.34-3-3-3H5l2-2m0 8l-2-2"/>
+                    </svg>
+                </button>
+                <div id="playerIndicator" class="player-indicator player-black" data-i18n="game.playerBlack">Player: Black</div>
+                <button id="redoBtn" class="undo-redo-btn" data-i18n-title="game.redo" title="Redo">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 8c0-1.66 1.34-3 3-3h5l-2-2m0 8l2-2"/>
+                    </svg>
+                </button>
+                <div id="whitePlayerInfo" class="toolbar-player toolbar-player-right">
+                    <span class="player-name" data-i18n="lobby.white">White</span>
+                    <span class="player-rating"></span>
+                </div>
+            </div>
+            <!-- Row 2: Timers -->
+            <div class="toolbar-row toolbar-timer-row">
+                <span class="player-timer" id="blackTimer"></span>
+                <span class="toolbar-timer-spacer"></span>
+                <span class="player-timer" id="whiteTimer"></span>
+            </div>
         </div>
         <!-- <div id="uiLayer">
             <div id="playerStatus"></div>
