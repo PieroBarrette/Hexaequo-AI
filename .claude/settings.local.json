@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Personnel\\\\Hexaequo\" -Name -Exclude node_modules | Where-Object {$_ -match \"README|readme\"})",
+      "PowerShell(head -50)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Personnel\\\\Hexaequo\\\\hexaequo-v2\" | Where-Object {$_.Extension -eq \".js\"})"
+    ]
+  }
+}

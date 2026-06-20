@@ -1,0 +1,792 @@
+/* profile.css - Styles for Profile View, Game History, and Replay Viewer */
+
+/* ==================== Profile View ==================== */
+.profile-view {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: var(--bg-body);
+    color: var(--text-primary);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.profile-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--bg-container);
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.profile-back-btn {
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 6px;
+    transition: background 0.2s;
+}
+
+.profile-back-btn:hover {
+    background: var(--input-bg);
+}
+
+.profile-header-title {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.profile-content {
+    flex: 1;
+    max-width: 600px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* ==================== User Info Card ==================== */
+.profile-info-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    background: var(--bg-container);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+}
+
+.profile-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--accent-color);
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.profile-user-details {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.profile-pseudo {
+    font-size: 1.3rem;
+    font-weight: 700;
+}
+
+.profile-elo {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.profile-member-since {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+/* ==================== Preferences Section ==================== */
+.profile-preferences {
+    background: var(--bg-container);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    padding: 16px;
+}
+
+.profile-section-title {
+    margin: 0 0 12px;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.profile-pref-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.profile-pref-row:last-of-type {
+    border-bottom: none;
+}
+
+.profile-pref-row label {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.profile-elo-range {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.profile-elo-input {
+    width: 70px;
+    padding: 6px 8px;
+    border: 1px solid var(--input-border);
+    border-radius: 6px;
+    background: var(--input-bg);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+.profile-elo-separator {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+/* Toggle Switch */
+.profile-toggle {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+}
+
+.profile-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.profile-toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background: var(--accent-color);
+    border-radius: 24px;
+    transition: 0.3s;
+}
+
+.profile-toggle-slider::before {
+    content: '';
+    position: absolute;
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: 0.3s;
+}
+
+.profile-toggle input:checked + .profile-toggle-slider {
+    background: #4caf50;
+}
+
+.profile-toggle input:checked + .profile-toggle-slider::before {
+    transform: translateX(20px);
+}
+
+.profile-save-btn {
+    width: 100%;
+    margin-top: 12px;
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent-color);
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.profile-save-btn:hover {
+    background: var(--accent-hover);
+}
+
+.profile-save-status {
+    display: block;
+    text-align: center;
+    font-size: 0.8rem;
+    margin-top: 6px;
+    color: #4caf50;
+    min-height: 1.2em;
+}
+
+/* ==================== Tabs ==================== */
+.profile-tabs {
+    display: flex;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.profile-tab {
+    flex: 1;
+    padding: 10px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+}
+
+.profile-tab.active {
+    color: var(--text-primary);
+    border-bottom-color: var(--text-primary);
+}
+
+.profile-tab:hover:not(.active) {
+    color: var(--text-primary);
+}
+
+.profile-tab-content {
+    min-height: 200px;
+}
+
+.profile-stats-placeholder {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+    font-size: 1rem;
+}
+
+/* ==================== Game History ==================== */
+/* ==================== Game History Filter Bar ==================== */
+.gh-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.gh-filter-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    background: var(--bg-container);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+.gh-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.gh-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.gh-filter-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-right: 2px;
+}
+
+.gh-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 3px 8px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.gh-checkbox-label:hover {
+    background: var(--input-bg);
+}
+
+.gh-checkbox-label input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    accent-color: var(--accent-color);
+    cursor: pointer;
+}
+
+.gh-cb-win span { color: #4caf50; }
+.gh-cb-loss span { color: #f44336; }
+.gh-cb-draw span { color: #9e9e9e; }
+
+.gh-time-mode-select,
+.gh-page-size-select {
+    background: var(--input-bg);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    outline: none;
+}
+
+.gh-time-mode-select:focus,
+.gh-page-size-select:focus {
+    border-color: var(--accent-color);
+}
+
+.gh-search-group {
+    flex: 1;
+    min-width: 120px;
+}
+
+.gh-opponent-search {
+    width: 100%;
+    background: var(--input-bg);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 0.8rem;
+    outline: none;
+}
+
+.gh-opponent-search::placeholder {
+    color: var(--text-secondary);
+}
+
+.gh-opponent-search:focus {
+    border-color: var(--accent-color);
+}
+
+.gh-date-filters {
+    gap: 4px;
+}
+
+.gh-date-btn {
+    background: none;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 3px 10px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.gh-date-btn:hover {
+    background: var(--input-bg);
+    color: var(--text-primary);
+}
+
+.gh-date-btn.active {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+    color: white;
+}
+
+/* ==================== Game History List ==================== */
+.game-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 0;
+}
+
+.game-history-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: var(--bg-container);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.game-history-item:hover {
+    background: var(--input-bg);
+    border-color: var(--accent-color);
+}
+
+.gh-time-mode {
+    font-size: 1.2rem;
+    width: 32px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.gh-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.gh-opponent {
+    font-weight: 600;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.gh-date {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.gh-result-section {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.gh-result-badge {
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.gh-result-badge.win {
+    background: rgba(76, 175, 80, 0.2);
+    color: #4caf50;
+}
+
+.gh-result-badge.loss {
+    background: rgba(244, 67, 54, 0.2);
+    color: #f44336;
+}
+
+.gh-result-badge.draw {
+    background: rgba(158, 158, 158, 0.2);
+    color: #9e9e9e;
+}
+
+.gh-elo-change {
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.gh-elo-change.positive {
+    color: #4caf50;
+}
+
+.gh-elo-change.negative {
+    color: #f44336;
+}
+
+.gh-elo-change.neutral {
+    color: #9e9e9e;
+}
+
+.game-history-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.game-history-loading {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-secondary);
+}
+
+/* ==================== Pagination ==================== */
+.gh-pagination-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px;
+    background: var(--bg-container);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    flex-wrap: wrap;
+}
+
+.gh-pagination-info {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.gh-page-buttons {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.gh-page-btn {
+    min-width: 32px;
+    height: 32px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: none;
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.gh-page-btn:hover:not(:disabled) {
+    background: var(--input-bg);
+    border-color: var(--accent-color);
+}
+
+.gh-page-btn.active {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+    color: white;
+    font-weight: 700;
+}
+
+.gh-page-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.gh-page-ellipsis {
+    padding: 0 4px;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.gh-page-size {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.gh-page-size-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+/* ==================== Replay Controls Bar ==================== */
+.replay-controls-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 10002;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+    background: rgba(18, 18, 18, 0.95);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid var(--border-color);
+}
+
+.replay-ctrl-btn {
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-container);
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.2s;
+}
+
+.replay-ctrl-btn:hover {
+    background: var(--input-bg);
+}
+
+.replay-ctrl-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.replay-close-btn {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+.replay-close-btn:hover {
+    background: rgba(239, 68, 68, 0.3);
+}
+
+.replay-progress {
+    flex: 1;
+    height: 6px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--border-color);
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+    min-width: 60px;
+}
+
+.replay-progress::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--text-primary);
+    cursor: pointer;
+}
+
+.replay-progress::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--text-primary);
+    border: none;
+    cursor: pointer;
+}
+
+.replay-move-info {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.replay-result-badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.replay-result-win {
+    background: rgba(76, 175, 80, 0.2);
+    color: #4caf50;
+}
+
+.replay-result-draw {
+    background: rgba(158, 158, 158, 0.2);
+    color: #9e9e9e;
+}
+
+/* ==================== Responsive ==================== */
+@media (max-width: 480px) {
+    .profile-content {
+        padding: 12px;
+        gap: 12px;
+    }
+
+    .profile-info-card {
+        padding: 14px;
+    }
+
+    .profile-avatar {
+        width: 44px;
+        height: 44px;
+        font-size: 1.2rem;
+    }
+
+    .profile-pseudo {
+        font-size: 1.1rem;
+    }
+
+    .profile-elo-input {
+        width: 60px;
+    }
+
+    /* Filter bar responsive */
+    .gh-filter-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .gh-result-filters {
+        flex-wrap: wrap;
+    }
+
+    .gh-date-filters {
+        flex-wrap: wrap;
+    }
+
+    .gh-pagination-bar {
+        flex-direction: column;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .gh-page-btn {
+        min-width: 28px;
+        height: 28px;
+        font-size: 0.75rem;
+    }
+
+    /* Replay controls responsive */
+    .replay-controls-bar {
+        gap: 6px;
+        padding: 6px 8px;
+        padding-bottom: calc(6px + env(safe-area-inset-bottom));
+    }
+
+    .replay-ctrl-btn {
+        width: 32px;
+        height: 32px;
+    }
+
+    .replay-move-info {
+        font-size: 0.7rem;
+    }
+
+    .replay-result-badge {
+        display: none; /* Hide on small screens to save space */
+    }
+}
+
+@media (max-width: 375px) {
+    .profile-header {
+        padding: 8px 12px;
+    }
+
+    .profile-content {
+        padding: 8px;
+        gap: 10px;
+    }
+
+    .game-history-item {
+        padding: 10px;
+        gap: 8px;
+    }
+
+    .gh-filter-bar {
+        padding: 8px;
+    }
+
+    .gh-checkbox-label {
+        padding: 2px 6px;
+        font-size: 0.75rem;
+    }
+}

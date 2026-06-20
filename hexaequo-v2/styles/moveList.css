@@ -1,0 +1,224 @@
+/*
+ * moveList.css — Live move-list / notation panel (QW3)
+ *
+ * Desktop: docked to the right edge of the board, always visible during a game.
+ * Mobile: off-canvas drawer opened via a handle on the right edge.
+ * Reuses theme variables from styles.css and tokens from tokens.css.
+ */
+
+.move-list-panel {
+    position: fixed;
+    top: 64px;
+    right: 0;
+    bottom: 0;
+    width: 248px;
+    max-width: 80vw;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-container, #ffffff);
+    border-left: 1px solid var(--border-color, #e0e0e0);
+    box-shadow: var(--elev-2);
+    z-index: 45;
+    transform: translateX(105%);
+    transition: transform 0.25s ease;
+    /* Respect notches on the right edge in landscape */
+    padding-right: env(safe-area-inset-right, 0);
+}
+
+.move-list-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+    flex-shrink: 0;
+}
+
+.move-list-title {
+    font-size: var(--font-sm);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-secondary, #666);
+}
+
+.move-list-count {
+    font-size: var(--font-xs);
+    font-weight: 600;
+    color: #fff;
+    background: var(--hx-accent);
+    border-radius: var(--radius-pill);
+    min-width: 18px;
+    height: 18px;
+    padding: 0 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.move-list-count:empty {
+    display: none;
+}
+
+.move-list-collapse {
+    margin-left: auto;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary, #666);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+}
+
+.move-list-collapse:hover {
+    background: var(--hx-accent-soft);
+    color: var(--text-primary, #1a1a1a);
+}
+
+.move-list-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-2);
+    font-variant-numeric: tabular-nums;
+}
+
+.ml-row {
+    display: grid;
+    grid-template-columns: 28px 1fr 1fr;
+    align-items: stretch;
+    gap: var(--space-1);
+    margin-bottom: 2px;
+}
+
+.ml-num {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-xs);
+    color: var(--text-secondary, #888);
+}
+
+.ml-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-primary, #1a1a1a);
+    font-size: var(--font-sm);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background-color 0.12s ease;
+}
+
+.ml-cell:hover {
+    background: var(--hx-accent-soft);
+}
+
+.ml-cell.active {
+    background: var(--hx-accent-soft);
+    border-color: var(--hx-accent);
+    font-weight: 700;
+}
+
+.ml-cell.ml-empty {
+    cursor: default;
+    background: transparent;
+}
+
+.ml-cell.ml-empty:hover {
+    background: transparent;
+}
+
+/* Small colour swatch indicating which side made the move */
+.ml-cell::before {
+    content: '';
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 1px solid rgba(128, 128, 128, 0.5);
+}
+
+.ml-cell.ml-black::before {
+    background: #2b2b2b;
+}
+
+.ml-cell.ml-white::before {
+    background: #f2f2f2;
+}
+
+.ml-cell.ml-empty::before {
+    display: none;
+}
+
+.ml-empty-state {
+    padding: var(--space-4);
+    text-align: center;
+    color: var(--text-secondary, #888);
+    font-size: var(--font-sm);
+}
+
+/* Right-edge handle that opens the drawer (mobile only) */
+.move-list-toggle {
+    position: fixed;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 64px;
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-right: none;
+    border-radius: var(--radius-md) 0 0 var(--radius-md);
+    background: var(--bg-container, #fff);
+    color: var(--text-secondary, #555);
+    box-shadow: var(--elev-1);
+    cursor: pointer;
+    z-index: 44;
+}
+
+.move-list-toggle svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* ---- Responsive behaviour ---- */
+
+/* Desktop: panel docked and always visible while a game is active. */
+@media (min-width: 980px) {
+    .move-list-panel.visible {
+        transform: translateX(0);
+    }
+
+    .move-list-toggle {
+        display: none !important;
+    }
+}
+
+/* Mobile / narrow: off-canvas drawer toggled by the edge handle. */
+@media (max-width: 979px) {
+    .move-list-panel {
+        top: 56px;
+        width: 220px;
+    }
+
+    .move-list-panel.visible.open {
+        transform: translateX(0);
+    }
+
+    .move-list-toggle.visible {
+        display: flex;
+    }
+}
