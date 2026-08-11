@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en" data-theme="dark" data-board-style="modern" data-route="home">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e1015">
+<meta name="description" content="Hexaequo — an abstract strategy game for two. Build the board as you play.">
+<title>Hexaequo</title>
+
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./assets/icons/icon-192x192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="./assets/icons/icon-192x192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+
+<link rel="stylesheet" href="./styles/tokens.css">
+<link rel="stylesheet" href="./styles/app.css">
+</head>
+<body>
+
+<header class="site-header">
+  <button class="btn" id="brand" data-go="home" data-route-link="home" aria-label="Hexaequo"></button>
+  <div id="header-tools"></div>
+  <span class="spacer"></span>
+  <nav id="site-nav">
+    <button class="btn btn--icon" data-go="rules" data-route-link="rules" data-i18n-attr="title:nav.rules">?</button>
+    <button class="btn btn--icon" data-go="settings" data-route-link="settings" data-i18n-attr="title:nav.settings">⚙</button>
+  </nav>
+</header>
+
+<main id="view"></main>
+
+<noscript>Hexaequo needs JavaScript to run.</noscript>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>

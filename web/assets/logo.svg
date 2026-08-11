@@ -1,0 +1,12 @@
+<svg viewBox="-145.1 -166.5 705.8 573.0" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Hexaequo">
+  <title>Hexaequo</title>
+  <!-- The opening position: two black tiles, two white tiles, alternating disk and ring. -->
+  <path d="M138.56 -80.00 L138.56 80.00 L0.00 160.00 L-138.56 80.00 L-138.56 -80.00 L-0.00 -160.00Z" fill="#000000" stroke="#000000" stroke-width="11" stroke-linejoin="round"/>
+  <circle cx="0.00" cy="0.00" r="60.80" fill="#ffffff"/>
+  <path d="M415.69 -80.00 L415.69 80.00 L277.13 160.00 L138.56 80.00 L138.56 -80.00 L277.13 -160.00Z" fill="#ffffff" stroke="#000000" stroke-width="11" stroke-linejoin="round"/>
+  <circle cx="277.13" cy="0.00" r="80.80" fill="none" stroke="#000000" stroke-width="40.00"/>
+  <path d="M277.13 160.00 L277.13 320.00 L138.56 400.00 L-0.00 320.00 L0.00 160.00 L138.56 80.00Z" fill="#ffffff" stroke="#000000" stroke-width="11" stroke-linejoin="round"/>
+  <circle cx="138.56" cy="240.00" r="60.80" fill="#000000"/>
+  <path d="M554.26 160.00 L554.26 320.00 L415.69 400.00 L277.13 320.00 L277.13 160.00 L415.69 80.00Z" fill="#000000" stroke="#000000" stroke-width="11" stroke-linejoin="round"/>
+  <circle cx="415.69" cy="240.00" r="80.80" fill="none" stroke="#ffffff" stroke-width="40.00"/>
+</svg>

@@ -1,0 +1,149 @@
+/*
+ * Design tokens for Hexaequo.
+ *
+ * Two independent axes, set as attributes on <html> by src/settings.js:
+ *   data-theme       = light | dark      (brightness)
+ *   data-board-style = classic | modern  (material: wood, or stone and metal)
+ *
+ * Every palette must define the same set of names. The board renderer and the
+ * logo both draw from --tile-* and --piece-*, so the brand mark always matches
+ * the pieces the player is looking at.
+ */
+
+:root {
+  --radius-sm: 7px;
+  --radius-md: 11px;
+  --radius-lg: 18px;
+
+  --font-sans: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", monospace;
+
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, .18);
+  --shadow-md: 0 8px 26px rgba(0, 0, 0, .3);
+  --shadow-lg: 0 22px 60px rgba(0, 0, 0, .45);
+
+  --tap: 44px;                 /* minimum comfortable touch target */
+  --ease: cubic-bezier(.4, 0, .2, 1);
+
+  /* Derived from --accent, so every palette gets matching move highlights. */
+  --spot-fill: color-mix(in srgb, var(--accent) 6%, transparent);
+  --spot-fill-strong: color-mix(in srgb, var(--accent) 15%, transparent);
+  --spot-line: color-mix(in srgb, var(--accent) 45%, transparent);
+  --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+/* ── Modern · dark — brushed metal on graphite ───────────────────────────── */
+:root[data-theme="dark"][data-board-style="modern"] {
+  --bg: #0e1015;
+  --surface: #171a21;
+  --surface-2: #1d212a;
+  --line: #2a2f3a;
+  --text: #e6e9ef;
+  --muted: #8d95a6;
+  --accent: #d8a13a;
+  --accent-ink: #14161b;
+  --danger: #e0574c;
+  --board-bg: #0e1015;
+
+  --tile-dark: #32353c;
+  --tile-dark-edge: #565b66;
+  --tile-light: #c9c5bd;
+  --tile-light-edge: #9d988e;
+
+  --piece-dark: #0d1016;
+  --piece-dark-edge: #8892a6;
+  --piece-light: #f7f3e9;
+  --piece-light-edge: #8e8672;
+
+  --piece-gloss: .12;
+  --piece-gloss-light: .50;
+  --piece-shadow: rgba(0, 0, 0, .45);
+  --ghost-line: rgba(255, 255, 255, .09);
+}
+
+/* ── Modern · light — pale stone ─────────────────────────────────────────── */
+:root[data-theme="light"][data-board-style="modern"] {
+  --bg: #eef0f4;
+  --surface: #f7f8fa;
+  --surface-2: #e7eaef;
+  --line: #d2d7e0;
+  --text: #1b2027;
+  --muted: #667085;
+  --accent: #b3791b;
+  --accent-ink: #ffffff;
+  --danger: #c9382c;
+  --board-bg: #e6e9ef;
+
+  --tile-dark: #626b78;
+  --tile-dark-edge: #464e59;
+  --tile-light: #dfe3e9;
+  --tile-light-edge: #b3bac5;
+
+  --piece-dark: #1e232b;
+  --piece-dark-edge: #737d8c;
+  --piece-light: #fdfefe;
+  --piece-light-edge: #98a1af;
+
+  --piece-gloss: .16;
+  --piece-gloss-light: .70;
+  --piece-shadow: rgba(20, 26, 34, .28);
+  --ghost-line: rgba(20, 26, 34, .16);
+}
+
+/* ── Classic · dark — walnut and oak by lamplight ────────────────────────── */
+:root[data-theme="dark"][data-board-style="classic"] {
+  --bg: #17110b;
+  --surface: #221a11;
+  --surface-2: #2c2116;
+  --line: #3d2e1e;
+  --text: #f2e8d6;
+  --muted: #a48d6c;
+  --accent: #e0a94a;
+  --accent-ink: #1a1209;
+  --danger: #d9614f;
+  --board-bg: #150f0a;
+
+  --tile-dark: #4c3623;
+  --tile-dark-edge: #6d4f34;
+  --tile-light: #cba875;
+  --tile-light-edge: #9d7f50;
+
+  --piece-dark: #150d06;
+  --piece-dark-edge: #8b7150;
+  --piece-light: #f8edd7;
+  --piece-light-edge: #a98d5c;
+
+  --piece-gloss: .14;
+  --piece-gloss-light: .48;
+  --piece-shadow: rgba(0, 0, 0, .5);
+  --ghost-line: rgba(255, 236, 200, .11);
+}
+
+/* ── Classic · light — maple table in daylight ───────────────────────────── */
+:root[data-theme="light"][data-board-style="classic"] {
+  --bg: #f2e8d4;
+  --surface: #fbf5e7;
+  --surface-2: #ece0c7;
+  --line: #d6c19a;
+  --text: #3a2c1c;
+  --muted: #7d6849;
+  --accent: #a2600f;
+  --accent-ink: #fff8ea;
+  --danger: #b23a2b;
+  --board-bg: #e9dcc0;
+
+  --tile-dark: #7d5734;
+  --tile-dark-edge: #5d3f24;
+  --tile-light: #e8cf9f;
+  --tile-light-edge: #c0a267;
+
+  --piece-dark: #2c1e12;
+  --piece-dark-edge: #7a5f3f;
+  --piece-light: #fefaf0;
+  --piece-light-edge: #b09667;
+
+  --piece-gloss: .18;
+  --piece-gloss-light: .66;
+  --piece-shadow: rgba(58, 40, 20, .32);
+  --ghost-line: rgba(58, 40, 20, .18);
+}
