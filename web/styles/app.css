@@ -200,6 +200,35 @@ select.btn { padding-right: 8px; }
 .move-list .black { width: 104px; flex: none; }
 .move-list .took { color: var(--danger); }
 
+/* ── Online ──────────────────────────────────────────────────────────────── */
+
+.net-strip {
+  display: none; align-items: center; gap: 10px; flex: none;
+  padding: 7px 12px; background: var(--surface); border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.net-strip.is-on { display: flex; }
+.net-strip.is-warn { border-bottom-color: var(--danger); color: var(--danger); }
+.net-strip .net-msg { color: var(--muted); }
+.net-strip.is-warn .net-msg { color: var(--danger); }
+.board-area { flex-direction: column; }
+.board-area > .board-host { flex: 1; min-height: 0; }
+
+.room-code {
+  font: 600 26px/1.2 var(--font-mono); letter-spacing: .22em;
+  color: var(--accent); margin: 6px 0 12px;
+}
+.room-code--sm { font-size: 14px; margin: 0; letter-spacing: .16em; }
+.row-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.code-input {
+  font: 600 17px/1 var(--font-mono); letter-spacing: .2em; text-transform: uppercase;
+  width: 8em; text-align: center; background: var(--bg);
+}
+.net-error {
+  border: 1px solid var(--danger); border-radius: var(--radius-sm);
+  padding: 9px 12px; color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+
 /* ── Rules ───────────────────────────────────────────────────────────────── */
 
 .rule-block {

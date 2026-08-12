@@ -95,6 +95,8 @@
     "byCleared": "l'adversaire n'a plus aucune pièce sur le plateau",
     "byNoMoves": "{colour} n'a aucun coup légal",
     "byRepetition": "la même position est survenue trois fois",
+    "byResigned": "l'adversaire a abandonné",
+    "byAbandoned": "l'adversaire ne s'est pas reconnecté à temps",
     "rematch": "Revanche"
   },
   "settings": {

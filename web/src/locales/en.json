@@ -95,6 +95,8 @@
     "byCleared": "the opponent has no pieces left on the board",
     "byNoMoves": "{colour} has no legal move",
     "byRepetition": "the same position occurred three times",
+    "byResigned": "the opponent resigned",
+    "byAbandoned": "the opponent did not reconnect in time",
     "rematch": "Rematch"
   },
   "settings": {

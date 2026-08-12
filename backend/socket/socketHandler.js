@@ -88,8 +88,10 @@ function initializeSocket(httpServer) {
         allowUpgrades: true,
         // Required for Render.com and Socket.IO v3+ compatibility
         allowEIO3: true,
-        // Serve client files (helps with debugging)
-        serveClient: false
+        // Serve the client library at /socket.io/socket.io.js. The web app has
+        // no build step and loads it from here, which also guarantees the
+        // client and server versions can never drift apart.
+        serveClient: true
     });
 
     console.log('✅ Socket.IO server created with CORS origins:', allowedOrigins.length, 'origins');

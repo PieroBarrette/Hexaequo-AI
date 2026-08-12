@@ -12,7 +12,7 @@ const assert = require('assert');
 const http = require('http');
 const { Server } = require('socket.io');
 const { io: connect } = require('socket.io-client');
-const { attachOnlineGames } = require('../socket/onlineGame');
+const { attachOnlineGames, RECONNECT_GRACE_MS } = require('../socket/onlineGame');
 
 let passed = 0;
 let failed = 0;
@@ -234,6 +234,81 @@ async function run() {
         assert.strictEqual(after.error, 'GAME_OVER');
         a.disconnect();
         b.disconnect();
+    });
+
+    await test('a disconnection starts an abandonment countdown', async () => {
+        const a = await open();
+        const b = await open();
+        const created = await ask(a, 'hx:create', {});
+        await ask(b, 'hx:join', { code: created.code });
+        const heard = waitFor(a, 'hx:opponent');
+        b.disconnect();
+        const event = await heard;
+        assert.strictEqual(event.joined, false);
+        assert.strictEqual(event.graceMs, RECONNECT_GRACE_MS.none, 'grace matches the time control');
+        assert.ok(event.msLeft > 0 && event.msLeft <= event.graceMs, 'a countdown is running');
+        const view = await ask(a, 'hx:sync', { code: created.code });
+        assert.ok(view.awaitingReturn, 'the room reports who it is waiting for');
+        assert.strictEqual(view.awaitingReturn.seat, 1);
+        a.disconnect();
+    });
+
+    await test('the countdown is called off when the player returns', async () => {
+        const a = await open();
+        let b = await open();
+        const created = await ask(a, 'hx:create', {});
+        await ask(b, 'hx:join', { code: created.code });
+        b.disconnect();
+        await new Promise((r) => setTimeout(r, 120));
+        b = await open();
+        const back = await ask(b, 'hx:join', { code: created.code });
+        assert.ok(back.ok, back.error);
+        assert.strictEqual(back.awaitingReturn, null, 'no countdown left running');
+        // And the game is still playable, not awarded away.
+        await new Promise((r) => setTimeout(r, 350));
+        const view = await ask(a, 'hx:sync', { code: created.code });
+        assert.strictEqual(view.result, null, 'the game survived the round trip');
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('running the countdown out awards the game to the opponent', async () => {
+        const original = RECONNECT_GRACE_MS.none;
+        RECONNECT_GRACE_MS.none = 250;                  // keep the test quick
+        try {
+            const a = await open();
+            const b = await open();
+            const created = await ask(a, 'hx:create', {});
+            await ask(b, 'hx:join', { code: created.code });
+            const ended = waitFor(a, 'hx:ended', 3000);
+            b.disconnect();
+            const event = await ended;
+            assert.strictEqual(event.result.reason, 'abandoned');
+            assert.strictEqual(event.result.winner, 0, 'the player still present wins');
+            const after = await ask(a, 'hx:move', { code: created.code, intent: { type: 'tile', cell: 2080 } });
+            assert.strictEqual(after.ok, false);
+            assert.strictEqual(after.error, 'GAME_OVER');
+            a.disconnect();
+        } finally {
+            RECONNECT_GRACE_MS.none = original;
+        }
+    });
+
+    await test('leaving before the opponent arrives abandons nothing', async () => {
+        const original = RECONNECT_GRACE_MS.none;
+        RECONNECT_GRACE_MS.none = 200;
+        try {
+            const a = await open();
+            const created = await ask(a, 'hx:create', {});   // nobody ever joined
+            a.disconnect();
+            await new Promise((r) => setTimeout(r, 500));
+            const watcher = await open();
+            const view = await ask(watcher, 'hx:sync', { code: created.code });
+            assert.strictEqual(view.result, null, 'a game that never started cannot be abandoned');
+            watcher.disconnect();
+        } finally {
+            RECONNECT_GRACE_MS.none = original;
+        }
     });
 
     await test('a disconnection frees the seat and the player can return', async () => {

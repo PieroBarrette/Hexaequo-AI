@@ -13,11 +13,9 @@ export function mountHome(outlet) {
       <p class="lede">${t('meta.tagline')}</p>
       <nav class="home-menu">
         <button class="btn btn--primary" data-go="play">${t('home.playLocal')}</button>
+        <button class="btn" data-go="online">${t('home.playOnline')}</button>
         <button class="btn" data-go="rules">${t('home.rules')}</button>
         <button class="btn" data-go="settings">${t('home.settings')}</button>
-        <button class="btn" disabled title="${t('home.onlineSoon')}">
-          ${t('home.playOnline')} · ${t('home.onlineSoon')}
-        </button>
       </nav>
       <div class="home-foot">
         <button data-action="lang">${getSetting('language') === 'fr' ? 'English' : 'Français'}</button>

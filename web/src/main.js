@@ -8,6 +8,7 @@ import { logoLockupHtml } from './ui/logo.js';
 import { mountHome } from './views/home.js';
 import { mountPlay } from './views/play.js';
 import { mountRules } from './views/rules.js';
+import { mountOnline } from './views/online.js';
 import { mountSettings, setInstallPrompt } from './views/settings.js';
 
 function renderChrome() {
@@ -24,6 +25,7 @@ async function boot() {
   defineRoute('home', mountHome);
   defineRoute('play', mountPlay);
   defineRoute('rules', mountRules);
+  defineRoute('online', mountOnline);
   defineRoute('settings', mountSettings);
 
   renderChrome();

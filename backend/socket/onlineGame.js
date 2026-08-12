@@ -22,6 +22,22 @@ const SWEEP_MS = 10 * 60 * 1000;
 const MAX_ROOMS_PER_SOCKET = 5;
 const MIN_MOVE_INTERVAL_MS = 150;             // a human cannot legitimately move faster
 
+/**
+ * How long a disconnected player has to come back before losing by abandonment.
+ *
+ * Proportional to the time control, the way chess sites do it: in bullet a
+ * thirty-second wait is most of the game, while an untimed game can afford to
+ * be patient. Clocks are not implemented yet, so every room is 'none' for now
+ * and the table is already in place for when they arrive.
+ */
+const RECONNECT_GRACE_MS = {
+    bullet: 15000,
+    blitz: 30000,
+    rapid: 60000,
+    classic: 120000,
+    none: 120000,
+};
+
 const rooms = new Map();
 
 function makeCode() {
@@ -44,6 +60,13 @@ function publicView(room) {
         result: room.result,
         seats: [Boolean(room.seats[0]), Boolean(room.seats[1])],
         names: room.names,
+        timeControl: room.timeControl,
+        graceMs: RECONNECT_GRACE_MS[room.timeControl] || RECONNECT_GRACE_MS.none,
+        // Absolute deadline so a client can render a countdown without needing
+        // its clock to agree with ours.
+        awaitingReturn: room.grace
+            ? { seat: room.grace.seat, msLeft: Math.max(0, room.grace.deadline - Date.now()) }
+            : null,
     };
 }
 
@@ -59,8 +82,37 @@ function touch(room) {
 
 /** Finish a room and tell both seats why. */
 function finish(io, room, result) {
+    cancelGrace(room);
     room.result = result;
     io.to(room.code).emit('hx:ended', { code: room.code, result });
+}
+
+function cancelGrace(room) {
+    if (!room.grace) return;
+    clearTimeout(room.grace.timer);
+    room.grace = null;
+}
+
+/**
+ * A player has dropped. Start their countdown; if it runs out, the opponent
+ * wins by abandonment. Only worth doing once both seats have been occupied and
+ * the game is still live — nobody abandons a game that has not begun.
+ */
+function startGrace(io, room, seat) {
+    cancelGrace(room);
+    if (room.result) return;
+    if (!room.everFull) return;
+    const graceMs = RECONNECT_GRACE_MS[room.timeControl] || RECONNECT_GRACE_MS.none;
+    const deadline = Date.now() + graceMs;
+    const timer = setTimeout(() => {
+        const current = rooms.get(room.code);
+        if (!current || current.result) return;
+        if (current.seats[seat]) return;          // they came back in time
+        finish(io, current, { winner: 1 - seat, reason: 'abandoned' });
+    }, graceMs);
+    if (timer.unref) timer.unref();
+    room.grace = { seat, deadline, timer };
+    return { seat, deadline, graceMs };
 }
 
 function attachOnlineGames(io) {
@@ -110,6 +162,10 @@ function attachOnlineGames(io) {
                 signatures: new Map(),
                 result: null,
                 lastSeen: Date.now(),
+                timeControl: Object.prototype.hasOwnProperty.call(RECONNECT_GRACE_MS, options.timeControl)
+                    ? options.timeControl : 'none',
+                everFull: false,
+                grace: null,
             };
             rooms.set(code, room);
             socket.join(code);
@@ -132,6 +188,10 @@ function attachOnlineGames(io) {
                 const name = String((payload && payload.name) || '').slice(0, 24);
                 room.names[seat] = name || null;
             }
+            if (room.seats[0] && room.seats[1]) room.everFull = true;
+            // Back in time: call off the abandonment countdown.
+            if (room.grace && room.grace.seat === seat) cancelGrace(room);
+
             socket.join(code);
             socket.data.hxRooms.add(code);
             socket.to(code).emit('hx:opponent', { code, seat, name: room.names[seat], joined: true });
@@ -227,12 +287,21 @@ function attachOnlineGames(io) {
                 if (!room) continue;
                 const seat = seatOf(room, socket.id);
                 if (seat === -1) continue;
-                // Free the seat so the same player can come back to it.
+                // Free the seat so the same player can come back to it, and give
+                // them a window to do so before the game is awarded away.
                 room.seats[seat] = null;
-                socket.to(code).emit('hx:opponent', { code, seat, name: room.names[seat], joined: false });
+                const grace = startGrace(io, room, seat);
+                socket.to(code).emit('hx:opponent', {
+                    code,
+                    seat,
+                    name: room.names[seat],
+                    joined: false,
+                    graceMs: grace ? grace.graceMs : null,
+                    msLeft: grace ? Math.max(0, grace.deadline - Date.now()) : null,
+                });
             }
         });
     });
 }
 
-module.exports = { attachOnlineGames, rooms };
+module.exports = { attachOnlineGames, rooms, RECONNECT_GRACE_MS };

@@ -17,16 +17,20 @@ import { STEP, RING_OFFSETS, inBoard, cellLabel, hexPath } from '../game/hex.js'
 import {
   BLACK, WHITE, DISK, RING, createState, cloneState, positionKey, withPieceLifted,
   applyMove, undoMove, tilePlacementSpots, pieceOwner, pieceType, makePiece,
+  deserializeState,
   TILES_PER_PLAYER, DISKS_PER_PLAYER, RINGS_PER_PLAYER,
 } from '../game/state.js';
-import { generateMoves, generateDiskMoves, availableJumps, checkWinner, moveNotation } from '../game/moves.js';
+import {
+  generateMoves, generateDiskMoves, availableJumps, checkWinner, moveNotation, moveIntent,
+} from '../game/moves.js';
 import { chooseMove } from '../game/ai.js';
+import { request, listen, connect, inviteLink } from '../net.js';
 
 const MODE_LOCAL = 'local';
 const MODE_AI = 'ai';
 const MODE_AI_AI = 'aiai';
 
-export function mountPlay(outlet) {
+export function mountPlay(outlet, params) {
   /* ── View state ───────────────────────────────────────────────────────── */
   let state, history, moveLog, repetitions, result, lastMove;
   let selected = null;
@@ -44,14 +48,38 @@ export function mountPlay(outlet) {
   let humanSide = BLACK;
   let level = getSetting('aiLevel');
 
+  /* Online games: the server owns the position, so this view only sends move
+     intents and renders whatever comes back. `net` is null for local play. */
+  const wantsOnline = params && params.get('online') === '1' && params.get('code');
+  let net = wantsOnline
+    ? {
+      code: String(params.get('code')).toUpperCase(),
+      colour: null,
+      pending: false,          // a move is in flight
+      noFly: false,            // that move came from a drag, so do not re-animate it
+      opponentPresent: false,
+      awaiting: null,          // { seat, until } while an opponent may still return
+      error: null,
+      ready: false,
+      unsubscribe: [],
+    }
+    : null;
+  let countdownTimer = 0;
+
   const isAI = (player) =>
-    mode === MODE_AI_AI || (mode === MODE_AI && player !== humanSide);
+    !net && (mode === MODE_AI_AI || (mode === MODE_AI && player !== humanSide));
+
+  /** Whether the local player may act at all right now. */
+  const canAct = () => (net
+    ? net.ready && !net.pending && state.turn === net.colour
+    : !isAI(state.turn));
 
   /* ── Markup ───────────────────────────────────────────────────────────── */
   outlet.innerHTML = `
     <div class="game">
       <aside class="rail" data-rail="0"></aside>
       <div class="board-area">
+        <div class="net-strip"></div>
         <div class="board-host" style="flex:1;display:flex;min-width:0"></div>
         <div class="chain-bar">
           <span class="taken"></span>
@@ -105,6 +133,7 @@ export function mountPlay(outlet) {
     <button class="btn btn--icon" data-action="step" title="${t('game.stepOnce')}">⏭</button>
     <button class="btn btn--icon" data-action="undo" title="${t('game.undo')}">↶</button>
     <button class="btn btn--icon" data-action="new" title="${t('game.newGame')}">⟳</button>
+    <button class="btn btn--icon" data-action="resign" title="${t('online.resign')}">⚑</button>
     <button class="btn btn--icon" data-action="drawer" title="${t('game.moveList')}">≡</button>`;
   tools.querySelector('[data-control="level"]').value = String(level);
 
@@ -155,7 +184,16 @@ export function mountPlay(outlet) {
    * the piece to its destination. `flyPath` and `captureList` let a multi-jump
    * chain animate only its final hop, the earlier ones having been shown live.
    */
+  /**
+   * Play a move. Locally that means applying it; online it means asking the
+   * server, which will echo the position back to both players.
+   */
   function commit(move, noFly, flyPath, captureList) {
+    if (net) { sendIntent(move, noFly); return; }
+    applyLocal(move, noFly, flyPath, captureList);
+  }
+
+  function applyLocal(move, noFly, flyPath, captureList) {
     history.push({
       snapshot: cloneState(state),
       log: moveLog.slice(),
@@ -278,11 +316,183 @@ export function mountPlay(outlet) {
 
   const colourName = (player) => (player === BLACK ? t('common.black') : t('common.white'));
 
+  /* ── Online ───────────────────────────────────────────────────────────── */
+
+  const REASON_KEYS = {
+    disks: 'byDisks', rings: 'byRings', cleared: 'byCleared',
+    noMoves: 'byNoMoves', repetition: 'byRepetition',
+    resigned: 'byResigned', abandoned: 'byAbandoned',
+  };
+
+  function readResult(payload) {
+    if (!payload) return null;
+    const why = t('result.' + (REASON_KEYS[payload.reason] || 'byNoMoves'),
+      { colour: colourName(state.turn) });
+    return payload.winner === null || payload.winner === undefined
+      ? { draw: true, why }
+      : { winner: payload.winner, why };
+  }
+
+  /** Adopt a position the server sent, and animate the move that produced it. */
+  function applyRemote(payload) {
+    state = deserializeState(payload.state);
+
+    const move = payload.move;
+    const path = move.type === 'disk' ? move.path
+      : (move.type === 'ring' ? [move.from, move.to] : null);
+
+    lastMove = move.type === 'tile' || move.type === 'piece'
+      ? { type: move.type, cell: move.cell }
+      : (move.type === 'disk' ? { type: 'disk', path: move.path } : { type: 'ring', from: move.from, to: move.to });
+
+    const mine = payload.by === net.colour;
+    const captured = (payload.captures || []).map((c) => {
+      let step = 1;
+      if (path) {
+        for (let i = 0; i + 1 < path.length; i++) {
+          if ((path[i] + path[i + 1]) / 2 === c.cell) { step = i + 1; break; }
+        }
+      }
+      return { cell: c.cell, code: c.code, step };
+    });
+
+    // A move the local player dragged is already where they put it.
+    const flightPath = (mine && net.noFly) ? null : path;
+    effect = {
+      path: flightPath,
+      code: makePiece(payload.by, move.type === 'ring' ? RING : DISK),
+      captured,
+      newTile: move.type === 'tile' ? move.cell : null,
+      newPiece: move.type === 'piece' ? move.cell : null,
+      hidden: flightPath ? flightPath[flightPath.length - 1] : null,
+    };
+    if (mine) net.noFly = false;
+
+    moveLog.push({ player: payload.by, text: payload.notation, captured: captured.length > 0 });
+    selected = null;
+    chain = null;
+    picker = null;
+    placeMode = null;
+    if (payload.result) result = readResult(payload.result);
+
+    if (move.type === 'tile') playSound('tilePlacement');
+    else if (move.type === 'piece') playSound('piecePlacement');
+    else playSound('move');
+    const steps = flightPath ? flightPath.length - 1 : 0;
+    const flight = steps ? Math.min(180 + 150 * steps, 820) : 0;
+    for (const c of captured) {
+      playSound('capture', steps ? Math.max(0, flight * Math.min(1, c.step / steps) - 80) : 60);
+    }
+    if (result) playSound('gameEnd', 420);
+
+    refresh();
+  }
+
+  /** Re-read the room, after a refused move or a reconnection. */
+  async function syncFromServer() {
+    try {
+      const view = await request('hx:sync', { code: net.code });
+      if (!view.ok) { net.error = view.error; refresh(); return; }
+      adoptRoom(view);
+    } catch {
+      net.error = 'OFFLINE';
+      refresh();
+    }
+  }
+
+  function adoptRoom(view) {
+    if (view.colour !== undefined && view.colour !== null && view.colour >= 0) net.colour = view.colour;
+    state = deserializeState(view.state);
+    moveLog = (view.notations || []).map((text, i) => ({
+      player: i % 2, text, captured: /×/.test(text),
+    }));
+    lastMove = null;
+    result = view.result ? readResult(view.result) : null;
+    net.opponentPresent = Boolean(view.seats && view.seats[1 - net.colour]);
+    net.awaiting = view.awaitingReturn
+      ? { seat: view.awaitingReturn.seat, until: Date.now() + view.awaitingReturn.msLeft }
+      : null;
+    net.ready = true;
+    net.error = null;
+    clearEffect();
+    refresh();
+  }
+
+  async function sendIntent(move, noFly) {
+    net.pending = true;
+    net.noFly = Boolean(noFly);
+    net.error = null;
+    selected = null;
+    chain = null;
+    picker = null;
+    placeMode = null;
+    refresh();
+    let response;
+    try {
+      response = await request('hx:move', { code: net.code, intent: moveIntent(move) });
+    } catch {
+      response = { ok: false, error: 'OFFLINE' };
+    }
+    net.pending = false;
+    if (!response.ok) {
+      net.error = response.error;
+      net.noFly = false;
+      // The server refused: whatever we thought the position was, it is wrong.
+      await syncFromServer();
+      return;
+    }
+    // The accepted move arrives through the hx:moved broadcast, which the
+    // server sends to the whole room including us, so there is nothing to
+    // apply here — only the pending flag to clear.
+    refresh();
+  }
+
+  async function joinRoom() {
+    try {
+      await connect();
+      const view = await request('hx:join', { code: net.code });
+      if (!view.ok) { net.error = view.error; net.ready = false; refresh(); return; }
+      adoptRoom(view);
+    } catch {
+      net.error = 'OFFLINE';
+      refresh();
+    }
+
+    net.unsubscribe.push(listen('hx:moved', (payload) => {
+      if (!net || payload.code !== net.code) return;
+      applyRemote(payload);
+    }));
+    net.unsubscribe.push(listen('hx:ended', (payload) => {
+      if (!net || payload.code !== net.code) return;
+      result = readResult(payload.result);
+      net.awaiting = null;
+      refresh();
+    }));
+    net.unsubscribe.push(listen('hx:opponent', (payload) => {
+      if (!net || payload.code !== net.code) return;
+      if (payload.seat === net.colour) return;
+      net.opponentPresent = payload.joined;
+      net.awaiting = payload.joined || payload.msLeft == null
+        ? null
+        : { seat: payload.seat, until: Date.now() + payload.msLeft };
+      refresh();
+    }));
+    // A dropped socket rejoins itself, so the seat is reclaimed automatically.
+    net.unsubscribe.push(listen('connect', () => { if (net) syncFromServer(); }));
+  }
+
+  async function resign() {
+    if (!net || result) return;
+    if (!window.confirm(t('online.confirmResign'))) return;
+    try { await request('hx:resign', { code: net.code }); } catch { net.error = 'OFFLINE'; }
+    refresh();
+  }
+
   /* ── Rendering ────────────────────────────────────────────────────────── */
 
   function refresh(instant) {
     const player = state.turn;
-    const human = !result && !thinking && !isAI(player);
+    const human = !result && !thinking && canAct();
     const dragging = !!(drag && drag.active);
     const idle = human && !chain && !picker && selected === null && !placeMode && !dragging;
     const aid = getSetting('showValidMoves');
@@ -359,6 +569,7 @@ export function mountPlay(outlet) {
     renderChainBar();
     renderResult();
     renderMoveList();
+    renderNetStatus();
     syncTools();
     runEffect();
   }
@@ -427,7 +638,8 @@ export function mountPlay(outlet) {
       const rail = rails[player];
       const opponent = 1 - player;
       const isTurn = !result && state.turn === player;
-      const live = isTurn && !thinking && !isAI(player) && !chain && !picker;
+      const live = isTurn && !thinking && !chain && !picker
+        && (net ? (player === net.colour && canAct()) : !isAI(player));
       let freeOwnTiles = 0;
       for (const k of state.tileKeys) {
         if (state.tileAt[k] === player && state.pieceAt[k] < 0) freeOwnTiles++;
@@ -483,17 +695,76 @@ export function mountPlay(outlet) {
 
   function syncTools() {
     const isDuel = mode === MODE_AI_AI;
+    const show = (selector, visible) => {
+      const node = tools.querySelector(selector);
+      if (node) node.style.display = visible ? '' : 'none';
+    };
     tools.querySelector('[data-control="mode"]').value = mode;
-    tools.querySelector('[data-control="side"]').style.display = mode === MODE_AI ? '' : 'none';
-    tools.querySelector('[data-control="level"]').style.display = mode === MODE_LOCAL ? 'none' : '';
+    // Online, none of the local controls apply: no mode, no AI, no undo.
+    show('[data-control="mode"]', !net);
+    show('[data-control="side"]', !net && mode === MODE_AI);
+    show('[data-control="level"]', !net && mode !== MODE_LOCAL);
+    show('[data-action="run"]', !net && isDuel);
+    show('[data-action="step"]', !net && isDuel);
+    show('[data-action="undo"]', !net);
+    show('[data-action="new"]', !net);
+    show('[data-action="resign"]', !!net);
+
     const run = tools.querySelector('[data-action="run"]');
-    const step = tools.querySelector('[data-action="step"]');
-    run.style.display = isDuel ? '' : 'none';
-    step.style.display = isDuel ? '' : 'none';
     run.textContent = aiRunning ? '⏸' : '▶';
     run.classList.toggle('is-on', aiRunning);
-    step.disabled = thinking || !!result || aiRunning;
+    tools.querySelector('[data-action="step"]').disabled = thinking || !!result || aiRunning;
     tools.querySelector('[data-action="undo"]').disabled = thinking || !history.length;
+    const resignButton = tools.querySelector('[data-action="resign"]');
+    if (resignButton) resignButton.disabled = !net || !net.ready || !!result;
+  }
+
+  /** The strip above the board that explains the state of an online game. */
+  function renderNetStatus() {
+    const strip = outlet.querySelector('.net-strip');
+    if (!net) { strip.classList.remove('is-on'); return; }
+    strip.classList.add('is-on');
+
+    let message;
+    let tone = '';
+    if (net.error) {
+      message = t('online.errors.' + net.error) === 'online.errors.' + net.error
+        ? t('online.errors.OFFLINE') : t('online.errors.' + net.error);
+      tone = 'is-warn';
+    } else if (!net.ready) {
+      message = t('online.connecting');
+    } else if (net.awaiting) {
+      const left = Math.max(0, Math.ceil((net.awaiting.until - Date.now()) / 1000));
+      message = `${t('online.opponentLeft')} — ${left}s`;
+      tone = 'is-warn';
+    } else if (!net.opponentPresent && !result) {
+      message = t('online.waiting');
+    } else if (result) {
+      message = '';
+    } else {
+      message = state.turn === net.colour ? t('game.yourTurn') : t('game.turnOf', { colour: colourName(state.turn) });
+    }
+
+    strip.className = `net-strip is-on ${tone}`;
+    strip.innerHTML =
+      `<span class="player-dot${net.colour === WHITE ? ' is-white' : ''}"></span>`
+      + `<span>${net.colour === null ? '' : t('online.youAre', { colour: colourName(net.colour) })}</span>`
+      + `<span class="net-msg">${message}</span>`
+      + `<span class="grow"></span>`
+      + `<code class="room-code room-code--sm">${net.code}</code>`
+      + `<button class="btn btn--icon" data-action="copy-link" title="${t('online.copyLink')}">⧉</button>`;
+
+    // Keep the abandonment countdown ticking without redrawing the board.
+    clearInterval(countdownTimer);
+    if (net.awaiting) {
+      countdownTimer = setInterval(() => {
+        if (!net || !net.awaiting) { clearInterval(countdownTimer); return; }
+        const left = Math.max(0, Math.ceil((net.awaiting.until - Date.now()) / 1000));
+        const label = strip.querySelector('.net-msg');
+        if (label) label.textContent = `${t('online.opponentLeft')} — ${left}s`;
+        if (left <= 0) clearInterval(countdownTimer);
+      }, 500);
+    }
   }
 
   /* ── Interaction ──────────────────────────────────────────────────────── */
@@ -757,8 +1028,14 @@ export function mountPlay(outlet) {
     const action = button.getAttribute('data-action');
     playSound('ui');
     if (action === 'undo') undoLast();
-    else if (action === 'new') { aiRunning = false; newGame(); }
+    else if (action === 'new') { if (net) { navigate('online'); return; } aiRunning = false; newGame(); }
     else if (action === 'menu') navigate('home');
+    else if (action === 'resign') resign();
+    else if (action === 'copy-link' && net) {
+      navigator.clipboard.writeText(inviteLink(net.code)).catch(() => {});
+      button.textContent = '✓';
+      setTimeout(() => { button.textContent = '⧉'; }, 1200);
+    }
     else if (action === 'run') { aiRunning = !aiRunning; refresh(); if (aiRunning) scheduleAI(); }
     else if (action === 'step') stepAI();
     else if (action === 'drawer') { drawerOpen = !drawerOpen; drawer.classList.toggle('is-on', drawerOpen); renderMoveList(); }
@@ -795,6 +1072,7 @@ export function mountPlay(outlet) {
   window.addEventListener('resize', onResize);
 
   newGame();
+  if (net) joinRoom();
 
   /* Expose the live view for the self-test harness. */
   window.__hexaequo = {
@@ -807,11 +1085,17 @@ export function mountPlay(outlet) {
     get history() { return history; },
     get moveLog() { return moveLog; },
     get effect() { return effect; },
+    get net() { return net; },
     onCell, newGame, commit, refresh, board,
     setMode: (m) => { mode = m; aiRunning = false; newGame(); },
   };
 
   return () => {
+    clearInterval(countdownTimer);
+    if (net) {
+      for (const off of net.unsubscribe) { try { off(); } catch { /* already gone */ } }
+      net = null;                       // stops in-flight handlers from touching a dead view
+    }
     document.removeEventListener('keydown', onKey);
     window.removeEventListener('resize', onResize);
     // The header toolbar outlives the view, so its handlers must go with it.
