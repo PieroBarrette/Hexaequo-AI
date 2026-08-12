@@ -58,6 +58,35 @@
     "captured": "Captured",
     "noMoves": "—"
   },
+  "online": {
+    "title": "Play online",
+    "lede": "Start a game and pass on the link. No account needed, and these games are not rated.",
+    "create": "Start a game",
+    "join": "Join",
+    "codeLabel": "Game code",
+    "codePlaceholder": "ABC123",
+    "copyLink": "Copy link",
+    "copied": "Link copied",
+    "waiting": "Waiting for your opponent…",
+    "youAre": "You play {colour}",
+    "opponentJoined": "Your opponent has joined",
+    "opponentLeft": "Your opponent disconnected",
+    "resign": "Resign",
+    "confirmResign": "Resign this game?",
+    "connecting": "Connecting…",
+    "reconnecting": "Reconnecting…",
+    "unrated": "Unrated",
+    "errors": {
+      "NO_SUCH_ROOM": "That game does not exist, or it has expired.",
+      "ROOM_FULL": "That game already has two players.",
+      "NOT_YOUR_TURN": "It is not your turn.",
+      "ILLEGAL_MOVE": "That move is not legal.",
+      "GAME_OVER": "The game is over.",
+      "TOO_FAST": "One moment…",
+      "NOT_A_PLAYER": "You are not a player in this game.",
+      "OFFLINE": "Cannot reach the server. Check your connection."
+    }
+  },
   "result": {
     "wins": "{colour} wins",
     "draw": "ExAequo",

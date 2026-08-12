@@ -108,7 +108,16 @@ export function createBoard(container) {
       if (y < y0) y0 = y;
       if (y > y1) y1 = y;
     }
-    const pad = SIZE * 1.3;
+    /* The padding is not decoration: it keeps every clickable cell on screen
+       *during* the re-framing glide.
+       Laying a tile can only create new placement cells one ring beyond it, so
+       at most SQRT3 * SIZE away. Padding wider than that puts tomorrow's cells
+       inside today's frame. Since the framed box never shrinks — a cell only
+       leaves `spots` by becoming a tile — every intermediate frame of the tween
+       contains the previous one, and therefore contains those cells too. Without
+       this, a click landing during the 500 ms glide could fall on a cell that
+       had not been scrolled into view yet, and silently do nothing. */
+    const pad = SIZE * 1.85;
     const w = Math.max((x1 - x0) + 2 * pad, SIZE * SQRT3 * 5);
     const h = Math.max((y1 - y0) + 2 * pad, SIZE * 1.5 * 5);
     setView({ x: (x0 + x1) / 2 - w / 2, y: (y0 + y1) / 2 - h / 2, w, h }, v.instant);
@@ -116,14 +125,20 @@ export function createBoard(container) {
     const emphasise = v.placeMode === 'tile';
     let out = '';
 
-    /* Cells where a tile may be laid. */
+    /* Cells where a tile may be laid.
+       A playable cell must always carry a paint: fill="none" leaves the interior
+       transparent to the pointer, so only the dashed stroke would be clickable.
+       With the move aid off the cell is painted `transparent` — invisible, but
+       still a hit target. */
     for (const k of v.spots) {
       const x = cx(k), y = cy(k);
       const live = v.spotsLive;
       const lit = live && aid;
+      const fill = emphasise && aid ? 'var(--spot-fill-strong)'
+        : (lit ? 'var(--spot-fill)' : (live ? 'transparent' : 'none'));
       out += `<path class="cell${live ? ' is-clickable' : ''}"${live ? ` data-cell="${k}"` : ''}`
         + ` d="${hexPath(x, y, SIZE * .94)}"`
-        + ` fill="${emphasise && aid ? 'var(--spot-fill-strong)' : (lit ? 'var(--spot-fill)' : 'none')}"`
+        + ` fill="${fill}"`
         + ` stroke="${emphasise && aid ? 'var(--accent)' : (lit ? 'var(--spot-line)' : 'var(--ghost-line)')}"`
         + ` stroke-width="${emphasise && aid ? 2.2 : 1.6}" stroke-dasharray="6 4"/>`;
       if (lit) {

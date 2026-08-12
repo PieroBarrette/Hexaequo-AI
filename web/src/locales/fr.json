@@ -58,6 +58,35 @@
     "captured": "Capturé",
     "noMoves": "—"
   },
+  "online": {
+    "title": "Jouer en ligne",
+    "lede": "Créez une partie et transmettez le lien. Aucun compte n'est nécessaire, et ces parties ne comptent pas au classement.",
+    "create": "Créer une partie",
+    "join": "Rejoindre",
+    "codeLabel": "Code de la partie",
+    "codePlaceholder": "ABC123",
+    "copyLink": "Copier le lien",
+    "copied": "Lien copié",
+    "waiting": "En attente de votre adversaire…",
+    "youAre": "Vous jouez {colour}",
+    "opponentJoined": "Votre adversaire a rejoint la partie",
+    "opponentLeft": "Votre adversaire s'est déconnecté",
+    "resign": "Abandonner",
+    "confirmResign": "Abandonner la partie ?",
+    "connecting": "Connexion…",
+    "reconnecting": "Reconnexion…",
+    "unrated": "Non classée",
+    "errors": {
+      "NO_SUCH_ROOM": "Cette partie n'existe pas ou a expiré.",
+      "ROOM_FULL": "Cette partie est déjà complète.",
+      "NOT_YOUR_TURN": "Ce n'est pas votre tour.",
+      "ILLEGAL_MOVE": "Ce coup n'est pas légal.",
+      "GAME_OVER": "La partie est terminée.",
+      "TOO_FAST": "Un instant…",
+      "NOT_A_PLAYER": "Vous n'êtes pas joueur dans cette partie.",
+      "OFFLINE": "Serveur injoignable. Vérifiez votre connexion."
+    }
+  },
   "result": {
     "wins": "{colour} gagne",
     "draw": "ExAequo",
