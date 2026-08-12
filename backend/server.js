@@ -115,7 +115,7 @@ app.use((req, res, next) => {
 });
 
 // Static file serving AFTER Socket.IO (only if frontend exists)
-const frontendPath = path.join(__dirname, '../hexaequo-v2');
+const frontendPath = path.join(__dirname, '../web');
 const fs = require('fs');
 if (fs.existsSync(frontendPath)) {
     console.log(`✅ Frontend folder found at: ${frontendPath}`);
@@ -138,7 +138,7 @@ app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api') || req.path.startsWith('/socket.io') || req.path === '/health' || req.path === '/healthz') {
         return next();
     }
-    const indexPath = path.join(__dirname, '../hexaequo-v2/index.html');
+    const indexPath = path.join(__dirname, '../web/index.html');
     if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
     } else {

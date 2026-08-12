@@ -37,17 +37,10 @@ if (-not (Test-Path $envFile)) {
     }
 }
 
-# Check if frontend http-server is installed
-$frontendHttpServer = Join-Path $scriptDir "hexaequo-v2\node_modules\http-server"
-if (-not (Test-Path $frontendHttpServer)) {
-    Write-Host "📦 Installing frontend http-server..." -ForegroundColor Yellow
-    Push-Location (Join-Path $scriptDir "hexaequo-v2")
-    & $npmCmd install http-server
-    Pop-Location
-}
+# The frontend is plain ES modules with no build step: serve.py is all it needs.
 
 Write-Host "`n🚀 Starting Backend on http://localhost:3001" -ForegroundColor Blue
-Write-Host "🚀 Starting Frontend on http://localhost:8080" -ForegroundColor Blue
+Write-Host "🚀 Starting Frontend on http://localhost:8001" -ForegroundColor Blue
 Write-Host "`nPress Ctrl+C to stop both servers`n" -ForegroundColor Gray
 
 # Start backend in background job
@@ -58,12 +51,9 @@ $backendJob = Start-Job -ScriptBlock {
 } -ArgumentList $nodeExe, (Join-Path $scriptDir "backend")
 
 # Start frontend in current process (so Ctrl+C works)
-$frontendDir = Join-Path $scriptDir "hexaequo-v2"
-$httpServerPath = Join-Path $frontendDir "node_modules\http-server\bin\http-server"
-
-Push-Location $frontendDir
+Push-Location $scriptDir
 try {
-    & $nodeExe $httpServerPath -p 8080 -c-1 --cors
+    & python "serve.py"
 } finally {
     # Cleanup: stop backend job when frontend exits
     Write-Host "`n🛑 Stopping servers..." -ForegroundColor Yellow

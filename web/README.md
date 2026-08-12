@@ -71,8 +71,25 @@ const M = await import('/src/game/moves.js');
 
 ## Deployment
 
-Intended as a **Render Static Site**: no build command, publish directory `web`.
-The service worker precaches everything, so the app runs offline once visited.
+hexaequo.com is a Render **Web Service** with root directory `backend`. Express
+serves this folder statically and falls back to `web/index.html` for any
+non-API route, so the API, the websocket and the site all live behind one
+origin — no CORS, no second service, and invite links keep working.
+
+```
+backend/server.js
+  express.static(path.join(__dirname, '../web'))
+  app.get('*') → ../web/index.html   (except /api, /socket.io, /health)
+```
+
+Because the front end has no build step, a deploy is just a `git push`: Render
+reinstalls the backend's dependencies and restarts. Nothing compiles.
 
 Bump `CACHE_VERSION` in `sw.js` on every release, otherwise returning visitors
 keep the old cached bundle.
+
+### Local development
+
+`python serve.py` from the repository root serves this folder on port 8001 with
+caching disabled. `dev-local.ps1` / `dev-local.sh` start the backend and that
+server together.

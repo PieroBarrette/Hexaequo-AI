@@ -1,16 +1,18 @@
 """Minimal static server for previewing the Hexaequo frontend.
 
-Serves the hexaequo-v2 folder with no-store headers AND strips conditional
-request headers, so the dev browser always gets fresh files on reload (the
-default http.server answers If-Modified-Since with 304, which hides edits to
-cached assets like game.js during iteration).
+Serves the web folder with no-store headers AND strips conditional request
+headers, so the dev browser always gets fresh files on reload (the default
+http.server answers If-Modified-Since with 304, which hides edits to cached
+modules during iteration).
+
+The site is plain ES modules with no build step, so this is the whole dev setup.
 """
 import http.server
 import os
 import socketserver
 
 PORT = 8001
-DIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "hexaequo-v2")
+DIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 
 
 class NoCacheHandler(http.server.SimpleHTTPRequestHandler):

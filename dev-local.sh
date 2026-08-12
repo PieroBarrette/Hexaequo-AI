@@ -43,14 +43,15 @@ BACKEND_PID=$!
 sleep 2
 
 # Démarrer le serveur frontend sur le port 8080
-echo -e "${BLUE}🚀 Démarrage du serveur frontend sur http://localhost:8080${NC}"
-cd hexaequo-v2 && npx http-server -p 8080 -c-1 --cors &
+echo -e "${BLUE}🚀 Démarrage du serveur frontend sur http://localhost:8001${NC}"
+# Le front est en modules ES sans étape de compilation : serve.py suffit.
+python3 serve.py &
 FRONTEND_PID=$!
 
 echo ""
 echo -e "${GREEN}✨ Serveurs démarrés !${NC}"
 echo ""
-echo -e "  📱 Frontend:  ${BLUE}http://localhost:8080${NC}"
+echo -e "  📱 Frontend:  ${BLUE}http://localhost:8001${NC}"
 echo -e "  🔧 Backend:   ${BLUE}http://localhost:3001${NC}"
 echo -e "  📊 Health:    ${BLUE}http://localhost:3001/health${NC}"
 echo ""
