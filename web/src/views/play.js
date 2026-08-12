@@ -61,10 +61,13 @@ export function mountPlay(outlet, params) {
       awaiting: null,          // { seat, until } while an opponent may still return
       error: null,
       ready: false,
+      clock: null,           // last snapshot the server sent
+      clockAt: 0,            // when we received it, to interpolate locally
       unsubscribe: [],
     }
     : null;
   let countdownTimer = 0;
+  let clockTimer = 0;
 
   const isAI = (player) =>
     !net && (mode === MODE_AI_AI || (mode === MODE_AI && player !== humanSide));
@@ -333,9 +336,48 @@ export function mountPlay(outlet, params) {
       : { winner: payload.winner, why };
   }
 
+  /**
+   * The clock a seat should be showing right now. The server sends a snapshot
+   * with each move; between moves the side on turn is counted down locally, so
+   * the display is smooth without asking the server every second.
+   */
+  function remainingFor(seat) {
+    if (!net || !net.clock) return null;
+    const base = net.clock.remaining[seat];
+    if (!net.clock.running || net.clock.turn !== seat) return Math.max(0, base);
+    return Math.max(0, base - (Date.now() - net.clockAt));
+  }
+
+  function formatClock(ms) {
+    const total = Math.ceil(ms / 1000);
+    const minutes = Math.floor(total / 60);
+    const seconds = total % 60;
+    return `${minutes}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  function adoptClock(clock) {
+    if (!net || !clock) return;
+    net.clock = clock;
+    net.clockAt = Date.now();
+  }
+
+  /** Repaint just the clock read-outs, without redrawing the board. */
+  function tickClocks() {
+    if (!net || !net.clock) return;
+    for (let seat = 0; seat < 2; seat++) {
+      const node = outlet.querySelector(`[data-clock="${seat}"]`);
+      if (!node) continue;
+      const left = remainingFor(seat);
+      node.textContent = formatClock(left);
+      node.classList.toggle('is-running', net.clock.running && net.clock.turn === seat && !result);
+      node.classList.toggle('is-low', left <= 20000);
+    }
+  }
+
   /** Adopt a position the server sent, and animate the move that produced it. */
   function applyRemote(payload) {
     state = deserializeState(payload.state);
+    adoptClock(payload.clock);
 
     const move = payload.move;
     const path = move.type === 'disk' ? move.path
@@ -414,6 +456,7 @@ export function mountPlay(outlet, params) {
       : null;
     net.ready = true;
     net.error = null;
+    adoptClock(view.clock);
     clearEffect();
     refresh();
   }
@@ -465,12 +508,14 @@ export function mountPlay(outlet, params) {
     net.unsubscribe.push(listen('hx:ended', (payload) => {
       if (!net || payload.code !== net.code) return;
       result = readResult(payload.result);
+      adoptClock(payload.clock);
       net.awaiting = null;
       refresh();
     }));
     net.unsubscribe.push(listen('hx:opponent', (payload) => {
       if (!net || payload.code !== net.code) return;
       if (payload.seat === net.colour) return;
+      adoptClock(payload.clock);
       net.opponentPresent = payload.joined;
       net.awaiting = payload.joined || payload.msLeft == null
         ? null
@@ -571,6 +616,7 @@ export function mountPlay(outlet, params) {
     renderMoveList();
     renderNetStatus();
     syncTools();
+    tickClocks();
     runEffect();
   }
 
@@ -647,6 +693,7 @@ export function mountPlay(outlet, params) {
       rail.innerHTML =
         `<div class="player-dot${player === WHITE ? ' is-white' : ''}"`
         + ` title="${colourName(player)} — ${isAI(player) ? 'IA' : ''}"></div>`
+        + (net && net.clock ? `<div class="clock" data-clock="${player}">${formatClock(remainingFor(player))}</div>` : '')
         + stackHtml('tile', player, TILES_PER_PLAYER, state.tileReserve[player],
           live && tilePlacementSpots(state).length > 0)
         + stackHtml('disk', player, DISKS_PER_PLAYER, state.diskReserve[player], live && freeOwnTiles > 0)
@@ -1072,7 +1119,10 @@ export function mountPlay(outlet, params) {
   window.addEventListener('resize', onResize);
 
   newGame();
-  if (net) joinRoom();
+  if (net) {
+    joinRoom();
+    clockTimer = setInterval(tickClocks, 250);
+  }
 
   /* Expose the live view for the self-test harness. */
   window.__hexaequo = {
@@ -1092,6 +1142,7 @@ export function mountPlay(outlet, params) {
 
   return () => {
     clearInterval(countdownTimer);
+    clearInterval(clockTimer);
     if (net) {
       for (const off of net.unsubscribe) { try { off(); } catch { /* already gone */ } }
       net = null;                       // stops in-flight handlers from touching a dead view

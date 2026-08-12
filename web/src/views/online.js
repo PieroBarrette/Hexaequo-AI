@@ -11,10 +11,15 @@ import { navigate } from '../router.js';
 import { request, connect, inviteLink, serverOrigin } from '../net.js';
 import { play as playSound } from '../audio.js';
 
+/** Cadences offered when opening a room; must match the server's table. */
+const CADENCES = ['none', 'bullet', 'blitz', 'rapid', 'classic'];
+const cadenceLabel = (id) => t('online.cadence' + id.charAt(0).toUpperCase() + id.slice(1));
+
 export function mountOnline(outlet) {
   let busy = false;
   let created = null;
   let error = null;
+  let cadence = 'none';
 
   function render() {
     outlet.innerHTML = `
@@ -38,6 +43,14 @@ export function mountOnline(outlet) {
         ` : `
           <div class="rule-block">
             <h3>${t('online.create')}</h3>
+            <p class="lede">${t('online.cadence')}</p>
+            <div class="cadence-grid">
+              ${CADENCES.map((id) => `
+                <button class="btn cadence${id === cadence ? ' is-active' : ''}" data-cadence="${id}">
+                  ${cadenceLabel(id)}
+                </button>`).join('')}
+            </div>
+            <p class="lede" style="font-size:12px;margin:10px 0 14px">${t('online.cadenceHint')}</p>
             <button class="btn btn--primary" data-action="create" ${busy ? 'disabled' : ''}>
               ${busy ? t('online.connecting') : t('online.create')}
             </button>
@@ -67,6 +80,13 @@ export function mountOnline(outlet) {
   render();
 
   outlet.addEventListener('click', async (event) => {
+    const pick = event.target.closest('[data-cadence]');
+    if (pick) {
+      cadence = pick.getAttribute('data-cadence');
+      playSound('ui');
+      render();
+      return;
+    }
     const button = event.target.closest('[data-action]');
     if (!button || busy) return;
     const action = button.getAttribute('data-action');
@@ -78,7 +98,7 @@ export function mountOnline(outlet) {
       render();
       try {
         await connect();
-        const response = await request('hx:create', {});
+        const response = await request('hx:create', { timeControl: cadence });
         if (!response.ok) { busy = false; return fail(response.error); }
         created = response;
         busy = false;

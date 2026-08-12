@@ -76,6 +76,13 @@
     "connecting": "Connecting…",
     "reconnecting": "Reconnecting…",
     "unrated": "Unrated",
+    "cadence": "Time control",
+    "cadenceNone": "No clock",
+    "cadenceBullet": "Bullet · 2 min + 1 s",
+    "cadenceBlitz": "Blitz · 5 min + 3 s",
+    "cadenceRapid": "Rapid · 10 min + 5 s",
+    "cadenceClassic": "Classic · 20 min + 10 s",
+    "cadenceHint": "Clocks start when your opponent arrives. The increment is added after each move.",
     "errors": {
       "NO_SUCH_ROOM": "That game does not exist, or it has expired.",
       "ROOM_FULL": "That game already has two players.",
@@ -97,7 +104,8 @@
     "byRepetition": "the same position occurred three times",
     "byResigned": "the opponent resigned",
     "byAbandoned": "the opponent did not reconnect in time",
-    "rematch": "Rematch"
+    "rematch": "Rematch",
+    "byTimeout": "the opponent ran out of time"
   },
   "settings": {
     "title": "Settings",

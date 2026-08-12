@@ -76,6 +76,13 @@
     "connecting": "Connexion…",
     "reconnecting": "Reconnexion…",
     "unrated": "Non classée",
+    "cadence": "Cadence",
+    "cadenceNone": "Sans pendule",
+    "cadenceBullet": "Bullet · 2 min + 1 s",
+    "cadenceBlitz": "Blitz · 5 min + 3 s",
+    "cadenceRapid": "Rapide · 10 min + 5 s",
+    "cadenceClassic": "Classique · 20 min + 10 s",
+    "cadenceHint": "Les pendules démarrent quand votre adversaire arrive. L'incrément est ajouté après chaque coup.",
     "errors": {
       "NO_SUCH_ROOM": "Cette partie n'existe pas ou a expiré.",
       "ROOM_FULL": "Cette partie est déjà complète.",
@@ -97,7 +104,8 @@
     "byRepetition": "la même position est survenue trois fois",
     "byResigned": "l'adversaire a abandonné",
     "byAbandoned": "l'adversaire ne s'est pas reconnecté à temps",
-    "rematch": "Revanche"
+    "rematch": "Revanche",
+    "byTimeout": "l'adversaire a manqué de temps"
   },
   "settings": {
     "title": "Paramètres",

@@ -38,6 +38,22 @@ const RECONNECT_GRACE_MS = {
     none: 120000,
 };
 
+/**
+ * Available cadences.
+ *
+ * Hexaequo games run long — a hundred plies is ordinary and two hundred
+ * happens — so these are more generous than their chess namesakes, and every
+ * cadence carries an increment so a long endgame cannot be won on the clock
+ * alone.
+ */
+const TIME_CONTROLS = {
+    none: { initialMs: 0, incrementMs: 0 },
+    bullet: { initialMs: 2 * 60000, incrementMs: 1000 },
+    blitz: { initialMs: 5 * 60000, incrementMs: 3000 },
+    rapid: { initialMs: 10 * 60000, incrementMs: 5000 },
+    classic: { initialMs: 20 * 60000, incrementMs: 10000 },
+};
+
 const rooms = new Map();
 
 function makeCode() {
@@ -61,6 +77,7 @@ function publicView(room) {
         seats: [Boolean(room.seats[0]), Boolean(room.seats[1])],
         names: room.names,
         timeControl: room.timeControl,
+        clock: clockView(room),
         graceMs: RECONNECT_GRACE_MS[room.timeControl] || RECONNECT_GRACE_MS.none,
         // Absolute deadline so a client can render a countdown without needing
         // its clock to agree with ours.
@@ -68,6 +85,110 @@ function publicView(room) {
             ? { seat: room.grace.seat, msLeft: Math.max(0, room.grace.deadline - Date.now()) }
             : null,
     };
+}
+
+/* ── Clocks ─────────────────────────────────────────────────────────────── */
+
+/*
+ * The server owns the time. A client is told what is left and interpolates for
+ * display, but every deduction happens here, on the same event that accepts the
+ * move, so a lagging or lying client cannot gain a second.
+ *
+ * Clocks are not paused when a player disconnects: their reconnection
+ * countdown runs alongside, and whichever expires first ends the game. That is
+ * the convention on chess sites, and it stops "pull the plug when losing on
+ * time" from being a strategy.
+ */
+
+function makeClock(control) {
+    const spec = TIME_CONTROLS[control] || TIME_CONTROLS.none;
+    if (!spec.initialMs) return null;              // untimed
+    return {
+        control,
+        initialMs: spec.initialMs,
+        incrementMs: spec.incrementMs,
+        remaining: [spec.initialMs, spec.initialMs],
+        turnStartedAt: 0,
+        running: false,
+        timer: null,
+    };
+}
+
+/** Milliseconds left for each seat right now, the running side included. */
+function liveRemaining(room) {
+    const clock = room.clock;
+    if (!clock) return null;
+    const out = clock.remaining.slice();
+    if (clock.running) {
+        const turn = room.state.turn;
+        out[turn] = Math.max(0, out[turn] - (Date.now() - clock.turnStartedAt));
+    }
+    return out;
+}
+
+function clockView(room) {
+    const clock = room.clock;
+    if (!clock) return null;
+    return {
+        control: clock.control,
+        initialMs: clock.initialMs,
+        incrementMs: clock.incrementMs,
+        remaining: liveRemaining(room),
+        running: clock.running,
+        turn: room.state.turn,
+    };
+}
+
+function disarmFlag(room) {
+    if (room.clock && room.clock.timer) {
+        clearTimeout(room.clock.timer);
+        room.clock.timer = null;
+    }
+}
+
+/** Schedule the flag fall for whoever is on move. */
+function armFlag(io, room) {
+    disarmFlag(room);
+    const clock = room.clock;
+    if (!clock || !clock.running || room.result) return;
+    const turn = room.state.turn;
+    const left = Math.max(0, clock.remaining[turn] - (Date.now() - clock.turnStartedAt));
+    clock.timer = setTimeout(() => {
+        const current = rooms.get(room.code);
+        if (!current || current.result || !current.clock || !current.clock.running) return;
+        const flagged = current.state.turn;
+        current.clock.remaining[flagged] = 0;
+        current.clock.running = false;
+        finish(io, current, { winner: 1 - flagged, reason: 'timeout' });
+    }, left);
+    if (clock.timer.unref) clock.timer.unref();
+}
+
+/** Both seats are filled for the first time: the game is on. */
+function startClock(io, room) {
+    if (!room.clock || room.clock.running) return;
+    room.clock.running = true;
+    room.clock.turnStartedAt = Date.now();
+    armFlag(io, room);
+}
+
+/**
+ * Charge the elapsed time to the player who just moved and grant the
+ * increment. Returns true if they ran out mid-move.
+ */
+function chargeClock(room, seat) {
+    const clock = room.clock;
+    if (!clock || !clock.running) return false;
+    const now = Date.now();
+    const left = clock.remaining[seat] - (now - clock.turnStartedAt);
+    if (left <= 0) {
+        clock.remaining[seat] = 0;
+        clock.running = false;
+        return true;
+    }
+    clock.remaining[seat] = left + clock.incrementMs;
+    clock.turnStartedAt = now;
+    return false;
 }
 
 function seatOf(room, socketId) {
@@ -83,8 +204,10 @@ function touch(room) {
 /** Finish a room and tell both seats why. */
 function finish(io, room, result) {
     cancelGrace(room);
+    disarmFlag(room);
+    if (room.clock) room.clock.running = false;
     room.result = result;
-    io.to(room.code).emit('hx:ended', { code: room.code, result });
+    io.to(room.code).emit('hx:ended', { code: room.code, result, clock: clockView(room) });
 }
 
 function cancelGrace(room) {
@@ -162,11 +285,13 @@ function attachOnlineGames(io) {
                 signatures: new Map(),
                 result: null,
                 lastSeen: Date.now(),
-                timeControl: Object.prototype.hasOwnProperty.call(RECONNECT_GRACE_MS, options.timeControl)
+                timeControl: Object.prototype.hasOwnProperty.call(TIME_CONTROLS, options.timeControl)
                     ? options.timeControl : 'none',
                 everFull: false,
                 grace: null,
+                clock: null,
             };
+            room.clock = makeClock(room.timeControl);
             rooms.set(code, room);
             socket.join(code);
             socket.data.hxRooms.add(code);
@@ -188,13 +313,22 @@ function attachOnlineGames(io) {
                 const name = String((payload && payload.name) || '').slice(0, 24);
                 room.names[seat] = name || null;
             }
-            if (room.seats[0] && room.seats[1]) room.everFull = true;
+            if (room.seats[0] && room.seats[1]) {
+                const firstTime = !room.everFull;
+                room.everFull = true;
+                if (firstTime) startClock(io, room);   // the game begins when both are seated
+            }
             // Back in time: call off the abandonment countdown.
             if (room.grace && room.grace.seat === seat) cancelGrace(room);
 
             socket.join(code);
             socket.data.hxRooms.add(code);
-            socket.to(code).emit('hx:opponent', { code, seat, name: room.names[seat], joined: true });
+            // The clock goes with the news: the player already seated must learn
+            // that it has started, or their display will sit frozen while the
+            // server counts down.
+            socket.to(code).emit('hx:opponent', {
+                code, seat, name: room.names[seat], joined: true, clock: clockView(room),
+            });
             reply(callback, { ok: true, colour: seat, ...publicView(room) });
         });
 
@@ -232,6 +366,14 @@ function attachOnlineGames(io) {
 
             let result = outcome.result;
 
+            // Charge the clock before anything else: a move played after the
+            // flag has fallen does not count, even if it was legal.
+            if (chargeClock(room, seat)) {
+                result = { winner: 1 - seat, reason: 'timeout' };
+            } else {
+                armFlag(io, room);
+            }
+
             // Threefold repetition, counted on the server so neither client can
             // claim or deny a draw.
             if (!result) {
@@ -251,6 +393,7 @@ function attachOnlineGames(io) {
                 captures: outcome.captures,
                 by: seat,
                 ply: room.moves.length,
+                clock: clockView(room),
                 result: result || null,
             };
             io.to(code).emit('hx:moved', broadcast);
@@ -296,6 +439,7 @@ function attachOnlineGames(io) {
                     seat,
                     name: room.names[seat],
                     joined: false,
+                    clock: clockView(room),
                     graceMs: grace ? grace.graceMs : null,
                     msLeft: grace ? Math.max(0, grace.deadline - Date.now()) : null,
                 });
@@ -304,4 +448,4 @@ function attachOnlineGames(io) {
     });
 }
 
-module.exports = { attachOnlineGames, rooms, RECONNECT_GRACE_MS };
+module.exports = { attachOnlineGames, rooms, RECONNECT_GRACE_MS, TIME_CONTROLS };

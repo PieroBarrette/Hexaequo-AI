@@ -12,7 +12,7 @@ const assert = require('assert');
 const http = require('http');
 const { Server } = require('socket.io');
 const { io: connect } = require('socket.io-client');
-const { attachOnlineGames, RECONNECT_GRACE_MS } = require('../socket/onlineGame');
+const { attachOnlineGames, RECONNECT_GRACE_MS, TIME_CONTROLS } = require('../socket/onlineGame');
 
 let passed = 0;
 let failed = 0;
@@ -234,6 +234,109 @@ async function run() {
         assert.strictEqual(after.error, 'GAME_OVER');
         a.disconnect();
         b.disconnect();
+    });
+
+    await test('an untimed room has no clock', async () => {
+        const a = await open();
+        const created = await ask(a, 'hx:create', { timeControl: 'none' });
+        assert.strictEqual(created.clock, null);
+        a.disconnect();
+    });
+
+    await test('a cadence sets both clocks and starts them when both are seated', async () => {
+        const a = await open();
+        const b = await open();
+        const created = await ask(a, 'hx:create', { timeControl: 'blitz' });
+        assert.ok(created.clock, 'the room has a clock');
+        assert.strictEqual(created.clock.control, 'blitz');
+        assert.strictEqual(created.clock.initialMs, TIME_CONTROLS.blitz.initialMs);
+        assert.strictEqual(created.clock.running, false, 'not running with one player');
+        assert.deepStrictEqual(created.clock.remaining,
+            [TIME_CONTROLS.blitz.initialMs, TIME_CONTROLS.blitz.initialMs]);
+
+        const joined = await ask(b, 'hx:join', { code: created.code });
+        assert.strictEqual(joined.clock.running, true, 'the clock starts on the second arrival');
+        await new Promise((r) => setTimeout(r, 300));
+        const later = await ask(b, 'hx:sync', { code: created.code });
+        assert.ok(later.clock.remaining[0] < TIME_CONTROLS.blitz.initialMs, "Black's time is ticking");
+        assert.strictEqual(later.clock.remaining[1], TIME_CONTROLS.blitz.initialMs, "White's is not");
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('the waiting player is told the clock has started', async () => {
+        // Without this, whoever opened the room keeps showing the full time
+        // while the server is already counting down.
+        const a = await open();
+        const b = await open();
+        const created = await ask(a, 'hx:create', { timeControl: 'blitz' });
+        assert.strictEqual(created.clock.running, false);
+        const heard = waitFor(a, 'hx:opponent');
+        await ask(b, 'hx:join', { code: created.code });
+        const event = await heard;
+        assert.strictEqual(event.joined, true);
+        assert.ok(event.clock, 'the arrival carries the clock');
+        assert.strictEqual(event.clock.running, true, 'and says it is running');
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('a move charges the mover and grants the increment', async () => {
+        const a = await open();
+        const b = await open();
+        const created = await ask(a, 'hx:create', { timeControl: 'blitz' });
+        await ask(b, 'hx:join', { code: created.code });
+        await new Promise((r) => setTimeout(r, 400));
+        const intent = await legalIntent(created.state);
+        const response = await ask(a, 'hx:move', { code: created.code, intent });
+        assert.ok(response.ok, response.error);
+        const { initialMs, incrementMs } = TIME_CONTROLS.blitz;
+        const black = response.clock.remaining[0];
+        assert.ok(black < initialMs + incrementMs, 'time was spent');
+        assert.ok(black > initialMs - 2000, 'but only what was actually used');
+        assert.ok(black > initialMs - 400 + incrementMs - 200, 'the increment was granted');
+        assert.strictEqual(response.clock.turn, 1, 'the clock now runs for White');
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('running out of time loses the game', async () => {
+        const original = TIME_CONTROLS.bullet.initialMs;
+        TIME_CONTROLS.bullet.initialMs = 400;              // flag almost immediately
+        try {
+            const a = await open();
+            const b = await open();
+            const created = await ask(a, 'hx:create', { timeControl: 'bullet' });
+            const ended = waitFor(a, 'hx:ended', 4000);
+            await ask(b, 'hx:join', { code: created.code });   // starts the clock
+            const event = await ended;
+            assert.strictEqual(event.result.reason, 'timeout');
+            assert.strictEqual(event.result.winner, 1, 'the player who did not flag wins');
+            assert.strictEqual(event.clock.remaining[0], 0, "the flagged side's clock reads zero");
+            const after = await ask(a, 'hx:move', { code: created.code, intent: { type: 'tile', cell: 2080 } });
+            assert.strictEqual(after.ok, false);
+            assert.strictEqual(after.error, 'GAME_OVER');
+            a.disconnect();
+            b.disconnect();
+        } finally {
+            TIME_CONTROLS.bullet.initialMs = original;
+        }
+    });
+
+    await test('a clock does not start while a seat is empty', async () => {
+        const original = TIME_CONTROLS.bullet.initialMs;
+        TIME_CONTROLS.bullet.initialMs = 300;
+        try {
+            const a = await open();
+            const created = await ask(a, 'hx:create', { timeControl: 'bullet' });
+            await new Promise((r) => setTimeout(r, 700));    // longer than the whole clock
+            const view = await ask(a, 'hx:sync', { code: created.code });
+            assert.strictEqual(view.result, null, 'nobody flags in an empty room');
+            assert.strictEqual(view.clock.remaining[0], 300, 'no time was spent');
+            a.disconnect();
+        } finally {
+            TIME_CONTROLS.bullet.initialMs = original;
+        }
     });
 
     await test('a disconnection starts an abandonment countdown', async () => {

@@ -214,6 +214,18 @@ select.btn { padding-right: 8px; }
 .board-area { flex-direction: column; }
 .board-area > .board-host { flex: 1; min-height: 0; }
 
+.clock {
+  font: 600 19px/1 var(--font-mono); letter-spacing: .04em;
+  padding: 6px 8px; border-radius: var(--radius-sm);
+  background: var(--surface-2); border: 1px solid var(--line); color: var(--muted);
+  font-variant-numeric: tabular-nums; min-width: 4.2em; text-align: center;
+}
+.clock.is-running { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
+.clock.is-low { color: var(--danger); border-color: var(--danger); }
+
+.cadence-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+.cadence-grid .cadence { flex: 1 1 auto; min-width: 9em; }
+
 .room-code {
   font: 600 26px/1.2 var(--font-mono); letter-spacing: .22em;
   color: var(--accent); margin: 6px 0 12px;

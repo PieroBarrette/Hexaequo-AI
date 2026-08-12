@@ -95,11 +95,11 @@ app.use('/api/matchmaking', matchmakingRoutes);
 const httpServer = createServer(app);
 
 // Initialize Socket.IO - MUST be done before adding more middlewares
-const { initializeSocket } = require('./socket/socketHandler');
-const io = initializeSocket(httpServer);
+const { createSocketServer } = require('./socket/io');
+const io = createSocketServer(httpServer);
 
-// Authoritative online games (hx:* events). Clients send move intents and the
-// server owns the position; this is what the legacy relay above cannot do.
+// Authoritative online games (hx:* events): clients send move intents and the
+// server owns the position.
 const { attachOnlineGames } = require('./socket/onlineGame');
 attachOnlineGames(io);
 
