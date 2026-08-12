@@ -5,6 +5,7 @@ import { navigate } from '../router.js';
 import { logoLockupHtml } from '../ui/logo.js';
 import { play } from '../audio.js';
 import { get as getSetting, set as setSetting, resolvedTheme } from '../settings.js';
+import { openPanel } from '../ui/panels.js';
 
 export function mountHome(outlet) {
   outlet.innerHTML = `
@@ -14,8 +15,8 @@ export function mountHome(outlet) {
       <nav class="home-menu">
         <button class="btn btn--primary" data-go="play">${t('home.playLocal')}</button>
         <button class="btn" data-go="online">${t('home.playOnline')}</button>
-        <button class="btn" data-go="rules">${t('home.rules')}</button>
-        <button class="btn" data-go="settings">${t('home.settings')}</button>
+        <button class="btn" data-panel="rules">${t('home.rules')}</button>
+        <button class="btn" data-panel="settings">${t('home.settings')}</button>
       </nav>
       <div class="home-foot">
         <button data-action="lang">${getSetting('language') === 'fr' ? 'English' : 'Français'}</button>
@@ -24,6 +25,12 @@ export function mountHome(outlet) {
     </div>`;
 
   outlet.addEventListener('click', (event) => {
+    const panel = event.target.closest('[data-panel]');
+    if (panel) {
+      play('ui');
+      openPanel(panel.getAttribute('data-panel'));
+      return;
+    }
     const go = event.target.closest('[data-go]');
     if (go) {
       play('ui');

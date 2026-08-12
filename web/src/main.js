@@ -2,7 +2,7 @@
 
 import { loadSettings, onSettingsChange, get as getSetting } from './settings.js';
 import { initI18n, t, translateDocument, onLanguageChange } from './i18n.js';
-import { defineRoute, startRouter, navigate, refreshRoute } from './router.js';
+import { defineRoute, startRouter, navigate, refreshRoute, currentRoute } from './router.js';
 import { unlockAudio, setVolume, play as playSound } from './audio.js';
 import { logoLockupHtml } from './ui/logo.js';
 import { mountHome } from './views/home.js';
@@ -10,6 +10,8 @@ import { mountPlay } from './views/play.js';
 import { mountRules } from './views/rules.js';
 import { mountOnline } from './views/online.js';
 import { mountSettings, setInstallPrompt } from './views/settings.js';
+import { closeOverlay } from './ui/overlay.js';
+import { openPanel, relabelPanel } from './ui/panels.js';
 
 function renderChrome() {
   document.title = t('meta.title');
@@ -31,16 +33,25 @@ async function boot() {
   renderChrome();
   startRouter();
 
-  document.getElementById('brand').addEventListener('click', () => { playSound('ui'); navigate('home'); });
+  document.getElementById('brand').addEventListener('click', () => {
+    playSound('ui');
+    closeOverlay();
+    navigate('home');
+  });
   document.getElementById('site-nav').addEventListener('click', (event) => {
     const button = event.target.closest('[data-go]');
     if (!button) return;
     playSound('ui');
-    navigate(button.getAttribute('data-go'));
+    openPanel(button.getAttribute('data-go'));
   });
 
-  // Re-render everything on a language change: view markup is built from t().
-  onLanguageChange(() => { renderChrome(); refreshRoute(); });
+  onLanguageChange(() => {
+    renderChrome();
+    // The play view relabels itself in place; remounting it would throw away
+    // the game, which is exactly what these panels exist to avoid.
+    if (currentRoute() !== 'play') refreshRoute();
+    relabelPanel();
+  });
   /* Theme and material are pure CSS variables, so they need no re-render; the
      move aid is read the next time the board draws. Only the language changes
      the markup itself. */

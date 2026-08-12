@@ -7,9 +7,9 @@
  * click, so both live on the same handlers without a mode switch.
  */
 
-import { t } from '../i18n.js';
+import { t, onLanguageChange } from '../i18n.js';
 import { navigate } from '../router.js';
-import { get as getSetting, set as setSetting } from '../settings.js';
+import { get as getSetting, set as setSetting, onSettingsChange } from '../settings.js';
 import { play as playSound } from '../audio.js';
 import { createBoard, pieceSvg, cx, cy, SIZE } from '../ui/board.js';
 import { miniBoardSvg } from '../ui/miniBoard.js';
@@ -117,7 +117,18 @@ export function mountPlay(outlet, params) {
 
   /* Game controls live in the site header so the board keeps its height. */
   const tools = document.getElementById('header-tools');
-  tools.innerHTML = `
+  buildTools();
+
+  function buildTools() {
+    tools.innerHTML = toolsMarkup();
+    tools.querySelector('[data-control="level"]').value = String(level);
+    tools.querySelector('[data-control="mode"]').value = mode;
+    const side = tools.querySelector('[data-control="side"]');
+    if (side) side.value = String(humanSide);
+  }
+
+  function toolsMarkup() {
+    return `
     <select class="btn" data-control="mode">
       <option value="${MODE_LOCAL}">${t('game.modeLocal')}</option>
       <option value="${MODE_AI}" selected>${t('game.modeAi')}</option>
@@ -138,7 +149,23 @@ export function mountPlay(outlet, params) {
     <button class="btn btn--icon" data-action="new" title="${t('game.newGame')}">⟳</button>
     <button class="btn btn--icon" data-action="resign" title="${t('online.resign')}">⚑</button>
     <button class="btn btn--icon" data-action="drawer" title="${t('game.moveList')}">≡</button>`;
-  tools.querySelector('[data-control="level"]').value = String(level);
+  }
+
+  /**
+   * Re-render everything that carries words, in place. The game itself is
+   * untouched, which is the point: changing the language mid-game must not cost
+   * you the game.
+   */
+  function relabel() {
+    buildTools();
+    const drawerTitle = outlet.querySelector('.drawer h2');
+    if (drawerTitle) drawerTitle.textContent = t('game.moveList');
+    outlet.querySelector('[data-action="end-jump"]').title = t('game.endJump');
+    outlet.querySelector('[data-action="cancel-jump"]').title = t('game.cancel');
+    outlet.querySelector('[data-action="new"][class~="btn--primary"]').textContent = t('result.rematch');
+    outlet.querySelector('[data-action="menu"]').textContent = t('nav.backToMenu');
+    refresh();
+  }
 
   /* ── Game lifecycle ───────────────────────────────────────────────────── */
 
@@ -167,7 +194,9 @@ export function mountPlay(outlet, params) {
     const signature = positionKey(state);
     const count = (repetitions.get(signature) || 0) + 1;
     repetitions.set(signature, count);
-    if (count >= 3 && !result) result = { draw: true, why: t('result.byRepetition') };
+    // Results store *why* they happened, not the sentence: the language can
+    // change while the finished game is still on screen.
+    if (count >= 3 && !result) result = { draw: true, reason: 'repetition' };
   }
 
   function clearEffect() {
@@ -239,11 +268,11 @@ export function mountPlay(outlet, params) {
 
     const won = checkWinner(state);
     if (won) {
-      result = { winner: won.winner, why: t('result.by' + won.reason.charAt(0).toUpperCase() + won.reason.slice(1)) };
+      result = { winner: won.winner, reason: won.reason };
     } else {
       recordPosition();
       if (!result && generateMoves(state).length === 0) {
-        result = { draw: true, why: t('result.byNoMoves', { colour: colourName(state.turn) }) };
+        result = { draw: true, reason: 'noMoves', colour: state.turn };
       }
     }
 
@@ -324,16 +353,23 @@ export function mountPlay(outlet, params) {
   const REASON_KEYS = {
     disks: 'byDisks', rings: 'byRings', cleared: 'byCleared',
     noMoves: 'byNoMoves', repetition: 'byRepetition',
-    resigned: 'byResigned', abandoned: 'byAbandoned',
+    resigned: 'byResigned', abandoned: 'byAbandoned', timeout: 'byTimeout',
   };
+
+  /** The sentence for a result, rendered in whatever language is current. */
+  function resultWhy(outcome) {
+    if (!outcome) return '';
+    return t('result.' + (REASON_KEYS[outcome.reason] || 'byNoMoves'), {
+      colour: colourName(outcome.colour === undefined ? state.turn : outcome.colour),
+    });
+  }
 
   function readResult(payload) {
     if (!payload) return null;
-    const why = t('result.' + (REASON_KEYS[payload.reason] || 'byNoMoves'),
-      { colour: colourName(state.turn) });
+    const outcome = { reason: payload.reason, colour: state.turn };
     return payload.winner === null || payload.winner === undefined
-      ? { draw: true, why }
-      : { winner: payload.winner, why };
+      ? { draw: true, ...outcome }
+      : { winner: payload.winner, ...outcome };
   }
 
   /**
@@ -723,7 +759,7 @@ export function mountPlay(outlet, params) {
       ? `<span style="color:var(--muted)">${t('result.draw')}</span>`
       : `<span class="player-dot${result.winner === WHITE ? ' is-white' : ''}"></span>`
         + t('result.wins', { colour: colourName(result.winner) });
-    overlay.querySelector('.result-why').textContent = result.why;
+    overlay.querySelector('.result-why').textContent = resultWhy(result);
   }
 
   function renderMoveList() {
@@ -1118,6 +1154,14 @@ export function mountPlay(outlet, params) {
   const onResize = () => refresh(true);
   window.addEventListener('resize', onResize);
 
+  /* Settings and language can be changed from a panel floating over this very
+     game, so both have to land without a remount. */
+  const stopWatchingSettings = onSettingsChange((name) => {
+    if (name === 'showValidMoves') refresh();
+    else if (name === 'aiLevel' && !net) { level = getSetting('aiLevel'); buildTools(); refresh(); }
+  });
+  const stopWatchingLanguage = onLanguageChange(relabel);
+
   newGame();
   if (net) {
     joinRoom();
@@ -1147,6 +1191,8 @@ export function mountPlay(outlet, params) {
       for (const off of net.unsubscribe) { try { off(); } catch { /* already gone */ } }
       net = null;                       // stops in-flight handlers from touching a dead view
     }
+    stopWatchingSettings();
+    stopWatchingLanguage();
     document.removeEventListener('keydown', onKey);
     window.removeEventListener('resize', onResize);
     // The header toolbar outlives the view, so its handlers must go with it.
