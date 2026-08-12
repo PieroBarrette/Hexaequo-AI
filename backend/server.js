@@ -98,6 +98,11 @@ const httpServer = createServer(app);
 const { initializeSocket } = require('./socket/socketHandler');
 const io = initializeSocket(httpServer);
 
+// Authoritative online games (hx:* events). Clients send move intents and the
+// server owns the position; this is what the legacy relay above cannot do.
+const { attachOnlineGames } = require('./socket/onlineGame');
+attachOnlineGames(io);
+
 console.log('✅ Socket.IO initialized on server');
 
 // Debug: Log Socket.IO engine events

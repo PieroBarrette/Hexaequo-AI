@@ -169,6 +169,49 @@ export function checkWinner(s) {
   return null;
 }
 
+/* ── Move intents ───────────────────────────────────────────────────────── */
+
+/*
+ * A client must never be able to declare what it captured. It sends only an
+ * *intent* — the smallest description of what it wants to do — and the server
+ * generates every legal move for the position and looks for a match. The move
+ * that gets applied is therefore always one the server produced itself, so an
+ * illegal move is not rejected by a check that might be incomplete: it simply
+ * does not exist in the list.
+ */
+
+/** Reduce a move to the minimum a peer needs to reproduce it. */
+export function moveIntent(move) {
+  if (move.type === 'tile') return { type: 'tile', cell: move.cell };
+  if (move.type === 'piece') return { type: 'piece', cell: move.cell, piece: move.piece };
+  if (move.type === 'disk') return { type: 'disk', path: move.path.slice() };
+  return { type: 'ring', from: move.from, to: move.to };
+}
+
+function matchesIntent(move, intent) {
+  if (move.type !== intent.type) return false;
+  if (move.type === 'tile') return move.cell === intent.cell;
+  if (move.type === 'piece') return move.cell === intent.cell && move.piece === intent.piece;
+  if (move.type === 'ring') return move.from === intent.from && move.to === intent.to;
+  if (!Array.isArray(intent.path) || intent.path.length !== move.path.length) return false;
+  for (let i = 0; i < move.path.length; i++) {
+    if (move.path[i] !== intent.path[i]) return false;
+  }
+  return true;
+}
+
+/**
+ * The canonical legal move matching `intent`, or null if there is none.
+ * Never trust the caller's captures: the returned move carries the server's own.
+ */
+export function findLegalMove(s, intent) {
+  if (!intent || typeof intent !== 'object') return null;
+  for (const move of generateMoves(s)) {
+    if (matchesIntent(move, intent)) return move;
+  }
+  return null;
+}
+
 /** Human-readable move notation, e.g. "H8–J8 ×1". */
 export function moveNotation(move, cellLabel) {
   if (move.type === 'tile') return 'T ' + cellLabel(move.cell);

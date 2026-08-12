@@ -58,10 +58,22 @@ async function boot() {
     setInstallPrompt(event);
   });
 
+  /* The service worker is cache-first, which is right in production and a trap
+     in development: it keeps serving the previous copy of every module until
+     CACHE_VERSION changes. Skip it on localhost, and tear down anything a
+     previous session left registered there. */
+  const isLocal = ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js').catch(() => { /* offline support is optional */ });
-    });
+    if (isLocal) {
+      navigator.serviceWorker.getRegistrations()
+        .then((all) => all.forEach((r) => r.unregister()))
+        .catch(() => {});
+      if (window.caches) caches.keys().then((keys) => keys.forEach((k) => caches.delete(k))).catch(() => {});
+    } else {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => { /* offline support is optional */ });
+      });
+    }
   }
 }
 

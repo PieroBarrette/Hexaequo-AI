@@ -278,7 +278,93 @@ export function undoMove(s, move) {
   }
 }
 
-/** Rebuild both hash words from scratch. Used only by the self-test. */
+/* ── Serialisation ──────────────────────────────────────────────────────── */
+
+/**
+ * Compact, JSON-safe snapshot. Typed arrays do not survive JSON, and reserves
+ * and hashes are derivable, so only the irreducible facts are written out:
+ * which tiles exist and their colour, which pieces stand where, whose turn it
+ * is, and what each player has captured.
+ */
+export function serializeState(s) {
+  const tiles = [];
+  const pieces = [];
+  for (const k of s.tileKeys) {
+    tiles.push(k, s.tileAt[k]);
+    if (s.pieceAt[k] >= 0) pieces.push(k, s.pieceAt[k]);
+  }
+  return {
+    v: 1,
+    tiles,
+    pieces,
+    turn: s.turn,
+    capturedDisks: s.capturedDisks.slice(),
+    capturedRings: s.capturedRings.slice(),
+  };
+}
+
+/** Rebuild a full state — reserves, counters and hash included — from a snapshot. */
+export function deserializeState(data) {
+  if (!data || data.v !== 1 || !Array.isArray(data.tiles) || !Array.isArray(data.pieces)) {
+    throw new Error('Unrecognised state snapshot');
+  }
+  const s = {
+    tileAt: new Int8Array(KEY_COUNT).fill(-1),
+    pieceAt: new Int8Array(KEY_COUNT).fill(-1),
+    tileKeys: [],
+    turn: data.turn === WHITE ? WHITE : BLACK,
+    tileReserve: [TILES_PER_PLAYER, TILES_PER_PLAYER],
+    diskReserve: [DISKS_PER_PLAYER, DISKS_PER_PLAYER],
+    ringReserve: [RINGS_PER_PLAYER, RINGS_PER_PLAYER],
+    capturedDisks: [data.capturedDisks[0] | 0, data.capturedDisks[1] | 0],
+    capturedRings: [data.capturedRings[0] | 0, data.capturedRings[1] | 0],
+    piecesOnBoard: [0, 0],
+    h1: 0,
+    h2: 0,
+  };
+
+  for (let i = 0; i < data.tiles.length; i += 2) {
+    const k = data.tiles[i];
+    const colour = data.tiles[i + 1];
+    if (k < 0 || k >= KEY_COUNT || (colour !== BLACK && colour !== WHITE)) {
+      throw new Error('Corrupt tile in snapshot');
+    }
+    if (s.tileAt[k] >= 0) throw new Error('Duplicate tile in snapshot');
+    s.tileAt[k] = colour;
+    s.tileKeys.push(k);
+    s.tileReserve[colour]--;
+  }
+  for (let i = 0; i < data.pieces.length; i += 2) {
+    const k = data.pieces[i];
+    const code = data.pieces[i + 1];
+    if (s.tileAt[k] < 0 || code < 0 || code > 3) throw new Error('Corrupt piece in snapshot');
+    if (s.pieceAt[k] >= 0) throw new Error('Duplicate piece in snapshot');
+    s.pieceAt[k] = code;
+    s.piecesOnBoard[pieceOwner(code)]++;
+  }
+
+  for (let p = 0; p < 2; p++) {
+    let disks = 0;
+    let rings = 0;
+    for (const k of s.tileKeys) {
+      const code = s.pieceAt[k];
+      if (code < 0 || pieceOwner(code) !== p) continue;
+      if (pieceType(code) === DISK) disks++; else rings++;
+    }
+    s.diskReserve[p] = DISKS_PER_PLAYER - disks - s.capturedDisks[1 - p];
+    s.ringReserve[p] = RINGS_PER_PLAYER - rings - s.capturedRings[1 - p];
+    if (s.tileReserve[p] < 0 || s.diskReserve[p] < 0 || s.ringReserve[p] < 0) {
+      throw new Error('Snapshot does not conserve material');
+    }
+  }
+
+  const h = recomputeHash(s);
+  s.h1 = h.h1;
+  s.h2 = h.h2;
+  return s;
+}
+
+/** Rebuild both hash words from scratch. Used by deserialisation and the self-test. */
 export function recomputeHash(s) {
   const h = { h1: 0, h2: 0 };
   for (const k of s.tileKeys) {

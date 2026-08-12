@@ -1,0 +1,272 @@
+/**
+ * Authoritative online games, exercised through real socket.io clients.
+ *
+ * Run with: node tests/onlineGame.test.js
+ *
+ * No database and no Express app: the module under test only needs an io
+ * instance, so the test stands up a bare HTTP server and connects two genuine
+ * clients to it. What is being checked is that a hostile client gets nowhere.
+ */
+
+const assert = require('assert');
+const http = require('http');
+const { Server } = require('socket.io');
+const { io: connect } = require('socket.io-client');
+const { attachOnlineGames } = require('../socket/onlineGame');
+
+let passed = 0;
+let failed = 0;
+
+async function test(name, fn) {
+    try {
+        await fn();
+        passed++;
+        console.log(`  ok    ${name}`);
+    } catch (error) {
+        failed++;
+        console.log(`  FAIL  ${name}`);
+        console.log(`        ${error.message}`);
+    }
+}
+
+/** Promise wrapper around socket.io acknowledgements. */
+function ask(socket, event, payload) {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error(`${event} timed out`)), 5000);
+        socket.emit(event, payload, (response) => {
+            clearTimeout(timer);
+            resolve(response);
+        });
+    });
+}
+
+function waitFor(socket, event, ms = 5000) {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error(`no ${event}`)), ms);
+        socket.once(event, (payload) => {
+            clearTimeout(timer);
+            resolve(payload);
+        });
+    });
+}
+
+async function sharedEngine() {
+    const { pathToFileURL } = require('url');
+    const path = require('path');
+    const dir = path.join(__dirname, '..', '..', 'web', 'src', 'game');
+    const url = (f) => pathToFileURL(path.join(dir, f)).href;
+    const [state, moves] = await Promise.all([import(url('state.js')), import(url('moves.js'))]);
+    return { state, moves };
+}
+
+/** A legal intent for whoever is to move in `snapshot`. */
+async function legalIntent(snapshot, index = 0) {
+    const { state, moves } = await sharedEngine();
+    const position = state.deserializeState(snapshot);
+    const legal = moves.generateMoves(position);
+    return moves.moveIntent(legal[index % legal.length]);
+}
+
+async function run() {
+    const server = http.createServer();
+    const io = new Server(server, { cors: { origin: '*' } });
+    attachOnlineGames(io);
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const url = `http://127.0.0.1:${server.address().port}`;
+
+    const open = () => new Promise((resolve, reject) => {
+        const socket = connect(url, { transports: ['websocket'], forceNew: true });
+        socket.on('connect', () => resolve(socket));
+        socket.on('connect_error', reject);
+    });
+
+    console.log('\nAuthoritative online games\n');
+
+    const black = await open();
+    const white = await open();
+
+    let code = null;
+
+    await test('a room can be opened and joined', async () => {
+        const created = await ask(black, 'hx:create', { name: 'Noir' });
+        assert.ok(created.ok, created.error);
+        assert.strictEqual(created.colour, 0, 'the opener takes Black');
+        assert.match(created.code, /^[ACDEFGHJKLMNPQRTUVWXY34679]{6}$/, 'readable room code');
+        code = created.code;
+
+        const joined = await ask(white, 'hx:join', { code, name: 'Blanc' });
+        assert.ok(joined.ok, joined.error);
+        assert.strictEqual(joined.colour, 1, 'the joiner takes White');
+        assert.deepStrictEqual(joined.state, created.state, 'both see the same position');
+    });
+
+    await test('a third player is turned away', async () => {
+        const third = await open();
+        const response = await ask(third, 'hx:join', { code });
+        assert.strictEqual(response.ok, false);
+        assert.strictEqual(response.error, 'ROOM_FULL');
+        third.disconnect();
+    });
+
+    await test('an unknown code is refused', async () => {
+        const response = await ask(white, 'hx:join', { code: 'ZZZZZZ' });
+        assert.strictEqual(response.ok, false);
+        assert.strictEqual(response.error, 'NO_SUCH_ROOM');
+    });
+
+    await test('a legal move reaches the opponent', async () => {
+        const view = await ask(black, 'hx:sync', { code });
+        const intent = await legalIntent(view.state);
+        const heard = waitFor(white, 'hx:moved');
+        const response = await ask(black, 'hx:move', { code, intent });
+        assert.ok(response.ok, response.error);
+        const event = await heard;
+        assert.strictEqual(event.by, 0);
+        assert.strictEqual(event.state.turn, 1, 'the turn passes to White');
+        assert.deepStrictEqual(event.state, response.state, 'broadcast matches the acknowledgement');
+    });
+
+    await test('playing out of turn is refused', async () => {
+        // Wait past the anti-spam guard, which would otherwise answer first and
+        // hide the check we are actually testing.
+        await new Promise((r) => setTimeout(r, MIN_WAIT));
+        const view = await ask(black, 'hx:sync', { code });
+        const intent = await legalIntent(view.state);
+        const response = await ask(black, 'hx:move', { code, intent });   // still White to move
+        assert.strictEqual(response.ok, false);
+        assert.strictEqual(response.error, 'NOT_YOUR_TURN');
+    });
+
+    await test('an illegal move is refused and the position is untouched', async () => {
+        const before = await ask(white, 'hx:sync', { code });
+        await new Promise((r) => setTimeout(r, 200));
+        const response = await ask(white, 'hx:move', { code, intent: { type: 'tile', cell: 4095 } });
+        assert.strictEqual(response.ok, false);
+        assert.strictEqual(response.error, 'ILLEGAL_MOVE');
+        const after = await ask(white, 'hx:sync', { code });
+        assert.deepStrictEqual(after.state, before.state, 'a refused move must change nothing');
+    });
+
+    await test('a client cannot dictate the position', async () => {
+        // There is no event that accepts a state: the only way in is an intent.
+        const before = await ask(white, 'hx:sync', { code });
+        await new Promise((r) => setTimeout(r, 200));
+        const response = await ask(white, 'hx:move', {
+            code,
+            intent: { type: 'tile', cell: 4095 },
+            state: { v: 1, tiles: [], pieces: [], turn: 0, capturedDisks: [6, 0], capturedRings: [0, 0] },
+        });
+        assert.strictEqual(response.ok, false);
+        const after = await ask(white, 'hx:sync', { code });
+        assert.deepStrictEqual(after.state, before.state);
+        assert.deepStrictEqual(after.state.capturedDisks, [0, 0], 'no forged captures');
+    });
+
+    await test('a spectator socket cannot move', async () => {
+        const stranger = await open();
+        const response = await ask(stranger, 'hx:move', { code, intent: { type: 'tile', cell: 2080 } });
+        assert.strictEqual(response.ok, false);
+        assert.strictEqual(response.error, 'NOT_A_PLAYER');
+        stranger.disconnect();
+    });
+
+    await test('moves fired faster than a human can play are throttled', async () => {
+        const view = await ask(white, 'hx:sync', { code });
+        const intent = await legalIntent(view.state);
+        const first = await ask(white, 'hx:move', { code, intent });
+        assert.ok(first.ok, first.error);
+        const view2 = await ask(black, 'hx:sync', { code });
+        const intent2 = await legalIntent(view2.state);
+        const immediate = await ask(black, 'hx:move', { code, intent: intent2 });
+        // Black has not moved recently, so this one is allowed; the guard is
+        // per socket. Fire a second one straight away from the same socket.
+        assert.ok(immediate.ok, immediate.error);
+        const view3 = await ask(white, 'hx:sync', { code });
+        const intent3 = await legalIntent(view3.state);
+        const tooSoon = await ask(white, 'hx:move', { code, intent: intent3 });
+        assert.strictEqual(tooSoon.ok, false);
+        assert.strictEqual(tooSoon.error, 'TOO_FAST');
+    });
+
+    await test('a full game plays to a server-declared result', async () => {
+        const a = await open();
+        const b = await open();
+        const created = await ask(a, 'hx:create', {});
+        const room = created.code;
+        await ask(b, 'hx:join', { code: room });
+
+        let view = created;
+        let plies = 0;
+        let result = null;
+        const seats = [a, b];
+        while (plies < 400) {
+            const mover = seats[view.state.turn];
+            const intent = await legalIntent(view.state, Math.floor(Math.random() * 8));
+            await new Promise((r) => setTimeout(r, MIN_WAIT));
+            const response = await ask(mover, 'hx:move', { code: room, intent });
+            if (!response.ok) throw new Error(`move refused: ${response.error}`);
+            plies++;
+            view = response;
+            if (response.result) { result = response.result; break; }
+        }
+        assert.ok(result, `no result after ${plies} plies`);
+        assert.ok(plies > 10, 'a real game, not an instant end');
+        const final = await ask(a, 'hx:sync', { code: room });
+        assert.ok(final.result, 'the room remembers the result');
+        assert.strictEqual(final.moves.length, plies, 'every move was recorded');
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('resigning ends the game for both sides', async () => {
+        const a = await open();
+        const b = await open();
+        const created = await ask(a, 'hx:create', {});
+        await ask(b, 'hx:join', { code: created.code });
+        const heard = waitFor(b, 'hx:ended');
+        const response = await ask(a, 'hx:resign', { code: created.code });
+        assert.ok(response.ok, response.error);
+        const event = await heard;
+        assert.strictEqual(event.result.winner, 1, 'the opponent wins');
+        assert.strictEqual(event.result.reason, 'resigned');
+        const after = await ask(a, 'hx:move', { code: created.code, intent: { type: 'tile', cell: 2080 } });
+        assert.strictEqual(after.ok, false);
+        assert.strictEqual(after.error, 'GAME_OVER');
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('a disconnection frees the seat and the player can return', async () => {
+        const a = await open();
+        let b = await open();
+        const created = await ask(a, 'hx:create', {});
+        await ask(b, 'hx:join', { code: created.code });
+        const heard = waitFor(a, 'hx:opponent');
+        b.disconnect();
+        const event = await heard;
+        assert.strictEqual(event.joined, false);
+        assert.strictEqual(event.seat, 1);
+        b = await open();
+        const back = await ask(b, 'hx:join', { code: created.code });
+        assert.ok(back.ok, back.error);
+        assert.strictEqual(back.colour, 1, 'the same seat is available again');
+        assert.deepStrictEqual(back.state, created.state, 'the position survived');
+        a.disconnect();
+        b.disconnect();
+    });
+
+    black.disconnect();
+    white.disconnect();
+    io.close();
+    server.close();
+
+    console.log(`\n${passed} passed, ${failed} failed\n`);
+    process.exit(failed ? 1 : 0);
+}
+
+const MIN_WAIT = 160;   // just over the server's per-socket move throttle
+
+run().catch((error) => {
+    console.error('harness crashed:', error);
+    process.exit(1);
+});
