@@ -6,7 +6,10 @@
  */
 
 const { pool, testConnection } = require('../config/database');
-const { schema } = require('../models/schema');
+// models/schema.js exports functions, not a SQL string. Destructuring `schema`
+// yielded undefined, so the reset dropped every table and then threw on
+// `query(undefined)` — leaving the database with no schema at all.
+const { createSchema } = require('../models/schema');
 
 async function resetDatabase() {
     console.log('⚠️  WARNING: This will delete ALL data in the database!\n');
@@ -62,11 +65,12 @@ async function resetDatabase() {
         
         console.log('✅ Tables dropped\n');
         
-        // Recreate schema
-        console.log('📋 Creating schema...');
-        await client.query(schema);
-        
+        // Commit the drops before rebuilding: createSchema() runs on its own
+        // pooled connection, so it must not sit inside this transaction.
         await client.query('COMMIT');
+
+        console.log('📋 Creating schema...');
+        await createSchema();
         console.log('✅ Schema created\n');
         
         // Verify

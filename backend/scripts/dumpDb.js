@@ -13,8 +13,12 @@ const path = require('path');
 const { pool, testConnection } = require('../config/database');
 
 async function dump() {
+    // Snapshots hold emails, password hashes and refresh tokens, so they go in
+    // a directory git ignores rather than anywhere they might be committed.
+    const defaultDir = path.join(__dirname, '..', '..', '.snapshots');
+    if (!process.argv[2] && !fs.existsSync(defaultDir)) fs.mkdirSync(defaultDir, { recursive: true });
     const target = process.argv[2]
-        || path.join(__dirname, '..', `db-snapshot-${new Date().toISOString().slice(0, 10)}.json`);
+        || path.join(defaultDir, `db-snapshot-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
 
     if (!await testConnection()) {
         console.error('❌ Cannot reach the database. Check DATABASE_URL in backend/.env');

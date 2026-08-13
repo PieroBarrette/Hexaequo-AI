@@ -58,3 +58,7 @@ temp/
 coverage/
 *.lcov
 .nyc_output/
+
+# Database snapshots: contain user emails, password hashes and tokens
+backend/db-snapshot-*.json
+.snapshots/

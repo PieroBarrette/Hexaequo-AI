@@ -226,6 +226,18 @@ CREATE TABLE IF NOT EXISTS user_preferences (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- The whole schema runs as one ordered script, so this function has to exist
+-- before the first trigger that calls it. It used to be declared further down,
+-- which only worked while an older copy of it survived in the database; a true
+-- from-scratch build failed here.
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
 -- Trigger for updated_at
 DROP TRIGGER IF EXISTS update_user_preferences_updated_at ON user_preferences;
 CREATE TRIGGER update_user_preferences_updated_at
@@ -276,14 +288,7 @@ CREATE INDEX IF NOT EXISTS idx_invitations_expires ON invitations(expires_at);
 -- Helper Functions
 -- ============================================
 
--- Function to update updated_at timestamp
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
+-- update_updated_at_column() is declared earlier, before its first use.
 
 -- Triggers for updated_at
 DROP TRIGGER IF EXISTS update_users_updated_at ON users;
