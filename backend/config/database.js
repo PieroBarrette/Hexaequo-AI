@@ -18,8 +18,18 @@ const poolConfig = DATABASE_URL.startsWith('postgresql://')
         password: process.env.DB_PASSWORD || ''
     };
 
-// Add SSL for production
-if (NODE_ENV === 'production') {
+/*
+ * SSL follows the host, not the environment.
+ *
+ * Keying it on NODE_ENV meant a developer connecting to the managed database
+ * from their machine was refused, because Render requires SSL on external
+ * connections and NODE_ENV was 'development'. A local Postgres, on the other
+ * hand, usually has no certificate at all. So: encrypt whenever the host is
+ * remote. `rejectUnauthorized` stays false because managed providers terminate
+ * TLS with their own chain.
+ */
+const isLocalDatabase = /@(localhost|127\.0\.0\.1|\[::1\])([:/]|$)/.test(DATABASE_URL);
+if (NODE_ENV === 'production' || !isLocalDatabase) {
     poolConfig.ssl = { rejectUnauthorized: false };
 }
 

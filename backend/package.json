@@ -15,7 +15,8 @@
         "db:reset": "node scripts/resetDb.js",
         "db:cleanup": "node scripts/cleanupDb.js",
         "db:migrate": "node scripts/migration_phase0.js",
-        "test:elo": "node tests/eloService.test.js"
+        "test:elo": "node tests/eloService.test.js",
+        "db:dump": "node scripts/dumpDb.js"
     },
     "dependencies": {
         "bcryptjs": "^2.4.3",
