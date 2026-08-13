@@ -5,7 +5,7 @@
  * Bump CACHE_VERSION on every release — the activate step removes older caches.
  */
 
-const CACHE_VERSION = 'hexaequo-v1';
+const CACHE_VERSION = 'hexaequo-v2';
 
 const SHELL = [
   './',
@@ -30,6 +30,7 @@ const SHELL = [
   './src/views/home.js',
   './src/views/play.js',
   './src/views/rules.js',
+  './src/views/legal.js',
   './src/views/settings.js',
   './assets/icons/icon-192x192.png',
   './assets/icons/icon-512x512.png',

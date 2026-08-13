@@ -370,3 +370,12 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+/* ── Legal pages ─────────────────────────────────────────────────────────── */
+
+.legal h2 { margin: 26px 0 8px; font-size: 13px; }
+.legal p { max-width: 62ch; }
+.legal-date { color: var(--muted); font-size: 12px; margin-bottom: 18px; }
+.legal-foot { display: flex; align-items: center; gap: 16px; margin: 36px 0 8px; }
+.legal-mark { height: 34px; opacity: .5; }
+.legal-mark svg { height: 100%; width: auto; }

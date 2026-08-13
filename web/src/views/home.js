@@ -20,6 +20,8 @@ export function mountHome(outlet) {
       </nav>
       <div class="home-foot">
         <button data-action="lang">${getSetting('language') === 'fr' ? 'English' : 'Français'}</button>
+        <button data-go="privacy">${t('nav.privacy')}</button>
+        <button data-go="terms">${t('nav.terms')}</button>
         <button data-action="theme">${resolvedTheme() === 'dark' ? '☀' : '☾'}</button>
       </div>
     </div>`;

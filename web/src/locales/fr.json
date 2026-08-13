@@ -9,7 +9,9 @@
     "rules": "Règles",
     "settings": "Paramètres",
     "back": "Retour",
-    "backToMenu": "Retour au menu"
+    "backToMenu": "Retour au menu",
+    "privacy": "Politique de confidentialité",
+    "terms": "Conditions d'utilisation"
   },
   "home": {
     "playLocal": "Jouer",
@@ -177,5 +179,40 @@
     "board": "Plateau de jeu",
     "openMoveList": "Ouvrir l'historique",
     "toggleTheme": "Changer de thème"
+  },
+  "legal": {
+    "privacyTitle": "Politique de confidentialité",
+    "termsTitle": "Conditions d'utilisation",
+    "updated": "Dernière mise à jour : 14 août 2026",
+    "contactHeading": "Nous joindre",
+    "contactBody": "Pour toute question, demande d'accès ou de suppression, écrivez à REMPLACER@hexaequo.com.",
+    "privacyIntro": "Hexaequo est un jeu de plateau en ligne. Cette page explique quelles données nous recueillons, pourquoi, et ce que vous pouvez en faire. Nous n'affichons aucune publicité et ne vendons aucune donnée.",
+    "p1Title": "Ce que nous recueillons",
+    "p1Body": "Sans compte, rien n'est envoyé à nos serveurs à votre sujet : vos préférences (langue, thème, sons, aide de jeu) restent dans le stockage local de votre navigateur. Si vous ouvrez une session avec Google, nous recevons votre identifiant Google, votre adresse courriel et votre nom d'affichage, et nous conservons le pseudonyme que vous choisissez sur Hexaequo. Nous enregistrons aussi vos parties : les coups joués, le résultat, la cadence et votre classement.",
+    "p2Title": "Pourquoi",
+    "p2Body": "Votre identifiant Google sert uniquement à vous reconnaître d'une visite à l'autre. Le courriel sert à vous joindre au sujet de votre compte. Les parties et le classement font fonctionner le jeu et le tableau des scores. Nous ne faisons ni profilage, ni publicité ciblée.",
+    "p3Title": "Où sont conservées les données",
+    "p3Body": "Nos serveurs et notre base de données sont hébergés chez Render, aux États-Unis. Vos données sont donc traitées hors du Canada et peuvent être soumises aux lois du pays hôte.",
+    "p4Title": "Ce que nous partageons",
+    "p4Body": "Rien n'est vendu ni loué. Votre pseudonyme, votre classement et vos parties terminées sont visibles des autres joueurs — c'est le principe d'un classement. Votre adresse courriel ne l'est jamais.",
+    "p5Title": "Combien de temps",
+    "p5Body": "Tant que votre compte existe. Vous pouvez demander sa suppression à tout moment : le compte et son courriel sont effacés, et les parties déjà jouées sont dissociées de votre identité.",
+    "p6Title": "Vos droits",
+    "p6Body": "Vous pouvez demander l'accès à vos données, leur correction, leur suppression, ou une copie transférable. Nous répondons dans les trente jours.",
+    "p7Title": "Témoins et traceurs",
+    "p7Body": "Nous n'utilisons aucun témoin publicitaire ni outil de mesure d'audience tiers. Le stockage local de votre navigateur ne sert qu'à vos préférences et à votre session.",
+    "termsIntro": "En utilisant Hexaequo, vous acceptez ce qui suit. Le service est offert gratuitement, tel quel.",
+    "t1Title": "Qui peut jouer",
+    "t1Body": "Le jeu est ouvert à tous. Si vous avez moins de 14 ans, demandez l'accord d'un parent avant de créer un compte.",
+    "t2Title": "Votre compte et votre pseudonyme",
+    "t2Body": "Vous choisissez librement votre pseudonyme, à condition qu'il ne soit pas insultant, haineux, trompeur quant à votre identité, ni destiné à usurper celle d'un autre joueur. Nous pouvons renommer ou fermer un compte qui contrevient à cette règle.",
+    "t3Title": "Fair-play",
+    "t3Body": "Il est interdit de se faire assister par un programme pour jouer les parties classées, de quitter volontairement pour éviter une défaite de façon répétée, ou de s'entendre avec un adversaire pour fausser le classement. Ces comportements peuvent entraîner un retrait de classement ou une fermeture de compte.",
+    "t4Title": "Disponibilité",
+    "t4Body": "Le service peut être interrompu, modifié ou arrêté sans préavis. Nous ne garantissons ni la disponibilité continue, ni la conservation définitive des parties.",
+    "t5Title": "Responsabilité",
+    "t5Body": "Hexaequo est fourni sans garantie d'aucune sorte. Nous ne pouvons être tenus responsables d'une perte de données, d'un classement ou d'un compte.",
+    "t6Title": "Modifications",
+    "t6Body": "Ces conditions peuvent changer. La date en haut de page indique la dernière révision ; continuer à jouer vaut acceptation."
   }
 }

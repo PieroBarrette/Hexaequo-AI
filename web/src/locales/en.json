@@ -9,7 +9,9 @@
     "rules": "Rules",
     "settings": "Settings",
     "back": "Back",
-    "backToMenu": "Back to menu"
+    "backToMenu": "Back to menu",
+    "privacy": "Privacy policy",
+    "terms": "Terms of service"
   },
   "home": {
     "playLocal": "Play",
@@ -177,5 +179,40 @@
     "board": "Game board",
     "openMoveList": "Open the move list",
     "toggleTheme": "Switch theme"
+  },
+  "legal": {
+    "privacyTitle": "Privacy policy",
+    "termsTitle": "Terms of service",
+    "updated": "Last updated: 14 August 2026",
+    "contactHeading": "Contact us",
+    "contactBody": "For any question, or to request access to or deletion of your data, write to REMPLACER@hexaequo.com.",
+    "privacyIntro": "Hexaequo is an online board game. This page explains what we collect, why, and what you can do about it. We show no advertising and sell no data.",
+    "p1Title": "What we collect",
+    "p1Body": "Without an account, nothing about you reaches our servers: your preferences (language, theme, sound, move aid) stay in your browser’s local storage. If you sign in with Google we receive your Google account identifier, your email address and your display name, and we keep the nickname you choose on Hexaequo. We also record your games: the moves played, the result, the time control and your rating.",
+    "p2Title": "Why",
+    "p2Body": "Your Google identifier only lets us recognise you from one visit to the next. The email address lets us reach you about your account. Games and ratings are what make the game and the leaderboard work. We do no profiling and no targeted advertising.",
+    "p3Title": "Where the data lives",
+    "p3Body": "Our servers and database are hosted by Render, in the United States. Your data is therefore processed outside Canada and may be subject to the laws of the hosting country.",
+    "p4Title": "What we share",
+    "p4Body": "Nothing is sold or rented. Your nickname, your rating and your finished games are visible to other players — that is what a leaderboard is. Your email address never is.",
+    "p5Title": "How long we keep it",
+    "p5Body": "For as long as your account exists. You may ask for it to be deleted at any time: the account and its email address are erased, and games already played are detached from your identity.",
+    "p6Title": "Your rights",
+    "p6Body": "You may ask to see your data, to correct it, to have it deleted, or to receive a portable copy. We answer within thirty days.",
+    "p7Title": "Cookies and tracking",
+    "p7Body": "We use no advertising cookies and no third-party analytics. Your browser’s local storage holds only your preferences and your session.",
+    "termsIntro": "By using Hexaequo you agree to the following. The service is offered free of charge, as is.",
+    "t1Title": "Who may play",
+    "t1Body": "The game is open to everyone. If you are under 14, ask a parent before creating an account.",
+    "t2Title": "Your account and nickname",
+    "t2Body": "You choose your nickname freely, provided it is not abusive, hateful, misleading about who you are, or intended to impersonate another player. We may rename or close an account that breaks this rule.",
+    "t3Title": "Fair play",
+    "t3Body": "You may not use a program to play rated games for you, repeatedly abandon games to avoid a loss, or arrange results with an opponent to distort the ratings. Doing so may cost you your rating or your account.",
+    "t4Title": "Availability",
+    "t4Body": "The service may be interrupted, changed or discontinued without notice. We guarantee neither continuous availability nor permanent retention of games.",
+    "t5Title": "Liability",
+    "t5Body": "Hexaequo is provided without warranty of any kind. We cannot be held responsible for the loss of data, of a rating, or of an account.",
+    "t6Title": "Changes",
+    "t6Body": "These terms may change. The date at the top of the page shows the last revision; continuing to play means accepting it."
   }
 }

@@ -9,6 +9,7 @@ import { mountHome } from './views/home.js';
 import { mountPlay } from './views/play.js';
 import { mountRules } from './views/rules.js';
 import { mountOnline } from './views/online.js';
+import { mountPrivacy, mountTerms } from './views/legal.js';
 import { mountSettings, setInstallPrompt } from './views/settings.js';
 import { closeOverlay } from './ui/overlay.js';
 import { openPanel, relabelPanel } from './ui/panels.js';
@@ -28,6 +29,8 @@ async function boot() {
   defineRoute('play', mountPlay);
   defineRoute('rules', mountRules);
   defineRoute('online', mountOnline);
+  defineRoute('privacy', mountPrivacy);
+  defineRoute('terms', mountTerms);
   defineRoute('settings', mountSettings);
 
   renderChrome();

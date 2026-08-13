@@ -16,7 +16,8 @@
         "db:cleanup": "node scripts/cleanupDb.js",
         "db:migrate": "node scripts/migration_phase0.js",
         "test:elo": "node tests/eloService.test.js",
-        "db:dump": "node scripts/dumpDb.js"
+        "db:dump": "node scripts/dumpDb.js",
+        "icons": "node scripts/makeIcons.js"
     },
     "dependencies": {
         "bcryptjs": "^2.4.3",
@@ -34,6 +35,7 @@
     "devDependencies": {
         "jest": "^29.7.0",
         "nodemon": "^3.0.2",
+        "sharp": "^0.35.3",
         "socket.io-client": "^4.8.3",
         "supertest": "^6.3.3"
     },

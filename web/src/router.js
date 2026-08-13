@@ -86,9 +86,20 @@ function resolve() {
   window.dispatchEvent(new CustomEvent('routechange', { detail: { name: resolvedName } }));
 }
 
+/**
+ * Clean paths for the pages other services need to link to.
+ *
+ * The server hands index.html to any non-API route, so /privacy loads the app;
+ * without this it would silently fall back to the home screen. Google's consent
+ * screen wants a plain URL, not a fragment.
+ */
+const PATH_ROUTES = { '/privacy': 'privacy', '/terms': 'terms' };
+
 export function startRouter() {
   window.addEventListener('hashchange', resolve);
-  if (!window.location.hash) window.location.replace('#/home');
+  const fromPath = PATH_ROUTES[window.location.pathname.replace(/\/+$/, '') || '/'];
+  if (fromPath && !window.location.hash) window.location.replace(`#/${fromPath}`);
+  else if (!window.location.hash) window.location.replace('#/home');
   else resolve();
 }
 
