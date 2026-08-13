@@ -100,8 +100,10 @@ export function mountPlay(outlet, params) {
           </div>
         </div>
         <div class="drawer">
-          <h2 style="margin-top:0">${t('game.moveList')}</h2>
-          <div class="move-list"></div>
+          <div class="drawer-tabs">
+            <button class="drawer-tab is-active" data-tab="moves">${t('game.moveList')}</button>
+          </div>
+          <div class="drawer-body"><div class="move-list"></div></div>
         </div>
       </div>
       <aside class="rail" data-rail="1"></aside>
@@ -152,13 +154,13 @@ export function mountPlay(outlet, params) {
     <button class="btn btn--icon" data-action="resign" title="${t('online.resign')}">⚑</button>`;
   }
 
-  /* The move list opens on the right, so its button sits at the right of the
-     bar, next to the panel it summons. The chevron points at where the panel
-     will appear — an ≡ read as a hamburger menu. */
+  /* Grouped at the right with the other panel toggles. The chevron matches the
+     motion — up to raise the panel, down to put it away — where an ≡ read as a
+     hamburger menu. */
   function buildDrawerButton() {
     toolsRight.innerHTML =
-      `<button class="btn btn--icon" data-action="drawer" title="${t('game.moveList')}">`
-      + `${drawerOpen ? '»' : '«'}</button>`;
+      `<button class="btn btn--icon${drawerOpen ? ' is-on' : ''}" data-action="drawer"`
+      + ` title="${t('game.moveList')}">${drawerOpen ? '⌄' : '⌃'}</button>`;
   }
 
   /**
@@ -168,8 +170,8 @@ export function mountPlay(outlet, params) {
    */
   function relabel() {
     buildTools();
-    const drawerTitle = outlet.querySelector('.drawer h2');
-    if (drawerTitle) drawerTitle.textContent = t('game.moveList');
+    const movesTab = outlet.querySelector('[data-tab="moves"]');
+    if (movesTab) movesTab.textContent = t('game.moveList');
     outlet.querySelector('[data-action="end-jump"]').title = t('game.endJump');
     outlet.querySelector('[data-action="cancel-jump"]').title = t('game.cancel');
     outlet.querySelector('[data-action="new"][class~="btn--primary"]').textContent = t('result.rematch');

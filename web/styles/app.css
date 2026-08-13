@@ -118,7 +118,9 @@ select.btn { padding-right: 8px; }
 /* ── Game ────────────────────────────────────────────────────────────────── */
 
 .game { flex: 1; display: flex; min-height: 0; position: relative; }
-.board-area { flex: 1; position: relative; min-width: 0; display: flex; }
+/* overflow:hidden matters: without it a panel parked outside this box by a
+   transform stays visible and covers the reserve rail next to it. */
+.board-area { flex: 1; position: relative; min-width: 0; display: flex; overflow: hidden; }
 .board { flex: 1; width: 100%; height: 100%; display: block; touch-action: none; background: var(--board-bg); }
 .board-fx { pointer-events: none; }
 .cell { cursor: default; }
@@ -182,19 +184,35 @@ select.btn { padding-right: 8px; }
 .result-why { color: var(--muted); font-size: 13px; margin: 7px 0 16px; }
 .result-actions { display: flex; gap: 8px; justify-content: center; }
 
-/* Slide-in drawer for the move list. */
+/*
+ * The move list rises from the bottom of the board area rather than the side.
+ * The sides belong to the reserves, which must stay readable at all times; the
+ * bottom is also where the chat tab will live for online games.
+ */
 .drawer {
-  position: absolute; top: 0; right: 0; bottom: 0; width: min(320px, 88vw); z-index: 9;
-  background: var(--surface); border-left: 1px solid var(--line);
-  padding: 14px 16px; overflow-y: auto;
-  transform: translateX(101%); transition: transform .3s var(--ease);
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 9;
+  height: min(240px, 45%);
+  display: flex; flex-direction: column;
+  background: var(--surface); border-top: 1px solid var(--line);
+  transform: translateY(101%); transition: transform .3s var(--ease);
 }
-.drawer.is-on { transform: none; box-shadow: -14px 0 40px rgba(0, 0, 0, .35); }
+.drawer.is-on { transform: none; box-shadow: 0 -14px 40px rgba(0, 0, 0, .35); }
+.drawer-tabs {
+  display: flex; align-items: center; gap: 6px; flex: none;
+  padding: 8px 12px; border-bottom: 1px solid var(--line);
+}
+.drawer-tab {
+  background: none; border: 0; border-bottom: 2px solid transparent;
+  padding: 5px 4px; color: var(--muted);
+  font-size: 12px; letter-spacing: .1em; text-transform: uppercase; font-weight: 600;
+}
+.drawer-tab.is-active { color: var(--text); border-bottom-color: var(--accent); }
+.drawer-body { flex: 1; overflow-y: auto; min-height: 0; padding: 10px 12px; }
 .move-list {
-  font: 12px/1.6 var(--font-mono);
-  background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-sm);
-  padding: 7px 9px;
+  font: 12px/1.7 var(--font-mono);
+  columns: 240px; column-gap: 22px;   /* a wide, short panel: use the width */
 }
+.move-list > div { break-inside: avoid; }
 .move-list div { display: flex; gap: 8px; white-space: nowrap; }
 .move-list .n { color: var(--muted); width: 26px; flex: none; text-align: right; }
 .move-list .black { width: 104px; flex: none; }
@@ -346,7 +364,7 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
   .stack { width: auto; }
   .site-header { padding: 6px 8px; gap: 6px; }
   .site-header .logo-word { display: none; }
-  .drawer { width: 100%; }
+  .drawer { height: min(200px, 55%); }
 }
 
 @media (prefers-reduced-motion: reduce) {
