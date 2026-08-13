@@ -134,18 +134,16 @@ export function createBoard(container) {
       const x = cx(k), y = cy(k);
       const live = v.spotsLive;
       const lit = live && aid;
-      const fill = emphasise && aid ? 'var(--spot-fill-strong)'
-        : (lit ? 'var(--spot-fill)' : (live ? 'transparent' : 'none'));
+      // With the aid on, the dashed outline is the whole signal. With it off,
+      // the cell is painted `transparent` and left unmarked: invisible, but
+      // still a hit target, since fill="none" would not catch a click.
       out += `<path class="cell${live ? ' is-clickable' : ''}"${live ? ` data-cell="${k}"` : ''}`
         + ` d="${hexPath(x, y, SIZE * .94)}"`
-        + ` fill="${fill}"`
-        + ` stroke="${emphasise && aid ? 'var(--accent)' : (lit ? 'var(--spot-line)' : 'var(--ghost-line)')}"`
-        + ` stroke-width="${emphasise && aid ? 2.2 : 1.6}" stroke-dasharray="6 4"/>`;
-      if (lit) {
-        out += `<path d="M${x - 9} ${y}h18M${x} ${y - 9}v18" fill="none"`
-          + ` stroke="var(--accent)" stroke-opacity="${emphasise ? .95 : .34}"`
-          + ` stroke-width="${emphasise ? 2.8 : 2.2}" stroke-linecap="round" pointer-events="none"/>`;
-      }
+        + ` fill="${lit ? (emphasise ? 'var(--spot-fill-strong)' : 'var(--spot-fill)') : 'transparent'}"`
+        + (lit
+          ? ` stroke="var(--spot-line)" stroke-width="${emphasise ? 2.6 : 2}" stroke-dasharray="6 4"`
+          : ' stroke="none"')
+        + `/>`;
     }
 
     /* Tiles. */

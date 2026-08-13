@@ -7,6 +7,17 @@
 const routes = new Map();
 let currentTeardown = null;
 let currentName = null;
+let currentHash = null;
+let leaveGuard = null;
+let reverting = false;
+
+/**
+ * Let the active view veto a departure — a local game in progress asks before
+ * throwing itself away. The guard returns false to stay put.
+ */
+export function setLeaveGuard(fn) {
+  leaveGuard = fn;
+}
 
 export function defineRoute(name, mount) {
   routes.set(name, mount);
@@ -33,9 +44,23 @@ export function navigate(name, params) {
 }
 
 function resolve() {
+  if (reverting) { reverting = false; return; }
+
   const { name, params } = parseHash();
   const mount = routes.get(name) || routes.get('home');
   const resolvedName = routes.has(name) ? name : 'home';
+
+  // Ask the outgoing view before discarding it. Restoring the hash fires
+  // another hashchange, which `reverting` swallows.
+  if (leaveGuard && currentName && resolvedName !== currentName && !leaveGuard()) {
+    if (currentHash && window.location.hash !== currentHash) {
+      reverting = true;
+      window.location.hash = currentHash;
+    }
+    return;
+  }
+  leaveGuard = null;
+  currentHash = window.location.hash;
 
   if (currentTeardown) {
     try { currentTeardown(); } catch { /* a broken view must not block routing */ }

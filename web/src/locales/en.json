@@ -56,7 +56,8 @@
     "turnOf": "{colour} to move",
     "reserve": "Reserve",
     "captured": "Captured",
-    "noMoves": "—"
+    "noMoves": "—",
+    "confirmLeave": "Leave this game? The progress will be lost."
   },
   "online": {
     "title": "Play online",

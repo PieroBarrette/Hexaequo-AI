@@ -8,7 +8,7 @@
  */
 
 import { t, onLanguageChange } from '../i18n.js';
-import { navigate } from '../router.js';
+import { navigate, setLeaveGuard } from '../router.js';
 import { get as getSetting, set as setSetting, onSettingsChange } from '../settings.js';
 import { play as playSound } from '../audio.js';
 import { createBoard, pieceSvg, cx, cy, SIZE } from '../ui/board.js';
@@ -117,10 +117,12 @@ export function mountPlay(outlet, params) {
 
   /* Game controls live in the site header so the board keeps its height. */
   const tools = document.getElementById('header-tools');
+  const toolsRight = document.getElementById('header-tools-right');
   buildTools();
 
   function buildTools() {
     tools.innerHTML = toolsMarkup();
+    buildDrawerButton();
     tools.querySelector('[data-control="level"]').value = String(level);
     tools.querySelector('[data-control="mode"]').value = mode;
     const side = tools.querySelector('[data-control="side"]');
@@ -147,8 +149,16 @@ export function mountPlay(outlet, params) {
     <button class="btn btn--icon" data-action="step" title="${t('game.stepOnce')}">⏭</button>
     <button class="btn btn--icon" data-action="undo" title="${t('game.undo')}">↶</button>
     <button class="btn btn--icon" data-action="new" title="${t('game.newGame')}">⟳</button>
-    <button class="btn btn--icon" data-action="resign" title="${t('online.resign')}">⚑</button>
-    <button class="btn btn--icon" data-action="drawer" title="${t('game.moveList')}">≡</button>`;
+    <button class="btn btn--icon" data-action="resign" title="${t('online.resign')}">⚑</button>`;
+  }
+
+  /* The move list opens on the right, so its button sits at the right of the
+     bar, next to the panel it summons. The chevron points at where the panel
+     will appear — an ≡ read as a hamburger menu. */
+  function buildDrawerButton() {
+    toolsRight.innerHTML =
+      `<button class="btn btn--icon" data-action="drawer" title="${t('game.moveList')}">`
+      + `${drawerOpen ? '»' : '«'}</button>`;
   }
 
   /**
@@ -1121,7 +1131,12 @@ export function mountPlay(outlet, params) {
     }
     else if (action === 'run') { aiRunning = !aiRunning; refresh(); if (aiRunning) scheduleAI(); }
     else if (action === 'step') stepAI();
-    else if (action === 'drawer') { drawerOpen = !drawerOpen; drawer.classList.toggle('is-on', drawerOpen); renderMoveList(); }
+    else if (action === 'drawer') {
+      drawerOpen = !drawerOpen;
+      drawer.classList.toggle('is-on', drawerOpen);
+      buildDrawerButton();
+      renderMoveList();
+    }
     else if (action === 'end-jump') { if (chain) finishChain(); }
     else if (action === 'cancel-jump') { chain = null; selected = null; clearEffect(); refresh(); }
   }
@@ -1149,8 +1164,16 @@ export function mountPlay(outlet, params) {
 
   tools.addEventListener('click', onToolClick);
   tools.addEventListener('change', onToolChange);
+  toolsRight.addEventListener('click', onToolClick);
   outlet.addEventListener('click', onToolClick);
   document.addEventListener('keydown', onKey);
+
+  /* Leaving a local game in progress throws it away — ask first. Online games
+     live on the server, and a finished game has nothing left to lose. */
+  setLeaveGuard(() => {
+    if (net || result || !history.length) return true;
+    return window.confirm(t('game.confirmLeave'));
+  });
   const onResize = () => refresh(true);
   window.addEventListener('resize', onResize);
 
@@ -1196,9 +1219,12 @@ export function mountPlay(outlet, params) {
     document.removeEventListener('keydown', onKey);
     window.removeEventListener('resize', onResize);
     // The header toolbar outlives the view, so its handlers must go with it.
+    setLeaveGuard(null);
     tools.removeEventListener('click', onToolClick);
     tools.removeEventListener('change', onToolChange);
+    toolsRight.removeEventListener('click', onToolClick);
     tools.innerHTML = '';
+    toolsRight.innerHTML = '';
     delete window.__hexaequo;
   };
 }

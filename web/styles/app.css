@@ -130,7 +130,7 @@ select.btn { padding-right: 8px; }
 
 /* Reserves on either side of the board, shown as real pieces. */
 .rail {
-  width: 128px; flex: none; overflow-y: auto;
+  width: 164px; flex: none; overflow-y: auto;
   background: var(--surface);
   border-left: 1px solid transparent; border-right: 1px solid transparent;
   display: flex; flex-direction: column; align-items: center; gap: 8px;
@@ -147,7 +147,7 @@ select.btn { padding-right: 8px; }
 .rail.is-thinking .player-dot { animation: pulse 1s ease-in-out infinite; }
 .stack { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; width: 100%; }
 .token {
-  width: 27px; height: 27px; display: block; padding: 1px; border-radius: var(--radius-sm);
+  width: 36px; height: 36px; display: block; padding: 2px; border-radius: var(--radius-sm);
   background: var(--accent-soft); background: rgba(128, 128, 128, .1);
   transition: transform .14s var(--ease), background .14s var(--ease);
 }

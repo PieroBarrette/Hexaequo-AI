@@ -56,7 +56,8 @@
     "turnOf": "Trait aux {colour}s",
     "reserve": "Réserve",
     "captured": "Capturé",
-    "noMoves": "—"
+    "noMoves": "—",
+    "confirmLeave": "Quitter la partie ? La progression sera perdue."
   },
   "online": {
     "title": "Jouer en ligne",
