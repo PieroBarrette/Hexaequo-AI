@@ -108,6 +108,10 @@ attachOnlineGames(io);
 const { attachMatchmaking } = require('./socket/matchmaking');
 attachMatchmaking(io);
 
+// The lobby: presence, chat and challenges by name (hx:lobby*, hx:challenge*).
+const { attachLobby } = require('./socket/lobby');
+attachLobby(io);
+
 console.log('✅ Socket.IO initialized on server');
 
 // Debug: Log Socket.IO engine events

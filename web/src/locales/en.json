@@ -100,7 +100,13 @@
       "NOT_A_PLAYER": "You are not a player in this game.",
       "OFFLINE": "Cannot reach the server. Check your connection.",
       "SIGN_IN_REQUIRED": "Sign in to use quick match.",
-      "ENGINE_UNAVAILABLE": "The game server is unavailable."
+      "ENGINE_UNAVAILABLE": "The game server is unavailable.",
+      "NOT_HERE": "That player has left the lobby.",
+      "NOT_IN_LOBBY": "Enter the lobby first.",
+      "GAME_IN_PROGRESS": "The game is not over.",
+      "NO_SUCH_CHALLENGE": "That challenge is gone.",
+      "NOT_YOURS": "That challenge is not addressed to you.",
+      "EMPTY": "Empty message."
     },
     "rated": "Rated game",
     "unratedFriendly": "Friendly game — no rating at stake",
@@ -117,7 +123,8 @@
     "quickCancel": "Cancel search",
     "quickSignIn": "Quick match pairs you by rating, so it needs an account. Sign in to play.",
     "privateTitle": "Private game",
-    "privateLede": "Open a game and send the link to whoever you like."
+    "privateLede": "Open a game and send the link to whoever you like.",
+    "tabPlay": "Play"
   },
   "result": {
     "wins": "{colour} wins",
@@ -130,7 +137,13 @@
     "byResigned": "the opponent resigned",
     "byAbandoned": "the opponent did not reconnect in time",
     "rematch": "Rematch",
-    "byTimeout": "the opponent ran out of time"
+    "byTimeout": "the opponent ran out of time",
+    "viewGame": "Review the game",
+    "newOpponent": "Another opponent",
+    "rematchAccept": "Accept rematch",
+    "rematchWaiting": "Rematch offered…",
+    "rematchOffered": "Your opponent offers a rematch.",
+    "rematchDeclined": "Rematch declined."
   },
   "settings": {
     "title": "Settings",
@@ -266,5 +279,41 @@
     "player": "Player",
     "games": "Games",
     "winRate": "Win rate"
+  },
+  "review": {
+    "first": "Start of the game",
+    "previous": "Previous move",
+    "next": "Next move",
+    "last": "Latest position",
+    "backToLive": "Back to the game",
+    "reviewing": "Reviewing — the game goes on"
+  },
+  "chat": {
+    "tab": "Chat",
+    "placeholder": "Write a message…",
+    "send": "Send",
+    "empty": "Say hello to your opponent."
+  },
+  "lobby": {
+    "title": "Lobby",
+    "tab": "Lobby",
+    "lede": "See who is around, talk, and challenge someone by name.",
+    "signIn": "The lobby introduces you to the other players. Sign in to step in.",
+    "enter": "Enter the lobby",
+    "leave": "Leave the lobby",
+    "nobody": "Nobody else yet. Stick around — you never know.",
+    "you": "you",
+    "playing": "in a game",
+    "available": "available",
+    "challenge": "Challenge",
+    "challengeSent": "Challenge sent to {name}",
+    "incoming": "{name} ({elo}) challenges you",
+    "accept": "Accept",
+    "decline": "Decline",
+    "declined": "Challenge declined",
+    "expired": "The challenge expired",
+    "cadenceFor": "Cadence",
+    "count": "{n} online",
+    "quiet": "Nothing said yet."
   }
 }

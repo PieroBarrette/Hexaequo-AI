@@ -16,6 +16,7 @@ import { request, connect, listen, inviteLink, serverOrigin, identify } from '..
 import { play as playSound } from '../audio.js';
 import { isSignedIn, onAuthChange, sessionToken } from '../auth.js';
 import { openPanel } from '../ui/panels.js';
+import { mountLobby } from './lobby.js';
 
 /** Cadences offered when opening a room; must match the server's table. */
 const CADENCES = ['none', 'bullet', 'blitz', 'rapid', 'classic'];
@@ -43,11 +44,41 @@ export function mountOnline(outlet) {
   let error = null;
   let cadence = 'none';
   let quickCadence = 'rapid';
+  let tab = 'play';
 
   /** Null when not searching; otherwise the last status the server sent. */
   let search = null;
   let ticker = null;
   const unsubscribe = [];
+
+  function tabStrip() {
+    const one = (id, label) =>
+      `<button class="page-tab${tab === id ? ' is-active' : ''}" data-page-tab="${id}">${label}</button>`;
+    return `<div class="page-tabs">${one('play', t('online.tabPlay'))}${one('lobby', t('lobby.tab'))}</div>`;
+  }
+
+  /** The lobby owns its container, so only the frame around it is redrawn. */
+  function renderLobbyTab() {
+    if (closeLobby.active) {
+      // Already mounted: just relabel the strip above it.
+      const strip = outlet.querySelector('.page-tabs');
+      if (strip) strip.outerHTML = tabStrip();
+      return;
+    }
+    outlet.innerHTML = `
+      <div class="page"><div class="page-inner">
+        <h1>${t('online.title')}</h1>
+        ${tabStrip()}
+        <div class="lobby-host"></div>
+      </div></div>`;
+    closeLobby.active = mountLobby(outlet.querySelector('.lobby-host'));
+  }
+
+  function closeLobby() {
+    if (!closeLobby.active) return;
+    try { closeLobby.active(); } catch { /* already gone */ }
+    closeLobby.active = null;
+  }
 
   const rangeText = () => t('online.quickRange', {
     low: Math.max(0, search.elo - search.band),
@@ -102,9 +133,15 @@ export function mountOnline(outlet) {
   }
 
   function render() {
+    // The lobby keeps its own state and its own subscriptions; re-rendering the
+    // page around it would tear it down mid-conversation.
+    if (tab === 'lobby') return renderLobbyTab();
+    closeLobby();
+
     outlet.innerHTML = `
       <div class="page"><div class="page-inner">
         <h1>${t('online.title')}</h1>
+        ${tabStrip()}
         <p class="lede">${t('online.lede')}</p>
 
         ${error ? `<p class="net-error">${error}</p>` : ''}
@@ -262,6 +299,13 @@ export function mountOnline(outlet) {
   unsubscribe.push(onAuthChange(() => { if (!search) render(); }));
 
   outlet.addEventListener('click', async (event) => {
+    const pageTab = event.target.closest('[data-page-tab]');
+    if (pageTab) {
+      tab = pageTab.getAttribute('data-page-tab');
+      playSound('ui');
+      render();
+      return;
+    }
     const quickPick = event.target.closest('[data-quick-cadence]');
     if (quickPick) {
       quickCadence = quickPick.getAttribute('data-quick-cadence');
@@ -345,7 +389,8 @@ export function mountOnline(outlet) {
 
   return () => {
     stopTicker();
-    // Leaving the lobby leaves the queue: nobody should be paired into a game
+    closeLobby();
+    // Leaving the page leaves the queue: nobody should be paired into a game
     // they are no longer watching for. Being matched empties the queue first,
     // so this is a no-op on the way into a game.
     if (search) request('hx:queue:leave', {}).catch(() => {});

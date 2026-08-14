@@ -100,7 +100,13 @@
       "NOT_A_PLAYER": "Vous n'êtes pas joueur dans cette partie.",
       "OFFLINE": "Serveur injoignable. Vérifiez votre connexion.",
       "SIGN_IN_REQUIRED": "Connectez-vous pour la partie rapide.",
-      "ENGINE_UNAVAILABLE": "Le serveur de jeu n'est pas disponible."
+      "ENGINE_UNAVAILABLE": "Le serveur de jeu n'est pas disponible.",
+      "NOT_HERE": "Ce joueur a quitté le salon.",
+      "NOT_IN_LOBBY": "Entrez dans le salon d'abord.",
+      "GAME_IN_PROGRESS": "La partie n'est pas terminée.",
+      "NO_SUCH_CHALLENGE": "Ce défi n'existe plus.",
+      "NOT_YOURS": "Ce défi ne vous est pas adressé.",
+      "EMPTY": "Message vide."
     },
     "rated": "Partie classée",
     "unratedFriendly": "Partie amicale — le classement ne bouge pas",
@@ -117,7 +123,8 @@
     "quickCancel": "Annuler la recherche",
     "quickSignIn": "La partie rapide vous apparie selon votre classement : connectez-vous pour y accéder.",
     "privateTitle": "Partie privée",
-    "privateLede": "Créez une partie et transmettez le lien à qui vous voulez."
+    "privateLede": "Créez une partie et transmettez le lien à qui vous voulez.",
+    "tabPlay": "Jouer"
   },
   "result": {
     "wins": "{colour} gagne",
@@ -130,7 +137,13 @@
     "byResigned": "l'adversaire a abandonné",
     "byAbandoned": "l'adversaire ne s'est pas reconnecté à temps",
     "rematch": "Revanche",
-    "byTimeout": "l'adversaire a manqué de temps"
+    "byTimeout": "l'adversaire a manqué de temps",
+    "viewGame": "Voir la partie",
+    "newOpponent": "Autre adversaire",
+    "rematchAccept": "Accepter la revanche",
+    "rematchWaiting": "Revanche proposée…",
+    "rematchOffered": "Votre adversaire propose une revanche.",
+    "rematchDeclined": "Revanche refusée."
   },
   "settings": {
     "title": "Paramètres",
@@ -266,5 +279,41 @@
     "player": "Joueur",
     "games": "Parties",
     "winRate": "Victoires"
+  },
+  "review": {
+    "first": "Début de la partie",
+    "previous": "Coup précédent",
+    "next": "Coup suivant",
+    "last": "Dernière position",
+    "backToLive": "Revenir à la partie",
+    "reviewing": "Révision — la partie continue"
+  },
+  "chat": {
+    "tab": "Clavardage",
+    "placeholder": "Écrire un message…",
+    "send": "Envoyer",
+    "empty": "Dites bonjour à votre adversaire."
+  },
+  "lobby": {
+    "title": "Salon",
+    "tab": "Salon",
+    "lede": "Voyez qui est là, discutez, et défiez quelqu'un par son nom.",
+    "signIn": "Le salon vous présente aux autres joueurs : connectez-vous pour y entrer.",
+    "enter": "Entrer dans le salon",
+    "leave": "Quitter le salon",
+    "nobody": "Personne d'autre pour l'instant. Restez, on ne sait jamais.",
+    "you": "vous",
+    "playing": "en partie",
+    "available": "disponible",
+    "challenge": "Défier",
+    "challengeSent": "Défi envoyé à {name}",
+    "incoming": "{name} ({elo}) vous défie",
+    "accept": "Accepter",
+    "decline": "Refuser",
+    "declined": "Défi refusé",
+    "expired": "Le défi a expiré",
+    "cadenceFor": "Cadence du défi",
+    "count": "{n} en ligne",
+    "quiet": "Rien n'a encore été dit."
   }
 }

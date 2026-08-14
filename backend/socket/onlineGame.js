@@ -26,6 +26,10 @@ const SWEEP_MS = 10 * 60 * 1000;
 const MAX_ROOMS_PER_SOCKET = 5;
 const MIN_MOVE_INTERVAL_MS = 150;             // a human cannot legitimately move faster
 
+const CHAT_MAX_LENGTH = 300;
+const CHAT_MIN_INTERVAL_MS = 400;
+const CHAT_HISTORY = 60;                      // enough to read the room on arrival
+
 /**
  * How long a disconnected player has to come back before losing by abandonment.
  *
@@ -98,6 +102,11 @@ function publicView(room) {
         result: room.result,
         seats: [Boolean(room.seats[0]), Boolean(room.seats[1])],
         names: room.names,
+        chat: room.chat,
+        // A rematch already agreed: whoever arrives late is sent to the new room
+        // rather than left looking at a finished one.
+        rematchCode: room.rematchCode || null,
+        rematchOfferedBy: room.rematch ? room.rematch.seat : null,
         timeControl: room.timeControl,
         clock: clockView(room),
         graceMs: RECONNECT_GRACE_MS[room.timeControl] || RECONNECT_GRACE_MS.none,
@@ -230,6 +239,9 @@ async function createRoom({ timeControl = 'none', reserved = null } = {}) {
         seats: [null, null],
         players: [null, null],
         names: [null, null],
+        chat: [],
+        rematch: null,          // { seat } while one side has offered
+        rematchCode: null,      // the room that replaced this one, once agreed
         // When set, only these accounts may take the matching seat — a paired
         // game is not something a passer-by can walk into.
         reserved,
@@ -540,6 +552,109 @@ function attachOnlineGames(io) {
             if (room.result) return reply(callback, { ok: false, error: 'GAME_OVER' });
             touch(room);
             finish(io, room, { winner: 1 - seat, reason: 'resigned' });
+            reply(callback, { ok: true });
+        });
+
+        /**
+         * Say something to the other player.
+         *
+         * Kept on the room rather than broadcast blindly, so a player who
+         * reconnects reads what they missed. Only the two seats may write:
+         * a room code is easy to guess at, and nobody should be able to talk
+         * into a stranger's game.
+         */
+        socket.on('hx:chat', (payload, callback) => {
+            const code = String((payload && payload.code) || '').toUpperCase().trim();
+            const room = rooms.get(code);
+            if (!room) return reply(callback, { ok: false, error: 'NO_SUCH_ROOM' });
+            const seat = seatOf(room, socket.id);
+            if (seat === -1) return reply(callback, { ok: false, error: 'NOT_A_PLAYER' });
+
+            const text = String((payload && payload.text) || '').replace(/\s+/g, ' ').trim();
+            if (!text) return reply(callback, { ok: false, error: 'EMPTY' });
+
+            const now = Date.now();
+            if (now - (socket.data.hxLastChatAt || 0) < CHAT_MIN_INTERVAL_MS) {
+                return reply(callback, { ok: false, error: 'TOO_FAST' });
+            }
+            socket.data.hxLastChatAt = now;
+
+            const message = {
+                seat,
+                name: room.names[seat] || null,
+                text: text.slice(0, CHAT_MAX_LENGTH),
+                at: now,
+            };
+            room.chat.push(message);
+            if (room.chat.length > CHAT_HISTORY) room.chat.shift();
+            touch(room);
+            io.to(code).emit('hx:chat', { code, message });
+            reply(callback, { ok: true });
+        });
+
+        /**
+         * Offer a rematch, or accept the one waiting.
+         *
+         * The same event does both: the first seat to send it makes the offer,
+         * and the second accepts it. Colours swap, so a rematch is not a rerun
+         * of the same advantage.
+         */
+        socket.on('hx:rematch', async (payload, callback) => {
+            const code = String((payload && payload.code) || '').toUpperCase().trim();
+            const room = rooms.get(code);
+            if (!room) return reply(callback, { ok: false, error: 'NO_SUCH_ROOM' });
+            const seat = seatOf(room, socket.id);
+            if (seat === -1) return reply(callback, { ok: false, error: 'NOT_A_PLAYER' });
+            if (!room.result) return reply(callback, { ok: false, error: 'GAME_IN_PROGRESS' });
+            touch(room);
+
+            // Already agreed: hand back the room that was made, however many
+            // times this is clicked.
+            if (room.rematchCode) {
+                return reply(callback, { ok: true, code: room.rematchCode, ready: true });
+            }
+            if (!room.rematch) {
+                room.rematch = { seat, at: Date.now() };
+                socket.to(code).emit('hx:rematch:offer', { code, seat });
+                return reply(callback, { ok: true, ready: false, offered: true });
+            }
+            if (room.rematch.seat === seat) {
+                return reply(callback, { ok: true, ready: false, offered: true });
+            }
+
+            // Both want it. The new room seats them the other way round.
+            const [black, white] = [room.players[1], room.players[0]];
+            let next;
+            try {
+                next = await createRoom({
+                    timeControl: room.timeControl,
+                    // Reserved only when both are signed in; a guest has no
+                    // identity that outlives the socket, so their rematch room
+                    // is an ordinary one and colours follow arrival.
+                    reserved: black && white && black.userId && white.userId
+                        ? [black.userId, white.userId]
+                        : null,
+                });
+            } catch (error) {
+                return reply(callback, { ok: false, error: 'ENGINE_UNAVAILABLE' });
+            }
+            room.rematchCode = next.code;
+            room.rematch = null;
+            io.to(code).emit('hx:rematch:ready', { code, next: next.code });
+            reply(callback, { ok: true, code: next.code, ready: true });
+        });
+
+        /** Turn a rematch down, so the other side stops waiting on an answer. */
+        socket.on('hx:rematch:decline', (payload, callback) => {
+            const code = String((payload && payload.code) || '').toUpperCase().trim();
+            const room = rooms.get(code);
+            if (!room) return reply(callback, { ok: false, error: 'NO_SUCH_ROOM' });
+            const seat = seatOf(room, socket.id);
+            if (seat === -1) return reply(callback, { ok: false, error: 'NOT_A_PLAYER' });
+            if (room.rematch && room.rematch.seat !== seat) {
+                room.rematch = null;
+                socket.to(code).emit('hx:rematch:declined', { code, seat });
+            }
             reply(callback, { ok: true });
         });
 

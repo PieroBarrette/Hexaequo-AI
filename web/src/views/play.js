@@ -44,6 +44,22 @@ export function mountPlay(outlet, params) {
   let effect = null;
   let effectEndsAt = 0;
   let drawerOpen = false;
+  let drawerTab = 'moves';
+
+  /**
+   * Review: every position the game has been through, and where the player is
+   * looking.
+   *
+   * `timeline[i]` is the position after i plies, so `timeline[0]` is the
+   * opening and the last entry is the live position. `review` is null while
+   * watching the game itself, and an index into the timeline while looking
+   * back. Looking back never touches the game — it is a second reader of the
+   * same history, which is what makes it safe to offer mid-game.
+   */
+  let timeline = [];
+  let timelineMoves = [];
+  let review = null;
+  let resultSeen = false;          // the result card has been dismissed
 
   let mode = MODE_AI;
   let humanSide = BLACK;
@@ -64,6 +80,12 @@ export function mountPlay(outlet, params) {
       ready: false,
       clock: null,           // last snapshot the server sent
       clockAt: 0,            // when we received it, to interpolate locally
+      chat: [],
+      unread: 0,
+      rematchAsked: false,     // we have offered
+      rematchOffered: false,   // they have offered
+      rematchDeclined: false,
+      rematchCode: null,       // the room that replaces this one
       unsubscribe: [],
     }
     : null;
@@ -74,9 +96,13 @@ export function mountPlay(outlet, params) {
     !net && (mode === MODE_AI_AI || (mode === MODE_AI && player !== humanSide));
 
   /** Whether the local player may act at all right now. */
-  const canAct = () => (net
+  const canAct = () => (review === null) && (net
     ? net.ready && !net.pending && state.turn === net.colour
     : !isAI(state.turn));
+
+  /** The position on screen: the game itself, or the ply being reviewed. */
+  const shownState = () => (review === null ? state : timeline[review]) || state;
+  const atLivePosition = () => review === null || review >= timeline.length - 1;
 
   /* ── Markup ───────────────────────────────────────────────────────────── */
   outlet.innerHTML = `
@@ -95,17 +121,34 @@ export function mountPlay(outlet, params) {
             <div class="result-title"></div>
             <div class="result-why"></div>
             <div class="result-rating"></div>
-            <div class="result-actions">
-              <button class="btn btn--primary" data-action="new">${t('result.rematch')}</button>
-              <button class="btn" data-action="menu">${t('nav.backToMenu')}</button>
-            </div>
+            <div class="result-note"></div>
+            <div class="result-actions"></div>
           </div>
+        </div>
+        <div class="review-bar">
+          <button class="btn btn--icon" data-action="rev-first" title="${t('review.first')}">⏮</button>
+          <button class="btn btn--icon" data-action="rev-prev" title="${t('review.previous')}">◀</button>
+          <span class="review-ply" data-field="ply"></span>
+          <button class="btn btn--icon" data-action="rev-next" title="${t('review.next')}">▶</button>
+          <button class="btn btn--icon" data-action="rev-last" title="${t('review.last')}">⏭</button>
+          <button class="btn review-live" data-action="rev-live">${t('review.backToLive')}</button>
         </div>
         <div class="drawer">
           <div class="drawer-tabs">
             <button class="drawer-tab is-active" data-tab="moves">${t('game.moveList')}</button>
+            <button class="drawer-tab" data-tab="chat">${t('chat.tab')}<i class="tab-dot"></i></button>
           </div>
-          <div class="drawer-body"><div class="move-list"></div></div>
+          <div class="drawer-body">
+            <div class="move-list"></div>
+            <div class="chat-pane">
+              <div class="chat-log"></div>
+              <form class="chat-form">
+                <input class="btn chat-input" maxlength="300" autocomplete="off"
+                       placeholder="${t('chat.placeholder')}">
+                <button class="btn btn--primary" type="submit">${t('chat.send')}</button>
+              </form>
+            </div>
+          </div>
         </div>
       </div>
       <aside class="rail" data-rail="1"></aside>
@@ -118,6 +161,11 @@ export function mountPlay(outlet, params) {
   const overlay = outlet.querySelector('.result-overlay');
   const drawer = outlet.querySelector('.drawer');
   const moveListEl = outlet.querySelector('.move-list');
+  const reviewBar = outlet.querySelector('.review-bar');
+  const chatPane = outlet.querySelector('.chat-pane');
+  const chatLogEl = outlet.querySelector('.chat-log');
+  const chatForm = outlet.querySelector('.chat-form');
+  const chatInput = outlet.querySelector('.chat-input');
 
   /* Game controls live in the site header so the board keeps its height. */
   const tools = document.getElementById('header-tools');
@@ -174,10 +222,17 @@ export function mountPlay(outlet, params) {
     buildTools();
     const movesTab = outlet.querySelector('[data-tab="moves"]');
     if (movesTab) movesTab.textContent = t('game.moveList');
+    const chatTab = outlet.querySelector('[data-tab="chat"]');
+    if (chatTab) chatTab.innerHTML = `${t('chat.tab')}<i class="tab-dot"></i>`;
+    chatInput.placeholder = t('chat.placeholder');
+    chatForm.querySelector('button').textContent = t('chat.send');
     outlet.querySelector('[data-action="end-jump"]').title = t('game.endJump');
     outlet.querySelector('[data-action="cancel-jump"]').title = t('game.cancel');
-    outlet.querySelector('[data-action="new"][class~="btn--primary"]').textContent = t('result.rematch');
-    outlet.querySelector('[data-action="menu"]').textContent = t('nav.backToMenu');
+    outlet.querySelector('[data-action="rev-live"]').textContent = t('review.backToLive');
+    for (const [action, key] of [['rev-first', 'first'], ['rev-prev', 'previous'],
+      ['rev-next', 'next'], ['rev-last', 'last']]) {
+      outlet.querySelector(`[data-action="${action}"]`).title = t('review.' + key);
+    }
     refresh();
   }
 
@@ -196,12 +251,28 @@ export function mountPlay(outlet, params) {
     picker = null;
     thinking = false;
     drag = null;
+    timeline = [cloneState(state)];
+    timelineMoves = [];
+    review = null;
+    resultSeen = false;
     clearEffect();
     board.setView({ x: 0, y: 0, w: 1, h: 1 }, true);
     board.__firstFrame = true;
     recordPosition();
     refresh(true);
     afterEffect(scheduleAI);
+  }
+
+  /**
+   * File the position a move produced, so it can be looked at later.
+   *
+   * A player reviewing when the next move lands stays where they were reading;
+   * being yanked back to the live board mid-thought is the behaviour every
+   * chess site had to unlearn.
+   */
+  function recordPly(move) {
+    timelineMoves.push(move);
+    timeline.push(cloneState(state));
   }
 
   function recordPosition() {
@@ -279,6 +350,7 @@ export function mountPlay(outlet, params) {
     applyMove(state, move);
     lastMove = move;
     moveLog.push({ player, text: notation, captured: allCaptures.length > 0 });
+    recordPly(move);
 
     const won = checkWinner(state);
     if (won) {
@@ -325,7 +397,12 @@ export function mountPlay(outlet, params) {
       repetitions = previous.repetitions;
       lastMove = previous.lastMove;
       result = null;
+      resultSeen = false;
     } while (history.length && stopAt !== null && state.turn !== stopAt);
+    // The undone plies never happened; the review has nowhere to go but back.
+    timeline.length = history.length + 1;
+    timelineMoves.length = history.length;
+    if (review !== null && review > history.length) review = null;
     if (mode === MODE_AI_AI) aiRunning = false;
     selected = null;
     chain = null;
@@ -461,6 +538,7 @@ export function mountPlay(outlet, params) {
     if (mine) net.noFly = false;
 
     moveLog.push({ player: payload.by, text: payload.notation, captured: captured.length > 0 });
+    recordPly(payload.move);
     selected = null;
     chain = null;
     picker = null;
@@ -492,14 +570,49 @@ export function mountPlay(outlet, params) {
     }
   }
 
+  /**
+   * Rebuild the whole game from the server's move list.
+   *
+   * The room hands over the ordered moves, so a player who joins late — or
+   * comes back after a dropped connection — can still walk through everything
+   * that happened before they arrived.
+   */
+  function replayTimeline(moves) {
+    const line = [];
+    const position = createState();
+    line.push(cloneState(position));
+    for (const move of moves || []) {
+      try { applyMove(position, move); } catch { break; }
+      line.push(cloneState(position));
+    }
+    return line;
+  }
+
   function adoptRoom(view) {
     if (view.colour !== undefined && view.colour !== null && view.colour >= 0) net.colour = view.colour;
     state = deserializeState(view.state);
     moveLog = (view.notations || []).map((text, i) => ({
       player: i % 2, text, captured: /×/.test(text),
     }));
+    timelineMoves = (view.moves || []).slice();
+    timeline = replayTimeline(timelineMoves);
+    if (timeline.length === timelineMoves.length + 1) {
+      // Whatever the replay produced, the live position is the server's.
+      timeline[timeline.length - 1] = cloneState(state);
+    } else {
+      // The replay could not follow the move list. Rather than offer a review
+      // that lies, offer none: the live position is still exactly right.
+      timeline = [cloneState(state)];
+      timelineMoves = [];
+    }
+    if (review !== null && review >= timeline.length) review = null;
     lastMove = null;
+    net.chat = (view.chat || []).slice();
+    net.rematchOffered = view.rematchOfferedBy !== null && view.rematchOfferedBy !== undefined
+      && view.rematchOfferedBy !== net.colour;
+    if (view.rematchCode) net.rematchCode = view.rematchCode;
     result = view.result ? readResult(view.result) : null;
+    resultSeen = false;
     net.opponentPresent = Boolean(view.seats && view.seats[1 - net.colour]);
     net.rated = Boolean(view.rated);
     net.people = view.players || [null, null];
@@ -586,6 +699,35 @@ export function mountPlay(outlet, params) {
       net.ratings = payload.ratings || null;
       renderResult();
     }));
+    net.unsubscribe.push(listen('hx:chat', (payload) => {
+      if (!net || payload.code !== net.code) return;
+      net.chat.push(payload.message);
+      // Somebody else's message, with the tab closed: mark it and chime once.
+      if (payload.message.seat !== net.colour && !(drawerOpen && drawerTab === 'chat')) {
+        net.unread++;
+        playSound('ui');
+      }
+      renderChat();
+    }));
+    net.unsubscribe.push(listen('hx:rematch:offer', (payload) => {
+      if (!net || payload.code !== net.code) return;
+      net.rematchOffered = true;
+      net.rematchDeclined = false;
+      playSound('ui');
+      // An offer is worth seeing even if the card was put away.
+      resultSeen = false;
+      refresh();
+    }));
+    net.unsubscribe.push(listen('hx:rematch:declined', (payload) => {
+      if (!net || payload.code !== net.code) return;
+      net.rematchAsked = false;
+      net.rematchDeclined = true;
+      refresh();
+    }));
+    net.unsubscribe.push(listen('hx:rematch:ready', (payload) => {
+      if (!net || payload.code !== net.code) return;
+      goToRematch(payload.next);
+    }));
     net.unsubscribe.push(listen('hx:opponent', (payload) => {
       if (!net || payload.code !== net.code) return;
       if (payload.seat === net.colour) return;
@@ -610,16 +752,50 @@ export function mountPlay(outlet, params) {
     refresh();
   }
 
+  /**
+   * Ask for another game, or take up the offer already on the table.
+   *
+   * One event does both, so the button says what it will do rather than the
+   * player having to know whose turn it is to ask.
+   */
+  async function askRematch() {
+    if (!net || !result) return;
+    net.rematchDeclined = false;
+    let response;
+    try {
+      response = await request('hx:rematch', { code: net.code });
+    } catch {
+      net.error = 'OFFLINE';
+      refresh();
+      return;
+    }
+    if (!response.ok) { net.error = response.error; refresh(); return; }
+    if (response.ready && response.code) { goToRematch(response.code); return; }
+    net.rematchAsked = true;
+    refresh();
+  }
+
+  function goToRematch(code) {
+    if (!net || net.rematchCode === code) return;
+    net.rematchCode = code;
+    playSound('ui');
+    navigate('play', { online: '1', code });
+  }
+
   /* ── Rendering ────────────────────────────────────────────────────────── */
 
   function refresh(instant) {
-    const player = state.turn;
+    /* Everything below draws `position`, which is the game itself while the
+       player is watching it and a past ply while they are reading back. */
+    const position = shownState();
+    const reviewing = review !== null;
+    const player = position.turn;
     const human = !result && !thinking && canAct();
     const dragging = !!(drag && drag.active);
     const idle = human && !chain && !picker && selected === null && !placeMode && !dragging;
     const aid = getSetting('showValidMoves');
-    const spots = tilePlacementSpots(chain ? chain.preview : state);
-    const source = chain ? chain.preview : state;
+    const spots = reviewing ? [] : tilePlacementSpots(chain ? chain.preview : state);
+    const source = chain ? chain.preview : position;
 
     const targets = new Map();
     if (human) {
@@ -652,17 +828,20 @@ export function mountPlay(outlet, params) {
       }
     }
 
+    /* The move that produced what is on screen: the game's last move while
+       watching, and the reviewed ply's own move while reading back. */
+    const marked = reviewing ? (review > 0 ? timelineMoves[review - 1] : null) : lastMove;
     const lastMoveCells = [];
-    if (lastMove && !chain) {
-      if (lastMove.type === 'tile' || lastMove.type === 'piece') lastMoveCells.push(lastMove.cell);
-      else if (lastMove.type === 'disk') lastMoveCells.push(lastMove.path[0], lastMove.path[lastMove.path.length - 1]);
-      else lastMoveCells.push(lastMove.from, lastMove.to);
+    if (marked && !chain) {
+      if (marked.type === 'tile' || marked.type === 'piece') lastMoveCells.push(marked.cell);
+      else if (marked.type === 'disk') lastMoveCells.push(marked.path[0], marked.path[marked.path.length - 1]);
+      else lastMoveCells.push(marked.from, marked.to);
     }
 
     board.render({
       state: source,
       spots,
-      spotsLive: human && !chain && !dragging && state.tileReserve[player] > 0
+      spotsLive: human && !chain && !dragging && position.tileReserve[player] > 0
         && (placeMode === 'tile' || idle),
       placeMode,
       targets,
@@ -678,19 +857,22 @@ export function mountPlay(outlet, params) {
         options: picker.options,
         pieceCode: (option) => makePiece(player, option === 'ring' ? RING : DISK),
       } : null,
-      hidden: effect && effect.hidden != null ? effect.hidden : -1,
+      hidden: !reviewing && effect && effect.hidden != null ? effect.hidden : -1,
       held: dragging ? drag.cell : -1,
-      newTile: effect ? effect.newTile : null,
-      newPiece: effect ? effect.newPiece : null,
+      newTile: !reviewing && effect ? effect.newTile : null,
+      newPiece: !reviewing && effect ? effect.newPiece : null,
       showValidMoves: aid,
       instant: instant || board.__firstFrame,
     });
     board.__firstFrame = false;
+    gameEl.classList.toggle('is-reviewing', reviewing);
 
-    renderRails();
+    renderRails(position, reviewing);
     renderChainBar();
     renderResult();
     renderMoveList();
+    renderReviewBar();
+    renderChat();
     renderNetStatus();
     syncTools();
     tickClocks();
@@ -721,6 +903,9 @@ export function mountPlay(outlet, params) {
 
   function runEffect() {
     if (!effect || effect.played) return;
+    /* A move that lands while the player is reading back has no board to play
+       on. The position is recorded either way; only the animation is lost. */
+    if (review !== null) { effect = null; return; }
     effect.played = true;
     const total = board.playEffects(effect, () => { effect = null; refresh(); });
     effectEndsAt = Date.now() + total;
@@ -756,31 +941,32 @@ export function mountPlay(outlet, params) {
     return out + '</div>';
   }
 
-  function renderRails() {
+  /** The reserves, for whichever position is on screen. */
+  function renderRails(position, reviewing) {
     for (let player = 0; player < 2; player++) {
       const rail = rails[player];
       const opponent = 1 - player;
-      const isTurn = !result && state.turn === player;
-      const live = isTurn && !thinking && !chain && !picker
+      const isTurn = !result && position.turn === player;
+      const live = !reviewing && isTurn && !thinking && !chain && !picker
         && (net ? (player === net.colour && canAct()) : !isAI(player));
       let freeOwnTiles = 0;
-      for (const k of state.tileKeys) {
-        if (state.tileAt[k] === player && state.pieceAt[k] < 0) freeOwnTiles++;
+      for (const k of position.tileKeys) {
+        if (position.tileAt[k] === player && position.pieceAt[k] < 0) freeOwnTiles++;
       }
       rail.innerHTML =
         `<div class="player-dot${player === WHITE ? ' is-white' : ''}"`
         + ` title="${colourName(player)} — ${isAI(player) ? 'IA' : ''}"></div>`
         + (net && net.clock ? `<div class="clock" data-clock="${player}">${formatClock(remainingFor(player))}</div>` : '')
-        + stackHtml('tile', player, TILES_PER_PLAYER, state.tileReserve[player],
-          live && tilePlacementSpots(state).length > 0)
-        + stackHtml('disk', player, DISKS_PER_PLAYER, state.diskReserve[player], live && freeOwnTiles > 0)
-        + stackHtml('ring', player, RINGS_PER_PLAYER, state.ringReserve[player],
-          live && freeOwnTiles > 0 && state.capturedDisks[player] > 0)
+        + stackHtml('tile', player, TILES_PER_PLAYER, position.tileReserve[player],
+          live && tilePlacementSpots(position).length > 0)
+        + stackHtml('disk', player, DISKS_PER_PLAYER, position.diskReserve[player], live && freeOwnTiles > 0)
+        + stackHtml('ring', player, RINGS_PER_PLAYER, position.ringReserve[player],
+          live && freeOwnTiles > 0 && position.capturedDisks[player] > 0)
         + '<div class="rail-sep"></div>'
-        + stackHtml('disk', opponent, DISKS_PER_PLAYER, state.capturedDisks[player], false)
-        + stackHtml('ring', opponent, RINGS_PER_PLAYER, state.capturedRings[player], false);
-      rail.classList.toggle('is-turn', isTurn);
-      rail.classList.toggle('is-thinking', isTurn && thinking);
+        + stackHtml('disk', opponent, DISKS_PER_PLAYER, position.capturedDisks[player], false)
+        + stackHtml('ring', opponent, RINGS_PER_PLAYER, position.capturedRings[player], false);
+      rail.classList.toggle('is-turn', isTurn && !reviewing);
+      rail.classList.toggle('is-thinking', isTurn && thinking && !reviewing);
     }
   }
 
@@ -793,9 +979,16 @@ export function mountPlay(outlet, params) {
       : `<span style="color:var(--muted);padding:0 4px">⋯</span>`;
   }
 
+  /**
+   * The end-of-game card.
+   *
+   * Dismissable on purpose: the board underneath is the thing people actually
+   * want to look at once the game is over, and a modal that cannot be closed
+   * is a modal that gets in the way of every review.
+   */
   function renderResult() {
-    overlay.classList.toggle('is-on', !!result);
-    if (!result) return;
+    overlay.classList.toggle('is-on', !!result && !resultSeen);
+    if (!result || resultSeen) return;
     overlay.querySelector('.result-title').innerHTML = result.draw
       ? `<span style="color:var(--muted)">${t('result.draw')}</span>`
       : `<span class="player-dot${result.winner === WHITE ? ' is-white' : ''}"></span>`
@@ -804,29 +997,138 @@ export function mountPlay(outlet, params) {
 
     /* A rated game moved two ratings; show the player what theirs did. */
     const stake = overlay.querySelector('.result-rating');
-    if (!stake) return;
     const mine = net && net.ratings && net.colour !== null ? net.ratings[net.colour] : null;
-    if (!mine) { stake.textContent = ''; stake.className = 'result-rating'; return; }
-    const sign = mine.change > 0 ? '+' : '';
-    stake.textContent = `${t('online.ratingChange')} ${mine.after} (${sign}${mine.change})`;
-    stake.className = `result-rating ${mine.change > 0 ? 'is-up' : (mine.change < 0 ? 'is-down' : '')}`;
+    if (!mine) { stake.textContent = ''; stake.className = 'result-rating'; }
+    else {
+      const sign = mine.change > 0 ? '+' : '';
+      stake.textContent = `${t('online.ratingChange')} ${mine.after} (${sign}${mine.change})`;
+      stake.className = `result-rating ${mine.change > 0 ? 'is-up' : (mine.change < 0 ? 'is-down' : '')}`;
+    }
+
+    const note = overlay.querySelector('.result-note');
+    note.textContent = !net ? ''
+      : (net.rematchDeclined ? t('result.rematchDeclined')
+        : (net.rematchAsked ? t('result.rematchWaiting')
+          : (net.rematchOffered ? t('result.rematchOffered') : '')));
+
+    overlay.querySelector('.result-actions').innerHTML = resultActions();
+  }
+
+  function resultActions() {
+    const viewButton = `<button class="btn" data-action="review-game">${t('result.viewGame')}</button>`;
+    const menu = `<button class="btn" data-action="menu">${t('nav.backToMenu')}</button>`;
+    if (!net) {
+      return `<button class="btn btn--primary" data-action="new">${t('result.rematch')}</button>`
+        + viewButton + menu;
+    }
+    // Online, a rematch is a request, not a decision: the wording says which.
+    const label = net.rematchOffered ? t('result.rematchAccept')
+      : (net.rematchAsked ? t('result.rematchWaiting') : t('result.rematch'));
+    return `<button class="btn btn--primary" data-action="rematch"${net.rematchAsked ? ' disabled' : ''}>`
+      + `${label}</button>`
+      + viewButton
+      + `<button class="btn" data-action="new-online">${t('result.newOpponent')}</button>`
+      + menu;
+  }
+
+  /* ── Review ───────────────────────────────────────────────────────────── */
+
+  function goToPly(index) {
+    const last = timeline.length - 1;
+    const target = Math.max(0, Math.min(last, index));
+    review = target >= last ? null : target;
+    selected = null;
+    chain = null;
+    picker = null;
+    placeMode = null;
+    clearEffect();
+    refresh(true);
+  }
+
+  function stepReview(delta) {
+    const current = review === null ? timeline.length - 1 : review;
+    goToPly(current + delta);
+  }
+
+  function renderReviewBar() {
+    // Nothing to look back on until a move has been played.
+    const usable = timeline.length > 1;
+    reviewBar.classList.toggle('is-on', usable);
+    if (!usable) return;
+    const last = timeline.length - 1;
+    const at = review === null ? last : review;
+    reviewBar.querySelector('[data-field="ply"]').textContent = `${at} / ${last}`;
+    reviewBar.querySelector('[data-action="rev-first"]').disabled = at === 0;
+    reviewBar.querySelector('[data-action="rev-prev"]').disabled = at === 0;
+    reviewBar.querySelector('[data-action="rev-next"]').disabled = at === last;
+    reviewBar.querySelector('[data-action="rev-last"]').disabled = at === last;
+    reviewBar.classList.toggle('is-back', review !== null);
   }
 
   const escapeText = (value) => String(value).replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+  /** Each half-move is a link into the review: click it and the board goes there. */
   function renderMoveList() {
-    if (!drawerOpen) return;
+    if (!drawerOpen || drawerTab !== 'moves') return;
+    const at = review === null ? timeline.length - 1 : review;
+    const cell = (entry, ply, extra) => {
+      if (!entry) return '<span></span>';
+      const classes = [extra, entry.captured ? 'took' : '', ply === at ? 'is-at' : '']
+        .filter(Boolean).join(' ');
+      return `<span class="ply ${classes}" data-ply="${ply}">${entry.text}</span>`;
+    };
     let out = '';
     for (let i = 0; i < moveLog.length; i += 2) {
-      const black = moveLog[i];
-      const white = moveLog[i + 1];
       out += `<div><span class="n">${i / 2 + 1}.</span>`
-        + `<span class="black${black.captured ? ' took' : ''}">${black.text}</span>`
-        + `<span class="${white && white.captured ? 'took' : ''}">${white ? white.text : ''}</span></div>`;
+        + cell(moveLog[i], i + 1, 'black')
+        + cell(moveLog[i + 1], i + 2, '') + '</div>';
     }
     moveListEl.innerHTML = out || `<div style="color:var(--muted)">${t('game.noMoves')}</div>`;
-    moveListEl.scrollTop = moveListEl.scrollHeight;
+    const current = moveListEl.querySelector('.is-at');
+    if (current) current.scrollIntoView({ block: 'nearest' });
+    else moveListEl.scrollTop = moveListEl.scrollHeight;
+  }
+
+  /* ── Chat ─────────────────────────────────────────────────────────────── */
+
+  function renderChat() {
+    const chatTab = outlet.querySelector('[data-tab="chat"]');
+    // There is nobody to talk to in a local game.
+    chatTab.style.display = net ? '' : 'none';
+    chatTab.classList.toggle('has-unread', Boolean(net && net.unread));
+    if (!net || !drawerOpen || drawerTab !== 'chat') return;
+
+    const mine = (message) => message.seat === net.colour;
+    chatLogEl.innerHTML = net.chat.length
+      ? net.chat.map((message) =>
+        `<div class="chat-line${mine(message) ? ' is-mine' : ''}">`
+        + `<span class="chat-who">${escapeText(message.name || colourName(message.seat))}</span>`
+        + `<span class="chat-text">${escapeText(message.text)}</span></div>`).join('')
+      : `<div style="color:var(--muted)">${t('chat.empty')}</div>`;
+    chatLogEl.scrollTop = chatLogEl.scrollHeight;
+  }
+
+  async function sendChat(text) {
+    if (!net || !text.trim()) return;
+    try {
+      const response = await request('hx:chat', { code: net.code, text });
+      // A message the server refused should not look sent.
+      if (!response.ok && response.error !== 'TOO_FAST') { net.error = response.error; refresh(); }
+    } catch { /* the next message is the player's own retry */ }
+  }
+
+  function showDrawerTab(name) {
+    drawerTab = name;
+    for (const tab of outlet.querySelectorAll('.drawer-tab')) {
+      tab.classList.toggle('is-active', tab.getAttribute('data-tab') === name);
+    }
+    moveListEl.style.display = name === 'moves' ? '' : 'none';
+    chatPane.style.display = name === 'chat' ? '' : 'none';
+    if (name === 'chat' && net) net.unread = 0;
+    renderMoveList();
+    renderChat();
+    if (name === 'chat') chatInput.focus();
   }
 
   function syncTools() {
@@ -850,7 +1152,9 @@ export function mountPlay(outlet, params) {
     run.textContent = aiRunning ? '⏸' : '▶';
     run.classList.toggle('is-on', aiRunning);
     tools.querySelector('[data-action="step"]').disabled = thinking || !!result || aiRunning;
-    tools.querySelector('[data-action="undo"]').disabled = thinking || !history.length;
+    // Undoing while reading back would rewrite the game under the review.
+    tools.querySelector('[data-action="undo"]').disabled =
+      thinking || !history.length || review !== null;
     const resignButton = tools.querySelector('[data-action="resign"]');
     if (resignButton) resignButton.disabled = !net || !net.ready || !!result;
   }
@@ -873,6 +1177,8 @@ export function mountPlay(outlet, params) {
       const left = Math.max(0, Math.ceil((net.awaiting.until - Date.now()) / 1000));
       message = `${t('online.opponentLeft')} — ${left}s`;
       tone = 'is-warn';
+    } else if (review !== null) {
+      message = t('review.reviewing');
     } else if (!net.opponentPresent && !result) {
       message = t('online.waiting');
     } else if (result) {
@@ -989,7 +1295,8 @@ export function mountPlay(outlet, params) {
   }
 
   function onCell(cell, pieceChoice) {
-    if (result || thinking || isAI(state.turn)) return;
+    // Reading back through the game is a view, never a move.
+    if (review !== null || result || thinking || isAI(state.turn)) return;
     const player = state.turn;
     const isMine = (k) => state.pieceAt[k] >= 0 && pieceOwner(state.pieceAt[k]) === player;
     const isFreeOwnTile = (k) => state.tileAt[k] === player && state.pieceAt[k] < 0;
@@ -1121,7 +1428,7 @@ export function mountPlay(outlet, params) {
   });
 
   function beginDrag() {
-    if (result || thinking || isAI(state.turn)) return false;
+    if (review !== null || result || thinking || isAI(state.turn)) return false;
     const cell = drag.cell;
     const player = state.turn;
     let code;
@@ -1157,6 +1464,12 @@ export function mountPlay(outlet, params) {
 
   /* Reserves: choose which kind of piece to place. */
   gameEl.addEventListener('click', (event) => {
+    const tab = event.target.closest('[data-tab]');
+    if (tab) { playSound('ui'); showDrawerTab(tab.getAttribute('data-tab')); return; }
+
+    const ply = event.target.closest('[data-ply]');
+    if (ply) { goToPly(Number(ply.getAttribute('data-ply'))); return; }
+
     const token = event.target.closest('[data-arm]');
     if (!token) return;
     const kind = token.getAttribute('data-arm');
@@ -1165,6 +1478,13 @@ export function mountPlay(outlet, params) {
     picker = null;
     playSound('ui');
     refresh();
+  });
+
+  chatForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const text = chatInput.value;
+    chatInput.value = '';
+    sendChat(text);
   });
 
   /* ── Controls ─────────────────────────────────────────────────────────── */
@@ -1176,8 +1496,16 @@ export function mountPlay(outlet, params) {
     playSound('ui');
     if (action === 'undo') undoLast();
     else if (action === 'new') { if (net) { navigate('online'); return; } aiRunning = false; newGame(); }
+    else if (action === 'new-online') navigate('online');
     else if (action === 'menu') navigate('home');
     else if (action === 'resign') resign();
+    else if (action === 'review-game') { resultSeen = true; goToPly(0); }
+    else if (action === 'rematch') askRematch();
+    else if (action === 'rev-first') goToPly(0);
+    else if (action === 'rev-prev') stepReview(-1);
+    else if (action === 'rev-next') stepReview(1);
+    else if (action === 'rev-last') goToPly(timeline.length - 1);
+    else if (action === 'rev-live') goToPly(timeline.length - 1);
     else if (action === 'copy-link' && net) {
       navigator.clipboard.writeText(inviteLink(net.code)).catch(() => {});
       button.textContent = '✓';
@@ -1189,7 +1517,7 @@ export function mountPlay(outlet, params) {
       drawerOpen = !drawerOpen;
       drawer.classList.toggle('is-on', drawerOpen);
       buildDrawerButton();
-      renderMoveList();
+      showDrawerTab(drawerTab);
     }
     else if (action === 'end-jump') { if (chain) finishChain(); }
     else if (action === 'cancel-jump') { chain = null; selected = null; clearEffect(); refresh(); }
@@ -1205,12 +1533,22 @@ export function mountPlay(outlet, params) {
   }
 
   function onKey(event) {
+    // Never steal a keystroke meant for the chat box.
+    if (event.target && event.target.closest && event.target.closest('input, textarea')) {
+      if (event.key === 'Escape') event.target.blur();
+      return;
+    }
     if (event.key === 'Escape') {
+      if (review !== null) { goToPly(timeline.length - 1); return; }
       if (drawerOpen) { drawerOpen = false; drawer.classList.remove('is-on'); return; }
       selected = null; chain = null; placeMode = null; picker = null; clearEffect(); refresh();
     } else if (event.key === 'Enter' && chain) {
       finishChain();
-    } else if ((event.key === 'z' || event.key === 'Z') && (event.ctrlKey || event.metaKey)) {
+    } else if (event.key === 'ArrowLeft') { event.preventDefault(); stepReview(-1); }
+    else if (event.key === 'ArrowRight') { event.preventDefault(); stepReview(1); }
+    else if (event.key === 'Home') { event.preventDefault(); goToPly(0); }
+    else if (event.key === 'End') { event.preventDefault(); goToPly(timeline.length - 1); }
+    else if ((event.key === 'z' || event.key === 'Z') && (event.ctrlKey || event.metaKey)) {
       event.preventDefault();
       undoLast();
     }
@@ -1240,6 +1578,7 @@ export function mountPlay(outlet, params) {
   const stopWatchingLanguage = onLanguageChange(relabel);
 
   newGame();
+  showDrawerTab('moves');
   if (net) {
     joinRoom();
     clockTimer = setInterval(tickClocks, 250);
@@ -1257,7 +1596,10 @@ export function mountPlay(outlet, params) {
     get moveLog() { return moveLog; },
     get effect() { return effect; },
     get net() { return net; },
-    onCell, newGame, commit, refresh, board,
+    get review() { return review; },
+    get timeline() { return timeline; },
+    get shown() { return shownState(); },
+    onCell, newGame, commit, refresh, board, goToPly,
     setMode: (m) => { mode = m; aiRunning = false; newGame(); },
   };
 

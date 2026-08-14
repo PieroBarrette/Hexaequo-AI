@@ -433,6 +433,116 @@ async function run() {
         b.disconnect();
     });
 
+    /* ── Chat ─────────────────────────────────────────────────────────── */
+
+    await test('the two seats can talk, and the room remembers', async () => {
+        const a = await open();
+        const b = await open();
+        const created = await ask(a, 'hx:create', {});
+        await ask(b, 'hx:join', { code: created.code });
+
+        const heard = waitFor(b, 'hx:chat');
+        const sent = await ask(a, 'hx:chat', { code: created.code, text: '  bien   joué  ' });
+        assert.ok(sent.ok, sent.error);
+        const event = await heard;
+        assert.strictEqual(event.message.text, 'bien joué', 'whitespace tidied');
+        assert.strictEqual(event.message.seat, 0);
+
+        const view = await ask(b, 'hx:sync', { code: created.code });
+        assert.strictEqual(view.chat.length, 1, 'kept for a player who reconnects');
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('a passer-by holding the code cannot talk into the game', async () => {
+        const a = await open();
+        const b = await open();
+        const created = await ask(a, 'hx:create', {});
+        await ask(b, 'hx:join', { code: created.code });
+        const stranger = await open();
+        const response = await ask(stranger, 'hx:chat', { code: created.code, text: 'hello' });
+        assert.strictEqual(response.ok, false);
+        assert.strictEqual(response.error, 'NOT_A_PLAYER');
+        stranger.disconnect();
+        a.disconnect();
+        b.disconnect();
+    });
+
+    /* ── Rematch ──────────────────────────────────────────────────────── */
+
+    await test('a rematch needs both players, and swaps the colours', async () => {
+        const a = await open();
+        const b = await open();
+        const created = await ask(a, 'hx:create', { timeControl: 'blitz' });
+        await ask(b, 'hx:join', { code: created.code });
+        await ask(a, 'hx:resign', { code: created.code });
+
+        const offered = waitFor(b, 'hx:rematch:offer');
+        const first = await ask(a, 'hx:rematch', { code: created.code });
+        assert.strictEqual(first.ready, false, 'one player is only an offer');
+        const offer = await offered;
+        assert.strictEqual(offer.seat, 0, 'black asked');
+
+        const ready = waitFor(a, 'hx:rematch:ready');
+        const second = await ask(b, 'hx:rematch', { code: created.code });
+        assert.strictEqual(second.ready, true);
+        assert.ok(second.code && second.code !== created.code, 'a new room');
+        const announced = await ready;
+        assert.strictEqual(announced.next, second.code, 'and both are told which');
+
+        // Colours swap: the one who was black joins as white.
+        const seatB = await ask(b, 'hx:join', { code: second.code });
+        const seatA = await ask(a, 'hx:join', { code: second.code });
+        assert.strictEqual(seatB.colour, 0, 'white last time, black now');
+        assert.strictEqual(seatA.colour, 1);
+        assert.strictEqual(seatA.timeControl, 'blitz', 'the same cadence');
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('asking twice does not open two rooms', async () => {
+        const a = await open();
+        const b = await open();
+        const created = await ask(a, 'hx:create', {});
+        await ask(b, 'hx:join', { code: created.code });
+        await ask(a, 'hx:resign', { code: created.code });
+        await ask(a, 'hx:rematch', { code: created.code });
+        await ask(a, 'hx:rematch', { code: created.code });     // same player, again
+        const agreed = await ask(b, 'hx:rematch', { code: created.code });
+        const again = await ask(b, 'hx:rematch', { code: created.code });
+        assert.strictEqual(again.code, agreed.code, 'the same new room');
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('a rematch cannot be asked for mid-game', async () => {
+        const a = await open();
+        const b = await open();
+        const created = await ask(a, 'hx:create', {});
+        await ask(b, 'hx:join', { code: created.code });
+        const response = await ask(a, 'hx:rematch', { code: created.code });
+        assert.strictEqual(response.ok, false);
+        assert.strictEqual(response.error, 'GAME_IN_PROGRESS');
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('declining a rematch clears the offer', async () => {
+        const a = await open();
+        const b = await open();
+        const created = await ask(a, 'hx:create', {});
+        await ask(b, 'hx:join', { code: created.code });
+        await ask(a, 'hx:resign', { code: created.code });
+        await ask(a, 'hx:rematch', { code: created.code });
+        const told = waitFor(a, 'hx:rematch:declined');
+        await ask(b, 'hx:rematch:decline', { code: created.code });
+        await told;
+        const view = await ask(a, 'hx:sync', { code: created.code });
+        assert.strictEqual(view.rematchOfferedBy, null, 'nothing left on the table');
+        a.disconnect();
+        b.disconnect();
+    });
+
     black.disconnect();
     white.disconnect();
     io.close();
