@@ -67,7 +67,7 @@
   },
   "online": {
     "title": "Jouer en ligne",
-    "lede": "Créez une partie et transmettez le lien. Aucun compte n'est nécessaire, et ces parties ne comptent pas au classement.",
+    "lede": "Jouez contre un adversaire de votre force, ou créez une partie privée et transmettez le lien.",
     "create": "Créer une partie",
     "join": "Rejoindre",
     "codeLabel": "Code de la partie",
@@ -98,13 +98,26 @@
       "GAME_OVER": "La partie est terminée.",
       "TOO_FAST": "Un instant…",
       "NOT_A_PLAYER": "Vous n'êtes pas joueur dans cette partie.",
-      "OFFLINE": "Serveur injoignable. Vérifiez votre connexion."
+      "OFFLINE": "Serveur injoignable. Vérifiez votre connexion.",
+      "SIGN_IN_REQUIRED": "Connectez-vous pour la partie rapide.",
+      "ENGINE_UNAVAILABLE": "Le serveur de jeu n'est pas disponible."
     },
     "rated": "Partie classée",
     "unratedFriendly": "Partie amicale — le classement ne bouge pas",
     "signInToRate": "Connectez-vous tous les deux pour que la partie compte au classement.",
     "opponent": "Adversaire",
-    "ratingChange": "Classement"
+    "ratingChange": "Classement",
+    "quick": "Partie rapide",
+    "quickLede": "Trouvez un adversaire de votre force. Ces parties comptent au classement.",
+    "quickFind": "Trouver un adversaire",
+    "quickSearching": "Recherche d'un adversaire…",
+    "quickRange": "Classement {low} à {high}",
+    "quickWidening": "la plage s'élargit avec l'attente",
+    "quickQueued": "{n} joueurs en attente",
+    "quickCancel": "Annuler la recherche",
+    "quickSignIn": "La partie rapide vous apparie selon votre classement : connectez-vous pour y accéder.",
+    "privateTitle": "Partie privée",
+    "privateLede": "Créez une partie et transmettez le lien à qui vous voulez."
   },
   "result": {
     "wins": "{colour} gagne",

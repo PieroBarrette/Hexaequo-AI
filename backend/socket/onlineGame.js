@@ -213,6 +213,39 @@ function chargeClock(room, seat) {
     return false;
 }
 
+/**
+ * An empty room, seats unfilled.
+ *
+ * Shared by hx:create and by matchmaking, which needs the same room but
+ * reserves both seats in advance for the two players it paired.
+ */
+async function createRoom({ timeControl = 'none', reserved = null } = {}) {
+    const state = await engine.createGame();
+    const code = makeCode();
+    const room = {
+        code,
+        state,
+        moves: [],
+        notations: [],
+        seats: [null, null],
+        players: [null, null],
+        names: [null, null],
+        // When set, only these accounts may take the matching seat — a paired
+        // game is not something a passer-by can walk into.
+        reserved,
+        signatures: new Map(),
+        result: null,
+        lastSeen: Date.now(),
+        timeControl: Object.prototype.hasOwnProperty.call(TIME_CONTROLS, timeControl) ? timeControl : 'none',
+        everFull: false,
+        grace: null,
+        clock: null,
+    };
+    room.clock = makeClock(room.timeControl);
+    rooms.set(code, room);
+    return room;
+}
+
 function seatOf(room, socketId) {
     if (room.seats[0] === socketId) return 0;
     if (room.seats[1] === socketId) return 1;
@@ -357,38 +390,18 @@ function attachOnlineGames(io) {
             if (socket.data.hxRooms.size >= MAX_ROOMS_PER_SOCKET) {
                 return reply(callback, { ok: false, error: 'TOO_MANY_ROOMS' });
             }
-            let state;
+            let room;
             try {
-                state = await engine.createGame();
+                room = await createRoom({ timeControl: options.timeControl });
             } catch (error) {
                 return reply(callback, { ok: false, error: 'ENGINE_UNAVAILABLE' });
             }
-            const code = makeCode();
-            const room = {
-                code,
-                state,
-                moves: [],
-                notations: [],
-                seats: [socket.id, null],
-                players: [socket.data.user ? { ...socket.data.user } : null, null],
-                names: [
-                    (socket.data.user && socket.data.user.pseudo)
-                        || String(options.name || '').slice(0, 24) || null,
-                    null,
-                ],
-                signatures: new Map(),
-                result: null,
-                lastSeen: Date.now(),
-                timeControl: Object.prototype.hasOwnProperty.call(TIME_CONTROLS, options.timeControl)
-                    ? options.timeControl : 'none',
-                everFull: false,
-                grace: null,
-                clock: null,
-            };
-            room.clock = makeClock(room.timeControl);
-            rooms.set(code, room);
-            socket.join(code);
-            socket.data.hxRooms.add(code);
+            room.seats[0] = socket.id;
+            room.players[0] = socket.data.user ? { ...socket.data.user } : null;
+            room.names[0] = (socket.data.user && socket.data.user.pseudo)
+                || String(options.name || '').slice(0, 24) || null;
+            socket.join(room.code);
+            socket.data.hxRooms.add(room.code);
             reply(callback, { ok: true, colour: 0, ...publicView(room) });
         });
 
@@ -401,7 +414,16 @@ function attachOnlineGames(io) {
 
             let seat = seatOf(room, socket.id);
             if (seat === -1) {
-                seat = room.seats[0] === null ? 0 : (room.seats[1] === null ? 1 : -1);
+                if (room.reserved) {
+                    // A paired game: each player has a seat with their name on it.
+                    const mine = socket.data.user
+                        ? room.reserved.indexOf(socket.data.user.userId)
+                        : -1;
+                    if (mine === -1) return reply(callback, { ok: false, error: 'ROOM_FULL' });
+                    seat = mine;
+                } else {
+                    seat = room.seats[0] === null ? 0 : (room.seats[1] === null ? 1 : -1);
+                }
                 if (seat === -1) return reply(callback, { ok: false, error: 'ROOM_FULL' });
                 room.seats[seat] = socket.id;
                 room.players[seat] = socket.data.user ? { ...socket.data.user } : null;
@@ -429,6 +451,11 @@ function attachOnlineGames(io) {
             // server counts down.
             socket.to(code).emit('hx:opponent', {
                 code, seat, name: room.names[seat], joined: true, clock: clockView(room),
+            });
+            // And who it is: the player already seated learns the newcomer's
+            // name, and whether the game they are in now counts.
+            socket.to(code).emit('hx:seats', {
+                code, players: room.players.map(seatView), rated: isRated(room),
             });
             reply(callback, { ok: true, colour: seat, ...publicView(room) });
         });
@@ -549,4 +576,7 @@ function attachOnlineGames(io) {
     });
 }
 
-module.exports = { attachOnlineGames, rooms, RECONNECT_GRACE_MS, TIME_CONTROLS };
+module.exports = {
+    attachOnlineGames, rooms, createRoom, publicView, isRated,
+    RECONNECT_GRACE_MS, TIME_CONTROLS,
+};

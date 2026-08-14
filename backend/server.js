@@ -103,6 +103,11 @@ const io = createSocketServer(httpServer);
 const { attachOnlineGames } = require('./socket/onlineGame');
 attachOnlineGames(io);
 
+// Quick match: pairing by rating band (hx:queue*). Attached after the game
+// handlers so a socket is already identified by the time it queues.
+const { attachMatchmaking } = require('./socket/matchmaking');
+attachMatchmaking(io);
+
 console.log('✅ Socket.IO initialized on server');
 
 // Debug: Log Socket.IO engine events

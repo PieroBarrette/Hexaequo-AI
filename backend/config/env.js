@@ -4,7 +4,9 @@
  * Centralized configuration loaded from environment variables.
  */
 
-require('dotenv').config();
+// Anchored on this file rather than the working directory, so `node
+// backend/server.js` from anywhere still finds the same .env.
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 
 module.exports = {
     // Server

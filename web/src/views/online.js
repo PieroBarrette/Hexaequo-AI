@@ -1,25 +1,105 @@
 /**
- * Online lobby: open a game and share the link, or join one with a code.
+ * Online lobby.
  *
- * No account is involved. A room is a six-character code, and whoever holds the
- * link takes the free seat. These games are not rated — ratings arrive with
- * accounts.
+ * Three ways in: quick match, which finds an opponent near your rating; a
+ * private room whose link you send to whoever you like; and a code, for the
+ * other end of that link.
+ *
+ * Quick match needs an account, because the pairing is done on your rating.
+ * Private rooms do not: whoever holds the link takes the free seat, and the
+ * game is rated only if both seats turn out to hold signed-in players.
  */
 
 import { t } from '../i18n.js';
 import { navigate } from '../router.js';
-import { request, connect, inviteLink, serverOrigin } from '../net.js';
+import { request, connect, listen, inviteLink, serverOrigin, identify } from '../net.js';
 import { play as playSound } from '../audio.js';
+import { isSignedIn, onAuthChange, sessionToken } from '../auth.js';
+import { openPanel } from '../ui/panels.js';
 
 /** Cadences offered when opening a room; must match the server's table. */
 const CADENCES = ['none', 'bullet', 'blitz', 'rapid', 'classic'];
+
+/**
+ * Quick match leaves out `none`: a rated game with no clock has no way to end
+ * when someone simply walks away from it.
+ */
+const QUICK_CADENCES = ['bullet', 'blitz', 'rapid', 'classic'];
+
+/** The server's widest band. Used only to draw how far the search has opened. */
+const MAX_BAND = 1200;
+
 const cadenceLabel = (id) => t('online.cadence' + id.charAt(0).toUpperCase() + id.slice(1));
+
+/** mm:ss, for the search timer. */
+function clockText(ms) {
+  const total = Math.max(0, Math.round(ms / 1000));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+}
 
 export function mountOnline(outlet) {
   let busy = false;
   let created = null;
   let error = null;
   let cadence = 'none';
+  let quickCadence = 'rapid';
+
+  /** Null when not searching; otherwise the last status the server sent. */
+  let search = null;
+  let ticker = null;
+  const unsubscribe = [];
+
+  const rangeText = () => t('online.quickRange', {
+    low: Math.max(0, search.elo - search.band),
+    high: search.elo + search.band,
+  });
+  const bandWidth = () => `${Math.min(100, (search.band / MAX_BAND) * 100)}%`;
+  /* Only worth saying when somebody else is in there: "1 waiting" is just you. */
+  const queuedText = () => (search.queued > 1 ? ` · ${t('online.quickQueued', { n: search.queued })}` : '');
+
+  function quickBlock() {
+    if (!isSignedIn()) {
+      return `
+        <div class="rule-block">
+          <h3>${t('online.quick')}</h3>
+          <p class="lede">${t('online.quickSignIn')}</p>
+          <button class="btn btn--primary" data-action="sign-in">${t('account.signIn')}</button>
+        </div>`;
+    }
+
+    if (search) {
+      return `
+        <div class="rule-block searching">
+          <h3>${t('online.quickSearching')}</h3>
+          <div class="search-band">
+            <span class="search-range" data-field="range">${rangeText()}</span>
+            <span class="search-timer" data-field="timer">${clockText(Date.now() - search.since)}</span>
+          </div>
+          <div class="search-bar"><i data-field="fill" style="width:${bandWidth()}"></i></div>
+          <p class="lede" style="font-size:12px;margin:10px 0 12px">
+            ${cadenceLabel(search.timeControl)} · ${t('online.quickWidening')}
+            <span data-field="queued">${queuedText()}</span>
+          </p>
+          <button class="btn" data-action="unqueue">${t('online.quickCancel')}</button>
+        </div>`;
+    }
+
+    return `
+      <div class="rule-block">
+        <h3>${t('online.quick')}</h3>
+        <p class="lede">${t('online.quickLede')}</p>
+        <div class="cadence-grid">
+          ${QUICK_CADENCES.map((id) => `
+            <button class="btn cadence${id === quickCadence ? ' is-active' : ''}" data-quick-cadence="${id}">
+              ${cadenceLabel(id)}
+            </button>`).join('')}
+        </div>
+        <button class="btn btn--primary" data-action="queue" ${busy ? 'disabled' : ''}
+                style="margin-top:10px">
+          ${busy ? t('online.connecting') : t('online.quickFind')}
+        </button>
+      </div>`;
+  }
 
   function render() {
     outlet.innerHTML = `
@@ -28,6 +108,8 @@ export function mountOnline(outlet) {
         <p class="lede">${t('online.lede')}</p>
 
         ${error ? `<p class="net-error">${error}</p>` : ''}
+
+        ${quickBlock()}
 
         ${created ? `
           <div class="rule-block">
@@ -42,8 +124,8 @@ export function mountOnline(outlet) {
           </div>
         ` : `
           <div class="rule-block">
-            <h3>${t('online.create')}</h3>
-            <p class="lede">${t('online.cadence')}</p>
+            <h3>${t('online.privateTitle')}</h3>
+            <p class="lede">${t('online.privateLede')}</p>
             <div class="cadence-grid">
               ${CADENCES.map((id) => `
                 <button class="btn cadence${id === cadence ? ' is-active' : ''}" data-cadence="${id}">
@@ -66,20 +148,127 @@ export function mountOnline(outlet) {
           </div>
         `}
 
-        <p class="lede" style="margin-top:22px;font-size:12px">${t('online.unrated')} · ${serverOrigin()}</p>
+        <p class="lede" style="margin-top:22px;font-size:12px">${serverOrigin()}</p>
       </div></div>`;
   }
 
   function fail(code) {
-    error = t('online.errors.' + code) === 'online.errors.' + code
-      ? t('online.errors.OFFLINE')
-      : t('online.errors.' + code);
+    const message = t('online.errors.' + code);
+    error = message === 'online.errors.' + code ? t('online.errors.OFFLINE') : message;
     render();
   }
 
+  /* ── Quick match ──────────────────────────────────────────────────────── */
+
+  /**
+   * Repaint only the numbers while searching. Re-rendering the block every
+   * second would fight the button under the player's finger.
+   */
+  function paintSearch() {
+    if (!search) return;
+    const timer = outlet.querySelector('[data-field="timer"]');
+    if (!timer) return render();          // the block was replaced; start over
+    timer.textContent = clockText(Date.now() - search.since);
+    outlet.querySelector('[data-field="range"]').textContent = rangeText();
+    outlet.querySelector('[data-field="queued"]').textContent = queuedText();
+    outlet.querySelector('[data-field="fill"]').style.width = bandWidth();
+  }
+
+  function startTicker() {
+    stopTicker();
+    ticker = setInterval(paintSearch, 1000);
+  }
+
+  function stopTicker() {
+    if (ticker) clearInterval(ticker);
+    ticker = null;
+  }
+
+  function adoptStatus(status) {
+    if (!status || !status.inQueue) {
+      search = null;
+      stopTicker();
+      // Dropped out for a reason the server can name — say which.
+      if (status && status.error) return fail(status.error);
+      render();
+      return;
+    }
+    const first = !search;
+    search = {
+      timeControl: status.timeControl,
+      elo: status.elo,
+      band: status.band,
+      queued: status.queued,
+      // Anchor the timer on the server's idea of how long we have waited, so a
+      // reload mid-search does not restart the count.
+      since: Date.now() - (status.waitingMs || 0),
+    };
+    if (first) { render(); startTicker(); } else paintSearch();
+  }
+
+  async function enterQueue() {
+    busy = true;
+    render();
+    try {
+      await connect();
+      await identify(sessionToken()).catch(() => {});
+      subscribe();
+      const response = await request('hx:queue', { timeControl: quickCadence });
+      busy = false;
+      if (!response.ok) return fail(response.error);
+      adoptStatus(response);
+    } catch {
+      busy = false;
+      fail('OFFLINE');
+    }
+  }
+
+  async function leaveQueue() {
+    search = null;
+    stopTicker();
+    render();
+    try { await request('hx:queue:leave', {}); } catch { /* leaving is best-effort */ }
+  }
+
+  let subscribed = false;
+
+  function subscribe() {
+    if (subscribed) return;
+    subscribed = true;
+    unsubscribe.push(listen('hx:queue:update', (status) => adoptStatus(status)));
+    unsubscribe.push(listen('hx:matched', (payload) => {
+      search = null;
+      stopTicker();
+      playSound('ui');
+      navigate('play', { online: '1', code: payload.code });
+    }));
+    // A reconnection loses the queue slot with the socket it was on; take it
+    // again rather than leaving the player staring at a dead timer.
+    unsubscribe.push(listen('connect', async () => {
+      if (!search) return;
+      await identify(sessionToken()).catch(() => {});
+      try {
+        const response = await request('hx:queue', { timeControl: search.timeControl });
+        if (response.ok) adoptStatus(response);
+      } catch { /* the next attempt is the player's */ }
+    }));
+  }
+
+  /* ── Wiring ───────────────────────────────────────────────────────────── */
+
   render();
 
+  // Signing in from the panel turns the sign-in prompt into the real thing.
+  unsubscribe.push(onAuthChange(() => { if (!search) render(); }));
+
   outlet.addEventListener('click', async (event) => {
+    const quickPick = event.target.closest('[data-quick-cadence]');
+    if (quickPick) {
+      quickCadence = quickPick.getAttribute('data-quick-cadence');
+      playSound('ui');
+      render();
+      return;
+    }
     const pick = event.target.closest('[data-cadence]');
     if (pick) {
       cadence = pick.getAttribute('data-cadence');
@@ -93,11 +282,16 @@ export function mountOnline(outlet) {
     playSound('ui');
     error = null;
 
+    if (action === 'sign-in') { openPanel('account'); return; }
+    if (action === 'queue') return enterQueue();
+    if (action === 'unqueue') return leaveQueue();
+
     if (action === 'create') {
       busy = true;
       render();
       try {
         await connect();
+        await identify(sessionToken()).catch(() => {});
         const response = await request('hx:create', { timeControl: cadence });
         if (!response.ok) { busy = false; return fail(response.error); }
         created = response;
@@ -138,11 +332,8 @@ export function mountOnline(outlet) {
       const link = inviteLink(created.code);
       try {
         await navigator.clipboard.writeText(link);
-        button.textContent = t('online.copied');
-      } catch {
-        // Clipboard access can be refused; the link is on screen anyway.
-        button.textContent = t('online.copied');
-      }
+      } catch { /* clipboard access can be refused; the link is on screen anyway */ }
+      button.textContent = t('online.copied');
     }
   });
 
@@ -151,4 +342,15 @@ export function mountOnline(outlet) {
     if (!field) return;
     field.value = field.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
   });
+
+  return () => {
+    stopTicker();
+    // Leaving the lobby leaves the queue: nobody should be paired into a game
+    // they are no longer watching for. Being matched empties the queue first,
+    // so this is a no-op on the way into a game.
+    if (search) request('hx:queue:leave', {}).catch(() => {});
+    for (const off of unsubscribe) {
+      try { off(); } catch { /* already gone */ }
+    }
+  };
 }

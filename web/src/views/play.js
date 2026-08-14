@@ -542,10 +542,15 @@ export function mountPlay(outlet, params) {
     refresh();
   }
 
-  async function joinRoom() {
+  /**
+   * Take our seat in the room, as ourselves.
+   *
+   * Identifying first is what makes the game rated — and, in a game we were
+   * paired into, is what proves the reserved seat is ours.
+   */
+  async function claimSeat() {
     try {
       await connect();
-      // Claim the seat as ourselves, so the game can be rated.
       await identify(sessionToken()).catch(() => {});
       const view = await request('hx:join', { code: net.code });
       if (!view.ok) { net.error = view.error; net.ready = false; refresh(); return; }
@@ -554,6 +559,10 @@ export function mountPlay(outlet, params) {
       net.error = 'OFFLINE';
       refresh();
     }
+  }
+
+  async function joinRoom() {
+    await claimSeat();
 
     net.unsubscribe.push(listen('hx:moved', (payload) => {
       if (!net || payload.code !== net.code) return;
@@ -587,8 +596,11 @@ export function mountPlay(outlet, params) {
         : { seat: payload.seat, until: Date.now() + payload.msLeft };
       refresh();
     }));
-    // A dropped socket rejoins itself, so the seat is reclaimed automatically.
-    net.unsubscribe.push(listen('connect', () => { if (net) syncFromServer(); }));
+    /* A dropped socket comes back with a new id, and the server freed our seat
+       when the old one died. Asking for the position again would leave us
+       watching our own game while the abandonment countdown ran, so take the
+       seat back instead — hx:join is also how the countdown is called off. */
+    net.unsubscribe.push(listen('connect', () => { if (net) claimSeat(); }));
   }
 
   async function resign() {

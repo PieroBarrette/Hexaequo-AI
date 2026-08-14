@@ -67,7 +67,7 @@
   },
   "online": {
     "title": "Play online",
-    "lede": "Start a game and pass on the link. No account needed, and these games are not rated.",
+    "lede": "Play someone at your level, or open a private game and share the link.",
     "create": "Start a game",
     "join": "Join",
     "codeLabel": "Game code",
@@ -98,13 +98,26 @@
       "GAME_OVER": "The game is over.",
       "TOO_FAST": "One moment…",
       "NOT_A_PLAYER": "You are not a player in this game.",
-      "OFFLINE": "Cannot reach the server. Check your connection."
+      "OFFLINE": "Cannot reach the server. Check your connection.",
+      "SIGN_IN_REQUIRED": "Sign in to use quick match.",
+      "ENGINE_UNAVAILABLE": "The game server is unavailable."
     },
     "rated": "Rated game",
     "unratedFriendly": "Friendly game — no rating at stake",
     "signInToRate": "Both players must be signed in for the game to count.",
     "opponent": "Opponent",
-    "ratingChange": "Rating"
+    "ratingChange": "Rating",
+    "quick": "Quick match",
+    "quickLede": "Find an opponent at your level. These games are rated.",
+    "quickFind": "Find an opponent",
+    "quickSearching": "Looking for an opponent…",
+    "quickRange": "Rating {low} to {high}",
+    "quickWidening": "the range widens as you wait",
+    "quickQueued": "{n} players waiting",
+    "quickCancel": "Cancel search",
+    "quickSignIn": "Quick match pairs you by rating, so it needs an account. Sign in to play.",
+    "privateTitle": "Private game",
+    "privateLede": "Open a game and send the link to whoever you like."
   },
   "result": {
     "wins": "{colour} wins",

@@ -48,6 +48,9 @@ function waitFor(socket, event, ms = 8000) {
 }
 
 async function makeUser(tag, elo = 1000) {
+    // Clear the way first: an interrupted run leaves its rows behind, and every
+    // later run would then fail on the unique address rather than on the code.
+    await query('DELETE FROM users WHERE email = $1', [`online-test-${tag}@example.invalid`]);
     const { rows } = await query(
         `INSERT INTO users (email, pseudo, google_id, elo, email_verified, pseudo_chosen)
          VALUES ($1,$2,$3,$4,TRUE,TRUE) RETURNING *`,
@@ -119,6 +122,29 @@ async function run() {
         b.disconnect();
     });
 
+    await test('the player already seated is told who arrived', async () => {
+        const black = await makeUser('g');
+        const white = await makeUser('h');
+        const a = await open();
+        const b = await open();
+        await ask(a, 'hx:identify', { token: black.token });
+        await ask(b, 'hx:identify', { token: white.token });
+
+        const created = await ask(a, 'hx:create', {});
+        assert.strictEqual(created.rated, false, 'alone in the room, nothing counts yet');
+        // Waiting alone, the creator must learn the opponent's name and that the
+        // game has become rated — without it the panel sits on "unrated" for the
+        // whole game.
+        const heard = waitFor(a, 'hx:seats');
+        await ask(b, 'hx:join', { code: created.code });
+        const event = await heard;
+        assert.strictEqual(event.rated, true);
+        assert.strictEqual(event.players[1].pseudo, white.user.pseudo);
+        assert.strictEqual(event.players[0].pseudo, black.user.pseudo);
+        a.disconnect();
+        b.disconnect();
+    });
+
     await test('a forged token identifies nobody', async () => {
         const a = await open();
         const response = await ask(a, 'hx:identify', { token: 'not.a.real.token' });
@@ -158,7 +184,12 @@ async function run() {
         const created = await ask(a, 'hx:create', { timeControl: 'none' });
         await ask(b, 'hx:join', { code: created.code });
 
-        const ratedEvent = waitFor(a, 'hx:rated', 20000);
+        /* Catch the event whenever it lands. A random game can run to a few
+           hundred plies, so a timer started here would be measuring the game
+           rather than the rating; the budget below starts once it is over. */
+        let ratedLanded;
+        const ratedEvent = new Promise((resolve) => { ratedLanded = resolve; });
+        a.once('hx:rated', ratedLanded);
         const seats = [a, b];
         let view = created;
         let plies = 0;
@@ -176,7 +207,9 @@ async function run() {
         }
         assert.ok(view.result, `no result after ${plies} plies`);
 
-        const payload = await ratedEvent;
+        const payload = await Promise.race([ratedEvent, new Promise((resolve, reject) => {
+            setTimeout(() => reject(new Error('no hx:rated after the game ended')), 15000);
+        })]);
         assert.strictEqual(payload.ratings.length, 2);
         const [blackRating, whiteRating] = payload.ratings;
         assert.strictEqual(blackRating.change, -whiteRating.change, 'symmetric, to the point');

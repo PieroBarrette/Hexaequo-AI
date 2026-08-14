@@ -297,6 +297,31 @@ select.btn { padding-right: 8px; }
   padding: 9px 12px; color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent);
 }
 
+/* Quick match: the search reads as one widening range, not a spinner. */
+.rule-block.searching { border-color: var(--accent); }
+.rule-block.searching h3::after {
+  content: ''; display: inline-block; width: 7px; height: 7px; margin-left: 8px;
+  border-radius: 50%; background: var(--accent); vertical-align: middle;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+.search-band {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+  font: 600 15px/1.2 var(--font-mono); font-variant-numeric: tabular-nums;
+}
+.search-range { color: var(--text); }
+.search-timer { color: var(--muted); }
+.search-bar {
+  height: 5px; border-radius: 999px; background: var(--surface-2);
+  overflow: hidden; margin-top: 8px;
+}
+.search-bar i { display: block; height: 100%; background: var(--accent); transition: width .4s linear; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rule-block.searching h3::after { animation: none; opacity: .8; }
+  .search-bar i { transition: none; }
+}
+
 /* ── Rules ───────────────────────────────────────────────────────────────── */
 
 .rule-block {
