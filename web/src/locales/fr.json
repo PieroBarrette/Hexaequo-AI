@@ -12,7 +12,8 @@
     "backToMenu": "Retour au menu",
     "privacy": "Politique de confidentialité",
     "terms": "Conditions d'utilisation",
-    "account": "Compte"
+    "account": "Compte",
+    "leaderboard": "Classement"
   },
   "home": {
     "playLocal": "Jouer",
@@ -20,7 +21,8 @@
     "onlineSoon": "Bientôt",
     "rules": "Règles",
     "settings": "Paramètres",
-    "purpose": "Hexaequo est un jeu de plateau abstrait gratuit pour deux joueurs. Il n'y a pas de plateau fixe : on le construit en jouant, tuile après tuile. Jouez à deux sur le même appareil, contre l'ordinateur, ou en ligne avec un ami."
+    "purpose": "Hexaequo est un jeu de plateau abstrait gratuit pour deux joueurs. Il n'y a pas de plateau fixe : on le construit en jouant, tuile après tuile. Jouez à deux sur le même appareil, contre l'ordinateur, ou en ligne avec un ami.",
+    "leaderboard": "Classement"
   },
   "common": {
     "black": "Noir",
@@ -97,7 +99,12 @@
       "TOO_FAST": "Un instant…",
       "NOT_A_PLAYER": "Vous n'êtes pas joueur dans cette partie.",
       "OFFLINE": "Serveur injoignable. Vérifiez votre connexion."
-    }
+    },
+    "rated": "Partie classée",
+    "unratedFriendly": "Partie amicale — le classement ne bouge pas",
+    "signInToRate": "Connectez-vous tous les deux pour que la partie compte au classement.",
+    "opponent": "Adversaire",
+    "ratingChange": "Classement"
   },
   "result": {
     "wins": "{colour} gagne",
@@ -237,5 +244,14 @@
     "losses": "Défaites",
     "draws": "ExAequo",
     "signIn": "Se connecter"
+  },
+  "leaderboard": {
+    "title": "Classement",
+    "loading": "Chargement du classement…",
+    "empty": "Personne n'a encore terminé de partie classée. Soyez le premier.",
+    "lede": "{count} joueurs classés.",
+    "player": "Joueur",
+    "games": "Parties",
+    "winRate": "Victoires"
   }
 }

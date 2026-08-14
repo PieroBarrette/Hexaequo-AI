@@ -5,7 +5,7 @@
  * Bump CACHE_VERSION on every release — the activate step removes older caches.
  */
 
-const CACHE_VERSION = 'hexaequo-v3';
+const CACHE_VERSION = 'hexaequo-v4';
 
 const SHELL = [
   './',
@@ -34,6 +34,7 @@ const SHELL = [
   './src/views/rules.js',
   './src/views/legal.js',
   './src/views/account.js',
+  './src/views/leaderboard.js',
   './src/views/online.js',
   './src/ui/overlay.js',
   './src/ui/panels.js',

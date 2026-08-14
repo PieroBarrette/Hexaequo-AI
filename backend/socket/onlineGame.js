@@ -12,7 +12,11 @@
  * write a game to the database and to replay it later.
  */
 
+const jwt = require('jsonwebtoken');
 const engine = require('../game/engine');
+const { query } = require('../config/database');
+const { JWT_SECRET } = require('../config/env');
+const ratedGames = require('../services/ratedGameService');
 
 /* Codes a person has to read aloud: no O/0, I/1, S/5, B/8, Z/2. */
 const CODE_ALPHABET = 'ACDEFGHJKLMNPQRTUVWXY34679';
@@ -67,8 +71,26 @@ function makeCode() {
     return code;
 }
 
+/**
+ * A game counts for the rating only when two different signed-in players hold
+ * the seats. Anything else — a guest, a link shared with yourself — is a
+ * friendly.
+ */
+function isRated(room) {
+    const [black, white] = room.players;
+    return Boolean(black && white && black.userId && white.userId && black.userId !== white.userId);
+}
+
+/** What each side may know about the other: a name and a rating, never an email. */
+function seatView(seat) {
+    if (!seat || !seat.userId) return null;
+    return { pseudo: seat.pseudo, elo: seat.elo, userId: seat.userId };
+}
+
 function publicView(room) {
     return {
+        rated: isRated(room),
+        players: room.players.map(seatView),
         code: room.code,
         state: room.state,
         moves: room.moves,
@@ -201,13 +223,32 @@ function touch(room) {
     room.lastSeen = Date.now();
 }
 
-/** Finish a room and tell both seats why. */
+/**
+ * Finish a room and tell both seats why.
+ *
+ * The result is announced first and recorded afterwards: the players should
+ * never wait on a database write to learn they have won, and a failed write
+ * must not cost them the result.
+ */
 function finish(io, room, result) {
     cancelGrace(room);
     disarmFlag(room);
     if (room.clock) room.clock.running = false;
+    if (room.result) return;                     // a game ends exactly once
     room.result = result;
-    io.to(room.code).emit('hx:ended', { code: room.code, result, clock: clockView(room) });
+    io.to(room.code).emit('hx:ended', {
+        code: room.code, result, clock: clockView(room), rated: isRated(room),
+    });
+
+    ratedGames.recordGame(room, result)
+        .then((record) => {
+            if (!record || !record.rated) return;
+            room.ratings = record.ratings;
+            io.to(room.code).emit('hx:rated', {
+                code: room.code, gameId: record.gameId, ratings: record.ratings,
+            });
+        })
+        .catch((error) => console.error('[online] recording failed:', error.message));
 }
 
 function cancelGrace(room) {
@@ -256,10 +297,58 @@ function attachOnlineGames(io) {
     io.on('connection', (socket) => {
         socket.data.hxRooms = new Set();
         socket.data.hxLastMoveAt = 0;
+        socket.data.user = null;
 
         const reply = (callback, payload) => {
             if (typeof callback === 'function') callback(payload);
         };
+
+        /**
+         * Attach an account to this socket.
+         *
+         * Sent after connecting, and again after signing in, so that signing in
+         * mid-session does not require dropping the connection. Without it the
+         * socket stays anonymous and its games are unrated.
+         */
+        socket.on('hx:identify', async (payload, callback) => {
+            const token = payload && payload.token;
+            if (!token) {
+                socket.data.user = null;
+                return reply(callback, { ok: true, user: null });
+            }
+            try {
+                const claims = jwt.verify(String(token), JWT_SECRET);
+                const { rows } = await query(
+                    'SELECT id, pseudo, elo, games_played FROM users WHERE id = $1',
+                    [claims.userId]
+                );
+                if (!rows.length) throw new Error('unknown account');
+                const user = rows[0];
+                socket.data.user = {
+                    userId: user.id,
+                    pseudo: user.pseudo,
+                    elo: user.elo,
+                    gamesPlayed: user.games_played,
+                };
+                // Seats already held by this socket adopt the identity, so a
+                // player who signs in while waiting still gets a rated game.
+                for (const code of socket.data.hxRooms) {
+                    const room = rooms.get(code);
+                    if (!room) continue;
+                    const seat = seatOf(room, socket.id);
+                    if (seat === -1 || room.result) continue;
+                    room.players[seat] = { ...socket.data.user };
+                    room.names[seat] = user.pseudo;
+                    io.to(code).emit('hx:seats', {
+                        code, players: room.players.map(seatView), rated: isRated(room),
+                    });
+                }
+                reply(callback, { ok: true, user: { pseudo: user.pseudo, elo: user.elo } });
+            } catch (error) {
+                socket.data.user = null;
+                reply(callback, { ok: false, error: 'BAD_TOKEN' });
+            }
+        });
 
         /** Open a room and take the black seat. */
         socket.on('hx:create', async (options, callback) => {
@@ -281,7 +370,12 @@ function attachOnlineGames(io) {
                 moves: [],
                 notations: [],
                 seats: [socket.id, null],
-                names: [String(options.name || '').slice(0, 24) || null, null],
+                players: [socket.data.user ? { ...socket.data.user } : null, null],
+                names: [
+                    (socket.data.user && socket.data.user.pseudo)
+                        || String(options.name || '').slice(0, 24) || null,
+                    null,
+                ],
                 signatures: new Map(),
                 result: null,
                 lastSeen: Date.now(),
@@ -310,8 +404,15 @@ function attachOnlineGames(io) {
                 seat = room.seats[0] === null ? 0 : (room.seats[1] === null ? 1 : -1);
                 if (seat === -1) return reply(callback, { ok: false, error: 'ROOM_FULL' });
                 room.seats[seat] = socket.id;
-                const name = String((payload && payload.name) || '').slice(0, 24);
+                room.players[seat] = socket.data.user ? { ...socket.data.user } : null;
+                const name = (socket.data.user && socket.data.user.pseudo)
+                    || String((payload && payload.name) || '').slice(0, 24);
                 room.names[seat] = name || null;
+            } else if (socket.data.user) {
+                // Returning to a seat we already held: refresh the identity in
+                // case the player signed in since.
+                room.players[seat] = { ...socket.data.user };
+                room.names[seat] = socket.data.user.pseudo;
             }
             if (room.seats[0] && room.seats[1]) {
                 const firstTime = !room.everFull;

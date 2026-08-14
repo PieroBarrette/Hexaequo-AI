@@ -22,6 +22,8 @@ router.get('/me/preferences', authenticate, userController.getPreferences);
 router.put('/me/preferences', authenticate, validate(schemas.updatePreferences), userController.updatePreferences);
 
 // Public routes - user by ID
+// Must come before /:id, or "leaderboard" would be taken for an account id.
+router.get('/leaderboard', userController.getLeaderboard);
 router.get('/:id', userController.getUserById);
 router.get('/:id/matches', userController.getMatchHistory);
 

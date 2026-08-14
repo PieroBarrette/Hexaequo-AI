@@ -24,7 +24,8 @@ import {
   generateMoves, generateDiskMoves, availableJumps, checkWinner, moveNotation, moveIntent,
 } from '../game/moves.js';
 import { chooseMove } from '../game/ai.js';
-import { request, listen, connect, inviteLink } from '../net.js';
+import { request, listen, connect, inviteLink, identify } from '../net.js';
+import { sessionToken } from '../auth.js';
 
 const MODE_LOCAL = 'local';
 const MODE_AI = 'ai';
@@ -93,6 +94,7 @@ export function mountPlay(outlet, params) {
           <div class="result-card">
             <div class="result-title"></div>
             <div class="result-why"></div>
+            <div class="result-rating"></div>
             <div class="result-actions">
               <button class="btn btn--primary" data-action="new">${t('result.rematch')}</button>
               <button class="btn" data-action="menu">${t('nav.backToMenu')}</button>
@@ -499,6 +501,8 @@ export function mountPlay(outlet, params) {
     lastMove = null;
     result = view.result ? readResult(view.result) : null;
     net.opponentPresent = Boolean(view.seats && view.seats[1 - net.colour]);
+    net.rated = Boolean(view.rated);
+    net.people = view.players || [null, null];
     net.awaiting = view.awaitingReturn
       ? { seat: view.awaitingReturn.seat, until: Date.now() + view.awaitingReturn.msLeft }
       : null;
@@ -541,6 +545,8 @@ export function mountPlay(outlet, params) {
   async function joinRoom() {
     try {
       await connect();
+      // Claim the seat as ourselves, so the game can be rated.
+      await identify(sessionToken()).catch(() => {});
       const view = await request('hx:join', { code: net.code });
       if (!view.ok) { net.error = view.error; net.ready = false; refresh(); return; }
       adoptRoom(view);
@@ -559,6 +565,17 @@ export function mountPlay(outlet, params) {
       adoptClock(payload.clock);
       net.awaiting = null;
       refresh();
+    }));
+    net.unsubscribe.push(listen('hx:seats', (payload) => {
+      if (!net || payload.code !== net.code) return;
+      net.people = payload.players || [null, null];
+      net.rated = Boolean(payload.rated);
+      refresh();
+    }));
+    net.unsubscribe.push(listen('hx:rated', (payload) => {
+      if (!net || payload.code !== net.code) return;
+      net.ratings = payload.ratings || null;
+      renderResult();
     }));
     net.unsubscribe.push(listen('hx:opponent', (payload) => {
       if (!net || payload.code !== net.code) return;
@@ -772,7 +789,19 @@ export function mountPlay(outlet, params) {
       : `<span class="player-dot${result.winner === WHITE ? ' is-white' : ''}"></span>`
         + t('result.wins', { colour: colourName(result.winner) });
     overlay.querySelector('.result-why').textContent = resultWhy(result);
+
+    /* A rated game moved two ratings; show the player what theirs did. */
+    const stake = overlay.querySelector('.result-rating');
+    if (!stake) return;
+    const mine = net && net.ratings && net.colour !== null ? net.ratings[net.colour] : null;
+    if (!mine) { stake.textContent = ''; stake.className = 'result-rating'; return; }
+    const sign = mine.change > 0 ? '+' : '';
+    stake.textContent = `${t('online.ratingChange')} ${mine.after} (${sign}${mine.change})`;
+    stake.className = `result-rating ${mine.change > 0 ? 'is-up' : (mine.change < 0 ? 'is-down' : '')}`;
   }
+
+  const escapeText = (value) => String(value).replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   function renderMoveList() {
     if (!drawerOpen) return;
@@ -840,12 +869,23 @@ export function mountPlay(outlet, params) {
       message = state.turn === net.colour ? t('game.yourTurn') : t('game.turnOf', { colour: colourName(state.turn) });
     }
 
+    /* Who is on the other side, and whether anything is at stake. */
+    const other = net.people && net.colour !== null ? net.people[1 - net.colour] : null;
+    const opponentLabel = other
+      ? `<span class="net-vs">${escapeText(other.pseudo)}<span class="net-elo">${other.elo}</span></span>`
+      : '';
+    const stakeLabel = net.rated
+      ? `<span class="net-stake is-rated" title="${t('online.rated')}">${t('online.rated')}</span>`
+      : `<span class="net-stake" title="${t('online.signInToRate')}">${t('online.unrated')}</span>`;
+
     strip.className = `net-strip is-on ${tone}`;
     strip.innerHTML =
       `<span class="player-dot${net.colour === WHITE ? ' is-white' : ''}"></span>`
       + `<span>${net.colour === null ? '' : t('online.youAre', { colour: colourName(net.colour) })}</span>`
+      + opponentLabel
       + `<span class="net-msg">${message}</span>`
       + `<span class="grow"></span>`
+      + stakeLabel
       + `<code class="room-code room-code--sm">${net.code}</code>`
       + `<button class="btn btn--icon" data-action="copy-link" title="${t('online.copyLink')}">⧉</button>`;
 

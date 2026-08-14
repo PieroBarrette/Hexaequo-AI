@@ -10,11 +10,13 @@ import { openOverlay, isOverlayOpen, overlayName, refreshOverlay } from './overl
 import { mountRules } from '../views/rules.js';
 import { mountSettings } from '../views/settings.js';
 import { mountAccount } from '../views/account.js';
+import { mountLeaderboard } from '../views/leaderboard.js';
 
 const PANELS = {
   rules: { title: () => t('rules.title'), mount: mountRules },
   settings: { title: () => t('settings.title'), mount: mountSettings },
   account: { title: () => t('account.title'), mount: mountAccount },
+  leaderboard: { title: () => t('leaderboard.title'), mount: mountLeaderboard },
 };
 
 /** Open a panel over the current screen. Opening the same one again closes it. */

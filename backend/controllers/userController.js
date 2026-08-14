@@ -221,3 +221,21 @@ exports.deleteAccount = async (req, res, next) => {
         next(error);
     }
 };
+
+/**
+ * GET /api/users/leaderboard — the world ranking.
+ *
+ * Only players who have finished at least one rated game appear, so the table
+ * is not padded with accounts that have never played.
+ */
+exports.getLeaderboard = async (req, res, next) => {
+    try {
+        const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
+        const User = require('../models/userModel');
+        const board = await User.getLeaderboard({ page, limit });
+        res.json(board);
+    } catch (error) {
+        next(error);
+    }
+};

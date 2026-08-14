@@ -16,6 +16,7 @@ export function mountHome(outlet) {
       <nav class="home-menu">
         <button class="btn btn--primary" data-go="play">${t('home.playLocal')}</button>
         <button class="btn" data-go="online">${t('home.playOnline')}</button>
+        <button class="btn" data-panel="leaderboard">${t('home.leaderboard')}</button>
         <button class="btn" data-panel="rules">${t('home.rules')}</button>
         <button class="btn" data-panel="settings">${t('home.settings')}</button>
       </nav>

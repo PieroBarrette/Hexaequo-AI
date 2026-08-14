@@ -10,7 +10,7 @@
  * nothing here is a cross-site form target.
  */
 
-import { serverOrigin } from './net.js';
+import { serverOrigin, identify, isConnected } from './net.js';
 
 const TOKEN_KEY = 'hexaequo.token';
 const GSI_SRC = 'https://accounts.google.com/gsi/client';
@@ -32,10 +32,17 @@ export function onAuthChange(fn) {
 }
 
 function announce() {
+  // Keep an open socket in step with the session, so signing in mid-visit
+  // upgrades the connection instead of needing a reconnect. Only when one is
+  // already open: browsing the home page should not dial the server.
+  if (isConnected()) identify(readToken()).catch(() => {});
   for (const fn of listeners) {
     try { fn(account); } catch { /* a listener must not break sign-in */ }
   }
 }
+
+/** The raw session token, for the socket handshake. */
+export const sessionToken = () => readToken();
 
 function readToken() {
   try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }

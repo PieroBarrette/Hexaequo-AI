@@ -12,7 +12,8 @@
     "backToMenu": "Back to menu",
     "privacy": "Privacy policy",
     "terms": "Terms of service",
-    "account": "Account"
+    "account": "Account",
+    "leaderboard": "Leaderboard"
   },
   "home": {
     "playLocal": "Play",
@@ -20,7 +21,8 @@
     "onlineSoon": "Coming soon",
     "rules": "Rules",
     "settings": "Settings",
-    "purpose": "Hexaequo is a free abstract strategy board game for two players. There is no fixed board: you build it as you play, one tile at a time. Play on one device, against the computer, or online with a friend."
+    "purpose": "Hexaequo is a free abstract strategy board game for two players. There is no fixed board: you build it as you play, one tile at a time. Play on one device, against the computer, or online with a friend.",
+    "leaderboard": "Leaderboard"
   },
   "common": {
     "black": "Black",
@@ -97,7 +99,12 @@
       "TOO_FAST": "One moment…",
       "NOT_A_PLAYER": "You are not a player in this game.",
       "OFFLINE": "Cannot reach the server. Check your connection."
-    }
+    },
+    "rated": "Rated game",
+    "unratedFriendly": "Friendly game — no rating at stake",
+    "signInToRate": "Both players must be signed in for the game to count.",
+    "opponent": "Opponent",
+    "ratingChange": "Rating"
   },
   "result": {
     "wins": "{colour} wins",
@@ -237,5 +244,14 @@
     "losses": "Losses",
     "draws": "Draws",
     "signIn": "Sign in"
+  },
+  "leaderboard": {
+    "title": "Leaderboard",
+    "loading": "Loading the ranking…",
+    "empty": "Nobody has finished a rated game yet. Be the first.",
+    "lede": "{count} ranked players.",
+    "player": "Player",
+    "games": "Games",
+    "winRate": "Win rate"
   }
 }

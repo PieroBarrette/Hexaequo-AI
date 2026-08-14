@@ -413,3 +413,27 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
   color: var(--muted); font-size: 13.5px; line-height: 1.6;
   max-width: 46ch; margin: -8px auto 0;
 }
+
+/* ── Leaderboard ─────────────────────────────────────────────────────────── */
+
+.board-table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 10px; }
+.board-table th {
+  text-align: left; font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--line);
+}
+.board-table td { padding: 8px; border-bottom: 1px solid var(--line); }
+.board-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.board-table .rank { color: var(--muted); width: 3em; }
+.board-table .elo { color: var(--accent); font-weight: 600; }
+.board-table tr.is-me { background: var(--accent-soft); }
+.board-table tr.is-me td { font-weight: 600; }
+.net-vs { display: flex; align-items: center; gap: 6px; color: var(--text); }
+.net-vs .net-elo { color: var(--accent); font-variant-numeric: tabular-nums; font-size: 12px; }
+.net-stake {
+  font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted);
+}
+.net-stake.is-rated { border-color: var(--accent); color: var(--accent); }
+.result-rating { font-variant-numeric: tabular-nums; font-weight: 600; margin: 0 0 14px; }
+.result-rating.is-up { color: var(--green, #5cba7d); }
+.result-rating.is-down { color: var(--danger); }

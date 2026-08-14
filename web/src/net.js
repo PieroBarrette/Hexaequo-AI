@@ -104,3 +104,18 @@ export function inviteLink(code) {
   url.hash = `#/play?online=1&code=${encodeURIComponent(code)}`;
   return url.toString();
 }
+
+/**
+ * Tell the server who is on this socket.
+ *
+ * Called after connecting and again after signing in, so that signing in
+ * mid-session upgrades the connection instead of requiring a reconnect. An
+ * unidentified socket still plays — its games are simply unrated.
+ */
+export async function identify(token) {
+  try {
+    return await request('hx:identify', { token: token || null }, 5000);
+  } catch {
+    return { ok: false, error: 'OFFLINE' };
+  }
+}
