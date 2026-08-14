@@ -4,8 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0e1015">
-<meta name="description" content="Hexaequo — an abstract strategy game for two. Build the board as you play.">
+<meta name="description" content="Hexaequo is a free abstract strategy board game for two players. There is no fixed board: you build it as you play, laying hexagonal tiles and moving disks and rings. Play locally, against the computer, or online with a friend.">
+<!-- Exactly the OAuth application name: Google's branding review checks that the
+     name on the consent screen matches the one on the home page. -->
 <title>Hexaequo</title>
+<link rel="canonical" href="https://hexaequo.com/">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hexaequo">
+<meta property="og:title" content="Hexaequo">
+<meta property="og:url" content="https://hexaequo.com/">
+<meta property="og:description" content="A free abstract strategy board game for two. Build the board as you play.">
+<meta property="og:image" content="https://hexaequo.com/assets/icons/icon-512x512.png">
+<meta name="twitter:card" content="summary">
 
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./assets/icons/icon-192x192.png" sizes="192x192">
@@ -31,9 +42,40 @@
   </nav>
 </header>
 
-<main id="view"></main>
+<!--
+  The app replaces this the moment it boots. It exists because anything that
+  reads the page without running JavaScript — Google's OAuth branding review,
+  link previews, search crawlers — would otherwise find an empty document, and
+  could neither confirm the site is called Hexaequo nor tell what it is for.
+-->
+<main id="view">
+  <div class="boot-copy">
+    <h1>Hexaequo</h1>
+    <p>
+      Hexaequo is a free abstract strategy board game for two players. There is no
+      fixed board: the players build it as they go, laying hexagonal tiles and
+      moving two kinds of piece — disks, which step and jump, and rings, which
+      leap. You win by capturing six enemy disks, three enemy rings, or every
+      enemy piece left on the board.
+    </p>
+    <p>
+      Play against another person on the same device, against the computer, or
+      online with a friend through a shared link. Hexaequo is free, carries no
+      advertising, and needs no account unless you want a rating.
+    </p>
+    <p>
+      <a href="/#/play">Play</a> ·
+      <a href="/#/online">Play online</a> ·
+      <a href="/#/rules">Rules</a> ·
+      <a href="/privacy">Privacy policy</a> ·
+      <a href="/terms">Terms of service</a>
+    </p>
+  </div>
+</main>
 
-<noscript>Hexaequo needs JavaScript to run.</noscript>
+<noscript>
+  Hexaequo needs JavaScript to play, but everything above describes the game.
+</noscript>
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>

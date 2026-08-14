@@ -12,6 +12,7 @@ export function mountHome(outlet) {
     <div class="home">
       ${logoLockupHtml('lg')}
       <p class="lede">${t('meta.tagline')}</p>
+      <p class="home-purpose">${t('home.purpose')}</p>
       <nav class="home-menu">
         <button class="btn btn--primary" data-go="play">${t('home.playLocal')}</button>
         <button class="btn" data-go="online">${t('home.playOnline')}</button>

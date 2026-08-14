@@ -390,3 +390,26 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
 .google-button { display: flex; justify-content: center; margin: 22px 0 8px; min-height: 44px; }
 .nickname-input { font-size: 16px; width: 14em; }
 .nickname-hint.is-bad { color: var(--danger); }
+
+/* ── Pre-boot copy ───────────────────────────────────────────────────────── */
+
+/*
+ * Shown for the fraction of a second before the app mounts, and to anything
+ * that never runs JavaScript. Styled to look deliberate rather than like a
+ * flash of unstyled text.
+ */
+.boot-copy {
+  max-width: 62ch; margin: auto; padding: clamp(24px, 6vw, 56px);
+  color: var(--muted); font-size: 14px; line-height: 1.6;
+}
+.boot-copy h1 {
+  color: var(--accent); font-weight: 300;
+  letter-spacing: .27em; text-transform: uppercase;
+  font-size: clamp(22px, 5vw, 34px); margin: 0 0 18px;
+}
+.boot-copy a { color: var(--accent); text-decoration: none; }
+.boot-copy a:hover { text-decoration: underline; }
+.home-purpose {
+  color: var(--muted); font-size: 13.5px; line-height: 1.6;
+  max-width: 46ch; margin: -8px auto 0;
+}
