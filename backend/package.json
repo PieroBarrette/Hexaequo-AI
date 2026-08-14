@@ -17,7 +17,8 @@
         "db:migrate": "node scripts/migration_phase0.js",
         "test:elo": "node tests/eloService.test.js",
         "db:dump": "node scripts/dumpDb.js",
-        "icons": "node scripts/makeIcons.js"
+        "icons": "node scripts/makeIcons.js",
+        "test:auth": "node tests/googleAuth.test.js"
     },
     "dependencies": {
         "bcryptjs": "^2.4.3",
@@ -25,6 +26,7 @@
         "dotenv": "^16.3.1",
         "express": "^4.18.2",
         "express-rate-limit": "^7.1.5",
+        "google-auth-library": "^11.0.2",
         "helmet": "^7.1.0",
         "jsonwebtoken": "^9.0.2",
         "nodemailer": "^6.9.8",

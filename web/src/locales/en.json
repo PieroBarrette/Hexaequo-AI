@@ -11,7 +11,8 @@
     "back": "Back",
     "backToMenu": "Back to menu",
     "privacy": "Privacy policy",
-    "terms": "Terms of service"
+    "terms": "Terms of service",
+    "account": "Account"
   },
   "home": {
     "playLocal": "Play",
@@ -185,7 +186,7 @@
     "termsTitle": "Terms of service",
     "updated": "Last updated: 14 August 2026",
     "contactHeading": "Contact us",
-    "contactBody": "For any question, or to request access to or deletion of your data, write to REMPLACER@hexaequo.com.",
+    "contactBody": "For any question, or to request access to or deletion of your data, write to {email}.",
     "privacyIntro": "Hexaequo is an online board game. This page explains what we collect, why, and what you can do about it. We show no advertising and sell no data.",
     "p1Title": "What we collect",
     "p1Body": "Without an account, nothing about you reaches our servers: your preferences (language, theme, sound, move aid) stay in your browser’s local storage. If you sign in with Google we receive your Google account identifier, your email address and your display name, and we keep the nickname you choose on Hexaequo. We also record your games: the moves played, the result, the time control and your rating.",
@@ -214,5 +215,26 @@
     "t5Body": "Hexaequo is provided without warranty of any kind. We cannot be held responsible for the loss of data, of a rating, or of an account.",
     "t6Title": "Changes",
     "t6Body": "These terms may change. The date at the top of the page shows the last revision; continuing to play means accepting it."
+  },
+  "account": {
+    "title": "Account",
+    "signedOutLede": "Sign in with Google to play rated games, keep your history and appear on the leaderboard.",
+    "whyGoogle": "Google only identifies you. Your name on Hexaequo is the nickname you choose, and your email address is never visible to other players.",
+    "googleUnavailable": "Cannot reach Google right now.",
+    "pickNicknameLede": "Choose the nickname other players will see.",
+    "nicknamePlaceholder": "Your nickname",
+    "nicknameRules": "3 to 20 characters: letters, digits, spaces, hyphens and underscores.",
+    "nicknameFree": "That nickname is free.",
+    "nicknameTaken": "That nickname is taken.",
+    "saveNickname": "Save",
+    "changeNickname": "Change nickname",
+    "signOut": "Sign out",
+    "record": "Record",
+    "rating": "Rating",
+    "played": "Games played",
+    "wins": "Wins",
+    "losses": "Losses",
+    "draws": "Draws",
+    "signIn": "Sign in"
   }
 }

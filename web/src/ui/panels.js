@@ -9,10 +9,12 @@ import { t } from '../i18n.js';
 import { openOverlay, isOverlayOpen, overlayName, refreshOverlay } from './overlay.js';
 import { mountRules } from '../views/rules.js';
 import { mountSettings } from '../views/settings.js';
+import { mountAccount } from '../views/account.js';
 
 const PANELS = {
   rules: { title: () => t('rules.title'), mount: mountRules },
   settings: { title: () => t('settings.title'), mount: mountSettings },
+  account: { title: () => t('account.title'), mount: mountAccount },
 };
 
 /** Open a panel over the current screen. Opening the same one again closes it. */

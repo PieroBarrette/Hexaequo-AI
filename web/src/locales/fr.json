@@ -11,7 +11,8 @@
     "back": "Retour",
     "backToMenu": "Retour au menu",
     "privacy": "Politique de confidentialité",
-    "terms": "Conditions d'utilisation"
+    "terms": "Conditions d'utilisation",
+    "account": "Compte"
   },
   "home": {
     "playLocal": "Jouer",
@@ -185,7 +186,7 @@
     "termsTitle": "Conditions d'utilisation",
     "updated": "Dernière mise à jour : 14 août 2026",
     "contactHeading": "Nous joindre",
-    "contactBody": "Pour toute question, demande d'accès ou de suppression, écrivez à REMPLACER@hexaequo.com.",
+    "contactBody": "Pour toute question, demande d'accès ou de suppression, écrivez à {email}.",
     "privacyIntro": "Hexaequo est un jeu de plateau en ligne. Cette page explique quelles données nous recueillons, pourquoi, et ce que vous pouvez en faire. Nous n'affichons aucune publicité et ne vendons aucune donnée.",
     "p1Title": "Ce que nous recueillons",
     "p1Body": "Sans compte, rien n'est envoyé à nos serveurs à votre sujet : vos préférences (langue, thème, sons, aide de jeu) restent dans le stockage local de votre navigateur. Si vous ouvrez une session avec Google, nous recevons votre identifiant Google, votre adresse courriel et votre nom d'affichage, et nous conservons le pseudonyme que vous choisissez sur Hexaequo. Nous enregistrons aussi vos parties : les coups joués, le résultat, la cadence et votre classement.",
@@ -214,5 +215,26 @@
     "t5Body": "Hexaequo est fourni sans garantie d'aucune sorte. Nous ne pouvons être tenus responsables d'une perte de données, d'un classement ou d'un compte.",
     "t6Title": "Modifications",
     "t6Body": "Ces conditions peuvent changer. La date en haut de page indique la dernière révision ; continuer à jouer vaut acceptation."
+  },
+  "account": {
+    "title": "Compte",
+    "signedOutLede": "Connectez-vous avec Google pour jouer des parties classées, garder votre historique et apparaître au classement.",
+    "whyGoogle": "Google sert uniquement à vous identifier. Votre nom sur Hexaequo est le pseudonyme que vous choisissez, et votre adresse courriel n'est jamais visible des autres joueurs.",
+    "googleUnavailable": "Impossible de joindre Google pour le moment.",
+    "pickNicknameLede": "Choisissez le pseudonyme sous lequel les autres joueurs vous verront.",
+    "nicknamePlaceholder": "Votre pseudonyme",
+    "nicknameRules": "De 3 à 20 caractères : lettres, chiffres, espaces, traits d'union et soulignés.",
+    "nicknameFree": "Ce pseudonyme est libre.",
+    "nicknameTaken": "Ce pseudonyme est déjà pris.",
+    "saveNickname": "Enregistrer",
+    "changeNickname": "Changer de pseudonyme",
+    "signOut": "Se déconnecter",
+    "record": "Palmarès",
+    "rating": "Classement",
+    "played": "Parties jouées",
+    "wins": "Victoires",
+    "losses": "Défaites",
+    "draws": "ExAequo",
+    "signIn": "Se connecter"
   }
 }

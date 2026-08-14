@@ -13,11 +13,24 @@ import { mountPrivacy, mountTerms } from './views/legal.js';
 import { mountSettings, setInstallPrompt } from './views/settings.js';
 import { closeOverlay } from './ui/overlay.js';
 import { openPanel, relabelPanel } from './ui/panels.js';
+import { restoreSession, onAuthChange, currentUser, mustChoosePseudo } from './auth.js';
+
+/** The header chip: your nickname and rating, or an invitation to sign in. */
+function renderAccountChip() {
+  const chip = document.getElementById('account-chip');
+  if (!chip) return;
+  const user = currentUser();
+  chip.innerHTML = user
+    ? '<span class="chip-name">' + user.pseudo + '</span><span class="chip-elo">' + user.elo + '</span>'
+    : t('account.signIn');
+  chip.classList.toggle('is-signed-in', Boolean(user));
+}
 
 function renderChrome() {
   document.title = t('meta.title');
   document.getElementById('brand').innerHTML = logoLockupHtml('sm');
   translateDocument();
+  renderAccountChip();
 }
 
 async function boot() {
@@ -35,6 +48,14 @@ async function boot() {
 
   renderChrome();
   startRouter();
+
+  /* Restore the session in the background. The app is fully usable signed out,
+     so nothing waits on this; the header fills in when the answer arrives. */
+  onAuthChange(() => {
+    renderAccountChip();
+    if (mustChoosePseudo()) openPanel('account');
+  });
+  restoreSession();
 
   document.getElementById('brand').addEventListener('click', () => {
     playSound('ui');

@@ -58,4 +58,17 @@ router.post('/change-password',
     authController.changePassword
 );
 
+/* ── Sign in with Google ──────────────────────────────────────────────────
+ * The browser sends the ID token Google handed it; the server verifies it
+ * against Google's keys and issues its own session. Rate-limited like the
+ * other credential endpoints.
+ */
+const googleAuthController = require('../controllers/googleAuthController');
+
+router.get('/config', googleAuthController.config);
+router.post('/google', authLimiter, googleAuthController.signInWithGoogle);
+router.get('/me', authenticate, googleAuthController.me);
+router.put('/pseudo', authenticate, googleAuthController.setPseudo);
+router.get('/pseudo-available', authenticate, googleAuthController.pseudoAvailable);
+
 module.exports = router;

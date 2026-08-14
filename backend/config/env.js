@@ -21,6 +21,10 @@ module.exports = {
     REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
     
     // JWT
+    // Public by design: it identifies the app to Google, never authenticates it.
+
+    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '848491243960-egjj9cufckohjtgaec9jlf3s0e1hutro.apps.googleusercontent.com',
+
     JWT_SECRET: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
     JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
     JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || '30d',

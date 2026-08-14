@@ -18,7 +18,9 @@ CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) UNIQUE NOT NULL,
     pseudo VARCHAR(30) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
+    password_hash VARCHAR(255),                 -- null for accounts that only sign in with Google
+    google_id VARCHAR(64) UNIQUE,               -- Google's stable subject identifier
+    pseudo_chosen BOOLEAN DEFAULT FALSE,        -- false until the player picks their own
     email_verified BOOLEAN DEFAULT FALSE,
     verification_token VARCHAR(255),
     verification_expires TIMESTAMP,
@@ -50,6 +52,9 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_pseudo ON users(pseudo);
 CREATE INDEX IF NOT EXISTS idx_users_elo ON users(elo DESC);
+-- Every sign-in looks the account up by Google subject; only rows that have one
+-- are indexed, since most may not.
+CREATE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id) WHERE google_id IS NOT NULL;
 
 -- ============================================
 -- Rooms Table (Lobby/Matchmaking)

@@ -12,6 +12,16 @@ import { t } from '../i18n.js';
 import { navigate } from '../router.js';
 import { logoMarkSvg } from '../ui/logo.js';
 
+/**
+ * The address published in both policies, in one place so it can be changed
+ * without touching either translation.
+ *
+ * A personal mailbox is a stopgap: an address on the domain reads better and
+ * survives a change of provider. Most registrars will forward info@hexaequo.com
+ * to a real mailbox for free, at which point only this line changes.
+ */
+export const CONTACT_EMAIL = 'pierobarrette@gmail.com';
+
 function section(titleKey, bodyKey) {
   return `<h2>${t(titleKey)}</h2><p>${t(bodyKey)}</p>`;
 }
@@ -24,7 +34,7 @@ function page(titleKey, introKey, sections) {
       <p class="lede">${t(introKey)}</p>
       ${sections.map(([a, b]) => section(a, b)).join('')}
       <h2>${t('legal.contactHeading')}</h2>
-      <p>${t('legal.contactBody')}</p>
+      <p>${t('legal.contactBody', { email: CONTACT_EMAIL })}</p>
       <div class="legal-foot">
         <div class="legal-mark">${logoMarkSvg()}</div>
         <button class="btn" data-go="home">${t('nav.backToMenu')}</button>
