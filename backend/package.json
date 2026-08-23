@@ -19,9 +19,13 @@
         "db:dump": "node scripts/dumpDb.js",
         "icons": "node scripts/makeIcons.js",
         "test:auth": "node tests/googleAuth.test.js",
-        "test:db": "node tests/googleAuth.test.js && node tests/ratedGame.test.js && node tests/ratedOnline.test.js",
+        "test:db": "node tests/googleAuth.test.js && node tests/ratedGame.test.js && node tests/ratedOnline.test.js && node tests/profile.test.js && node tests/emailAccount.test.js && node tests/lobby.test.js && node tests/matchmaking.test.js",
         "test:rated": "node tests/ratedGame.test.js",
-        "test:online-rated": "node tests/ratedOnline.test.js"
+        "test:online-rated": "node tests/ratedOnline.test.js",
+        "test:profile": "node tests/profile.test.js",
+        "test:mail": "node tests/emailAccount.test.js",
+        "test:lobby": "node tests/lobby.test.js",
+        "test:match": "node tests/matchmaking.test.js"
     },
     "dependencies": {
         "bcryptjs": "^2.4.3",

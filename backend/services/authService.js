@@ -58,9 +58,14 @@ async function generateTokens(user) {
  * Create a new user
  */
 exports.createUser = async ({ email, pseudo, password }) => {
-    // Check if email already exists
-    if (await User.emailExists(email)) {
-        throw conflict('Email already registered');
+    /* An address already signed up with Google is not a duplicate to argue
+       with — it is the same person at the wrong door. Point them at the right
+       one instead of a flat refusal. */
+    const existing = await User.findByEmail(email);
+    if (existing) {
+        throw conflict(existing.google_id && !existing.password_hash
+            ? 'This address already has an account through Google'
+            : 'Email already registered');
     }
     
     if (await User.pseudoExists(pseudo)) {
@@ -72,8 +77,7 @@ exports.createUser = async ({ email, pseudo, password }) => {
 
     // Generate verification token
     const verificationToken = crypto.randomBytes(32).toString('hex');
-    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    await User.setVerificationToken(user.id, verificationToken, verificationExpires);
+    await User.setVerificationToken(user.id, verificationToken);
 
     // Send verification email (async, don't wait)
     emailService.sendVerificationEmail(email, verificationToken).catch(console.error);
@@ -93,6 +97,14 @@ exports.loginUser = async ({ email, password }) => {
     
     if (!user) {
         throw unauthorized('Invalid email or password');
+    }
+
+    /* An account created through Google has no password. Saying so is worth
+       the small disclosure: sign-up already answers "taken" for an address
+       that exists, and the alternative is sending someone round a loop they
+       cannot get out of. */
+    if (!user.password_hash) {
+        throw unauthorized('This account signs in with Google');
     }
 
     // Check password
@@ -184,8 +196,7 @@ exports.resendVerification = async (email) => {
 
     // Generate new verification token
     const verificationToken = crypto.randomBytes(32).toString('hex');
-    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    await User.setVerificationToken(user.id, verificationToken, verificationExpires);
+    await User.setVerificationToken(user.id, verificationToken);
 
     // Send verification email
     await emailService.sendVerificationEmail(email, verificationToken);
@@ -197,9 +208,7 @@ exports.resendVerification = async (email) => {
 exports.requestPasswordReset = async (email) => {
     // Generate reset token
     const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-    
-    const success = await User.setResetToken(email, resetToken, resetExpires);
+    const success = await User.setResetToken(email, resetToken);
     
     if (success) {
         // Send reset email

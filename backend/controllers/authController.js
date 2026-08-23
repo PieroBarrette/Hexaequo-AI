@@ -5,6 +5,8 @@
  */
 
 const authService = require('../services/authService');
+const { publicUser } = require('../services/googleAuthService');
+const { User } = require('../models');
 
 /**
  * Register a new user
@@ -26,33 +28,22 @@ exports.signup = async (req, res, next) => {
             });
         }
 
-        if (password.length < 4) {
+        if (password.length < 8) {
             return res.status(400).json({
-                success: false,
-                error: 'Password must be at least 4 characters'
+                error: 'WEAK_PASSWORD',
+                message: 'Password must be at least 8 characters',
             });
         }
 
         const result = await authService.createUser({ email, pseudo, password });
+        const created = await User.findById(result.userId);
 
         res.status(201).json({
-            success: true,
-            token: result.accessToken || null, // For compatibility
-            user: {
-                id: result.userId,
-                email: result.email,
-                pseudo: result.pseudo,
-                elo: 1000
-            },
-            data: {
-                userId: result.userId,
-                email: result.email,
-                pseudo: result.pseudo,
-                refreshToken: result.refreshToken || null
-            },
-            meta: {
-                message: 'Account created successfully. Please check your email to verify your account.'
-            }
+            accessToken: result.accessToken,
+            refreshToken: result.refreshToken || null,
+            user: publicUser(created),
+            // The nickname was chosen in the form, unlike a Google sign-up.
+            needsPseudo: false,
         });
     } catch (error) {
         next(error);
@@ -77,29 +68,13 @@ exports.login = async (req, res, next) => {
         }
 
         const result = await authService.loginUser({ email, password });
+        const account = await User.findById(result.user.id);
 
         res.json({
-            success: true,
-            token: result.accessToken, // For frontend compatibility
-            user: {
-                id: result.user.id,
-                pseudo: result.user.pseudo,
-                username: result.user.email, // Alias
-                email: result.user.email,
-                elo: result.user.elo ?? 1000,
-                gamesPlayed: 0,
-                gamesWon: 0
-            },
-            data: {
-                accessToken: result.accessToken,
-                refreshToken: result.refreshToken,
-                user: {
-                    id: result.user.id,
-                    pseudo: result.user.pseudo,
-                    email: result.user.email,
-                    elo: result.user.elo ?? 1000
-                }
-            }
+            accessToken: result.accessToken,
+            refreshToken: result.refreshToken || null,
+            user: publicUser(account),
+            needsPseudo: account.pseudo_chosen === false,
         });
     } catch (error) {
         next(error);

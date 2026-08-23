@@ -135,18 +135,30 @@ async function updatePassword(id, newPassword) {
  * Verify password
  */
 async function verifyPassword(user, password) {
+    // An account that only signs in with Google has no hash to compare
+    // against, and bcrypt throws rather than returning false when handed one.
+    if (!user || !user.password_hash) return false;
     return bcrypt.compare(password, user.password_hash);
 }
 
 /**
  * Set verification token
  */
-async function setVerificationToken(id, token, expiresAt) {
+/*
+ * Deadlines are computed by the database, not by us.
+ *
+ * verification_expires and reset_expires are TIMESTAMP WITHOUT TIME ZONE, and
+ * they are compared against NOW() — the database's clock. Sending a JS Date
+ * writes it in *this* machine's local time, so a server four hours behind the
+ * database issued tokens that were already four hours expired. One clock owns
+ * the deadline, and it is the one doing the comparing.
+ */
+async function setVerificationToken(id, token, ttl = '24 hours') {
     await query(
-        `UPDATE users 
-         SET verification_token = $1, verification_expires = $2
+        `UPDATE users
+         SET verification_token = $1, verification_expires = NOW() + $2::interval
          WHERE id = $3`,
-        [token, expiresAt, id]
+        [token, ttl, id]
     );
 }
 
@@ -168,13 +180,13 @@ async function verifyEmail(token) {
 /**
  * Set password reset token
  */
-async function setResetToken(email, token, expiresAt) {
+async function setResetToken(email, token, ttl = '1 hour') {
     const result = await query(
-        `UPDATE users 
-         SET reset_token = $1, reset_expires = $2
+        `UPDATE users
+         SET reset_token = $1, reset_expires = NOW() + $2::interval
          WHERE email = $3
          RETURNING id`,
-        [token, expiresAt, email.toLowerCase()]
+        [token, ttl, email.toLowerCase()]
     );
     
     return result.rowCount > 0;

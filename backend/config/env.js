@@ -14,7 +14,7 @@ module.exports = {
     NODE_ENV: process.env.NODE_ENV || 'development',
     
     // Frontend
-    FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:8080', 
+    FRONTEND_URL: process.env.FRONTEND_URL || 'https://hexaequo.com',
     
     // Database
     DATABASE_URL: process.env.DATABASE_URL || 'postgresql://localhost:5432/hexaequo',
@@ -31,12 +31,15 @@ module.exports = {
     JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
     JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || '30d',
     
-    // Email (SMTP)
+    // Email. Resend is tried first; SMTP is the fallback. With neither, mail
+    // is not sent and emailService says so rather than failing quietly.
+    RESEND_API_KEY: process.env.RESEND_API_KEY || '',
+
     SMTP_HOST: process.env.SMTP_HOST || 'smtp.example.com',
     SMTP_PORT: process.env.SMTP_PORT || 587,
     SMTP_USER: process.env.SMTP_USER || '',
     SMTP_PASS: process.env.SMTP_PASS || '',
-    EMAIL_FROM: process.env.EMAIL_FROM || 'noreply@hexaequo.com',
+    EMAIL_FROM: process.env.EMAIL_FROM || 'Hexaequo <noreply@hexaequo.com>',
     
     // Rate limiting
     RATE_LIMIT_WINDOW_MS: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
