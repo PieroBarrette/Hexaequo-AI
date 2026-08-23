@@ -56,6 +56,12 @@ function countThreatened(s, victim) {
 let noise = 8;
 let noiseSeed = 12345;
 
+/* Whether leaf nodes resolve captures before being scored. Off for the
+   beginner: seeing every capture chain is most of what makes the search
+   sharp, and a player learning the rules should be allowed to get away with
+   a loose piece. */
+let useQuiescence = true;
+
 /** Absolute score; positive favours Black. */
 function evaluate(s) {
   let score = 100 * (s.capturedDisks[0] - s.capturedDisks[1])
@@ -161,7 +167,7 @@ function quiesce(s, alpha, beta, ply, depth) {
 function negamax(s, depth, alpha, beta, ply) {
   if (outOfTime()) return 0;
   if (checkWinner(s)) return -(MATE - ply);
-  if (depth <= 0) return quiesce(s, alpha, beta, ply, 0);
+  if (depth <= 0) return useQuiescence ? quiesce(s, alpha, beta, ply, 0) : evaluateForSideToMove(s);
 
   const originalAlpha = alpha;
   let preferred = 0;
@@ -204,17 +210,45 @@ function negamax(s, depth, alpha, beta, ply) {
   return best;
 }
 
-/** Difficulty presets: time budget, depth cap, and evaluation noise. */
+/**
+ * Difficulty presets.
+ *
+ * depth is how far ahead it looks, noise how much it lets equal-looking
+ * moves shuffle, quiesce whether it resolves capture chains before scoring a
+ * position, and blunder how often it plays something other than the best move
+ * it found.
+ *
+ * The beginner sees one reply ahead and no further, and never resolves a
+ * capture chain — so it walks into two-move tactics and overlooks captures of
+ * its own, while still defending against the reply in front of it. Searching
+ * a single ply was tried first and was not a beginner but a broken opponent:
+ * blind to every reply, it gave its opening disk away and lost inside ten
+ * moves, every game.
+ */
 export const LEVELS = [
-  { ms: 250, depth: 2, noise: 30 },
-  { ms: 1200, depth: 5, noise: 8 },
-  { ms: 3500, depth: 7, noise: 2 },
+  { ms: 200, depth: 2, noise: 90, quiesce: false, blunder: 0.35 },
+  { ms: 250, depth: 2, noise: 30, quiesce: true, blunder: 0 },
+  { ms: 1200, depth: 5, noise: 8, quiesce: true, blunder: 0 },
+  { ms: 3500, depth: 7, noise: 2, quiesce: true, blunder: 0 },
 ];
+
+/**
+ * A beginner's move: not the best one, but not an absurd one either.
+ *
+ * Drawn from the better-scoring half of the position's moves, so the AI
+ * overlooks a capture it could have made or leaves a piece where it can be
+ * taken — while still playing something a person could plausibly have played.
+ */
+function weakerChoice(scored) {
+  const pool = scored.slice(0, Math.max(2, Math.ceil(scored.length / 2)));
+  return pool[Math.floor(Math.random() * pool.length)].move;
+}
 
 /** Choose a move for the side to move. Returns null when there is none. */
 export function chooseMove(state, level = 1) {
   const config = LEVELS[Math.max(0, Math.min(LEVELS.length - 1, level))];
   noise = config.noise;
+  useQuiescence = config.quiesce !== false;
   noiseSeed = (Math.random() * 4294967296) | 0;
   nodes = 0;
   aborted = false;
@@ -227,6 +261,7 @@ export function chooseMove(state, level = 1) {
 
   const scored = root.map((move) => ({ move, score: 0 }));
   let best = scored[0].move;
+  let ranked = false;              // a depth finished, so the scores mean something
 
   for (let depth = 1; depth <= config.depth; depth++) {
     let alpha = -INFINITY;
@@ -243,10 +278,18 @@ export function chooseMove(state, level = 1) {
     }
 
     if (!completed) break;
+    ranked = true;
     scored.sort((a, b) => b.score - a.score);
     best = bestThisDepth || scored[0].move;
     if (Math.abs(scored[0].score) > MATE - 1000) break;
     if (Date.now() > deadline) break;
+  }
+
+  /* The beginner does not always play what it found. Only ever on scores that
+     were actually computed — a blunder drawn from an unranked list would be a
+     random move, which is a different and worse thing. */
+  if (ranked && config.blunder && Math.random() < config.blunder) {
+    best = weakerChoice(scored);
   }
   return best;
 }

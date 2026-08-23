@@ -64,9 +64,10 @@ export function mountSettings(outlet) {
         <h2>${t('game.mode')}</h2>
         ${row('settings.showValidMoves', 'settings.showValidMovesHint', toggle('showValidMoves', getSetting('showValidMoves')))}
         ${row('settings.aiLevel', 'settings.aiLevelHint', segmented('aiLevel', getSetting('aiLevel'), [
-          { value: 0, label: t('game.levelEasy') },
-          { value: 1, label: t('game.levelMedium') },
-          { value: 2, label: t('game.levelStrong') }]))}
+          { value: 0, label: t('game.levelBeginner') },
+          { value: 1, label: t('game.levelEasy') },
+          { value: 2, label: t('game.levelMedium') },
+          { value: 3, label: t('game.levelStrong') }]))}
 
         <h2>${t('settings.sound')}</h2>
         ${row('settings.sound', 'settings.soundHint', toggle('sound', getSetting('sound')))}

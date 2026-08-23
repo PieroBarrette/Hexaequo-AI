@@ -46,6 +46,7 @@
     "modeAiAi": "IA contre IA",
     "playAs": "Je joue {colour}",
     "level": "Niveau",
+    "levelBeginner": "Débutant",
     "levelEasy": "Facile",
     "levelMedium": "Moyen",
     "levelStrong": "Fort",

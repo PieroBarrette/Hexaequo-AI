@@ -193,9 +193,10 @@ export function mountPlay(outlet, params) {
       <option value="1">${t('game.playAs', { colour: t('common.white') })}</option>
     </select>
     <select class="btn" data-control="level">
-      <option value="0">${t('game.levelEasy')}</option>
-      <option value="1">${t('game.levelMedium')}</option>
-      <option value="2">${t('game.levelStrong')}</option>
+      <option value="0">${t('game.levelBeginner')}</option>
+      <option value="1">${t('game.levelEasy')}</option>
+      <option value="2">${t('game.levelMedium')}</option>
+      <option value="3">${t('game.levelStrong')}</option>
     </select>
     <button class="btn btn--icon" data-action="run" title="${t('game.run')}">▶</button>
     <button class="btn btn--icon" data-action="step" title="${t('game.stepOnce')}">⏭</button>

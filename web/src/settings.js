@@ -15,8 +15,16 @@ export const DEFAULTS = {
   sound: true,
   volume: 0.7,
   showValidMoves: true,
-  aiLevel: 1,
+  aiLevel: 2,             // see AI_LEVELS_VERSION below
+  aiLevelsVersion: 0,
 };
+
+/*
+ * A beginner level was added below the three that existed, so every stored
+ * aiLevel means one level weaker than it used to. Bumping this shifts an old
+ * setting up once, rather than silently making everyone’s opponent easier.
+ */
+const AI_LEVELS_VERSION = 1;
 
 const listeners = new Set();
 let current = { ...DEFAULTS };
@@ -42,6 +50,11 @@ function persist() {
 
 export function loadSettings() {
   current = { ...DEFAULTS, ...readStored() };
+  if (current.aiLevelsVersion < AI_LEVELS_VERSION) {
+    current.aiLevel = Math.min(3, Number(current.aiLevel || 0) + 1);
+    current.aiLevelsVersion = AI_LEVELS_VERSION;
+    persist();
+  }
   if (!current.language) {
     current.language = (navigator.language || 'en').toLowerCase().startsWith('fr') ? 'fr' : 'en';
   }
