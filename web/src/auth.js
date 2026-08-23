@@ -155,17 +155,64 @@ export async function renderGoogleButton(container, { theme = 'outline', text = 
   });
 }
 
-/** Exchange Google's credential for our session. */
-export async function completeSignIn(credential) {
-  const body = await api('/auth/google', {
-    method: 'POST',
-    body: JSON.stringify({ credential }),
-  });
+/**
+ * Adopt a session the API just issued.
+ *
+ * Every door answers in the same shape — a token, the account, and whether a
+ * nickname is still owed — so there is one place that turns that into being
+ * signed in.
+ */
+function adoptSession(body) {
   writeToken(body.accessToken);
   account = body.user;
   needsPseudo = Boolean(body.needsPseudo);
   announce();
   return body;
+}
+
+/** Create an account with an address and a password. */
+export async function signUpWithEmail({ email, pseudo, password }) {
+  return adoptSession(await api('/auth/signup', {
+    method: 'POST',
+    body: JSON.stringify({ email, pseudo, password }),
+  }));
+}
+
+/** Sign in with an address and a password. */
+export async function signInWithEmail({ email, password }) {
+  return adoptSession(await api('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  }));
+}
+
+/**
+ * Ask for a reset link. Always resolves: the API answers the same way whether
+ * or not the address is registered, and so does this.
+ */
+export async function requestPasswordReset(email) {
+  await api('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) })
+    .catch(() => {});
+  return true;
+}
+
+export async function resetPassword(token, newPassword) {
+  return api('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ token, newPassword }),
+  });
+}
+
+export async function confirmEmail(token) {
+  return api('/auth/verify-email', { method: 'POST', body: JSON.stringify({ token }) });
+}
+
+/** Exchange Google's credential for our session. */
+export async function completeSignIn(credential) {
+  return adoptSession(await api('/auth/google', {
+    method: 'POST',
+    body: JSON.stringify({ credential }),
+  }));
 }
 
 export async function chooseNickname(pseudo) {

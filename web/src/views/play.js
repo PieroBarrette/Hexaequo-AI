@@ -26,7 +26,7 @@ import {
 } from '../game/moves.js';
 import { chooseMove } from '../game/ai.js';
 import { request, listen, connect, inviteLink, identify } from '../net.js';
-import { sessionToken } from '../auth.js';
+import { sessionToken, api } from '../auth.js';
 
 const MODE_LOCAL = 'local';
 const MODE_AI = 'ai';
@@ -68,6 +68,11 @@ export function mountPlay(outlet, params) {
 
   /* Online games: the server owns the position, so this view only sends move
      intents and renders whatever comes back. `net` is null for local play. */
+  /* A finished game read back from the database. Neither local nor online:
+     nothing here can be played, only looked at. */
+  const archiveId = params && params.get('game');
+  let archive = null;
+
   const wantsOnline = params && params.get('online') === '1' && params.get('code');
   let net = wantsOnline
     ? {
@@ -97,7 +102,7 @@ export function mountPlay(outlet, params) {
     !net && (mode === MODE_AI_AI || (mode === MODE_AI && player !== humanSide));
 
   /** Whether the local player may act at all right now. */
-  const canAct = () => (review === null) && (net
+  const canAct = () => !archiveId && (review === null) && (net
     ? net.ready && !net.pending && state.turn === net.colour
     : !isAI(state.turn));
 
@@ -790,6 +795,56 @@ export function mountPlay(outlet, params) {
     navigate('play', { online: '1', code });
   }
 
+  /* ── A finished game, read back ───────────────────────────────────────── */
+
+  /**
+   * Load a stored game and stand at the opening position.
+   *
+   * The moves come back as intents, exactly as they were played, and are
+   * replayed through the same engine that produced them — so this board is
+   * the game itself rather than a recording of it.
+   */
+  async function loadArchive() {
+    try {
+      archive = await api('/profile/games/' + encodeURIComponent(archiveId));
+    } catch (error) {
+      archive = null;
+      showArchiveError(error.message);
+      return;
+    }
+    if (!archive.replayable) {
+      showArchiveError(t('profile.notReplayable'));
+      return;
+    }
+
+    timelineMoves = (archive.moves || []).slice();
+    timeline = replayTimeline(timelineMoves);
+    if (timeline.length !== timelineMoves.length + 1) {
+      showArchiveError(t('profile.notReplayable'));
+      return;
+    }
+    moveLog = (archive.notations || []).map((text, i) => ({
+      player: i % 2, text, captured: /×/.test(text),
+    }));
+    state = timeline[timeline.length - 1];
+    result = archive.winner
+      ? readResult({
+        winner: archive.winner === 'draw' ? null : (archive.winner === 'black' ? 0 : 1),
+        reason: archive.reason,
+      })
+      : null;
+    // Straight to the start: the point of opening a finished game is to walk
+    // through it, not to look at the end of it.
+    resultSeen = true;
+    goToPly(0);
+  }
+
+  function showArchiveError(message) {
+    const strip = outlet.querySelector('.net-strip');
+    strip.className = 'net-strip is-on is-warn';
+    strip.innerHTML = '<span class="net-msg">' + escapeText(message) + '</span>';
+  }
+
   /* ── Rendering ────────────────────────────────────────────────────────── */
 
   function refresh(instant) {
@@ -1146,14 +1201,16 @@ export function mountPlay(outlet, params) {
       if (node) node.style.display = visible ? '' : 'none';
     };
     tools.querySelector('[data-control="mode"]').value = mode;
-    // Online, none of the local controls apply: no mode, no AI, no undo.
-    show('[data-control="mode"]', !net);
-    show('[data-control="side"]', !net && mode === MODE_AI);
-    show('[data-control="level"]', !net && mode !== MODE_LOCAL);
-    show('[data-action="run"]', !net && isDuel);
-    show('[data-action="step"]', !net && isDuel);
-    show('[data-action="undo"]', !net);
-    show('[data-action="new"]', !net);
+    /* Online, none of the local controls apply: no mode, no AI, no undo. In a
+       stored game none of them do either — there is nothing left to play. */
+    const local = !net && !archiveId;
+    show('[data-control="mode"]', local);
+    show('[data-control="side"]', local && mode === MODE_AI);
+    show('[data-control="level"]', local && mode !== MODE_LOCAL);
+    show('[data-action="run"]', local && isDuel);
+    show('[data-action="step"]', local && isDuel);
+    show('[data-action="undo"]', local);
+    show('[data-action="new"]', local);
     show('[data-action="resign"]', !!net);
 
     const run = tools.querySelector('[data-action="run"]');
@@ -1170,6 +1227,23 @@ export function mountPlay(outlet, params) {
   /** The strip above the board that explains the state of an online game. */
   function renderNetStatus() {
     const strip = outlet.querySelector('.net-strip');
+
+    if (archiveId) {
+      if (!archive) return;                 // an error is already on the strip
+      const name = (side) => escapeText((archive[side] && archive[side].pseudo) || t('profile.guest'));
+      strip.className = 'net-strip is-on';
+      strip.innerHTML =
+        '<span class="player-dot"></span><span>' + name('black') + '</span>'
+        + '<span class="net-vs">' + t('profile.versus') + '</span>'
+        + '<span class="player-dot is-white"></span><span>' + name('white') + '</span>'
+        + '<span class="net-msg">' + t('review.reviewingArchive') + '</span>'
+        + '<span class="grow"></span>'
+        + (archive.rated
+          ? '<span class="net-stake is-rated">' + t('online.rated') + '</span>'
+          : '<span class="net-stake">' + t('online.unrated') + '</span>');
+      return;
+    }
+
     if (!net) { strip.classList.remove('is-on'); return; }
     strip.classList.add('is-on');
 
@@ -1587,6 +1661,7 @@ export function mountPlay(outlet, params) {
 
   newGame();
   showDrawerTab('moves');
+  if (archiveId) loadArchive();
   if (net) {
     joinRoom();
     clockTimer = setInterval(tickClocks, 250);

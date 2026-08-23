@@ -545,3 +545,72 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
 .result-rating { font-variant-numeric: tabular-nums; font-weight: 600; margin: 0 0 14px; }
 .result-rating.is-up { color: var(--green, #5cba7d); }
 .result-rating.is-down { color: var(--danger); }
+
+/* ── Signing in, and the profile ─────────────────────────────────────────── */
+
+.auth-form { display: flex; flex-direction: column; gap: 8px; margin: 14px 0 4px; }
+.auth-input {
+  text-align: left; font-weight: 400; background: var(--bg);
+  font-size: 15px; padding: 10px 12px;
+}
+.btn--link {
+  background: none; border: 0; color: var(--muted); font-size: 13px;
+  padding: 4px; text-decoration: underline; align-self: flex-start; min-height: 0;
+}
+.btn--link:hover { color: var(--text); }
+/* A rule with the word "or" sitting in it, between the two doors. */
+.auth-or {
+  display: flex; align-items: center; gap: 12px;
+  color: var(--muted); font-size: 12px; margin: 18px 0 14px;
+}
+.auth-or::before, .auth-or::after {
+  content: ''; flex: 1; height: 1px; background: var(--line);
+}
+
+.profile-head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap; margin-bottom: 16px;
+}
+.profile-elo { text-align: right; }
+.profile-elo b {
+  display: block; font: 600 30px/1 var(--font-mono);
+  color: var(--accent); font-variant-numeric: tabular-nums;
+}
+.muted-small { color: var(--muted); font-size: 12px; font-weight: 400; }
+
+.curve { position: relative; margin: 4px 0 20px; }
+.curve svg { width: 100%; height: 130px; display: block; }
+.curve-scale {
+  position: absolute; inset: 0 0 0 auto; display: flex; flex-direction: column;
+  justify-content: space-between; padding: 2px 0; pointer-events: none;
+}
+.curve-scale span {
+  font: 11px/1 var(--font-mono); color: var(--muted);
+  background: var(--surface); padding: 1px 4px; border-radius: 3px;
+}
+
+.game-list { display: flex; flex-direction: column; }
+.game-row {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 9px 4px; border: 0; border-top: 1px solid var(--line);
+  background: none; color: var(--text); text-align: left; font-size: 13.5px;
+}
+.game-row:hover { background: var(--surface-2); }
+.game-vs { flex: 1; display: flex; align-items: center; gap: 7px; min-width: 0; }
+.game-vs > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.game-meta { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.outcome {
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
+  padding: 3px 7px; border-radius: 4px; flex: none; min-width: 5.4em; text-align: center;
+}
+.outcome.is-win { background: color-mix(in srgb, var(--green, #5cba7d) 22%, transparent); color: var(--green, #5cba7d); }
+.outcome.is-loss { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); }
+.outcome.is-draw { background: var(--surface-2); color: var(--muted); }
+.delta { font: 600 12px/1 var(--font-mono); font-variant-numeric: tabular-nums; min-width: 3em; text-align: right; }
+.delta.is-up { color: var(--green, #5cba7d); }
+.delta.is-down { color: var(--danger); }
+
+@media (max-width: 560px) {
+  /* On a phone the cadence and the move count are the first things to go. */
+  .game-row .game-meta:nth-of-type(-n+2) { display: none; }
+}

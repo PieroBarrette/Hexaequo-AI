@@ -22,7 +22,8 @@
     "rules": "Rules",
     "settings": "Settings",
     "purpose": "Hexaequo is a free abstract strategy board game for two players. There is no fixed board: you build it as you play, one tile at a time. Play on one device, against the computer, or online with a friend.",
-    "leaderboard": "Leaderboard"
+    "leaderboard": "Leaderboard",
+    "profile": "My profile"
   },
   "common": {
     "black": "Black",
@@ -253,8 +254,8 @@
   },
   "account": {
     "title": "Account",
-    "signedOutLede": "Sign in with Google to play rated games, keep your history and appear on the leaderboard.",
-    "whyGoogle": "Google only identifies you. Your name on Hexaequo is the nickname you choose, and your email address is never visible to other players.",
+    "signedOutLede": "Create an account to play rated games, keep your history and appear on the leaderboard. By email or with Google, whichever you prefer.",
+    "whyGoogle": "Your name on Hexaequo is the nickname you choose, and your address is never shown to other players.",
     "googleUnavailable": "Cannot reach Google right now.",
     "pickNicknameLede": "Choose the nickname other players will see.",
     "nicknamePlaceholder": "Your nickname",
@@ -270,7 +271,19 @@
     "wins": "Wins",
     "losses": "Losses",
     "draws": "Draws",
-    "signIn": "Sign in"
+    "signIn": "Sign in",
+    "createAccount": "Create an account",
+    "email": "Email address",
+    "nickname": "Nickname",
+    "password": "Password",
+    "passwordNew": "Password (8 characters minimum)",
+    "forgot": "Forgotten your password?",
+    "forgotLede": "Enter your address and we will send a link to choose a new one.",
+    "sendResetLink": "Send the link",
+    "backToSignIn": "Back to signing in",
+    "resetSent": "If that address has an account, the link is on its way. Check your mail.",
+    "or": "or",
+    "seeProfile": "See my profile"
   },
   "leaderboard": {
     "title": "Leaderboard",
@@ -287,7 +300,8 @@
     "next": "Next move",
     "last": "Latest position",
     "backToLive": "Back to the game",
-    "reviewing": "Reviewing — the game goes on"
+    "reviewing": "Reviewing — the game goes on",
+    "reviewingArchive": "Finished game — review"
   },
   "chat": {
     "tab": "Chat",
@@ -316,5 +330,39 @@
     "cadenceFor": "Cadence",
     "count": "{n} online",
     "quiet": "Nothing said yet."
+  },
+  "profile": {
+    "title": "Profile",
+    "signIn": "Sign in to see your record and read your games back.",
+    "since": "Member since {date}",
+    "peak": "best {n}",
+    "curve": "Rating over time",
+    "record": "Record",
+    "allGames": "All games",
+    "ratedGames": "Rated games",
+    "byCadence": "By cadence",
+    "history": "Games",
+    "noGames": "No games yet. Your first one is waiting.",
+    "games": "{n} games",
+    "plies": "{n} moves",
+    "won": "Won",
+    "lost": "Lost",
+    "drew": "Drawn",
+    "guest": "Guest",
+    "versus": "vs",
+    "notReplayable": "This game was recorded before moves were kept in full, so it cannot be replayed."
+  },
+  "mail": {
+    "verifyTitle": "Confirming your address",
+    "verified": "Your address is confirmed. Welcome!",
+    "verifyFailedHint": "The link may have expired. Sign in and ask for a new one.",
+    "startPlaying": "Play",
+    "noToken": "This link is incomplete. Open it straight from the mail you received.",
+    "resetTitle": "New password",
+    "resetLede": "Choose a password of at least 8 characters.",
+    "passwordAgain": "Repeat the password",
+    "passwordMismatch": "The two passwords do not match.",
+    "setPassword": "Save",
+    "resetDone": "Done. You can sign in with your new password."
   }
 }

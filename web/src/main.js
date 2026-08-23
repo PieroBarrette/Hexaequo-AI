@@ -10,6 +10,8 @@ import { mountPlay } from './views/play.js';
 import { mountRules } from './views/rules.js';
 import { mountOnline } from './views/online.js';
 import { mountPrivacy, mountTerms } from './views/legal.js';
+import { mountProfile } from './views/profile.js';
+import { mountVerify, mountReset } from './views/mailAction.js';
 import { mountSettings, setInstallPrompt } from './views/settings.js';
 import { closeOverlay } from './ui/overlay.js';
 import { openPanel, relabelPanel } from './ui/panels.js';
@@ -45,6 +47,10 @@ async function boot() {
   defineRoute('privacy', mountPrivacy);
   defineRoute('terms', mountTerms);
   defineRoute('settings', mountSettings);
+  defineRoute('profile', mountProfile);
+  /* Landing points for the links in our own mail. */
+  defineRoute('verify', mountVerify);
+  defineRoute('reset', mountReset);
 
   renderChrome();
   startRouter();
