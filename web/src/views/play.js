@@ -22,6 +22,7 @@ import {
 } from '../game/state.js';
 import {
   generateMoves, generateDiskMoves, availableJumps, checkWinner, moveNotation, moveIntent,
+  findLegalMove,
 } from '../game/moves.js';
 import { chooseMove } from '../game/ai.js';
 import { request, listen, connect, inviteLink, identify } from '../net.js';
@@ -578,12 +579,18 @@ export function mountPlay(outlet, params) {
    * comes back after a dropped connection — can still walk through everything
    * that happened before they arrived.
    */
-  function replayTimeline(moves) {
+  function replayTimeline(intents) {
     const line = [];
     const position = createState();
     line.push(cloneState(position));
-    for (const move of moves || []) {
-      try { applyMove(position, move); } catch { break; }
+    for (const intent of intents || []) {
+      /* What the server sends is an intent, not a move: a jump names the
+         squares it visits and says nothing about what it takes. Ask the
+         position which legal move that describes, exactly as the server does
+         when it accepts one. */
+      const move = findLegalMove(position, intent);
+      if (!move) break;
+      applyMove(position, move);
       line.push(cloneState(position));
     }
     return line;

@@ -69,10 +69,17 @@ async function persistGame(room, result, black, white, rated) {
     );
     const gameId = rows[0].id;
 
-    // The ordered intents are the whole game; storing them makes replays
-    // possible without trusting anything the clients kept.
+    /* The ordered intents are the whole game; storing them makes replays
+       possible without trusting anything the clients kept. Kept apart from the
+       game row on purpose: if the move list cannot be written, the players
+       still get their result and their rating, and all that is lost is the
+       ability to watch it back. */
     if (room.moves && room.moves.length) {
-        await storeMoves(gameId, room);
+        try {
+            await storeMoves(gameId, room);
+        } catch (error) {
+            console.error('[rated] could not store the moves of ' + room.code + ':', error.message);
+        }
     }
     return { id: gameId };
 }
@@ -80,19 +87,22 @@ async function persistGame(room, result, black, white, rated) {
 async function storeMoves(gameId, room) {
     await transaction(async (client) => {
         for (let i = 0; i < room.moves.length; i++) {
-            const intent = room.moves[i];
+            const move = room.moves[i];
             await client.query(
-                `INSERT INTO moves (game_id, move_number, player, move_type, to_q, to_r, captures, state_snapshot)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+                `INSERT INTO moves (game_id, move_number, player, move_type, to_q, to_r,
+                                    intent, notation, state_snapshot)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
                 [
                     gameId,
                     i + 1,
                     i % 2 === 0 ? 'black' : 'white',
-                    intent.type,
-                    // The board is keyed by a single packed integer; the schema
-                    // wants a pair, so the key goes in to_q and to_r stays 0.
-                    intentCell(intent), 0,
-                    null,
+                    move.type,
+                    // The board is keyed by a single packed integer; the older
+                    // columns want a pair, so the key goes in to_q and to_r
+                    // stays 0. They are a summary — `intent` is the move.
+                    intentCell(move), 0,
+                    JSON.stringify(move),
+                    (room.notations && room.notations[i]) || null,
                     i === room.moves.length - 1 ? JSON.stringify(room.state) : null,
                 ]
             );

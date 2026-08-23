@@ -26,6 +26,7 @@ const roomRoutes = require('./routes/roomRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const matchmakingRoutes = require('./routes/matchmakingRoutes');
+const profileRoutes = require('./routes/profileRoutes');
 
 // Initialize Express
 const app = express();
@@ -90,6 +91,8 @@ app.use('/api/rooms', roomRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/matchmaking', matchmakingRoutes);
+// Records, game history and replays.
+app.use('/api/profile', profileRoutes);
 
 // Create HTTP server with Express app FIRST
 const httpServer = createServer(app);

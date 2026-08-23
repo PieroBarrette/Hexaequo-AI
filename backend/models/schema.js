@@ -148,6 +148,12 @@ CREATE TABLE IF NOT EXISTS moves (
     
     -- Captures (for jumps)
     captures JSONB, -- [{q, r, type}]
+
+    -- The move itself, exactly as the server applied it, and how it reads.
+    -- Everything above is a projection: a multi-jump keeps only its landing
+    -- square, so a game cannot be replayed from those columns alone.
+    intent JSONB,
+    notation VARCHAR(40),
     
     -- State after move (for replay)
     state_snapshot JSONB,
@@ -340,13 +346,27 @@ $$ LANGUAGE plpgsql;
 /**
  * Run schema creation
  */
+/*
+ * Columns added after the first release.
+ *
+ * CREATE TABLE IF NOT EXISTS does nothing to a table that is already there, so
+ * new columns need saying twice: once above for a fresh database, once here for
+ * every database that already exists. Both are safe to run repeatedly.
+ */
+const migrations = `
+    ALTER TABLE moves ADD COLUMN IF NOT EXISTS intent JSONB;
+    ALTER TABLE moves ADD COLUMN IF NOT EXISTS notation VARCHAR(40);
+`;
+
 async function createSchema() {
     console.log('Creating database schema...');
     
     try {
         // Execute entire schema at once (PostgreSQL handles multiple statements)
         await query(schema);
-        
+        // Then bring an older database up to the same shape.
+        await query(migrations);
+
         console.log('Database schema created successfully!');
     } catch (error) {
         console.error('Error creating schema:', error.message);
