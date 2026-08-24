@@ -114,6 +114,7 @@ export function mountSettings(outlet) {
       play('move');
       play('tilePlacement', 380);
       play('capture', 820);
+      play('win', 1400);
       return;
     }
     if (action && action.getAttribute('data-action') === 'install' && installPrompt) {

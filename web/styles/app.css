@@ -2,6 +2,19 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
+/*
+ * Tell the browser which way round the page is.
+ *
+ * A native dropdown list is drawn by the operating system, not by us: no rule
+ * of ours reaches inside it. Without this it paints a light menu with light
+ * text over our dark chrome, and the options are unreadable. color-scheme is
+ * the one thing that reaches native widgets, and it also fixes scrollbars,
+ * date pickers and the caret in the same stroke.
+ */
+:root[data-theme="dark"] { color-scheme: dark; }
+:root[data-theme="light"] { color-scheme: light; }
+/* 'auto' never reaches the attribute: settings.js resolves it first. */
+
 html, body {
   height: 100%;
   margin: 0;
@@ -62,6 +75,10 @@ button:disabled { opacity: .35; cursor: not-allowed; }
 .btn--primary:hover:not(:disabled) { filter: brightness(1.08); }
 
 select.btn { padding-right: 8px; }
+select.btn option {
+  background: var(--surface);
+  color: var(--text);
+}
 
 /* ── Logo ────────────────────────────────────────────────────────────────── */
 

@@ -30,6 +30,7 @@ const TARGETS = [
   { file: 'google-branding-120.png', size: 120, pad: 0.07, background: '#ffffff' },
   { file: 'icon-192x192.png', size: 192, pad: 0.10, background: '#0e1015' },
   { file: 'icon-512x512.png', size: 512, pad: 0.10, background: '#0e1015' },
+  { file: 'icon-maskable-192.png', size: 192, pad: 0.22, background: '#0e1015' },
   { file: 'icon-maskable-512.png', size: 512, pad: 0.22, background: '#0e1015' },
   { file: 'icon-light-512.png', size: 512, pad: 0.10, background: '#ffffff' },
   { file: 'apple-touch-icon.png', size: 180, pad: 0.10, background: '#0e1015' },

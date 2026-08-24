@@ -37,11 +37,17 @@ let unlocked = false;
 const MATERIALS = {
   classic: {                    // seasoned wood: low, dry, warm
     body: 210, ring: 0.13, bright: 0.55, partial: 2.4, tone: 'triangle',
-    cut: 2600, chord: [392, 494, 587],          // G B D, a warm major
+    cut: 2600,
+    chord: [392, 494, 587],                     // G B D, a warm major
+    /* A struck plank does not ring, so the ending is a marimba run rather
+       than a chime: short notes, a wooden overtone, no tail. */
+    endTone: 'triangle', endDecay: 0.30, endGap: 0.10, endPartial: 4.0, endPartialGain: 0.10,
   },
   modern: {                     // stone and glass: higher, clearer, longer
     body: 430, ring: 0.42, bright: 0.32, partial: 3.7, tone: 'sine',
-    cut: 7000, chord: [523.25, 659.25, 830.61], // C E G#, brighter and open
+    cut: 7000,
+    chord: [523.25, 659.25, 830.61],            // C E G#, brighter and open
+    endTone: 'sine', endDecay: 0.95, endGap: 0.13, endPartial: 2.0, endPartialGain: 0.28,
   },
 };
 
@@ -172,13 +178,60 @@ const VOICES = {
     strike(at + 0.05, { freq: m.body * 0.55, peak: 0.16, decay: 0.2, type: 'sine', bend: 0.55 });
   },
 
-  /** The end of the game: three notes, the only phrase in the whole set. */
-  gameEnd(at) {
+  /**
+   * Winning: three notes rising, each one louder and longer than the last.
+   *
+   * The only phrase in the whole set, and the only place a sound is allowed to
+   * take its time.
+   */
+  win(at) {
     const m = material();
-    m.chord.forEach((freq, i) => {
-      const when = at + i * 0.11;
-      strike(when, { freq, peak: 0.2, decay: 0.5 + m.ring * 2, type: 'sine', bend: 0.998 });
-      strike(when + 0.001, { freq: freq * 2, peak: 0.05, decay: 0.3, type: 'sine', bend: 0.998 });
+    const notes = m.chord;
+    notes.forEach((freq, i) => {
+      const when = at + i * m.endGap;
+      const swell = 0.13 + i * 0.055;                 // opening out
+      const decay = m.endDecay * (1 + i * 0.5);
+      strike(when, { freq, peak: swell, decay, type: m.endTone, bend: 0.999 });
+      strike(when + 0.002, {
+        freq: freq * m.endPartial, peak: swell * m.endPartialGain, decay: decay * 0.6,
+        type: 'sine', bend: 0.999,
+      });
+    });
+    // The octave above, last and brightest: the note that says it is over.
+    strike(at + notes.length * m.endGap, {
+      freq: notes[0] * 2, peak: 0.24, decay: m.endDecay * 2.2, type: m.endTone, bend: 0.999,
+    });
+  },
+
+  /**
+   * Losing: the same three notes falling, each one shorter and quieter.
+   *
+   * Deliberately not a sad noise — nobody wants to be mocked by a game. It is
+   * the winning phrase running out of air.
+   */
+  loss(at) {
+    const m = material();
+    const notes = [...m.chord].reverse();
+    notes.forEach((freq, i) => {
+      const when = at + i * m.endGap * 1.15;
+      const fade = 0.21 - i * 0.05;                   // closing down
+      const decay = m.endDecay * (1 - i * 0.22);
+      strike(when, { freq: freq * 0.5, peak: fade, decay, type: m.endTone, bend: 0.985 });
+    });
+    // A last low note, settling.
+    strike(at + notes.length * m.endGap * 1.15, {
+      freq: notes[notes.length - 1] * 0.25, peak: 0.16, decay: m.endDecay * 1.6,
+      type: 'sine', bend: 0.94,
+    });
+  },
+
+  /** A game that ended in neither: level, and short. */
+  draw(at) {
+    const m = material();
+    m.chord.slice(0, 2).forEach((freq, i) => {
+      strike(at + i * m.endGap, {
+        freq: freq * 0.75, peak: 0.17, decay: m.endDecay, type: m.endTone, bend: 0.995,
+      });
     });
   },
 

@@ -5,7 +5,7 @@
  * Bump CACHE_VERSION on every release — the activate step removes older caches.
  */
 
-const CACHE_VERSION = 'hexaequo-v5';
+const CACHE_VERSION = 'hexaequo-v6';
 
 const SHELL = [
   './',
@@ -41,6 +41,10 @@ const SHELL = [
   './src/views/settings.js',
   './assets/icons/icon-192x192.png',
   './assets/icons/icon-512x512.png',
+  './assets/icons/icon-maskable-192.png',
+  './assets/icons/icon-maskable-512.png',
+  './assets/icons/apple-touch-icon.png',
+  './apple-touch-icon.png',
   // Sound is synthesised in audio.js; there is nothing left to download.
 ];
 

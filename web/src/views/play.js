@@ -13,12 +13,11 @@ import { get as getSetting, set as setSetting, onSettingsChange } from '../setti
 import { play as playSound } from '../audio.js';
 import { createBoard, pieceSvg, cx, cy, SIZE } from '../ui/board.js';
 import { miniBoardSvg } from '../ui/miniBoard.js';
-import { STEP, RING_OFFSETS, inBoard, cellLabel, hexPath } from '../game/hex.js';
+import { STEP, RING_OFFSETS, inBoard, cellLabel } from '../game/hex.js';
 import {
   BLACK, WHITE, DISK, RING, createState, cloneState, positionKey, withPieceLifted,
   applyMove, undoMove, tilePlacementSpots, pieceOwner, pieceType, makePiece,
   deserializeState,
-  TILES_PER_PLAYER, DISKS_PER_PLAYER, RINGS_PER_PLAYER,
 } from '../game/state.js';
 import {
   generateMoves, generateDiskMoves, availableJumps, checkWinner, moveNotation, moveIntent,
@@ -405,7 +404,10 @@ export function mountPlay(outlet, params) {
     for (const c of next.captured) {
       playSound('capture', steps ? Math.max(0, flight * Math.min(1, c.step / steps) - 80) : 60);
     }
-    if (ending) playSound('gameEnd', 420);
+    if (ending) {
+      const voice = endingVoice(result);
+      if (voice) playSound(voice, 420);
+    }
   }
 
   function undoLast() {
@@ -459,6 +461,26 @@ export function mountPlay(outlet, params) {
   }
 
   const colourName = (player) => (player === BLACK ? t('common.black') : t('common.white'));
+
+  /**
+   * The sound a result deserves, from the point of view of whoever is sitting
+   * here.
+   *
+   * Online there is a side to be on, so a win rises and a loss falls. In a
+   * local game both players share the screen and neither of them lost, so it
+   * is always the winning phrase — there is nobody to console.
+   */
+  function endingVoice(outcome) {
+    if (!outcome) return null;
+    if (outcome.draw) return 'draw';
+    if (net && net.colour !== null && net.colour !== undefined) {
+      return outcome.winner === net.colour ? 'win' : 'loss';
+    }
+    if (!net && mode === MODE_AI) {
+      return outcome.winner === humanSide ? 'win' : 'loss';
+    }
+    return 'win';
+  }
 
   /* ── Online ───────────────────────────────────────────────────────────── */
 
@@ -574,7 +596,10 @@ export function mountPlay(outlet, params) {
     for (const c of captured) {
       playSound('capture', steps ? Math.max(0, flight * Math.min(1, c.step / steps) - 80) : 60);
     }
-    if (result) playSound('gameEnd', 420);
+    if (result) {
+      const voice = endingVoice(result);
+      if (voice) playSound(voice, 420);
+    }
 
     refresh();
   }
@@ -996,24 +1021,22 @@ export function mountPlay(outlet, params) {
       + ` xmlns="http://www.w3.org/2000/svg">${pieceSvg(0, 0, makePiece(colour, type), .78)}</svg>`;
   }
 
-  function emptySlotSvg(kind) {
-    const r = kind === 'disk' ? SIZE * .42 : SIZE * .55;
-    const shape = kind === 'tile'
-      ? `<path d="${hexPath(0, 0, SIZE * .9)}" fill="none"`
-      : `<circle r="${r}" fill="none"`;
-    return `<svg viewBox="${-SIZE} ${-SIZE} ${SIZE * 2} ${SIZE * 2}" xmlns="http://www.w3.org/2000/svg">`
-      + `${shape} stroke="var(--muted)" stroke-opacity=".35" stroke-width="4" stroke-dasharray="9 7"/></svg>`;
-  }
-
-  function stackHtml(kind, colour, total, available, usable) {
+  /**
+   * A pile of pieces: exactly what is in it, and nothing else.
+   *
+   * The empty slots used to be drawn as dashed outlines, which read as a
+   * checklist of what was missing rather than as an inventory. A board game
+   * does not show you the pieces you no longer have.
+   */
+  function stackHtml(kind, colour, count, usable) {
+    if (!count) return '';
     let out = '<div class="stack">';
-    for (let i = 0; i < total; i++) {
-      const filled = i < available;
+    for (let i = 0; i < count; i++) {
       const classes = ['token'];
-      if (filled && usable) classes.push('is-usable');
-      if (filled && usable && placeMode === kind) classes.push('is-armed');
-      out += `<span class="${classes.join(' ')}"${filled && usable ? ` data-arm="${kind}"` : ''}>`
-        + (filled ? tokenSvg(kind, colour) : emptySlotSvg(kind)) + '</span>';
+      if (usable) classes.push('is-usable');
+      if (usable && placeMode === kind) classes.push('is-armed');
+      out += `<span class="${classes.join(' ')}"${usable ? ` data-arm="${kind}"` : ''}>`
+        + tokenSvg(kind, colour) + '</span>';
     }
     return out + '</div>';
   }
@@ -1030,18 +1053,21 @@ export function mountPlay(outlet, params) {
       for (const k of position.tileKeys) {
         if (position.tileAt[k] === player && position.pieceAt[k] < 0) freeOwnTiles++;
       }
+      const taken = position.capturedDisks[player] + position.capturedRings[player] > 0;
       rail.innerHTML =
         `<div class="player-dot${player === WHITE ? ' is-white' : ''}"`
         + ` title="${colourName(player)} — ${isAI(player) ? 'IA' : ''}"></div>`
         + (net && net.clock ? `<div class="clock" data-clock="${player}">${formatClock(remainingFor(player))}</div>` : '')
-        + stackHtml('tile', player, TILES_PER_PLAYER, position.tileReserve[player],
+        + stackHtml('tile', player, position.tileReserve[player],
           live && tilePlacementSpots(position).length > 0)
-        + stackHtml('disk', player, DISKS_PER_PLAYER, position.diskReserve[player], live && freeOwnTiles > 0)
-        + stackHtml('ring', player, RINGS_PER_PLAYER, position.ringReserve[player],
+        + stackHtml('disk', player, position.diskReserve[player], live && freeOwnTiles > 0)
+        + stackHtml('ring', player, position.ringReserve[player],
           live && freeOwnTiles > 0 && position.capturedDisks[player] > 0)
-        + '<div class="rail-sep"></div>'
-        + stackHtml('disk', opponent, DISKS_PER_PLAYER, position.capturedDisks[player], false)
-        + stackHtml('ring', opponent, RINGS_PER_PLAYER, position.capturedRings[player], false);
+        /* Below the line: pieces taken from the opponent, which are as real a
+           part of this player's inventory as their own. */
+        + (taken ? '<div class="rail-sep"></div>' : '')
+        + stackHtml('disk', opponent, position.capturedDisks[player], false)
+        + stackHtml('ring', opponent, position.capturedRings[player], false);
       rail.classList.toggle('is-turn', isTurn && !reviewing);
       rail.classList.toggle('is-thinking', isTurn && thinking && !reviewing);
     }
@@ -1801,6 +1827,7 @@ export function mountPlay(outlet, params) {
   tools.addEventListener('change', onToolChange);
   toolsRight.addEventListener('click', onToolClick);
   outlet.addEventListener('click', onToolClick);
+  outlet.addEventListener('change', onToolChange);
   document.addEventListener('keydown', onKey);
 
   /* Leaving a local game in progress throws it away — ask first. Online games
