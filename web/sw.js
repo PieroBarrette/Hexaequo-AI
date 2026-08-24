@@ -5,7 +5,7 @@
  * Bump CACHE_VERSION on every release — the activate step removes older caches.
  */
 
-const CACHE_VERSION = 'hexaequo-v4';
+const CACHE_VERSION = 'hexaequo-v5';
 
 const SHELL = [
   './',
@@ -41,12 +41,7 @@ const SHELL = [
   './src/views/settings.js',
   './assets/icons/icon-192x192.png',
   './assets/icons/icon-512x512.png',
-  './assets/sounds/tile_placement.mp3',
-  './assets/sounds/piece_placement.mp3',
-  './assets/sounds/move.mp3',
-  './assets/sounds/capture.mp3',
-  './assets/sounds/game_end.mp3',
-  './assets/sounds/button_click.mp3',
+  // Sound is synthesised in audio.js; there is nothing left to download.
 ];
 
 self.addEventListener('install', (event) => {

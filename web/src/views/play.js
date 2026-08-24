@@ -60,6 +60,8 @@ export function mountPlay(outlet, params) {
   let timeline = [];
   let timelineMoves = [];
   let review = null;
+  let playTimer = 0;          // walking the game on its own
+  let playSpeed = 1;
   let resultSeen = false;          // the result card has been dismissed
 
   let mode = MODE_AI;
@@ -117,6 +119,7 @@ export function mountPlay(outlet, params) {
       <div class="board-area">
         <div class="net-strip"></div>
         <div class="board-host" style="flex:1;display:flex;min-width:0"></div>
+        <div class="piece-picker" hidden></div>
         <div class="chain-bar">
           <span class="taken"></span>
           <button class="btn btn--icon" data-action="end-jump" title="${t('game.endJump')}">✓</button>
@@ -137,6 +140,12 @@ export function mountPlay(outlet, params) {
           <span class="review-ply" data-field="ply"></span>
           <button class="btn btn--icon" data-action="rev-next" title="${t('review.next')}">▶</button>
           <button class="btn btn--icon" data-action="rev-last" title="${t('review.last')}">⏭</button>
+          <button class="btn btn--icon" data-action="rev-play" title="${t('review.play')}">▶</button>
+          <select class="btn review-speed" data-control="rev-speed" title="${t('review.speed')}">
+            <option value="1">1×</option>
+            <option value="2">2×</option>
+            <option value="4">4×</option>
+          </select>
           <button class="btn review-live" data-action="rev-live">${t('review.backToLive')}</button>
         </div>
         <div class="drawer">
@@ -164,6 +173,7 @@ export function mountPlay(outlet, params) {
   const board = createBoard(outlet.querySelector('.board-host'));
   const rails = [outlet.querySelector('[data-rail="0"]'), outlet.querySelector('[data-rail="1"]')];
   const chainBar = outlet.querySelector('.chain-bar');
+  const pickerEl = outlet.querySelector('.piece-picker');
   const overlay = outlet.querySelector('.result-overlay');
   const drawer = outlet.querySelector('.drawer');
   const moveListEl = outlet.querySelector('.move-list');
@@ -236,6 +246,7 @@ export function mountPlay(outlet, params) {
     outlet.querySelector('[data-action="end-jump"]').title = t('game.endJump');
     outlet.querySelector('[data-action="cancel-jump"]').title = t('game.cancel');
     outlet.querySelector('[data-action="rev-live"]').textContent = t('review.backToLive');
+    outlet.querySelector('[data-control="rev-speed"]').title = t('review.speed');
     for (const [action, key] of [['rev-first', 'first'], ['rev-prev', 'previous'],
       ['rev-next', 'next'], ['rev-last', 'last']]) {
       outlet.querySelector(`[data-action="${action}"]`).title = t('review.' + key);
@@ -381,7 +392,10 @@ export function mountPlay(outlet, params) {
     afterEffect(scheduleAI);
   }
 
-  function playMoveSounds(move, next) {
+  /* `ending` is passed explicitly because the review replays a finished game:
+     `result` is set the whole way through, and reading it here would sound the
+     end of the game after every single move. */
+  function playMoveSounds(move, next, ending = Boolean(result)) {
     if (move.type === 'tile') playSound('tilePlacement');
     else if (move.type === 'piece') playSound('piecePlacement');
     else playSound('move');
@@ -391,7 +405,7 @@ export function mountPlay(outlet, params) {
     for (const c of next.captured) {
       playSound('capture', steps ? Math.max(0, flight * Math.min(1, c.step / steps) - 80) : 60);
     }
-    if (result) playSound('gameEnd', 420);
+    if (ending) playSound('gameEnd', 420);
   }
 
   function undoLast() {
@@ -893,6 +907,7 @@ export function mountPlay(outlet, params) {
 
     /* The move that produced what is on screen: the game's last move while
        watching, and the reviewed ply's own move while reading back. */
+    const showEffect = Boolean(effect) && (!reviewing || effect.review);
     const marked = reviewing ? (review > 0 ? timelineMoves[review - 1] : null) : lastMove;
     const lastMoveCells = [];
     if (marked && !chain) {
@@ -915,15 +930,12 @@ export function mountPlay(outlet, params) {
       chainCurrent: chain ? chain.current : null,
       chainPiece: makePiece(player, DISK),
       lastMoveCells: [...new Set(lastMoveCells)],
-      picker: picker ? {
-        cell: picker.cell,
-        options: picker.options,
-        pieceCode: (option) => makePiece(player, option === 'ring' ? RING : DISK),
-      } : null,
-      hidden: !reviewing && effect && effect.hidden != null ? effect.hidden : -1,
+      // Only the cell: the choice itself is drawn over the board, not in it.
+      picker: picker ? { cell: picker.cell } : null,
+      hidden: showEffect && effect.hidden != null ? effect.hidden : -1,
       held: dragging ? drag.cell : -1,
-      newTile: !reviewing && effect ? effect.newTile : null,
-      newPiece: !reviewing && effect ? effect.newPiece : null,
+      newTile: showEffect ? effect.newTile : null,
+      newPiece: showEffect ? effect.newPiece : null,
       showValidMoves: aid,
       instant: instant || board.__firstFrame,
     });
@@ -931,6 +943,7 @@ export function mountPlay(outlet, params) {
     gameEl.classList.toggle('is-reviewing', reviewing);
 
     renderRails(position, reviewing);
+    renderPicker();
     renderChainBar();
     renderResult();
     renderMoveList();
@@ -966,9 +979,10 @@ export function mountPlay(outlet, params) {
 
   function runEffect() {
     if (!effect || effect.played) return;
-    /* A move that lands while the player is reading back has no board to play
-       on. The position is recorded either way; only the animation is lost. */
-    if (review !== null) { effect = null; return; }
+    /* A move that lands from the game while the player is reading back has no
+       board to play on — theirs is showing another position entirely. One the
+       review itself built is exactly what they asked for. */
+    if (review !== null && !effect.review) { effect = null; return; }
     effect.played = true;
     const total = board.playEffects(effect, () => { effect = null; refresh(); });
     effectEndsAt = Date.now() + total;
@@ -1031,6 +1045,51 @@ export function mountPlay(outlet, params) {
       rail.classList.toggle('is-turn', isTurn && !reviewing);
       rail.classList.toggle('is-thinking', isTurn && thinking && !reviewing);
     }
+  }
+
+  /**
+   * The disk-or-ring chooser.
+   *
+   * Drawn in HTML over the board rather than inside it, so its targets are a
+   * real size in real pixels: the board scales to fit, and two circles sized
+   * in board units came out around thirteen pixels across on a phone.
+   */
+  function renderPicker() {
+    if (!picker) {
+      pickerEl.hidden = true;
+      pickerEl.innerHTML = '';
+      return;
+    }
+    const label = { disk: t('game.placeDisk'), ring: t('game.placeRing') };
+    pickerEl.innerHTML = picker.options.map((option) => `
+      <button class="piece-choice" data-choose="${option}">
+        <span class="piece-choice-art">${tokenSvg(option, state.turn)}</span>
+        <span>${label[option]}</span>
+      </button>`).join('');
+    pickerEl.hidden = false;
+    placePicker();
+  }
+
+  /** Park the chooser next to its cell, and keep it inside the board area. */
+  function placePicker() {
+    if (!picker || pickerEl.hidden) return;
+    const area = outlet.querySelector('.board-area').getBoundingClientRect();
+    const spot = board.toScreenSpace(cx(picker.cell), cy(picker.cell));
+    const box = pickerEl.getBoundingClientRect();
+    const margin = 8;
+
+    let left = spot.x - area.left - box.width / 2;
+    left = Math.max(margin, Math.min(area.width - box.width - margin, left));
+
+    /* Above the cell by preference — a finger on the cell should not cover the
+       thing it just opened — and below when there is no room above. */
+    const gap = 54;
+    let top = spot.y - area.top - box.height - gap;
+    if (top < margin) top = spot.y - area.top + gap;
+    top = Math.max(margin, Math.min(area.height - box.height - margin, top));
+
+    pickerEl.style.left = `${Math.round(left)}px`;
+    pickerEl.style.top = `${Math.round(top)}px`;
   }
 
   function renderChainBar() {
@@ -1096,7 +1155,55 @@ export function mountPlay(outlet, params) {
 
   /* ── Review ───────────────────────────────────────────────────────────── */
 
-  function goToPly(index) {
+  /**
+   * Rebuild the move that produced a ply, so it can be played again.
+   *
+   * The timeline stores intents, which name the squares a piece visited and
+   * say nothing about what it took. Resolving one against the position before
+   * it gives back the whole move, captures and all — the same thing the board
+   * animates during a live game.
+   */
+  function effectForPly(index) {
+    if (index < 1 || index >= timeline.length) return null;
+    const from = timeline[index - 1];
+    const move = findLegalMove(from, timelineMoves[index - 1]);
+    if (!move) return null;
+
+    const player = from.turn;
+    const path = move.type === 'disk' ? move.path.slice()
+      : (move.type === 'ring' ? [move.from, move.to] : null);
+    const captures = move.type === 'disk' ? move.captures
+      : (move.type === 'ring' && move.capture ? [move.capture] : []);
+
+    const shot = {
+      review: true,
+      path,
+      code: makePiece(player, move.type === 'ring' ? RING : DISK),
+      captured: [],
+      newTile: move.type === 'tile' ? move.cell : null,
+      newPiece: move.type === 'piece' ? move.cell : null,
+      hidden: path ? path[path.length - 1] : null,
+    };
+    for (const capture of captures) {
+      let step = 1;
+      if (path) {
+        for (let i = 0; i + 1 < path.length; i++) {
+          if ((path[i] + path[i + 1]) / 2 === capture.cell) { step = i + 1; break; }
+        }
+      }
+      shot.captured.push({ cell: capture.cell, code: capture.code, step });
+    }
+    return shot;
+  }
+
+  /**
+   * Show the position after `index` plies.
+   *
+   * `animate` replays the move that produced it, which is what a single step
+   * forward means. Jumping straight to a ply from the move list does not
+   * animate: there is no single move to show.
+   */
+  function goToPly(index, animate) {
     const last = timeline.length - 1;
     const target = Math.max(0, Math.min(last, index));
     review = target >= last ? null : target;
@@ -1105,13 +1212,52 @@ export function mountPlay(outlet, params) {
     picker = null;
     placeMode = null;
     clearEffect();
-    refresh(true);
+    if (animate) {
+      const shot = effectForPly(target);
+      if (shot) {
+        effect = shot;
+        playMoveSounds(timelineMoves[target - 1], shot, Boolean(result) && target === last);
+      }
+    }
+    refresh(!animate);
   }
 
   function stepReview(delta) {
     const current = review === null ? timeline.length - 1 : review;
-    goToPly(current + delta);
+    // Only a single step forward has one move to show.
+    goToPly(current + delta, delta === 1);
   }
+
+  /**
+   * Walk the game forward on its own until it runs out or is stopped.
+   *
+   * Each step waits for its own animation rather than a fixed tick, so a long
+   * jump chain is not cut off by the next move starting on top of it.
+   */
+  function startAutoplay() {
+    stopAutoplay();
+    if (timeline.length < 2) return;
+    // Starting from the end means starting again from the beginning.
+    if (review === null) goToPly(0);
+    tickAutoplay();
+    renderReviewBar();
+  }
+
+  function tickAutoplay() {
+    const last = timeline.length - 1;
+    const at = review === null ? last : review;
+    if (at >= last) { stopAutoplay(); renderReviewBar(); return; }
+    stepReview(1);
+    const wait = Math.max(240, (effectEndsAt - Date.now()) + 260) / playSpeed;
+    playTimer = setTimeout(tickAutoplay, wait);
+  }
+
+  function stopAutoplay() {
+    if (playTimer) clearTimeout(playTimer);
+    playTimer = 0;
+  }
+
+  const isAutoplaying = () => playTimer !== 0;
 
   function renderReviewBar() {
     // Nothing to look back on until a move has been played.
@@ -1126,6 +1272,10 @@ export function mountPlay(outlet, params) {
     reviewBar.querySelector('[data-action="rev-next"]').disabled = at === last;
     reviewBar.querySelector('[data-action="rev-last"]').disabled = at === last;
     reviewBar.classList.toggle('is-back', review !== null);
+    const playButton = reviewBar.querySelector('[data-action="rev-play"]');
+    playButton.textContent = isAutoplaying() ? '⏸' : '▶';
+    playButton.classList.toggle('is-on', isAutoplaying());
+    playButton.title = isAutoplaying() ? t('review.pause') : t('review.play');
   }
 
   const escapeText = (value) => String(value).replace(/[&<>"']/g, (c) =>
@@ -1550,7 +1700,7 @@ export function mountPlay(outlet, params) {
     if (tab) { playSound('ui'); showDrawerTab(tab.getAttribute('data-tab')); return; }
 
     const ply = event.target.closest('[data-ply]');
-    if (ply) { goToPly(Number(ply.getAttribute('data-ply'))); return; }
+    if (ply) { stopAutoplay(); goToPly(Number(ply.getAttribute('data-ply'))); return; }
 
     const token = event.target.closest('[data-arm]');
     if (!token) return;
@@ -1560,6 +1710,13 @@ export function mountPlay(outlet, params) {
     picker = null;
     playSound('ui');
     refresh();
+  });
+
+  pickerEl.addEventListener('click', (event) => {
+    const choice = event.target.closest('[data-choose]');
+    if (!choice || !picker) return;
+    playSound('ui');
+    onCell(picker.cell, choice.getAttribute('data-choose'));
   });
 
   chatForm.addEventListener('submit', (event) => {
@@ -1583,11 +1740,14 @@ export function mountPlay(outlet, params) {
     else if (action === 'resign') resign();
     else if (action === 'review-game') { resultSeen = true; goToPly(0); }
     else if (action === 'rematch') askRematch();
-    else if (action === 'rev-first') goToPly(0);
-    else if (action === 'rev-prev') stepReview(-1);
-    else if (action === 'rev-next') stepReview(1);
-    else if (action === 'rev-last') goToPly(timeline.length - 1);
-    else if (action === 'rev-live') goToPly(timeline.length - 1);
+    else if (action === 'rev-first') { stopAutoplay(); goToPly(0); }
+    else if (action === 'rev-prev') { stopAutoplay(); stepReview(-1); }
+    else if (action === 'rev-next') { stopAutoplay(); stepReview(1); }
+    else if (action === 'rev-last') { stopAutoplay(); goToPly(timeline.length - 1); }
+    else if (action === 'rev-live') { stopAutoplay(); goToPly(timeline.length - 1); }
+    else if (action === 'rev-play') {
+      if (isAutoplaying()) { stopAutoplay(); renderReviewBar(); } else startAutoplay();
+    }
     else if (action === 'copy-link' && net) {
       navigator.clipboard.writeText(inviteLink(net.code)).catch(() => {});
       button.textContent = '✓';
@@ -1609,6 +1769,7 @@ export function mountPlay(outlet, params) {
     const control = event.target.closest('[data-control]');
     if (!control) return;
     const name = control.getAttribute('data-control');
+    if (name === 'rev-speed') { playSpeed = Number(control.value) || 1; return; }
     if (name === 'mode') { mode = control.value; aiRunning = false; newGame(); }
     else if (name === 'side') { humanSide = Number(control.value); newGame(); }
     else if (name === 'level') { level = Number(control.value); setSetting('aiLevel', level); refresh(); }
@@ -1687,6 +1848,7 @@ export function mountPlay(outlet, params) {
   };
 
   return () => {
+    stopAutoplay();
     clearInterval(countdownTimer);
     clearInterval(clockTimer);
     if (net) {

@@ -19,6 +19,7 @@ export function mountHome(outlet) {
   };
   outlet.innerHTML = `
     <div class="home">
+      <div class="home-inner">
       ${logoLockupHtml('lg')}
       <p class="lede">${t('meta.tagline')}</p>
       <p class="home-purpose">${t('home.purpose')}</p>
@@ -36,6 +37,8 @@ export function mountHome(outlet) {
         <button data-go="privacy">${t('nav.privacy')}</button>
         <button data-go="terms">${t('nav.terms')}</button>
         <button data-action="theme">${resolvedTheme() === 'dark' ? '☀' : '☾'}</button>
+      </div>
+      <p class="home-credit">${t('home.credit')}</p>
       </div>
     </div>`;
 

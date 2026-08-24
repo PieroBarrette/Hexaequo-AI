@@ -23,7 +23,8 @@
     "settings": "Paramètres",
     "purpose": "Hexaequo est un jeu de plateau abstrait gratuit pour deux joueurs. Il n'y a pas de plateau fixe : on le construit en jouant, tuile après tuile. Jouez à deux sur le même appareil, contre l'ordinateur, ou en ligne avec un ami.",
     "leaderboard": "Classement",
-    "profile": "Mon profil"
+    "profile": "Mon profil",
+    "credit": "Un jeu créé par Piero Barrette"
   },
   "common": {
     "black": "Noir",
@@ -65,7 +66,10 @@
     "reserve": "Réserve",
     "captured": "Capturé",
     "noMoves": "—",
-    "confirmLeave": "Quitter la partie ? La progression sera perdue."
+    "confirmLeave": "Quitter la partie ? La progression sera perdue.",
+    "placeDisk": "Disque",
+    "placeRing": "Anneau",
+    "choosePiece": "Quelle pièce ?"
   },
   "online": {
     "title": "Jouer en ligne",
@@ -173,7 +177,10 @@
     "installHint": "Ajoutez Hexaequo à votre écran d'accueil et jouez hors ligne.",
     "installAction": "Installer",
     "installed": "Déjà installée",
-    "installUnavailable": "Passez par le menu de votre navigateur : Ajouter à l'écran d'accueil."
+    "installUnavailable": "Passez par le menu de votre navigateur : Ajouter à l'écran d'accueil.",
+    "tryTheSounds": "Écouter les sons",
+    "tryTheSoundsHint": "Les sons suivent la matière du plateau : bois en Classique, pierre et verre en Moderne.",
+    "playSample": "Faire entendre"
   },
   "rules": {
     "title": "Règles",
@@ -301,7 +308,10 @@
     "last": "Dernière position",
     "backToLive": "Revenir à la partie",
     "reviewing": "Révision — la partie continue",
-    "reviewingArchive": "Partie terminée — révision"
+    "reviewingArchive": "Partie terminée — révision",
+    "play": "Lecture",
+    "pause": "Pause",
+    "speed": "Vitesse de lecture"
   },
   "chat": {
     "tab": "Clavardage",

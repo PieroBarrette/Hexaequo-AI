@@ -73,6 +73,8 @@ export function mountSettings(outlet) {
         ${row('settings.sound', 'settings.soundHint', toggle('sound', getSetting('sound')))}
         ${row('settings.volume', 'settings.soundHint',
           `<input type="range" min="0" max="1" step="0.05" value="${getSetting('volume')}" data-range="volume">`)}
+        ${row('settings.tryTheSounds', 'settings.tryTheSoundsHint',
+          `<button class="btn" data-action="demo">${t('settings.playSample')}</button>`)}
 
         <h2>${t('settings.install')}</h2>
         ${row('settings.install', 'settings.installHint',
@@ -93,7 +95,8 @@ export function mountSettings(outlet) {
       let value = seg.getAttribute('data-value');
       if (name === 'aiLevel') value = Number(value);
       setSetting(name, value);
-      play('ui');
+      // The material is a voice as much as a look: play it, not a click.
+      play(name === 'boardStyle' ? 'piecePlacement' : 'ui');
       if (name !== 'language') render();   // a language change re-mounts the view
       return;
     }
@@ -106,6 +109,13 @@ export function mountSettings(outlet) {
       return;
     }
     const action = event.target.closest('[data-action]');
+    if (action && action.getAttribute('data-action') === 'demo') {
+      // A move, a placement and a capture, spaced as they would fall in play.
+      play('move');
+      play('tilePlacement', 380);
+      play('capture', 820);
+      return;
+    }
     if (action && action.getAttribute('data-action') === 'install' && installPrompt) {
       installPrompt.prompt();
       await installPrompt.userChoice.catch(() => {});

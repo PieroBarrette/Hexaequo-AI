@@ -23,7 +23,8 @@
     "settings": "Settings",
     "purpose": "Hexaequo is a free abstract strategy board game for two players. There is no fixed board: you build it as you play, one tile at a time. Play on one device, against the computer, or online with a friend.",
     "leaderboard": "Leaderboard",
-    "profile": "My profile"
+    "profile": "My profile",
+    "credit": "A game created by Piero Barrette"
   },
   "common": {
     "black": "Black",
@@ -65,7 +66,10 @@
     "reserve": "Reserve",
     "captured": "Captured",
     "noMoves": "—",
-    "confirmLeave": "Leave this game? The progress will be lost."
+    "confirmLeave": "Leave this game? The progress will be lost.",
+    "placeDisk": "Disk",
+    "placeRing": "Ring",
+    "choosePiece": "Which piece?"
   },
   "online": {
     "title": "Play online",
@@ -173,7 +177,10 @@
     "installHint": "Add Hexaequo to your home screen and play offline.",
     "installAction": "Install",
     "installed": "Already installed",
-    "installUnavailable": "Use your browser's menu: Add to home screen."
+    "installUnavailable": "Use your browser's menu: Add to home screen.",
+    "tryTheSounds": "Hear the sounds",
+    "tryTheSoundsHint": "The sounds follow the board material: wood in Classic, stone and glass in Modern.",
+    "playSample": "Play a sample"
   },
   "rules": {
     "title": "Rules",
@@ -301,7 +308,10 @@
     "last": "Latest position",
     "backToLive": "Back to the game",
     "reviewing": "Reviewing — the game goes on",
-    "reviewingArchive": "Finished game — review"
+    "reviewingArchive": "Finished game — review",
+    "play": "Play",
+    "pause": "Pause",
+    "speed": "Playback speed"
   },
   "chat": {
     "tab": "Chat",

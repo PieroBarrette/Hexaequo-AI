@@ -94,6 +94,16 @@ export function createBoard(container) {
     return point.matrixTransform(matrix.inverse());
   }
 
+  /** Where a point of the board actually is on screen, in CSS pixels. */
+  function toScreenSpace(x, y) {
+    const matrix = svg.getScreenCTM();
+    if (!matrix) return { x: 0, y: 0 };
+    const point = svg.createSVGPoint();
+    point.x = x;
+    point.y = y;
+    return point.matrixTransform(matrix);
+  }
+
   function render(v) {
     const s = v.state;
     const aid = v.showValidMoves;
@@ -213,21 +223,17 @@ export function createBoard(container) {
       }
     }
 
-    /* Inline piece chooser, shown only when both a disk and a ring are legal. */
+    /*
+     * The cell a piece is being chosen for.
+     *
+     * The choice itself is drawn in HTML above the board rather than here: two
+     * targets squeezed inside one hexagon came out around thirteen pixels
+     * across on a phone, which is a third of what a finger needs.
+     */
     if (v.picker) {
       const x = cx(v.picker.cell), y = cy(v.picker.cell);
-      const n = v.picker.options.length;
       out += `<path d="${hexPath(x, y, SIZE * .94)}" fill="var(--spot-fill-strong)"`
         + ` stroke="var(--accent)" stroke-width="3" pointer-events="none"/>`;
-      v.picker.options.forEach((option, i) => {
-        const gx = n === 1 ? x : x + (i ? SIZE * .31 : -SIZE * .31);
-        const r = n === 1 ? SIZE * .44 : SIZE * .33;
-        out += `<circle cx="${gx}" cy="${y}" r="${r}" fill="var(--spot-fill-strong)"`
-          + ` stroke="var(--accent)" stroke-width="1.6" pointer-events="none"/>`;
-        out += pieceSvg(gx, y, v.picker.pieceCode(option), n === 1 ? .66 : .52);
-        out += `<circle class="cell is-clickable" data-cell="${v.picker.cell}" data-piece="${option}"`
-          + ` cx="${gx}" cy="${y}" r="${r}" fill="transparent"/>`;
-      });
     }
 
     main.innerHTML = out;
@@ -325,6 +331,7 @@ export function createBoard(container) {
     render,
     setView,
     toUserSpace,
+    toScreenSpace,
     playEffects,
     clearEffects,
     beginDrag,

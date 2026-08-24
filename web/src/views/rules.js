@@ -120,8 +120,9 @@ export function mountRules(outlet) {
       <h2>${t('rules.drawTitle')}</h2>
       <p>${t('rules.drawText')}</p>
 
-      <div style="display:flex;justify-content:center;margin:34px 0 10px;opacity:.5">
-        <div style="height:52px">${logoMarkSvg()}</div>
+      <div class="rules-colophon">
+        <div class="rules-mark">${logoMarkSvg()}</div>
+        <p>${t('home.credit')}</p>
       </div>
     </div></div>`;
 }
