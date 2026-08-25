@@ -18,7 +18,9 @@ const http = require('http');
 const express = require('express');
 const { Server } = require('socket.io');
 const { io: connect } = require('socket.io-client');
+const jwt = require('jsonwebtoken');
 const { pool, query } = require('../config/database');
+const { JWT_SECRET } = require('../config/env');
 const { attachOnlineGames } = require('../socket/onlineGame');
 
 let passed = 0;
@@ -141,6 +143,36 @@ async function run() {
         assert.strictEqual(me.body.user.email, address('a'));
         assert.strictEqual(me.body.needsPseudo, false, 'the nickname was chosen at sign-up');
         assert.ok(!('password_hash' in me.body.user), 'and the hash never leaves the server');
+    });
+
+    await test('an expired session renews itself from the refresh token', async () => {
+        /* The access token lasts a week and the refresh token a month. Without
+           spending the second, the seventh day signs a player out with no
+           warning — which is what the client used to do, having thrown the
+           refresh token away on arrival. */
+        const signIn = await post('/login', { email: address('a'), password: 'chevalDeBois42' });
+        assert.ok(signIn.body.refreshToken, 'a refresh token comes with the session');
+
+        const expired = jwt.sign(
+            { userId: signIn.body.user.id, email: address('a'), pseudo: 'MailTestA' },
+            JWT_SECRET, { expiresIn: -10 }
+        );
+        const stale = await get('/me', expired);
+        assert.strictEqual(stale.status, 401, 'the old one is refused');
+
+        const renewed = await post('/refresh', { refreshToken: signIn.body.refreshToken });
+        assert.strictEqual(renewed.status, 200, JSON.stringify(renewed.body));
+        assert.ok(renewed.body.data.accessToken, 'a new access token');
+        assert.ok(renewed.body.data.refreshToken, 'and a new refresh token');
+        assert.notStrictEqual(renewed.body.data.refreshToken, signIn.body.refreshToken,
+            'the old refresh token is rotated away');
+
+        const back = await get('/me', renewed.body.data.accessToken);
+        assert.strictEqual(back.status, 200, 'and the session is alive again');
+        assert.strictEqual(back.body.user.pseudo, 'MailTestA');
+
+        const reused = await post('/refresh', { refreshToken: signIn.body.refreshToken });
+        assert.ok(reused.status >= 400, 'a spent refresh token cannot be used twice');
     });
 
     await test('a session with no token is refused, not crashed', async () => {

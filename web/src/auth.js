@@ -13,6 +13,7 @@
 import { serverOrigin, identify, isConnected } from './net.js';
 
 const TOKEN_KEY = 'hexaequo.token';
+const REFRESH_KEY = 'hexaequo.refresh';
 const GSI_SRC = 'https://accounts.google.com/gsi/client';
 
 /** Filled from the server the first time we ask; null when signed out. */
@@ -55,8 +56,56 @@ function writeToken(value) {
   } catch { /* private browsing: the session just will not survive a reload */ }
 }
 
+function readRefresh() {
+  try { return localStorage.getItem(REFRESH_KEY); } catch { return null; }
+}
+
+function writeRefresh(value) {
+  try {
+    if (value) localStorage.setItem(REFRESH_KEY, value);
+    else localStorage.removeItem(REFRESH_KEY);
+  } catch { /* as above */ }
+}
+
+/**
+ * Trade the refresh token for a new session.
+ *
+ * The server has been issuing these all along and the client was throwing them
+ * away, so an access token reaching its seventh day signed the player out with
+ * no warning and no way back but the sign-in form. Returns whether it worked.
+ */
+let refreshing = null;
+async function refreshSession() {
+  const token = readRefresh();
+  if (!token) return false;
+  // One attempt at a time: several requests failing together must not each
+  // spend the token, since the server rotates it away on use.
+  if (refreshing) return refreshing;
+  refreshing = (async () => {
+    try {
+      const response = await fetch(`${serverOrigin()}/api/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: token }),
+      });
+      if (!response.ok) return false;
+      const body = await response.json();
+      const fresh = body && body.data;
+      if (!fresh || !fresh.accessToken) return false;
+      writeToken(fresh.accessToken);
+      writeRefresh(fresh.refreshToken || null);
+      return true;
+    } catch {
+      return false;                 // offline is not a reason to sign out
+    } finally {
+      refreshing = null;
+    }
+  })();
+  return refreshing;
+}
+
 /** Call the API, attaching the session token when there is one. */
-export async function api(path, options = {}) {
+export async function api(path, options = {}, allowRetry = true) {
   const token = readToken();
   const response = await fetch(`${serverOrigin()}/api${path}`, {
     ...options,
@@ -71,8 +120,15 @@ export async function api(path, options = {}) {
   try { body = await response.json(); } catch { /* empty or non-JSON body */ }
 
   if (response.status === 401 && token) {
-    // The session died: forget it rather than retrying forever.
+    /* An access token only lasts a week. Spend the refresh token before
+       concluding the session is over — and only once, so a refresh that
+       fails cannot loop. */
+    if (allowRetry && await refreshSession()) {
+      return api(path, options, false);
+    }
+    // Genuinely over: forget it rather than retrying forever.
     writeToken(null);
+    writeRefresh(null);
     account = null;
     announce();
   }
@@ -175,6 +231,7 @@ export async function renderGoogleButton(container, { theme = 'outline', text = 
  */
 function adoptSession(body) {
   writeToken(body.accessToken);
+  writeRefresh(body.refreshToken || null);
   account = body.user;
   needsPseudo = Boolean(body.needsPseudo);
   announce();
@@ -243,6 +300,7 @@ export async function nicknameAvailable(pseudo) {
 
 export function signOut() {
   writeToken(null);
+  writeRefresh(null);
   account = null;
   needsPseudo = false;
   if (window.google && window.google.accounts && window.google.accounts.id) {

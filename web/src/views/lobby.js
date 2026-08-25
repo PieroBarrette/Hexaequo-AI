@@ -207,7 +207,17 @@ export function mountLobby(host) {
 
   /* ── Wiring ───────────────────────────────────────────────────────────── */
 
+  /*
+   * The lobby is mounted inside the online page, and that page delegates
+   * clicks on the same attributes from a container above this one. A click
+   * handled here must stop, or it is handled twice: two calls to openPanel
+   * opened the account panel and then closed it again, and the button looked
+   * dead.
+   */
   host.addEventListener('click', async (event) => {
+    const mine = event.target.closest('[data-cadence], [data-challenge], [data-action]');
+    if (mine && host.contains(mine)) event.stopPropagation();
+
     const pick = event.target.closest('[data-cadence]');
     if (pick) { cadence = pick.getAttribute('data-cadence'); playSound('ui'); render(); return; }
 
@@ -252,6 +262,7 @@ export function mountLobby(host) {
 
   host.addEventListener('submit', (event) => {
     event.preventDefault();
+    event.stopPropagation();
     const field = host.querySelector('.chat-input');
     if (!field) return;
     const text = field.value;
