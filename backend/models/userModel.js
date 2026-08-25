@@ -13,11 +13,16 @@ const { BCRYPT_ROUNDS } = require('../config/env');
  */
 async function create({ email, pseudo, password }) {
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
-    
+
+    /* pseudo_chosen matters: it is what tells the app whether to stop and ask
+       for a nickname. Someone signing up with an address typed theirs into the
+       form, unlike a Google sign-up where one is invented from their name — so
+       it is chosen, and leaving it false reopened the account panel demanding a
+       nickname on every single visit. */
     const result = await query(
-        `INSERT INTO users (email, pseudo, password_hash)
-         VALUES ($1, $2, $3)
-         RETURNING id, email, pseudo, created_at`,
+        `INSERT INTO users (email, pseudo, password_hash, pseudo_chosen)
+         VALUES ($1, $2, $3, TRUE)
+         RETURNING id, email, pseudo, pseudo_chosen, created_at`,
         [email.toLowerCase(), pseudo, passwordHash]
     );
     

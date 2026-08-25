@@ -356,6 +356,13 @@ $$ LANGUAGE plpgsql;
 const migrations = `
     ALTER TABLE moves ADD COLUMN IF NOT EXISTS intent JSONB;
     ALTER TABLE moves ADD COLUMN IF NOT EXISTS notation VARCHAR(40);
+
+    -- Accounts created with an address typed their own nickname into the form,
+    -- but were written with pseudo_chosen left false, so the app asked for one
+    -- again on every visit. Having a password is what distinguishes them from
+    -- a Google sign-up, whose nickname really was invented for them.
+    UPDATE users SET pseudo_chosen = TRUE
+     WHERE password_hash IS NOT NULL AND pseudo_chosen IS NOT TRUE;
 `;
 
 async function createSchema() {

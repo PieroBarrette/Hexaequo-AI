@@ -8,6 +8,11 @@
  * issues, or an email account could sign in and then fail to play.
  */
 
+/* Set before anything reads the configuration: this suite signs in and out
+   far more often than a person would, and the rate limiter is right to stop
+   that anywhere else. */
+process.env.NODE_ENV = 'test';
+
 const assert = require('assert');
 const http = require('http');
 const express = require('express');
@@ -57,6 +62,15 @@ async function run() {
     const api = http.createServer(app);
     await new Promise((resolve) => api.listen(0, '127.0.0.1', resolve));
     const base = `http://127.0.0.1:${api.address().port}/api/auth`;
+
+    const get = async (path, token) => {
+        const response = await fetch(base + path, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        let json = null;
+        try { json = await response.json(); } catch { /* empty body */ }
+        return { status: response.status, body: json || {} };
+    };
 
     const post = async (path, body, token) => {
         const response = await fetch(base + path, {
@@ -113,6 +127,25 @@ async function run() {
         assert.strictEqual(identified.user.pseudo, 'MailTestA',
             'the socket knows who this is, so their games can be rated');
         socket.disconnect();
+    });
+
+    await test('the session survives a reload', async () => {
+        /* The app restores itself by asking /auth/me with the stored token. A
+           401 there does not merely fail: the client throws the token away, so
+           the player is silently signed out on every visit. This was never
+           covered for an address-and-password account, only for Google. */
+        const signIn = await post('/login', { email: address('a'), password: 'chevalDeBois42' });
+        const me = await get('/me', signIn.body.accessToken);
+        assert.strictEqual(me.status, 200, JSON.stringify(me.body));
+        assert.strictEqual(me.body.user.pseudo, 'MailTestA');
+        assert.strictEqual(me.body.user.email, address('a'));
+        assert.strictEqual(me.body.needsPseudo, false, 'the nickname was chosen at sign-up');
+        assert.ok(!('password_hash' in me.body.user), 'and the hash never leaves the server');
+    });
+
+    await test('a session with no token is refused, not crashed', async () => {
+        const me = await get('/me');
+        assert.strictEqual(me.status, 401);
     });
 
     await test('the wrong password gets nowhere', async () => {
@@ -201,6 +234,41 @@ async function run() {
 
         const spent = await query('SELECT reset_token FROM users WHERE email = $1', [address('a')]);
         assert.strictEqual(spent.rows[0].reset_token, null, 'and the token is spent');
+    });
+
+    await test('a Google account can be given a password and keep both doors', async () => {
+        /* The two kinds of account are not separate species: one address, one
+           person, and either way in. A Google-only account has no password, and
+           the reset flow is how it gets one — after which both doors open the
+           same account, with the same games behind it. */
+        await forget('e');
+        const { rows } = await query(
+            `INSERT INTO users (email, pseudo, google_id, elo, email_verified, pseudo_chosen)
+             VALUES ($1,$2,$3,1000,TRUE,TRUE) RETURNING id`,
+            [address('e'), 'MailTestE', 'mail-test-google-e']
+        );
+        const id = rows[0].id;
+
+        const refused = await post('/login', { email: address('e'), password: 'aPasswordItNeverHad' });
+        assert.strictEqual(refused.status, 401, 'no password yet: ' + JSON.stringify(refused.body));
+
+        await post('/forgot-password', { email: address('e') });
+        const token = (await query('SELECT reset_token FROM users WHERE id = $1', [id]))
+            .rows[0].reset_token;
+        assert.ok(token, 'the reset works for an account that never had a password');
+        const set = await post('/reset-password', { token, newPassword: 'unMotDePasseChoisi8' });
+        assert.strictEqual(set.status, 200, JSON.stringify(set.body));
+
+        const signedIn = await post('/login', { email: address('e'), password: 'unMotDePasseChoisi8' });
+        assert.strictEqual(signedIn.status, 200, 'the password door now opens');
+        assert.strictEqual(signedIn.body.user.id, id, 'onto the same account');
+
+        const linked = await query('SELECT google_id, password_hash FROM users WHERE id = $1', [id]);
+        assert.ok(linked.rows[0].google_id, 'and Google still opens it too');
+        assert.ok(linked.rows[0].password_hash);
+
+        const me = await get('/me', signedIn.body.accessToken);
+        assert.strictEqual(me.body.needsPseudo, false, 'nothing is asked for twice');
     });
 
     await test('asking to reset an address nobody has gives nothing away', async () => {

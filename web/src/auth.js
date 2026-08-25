@@ -119,6 +119,7 @@ function loadGoogleScript() {
 }
 
 let clientId = null;
+let gsiReady = false;
 
 /** The client id is public; the server is the only thing that verifies tokens. */
 export async function googleClientId() {
@@ -136,18 +137,28 @@ export async function renderGoogleButton(container, { theme = 'outline', text = 
   const [google, id] = await Promise.all([loadGoogleScript(), googleClientId()]);
   if (!id) throw new Error('Google sign-in is not configured');
 
-  google.accounts.id.initialize({
-    client_id: id,
-    callback: async (response) => {
-      try {
-        await completeSignIn(response.credential);
-      } catch (error) {
-        container.dispatchEvent(new CustomEvent('auth-error', { bubbles: true, detail: error }));
-      }
-    },
-    auto_select: false,
-    cancel_on_tap_outside: true,
-  });
+  /* Configure Google's client once and only once.
+   *
+   * The panel redraws whenever the session changes or a tab is switched, and
+   * calling initialize() each time made Google warn that only the last
+   * instance would be used — a real hazard, since the callback that completes
+   * a sign-in belongs to whichever call ran last. Nothing in the configuration
+   * depends on the container, so it never needs repeating. */
+  if (!gsiReady) {
+    google.accounts.id.initialize({
+      client_id: id,
+      callback: async (response) => {
+        try {
+          await completeSignIn(response.credential);
+        } catch (error) {
+          document.dispatchEvent(new CustomEvent('auth-error', { bubbles: true, detail: error }));
+        }
+      },
+      auto_select: false,
+      cancel_on_tap_outside: true,
+    });
+    gsiReady = true;
+  }
 
   container.innerHTML = '';
   google.accounts.id.renderButton(container, {

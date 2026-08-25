@@ -87,14 +87,16 @@ async function boot() {
      the markup itself. */
   onSettingsChange((name, value) => { if (name === 'volume') setVolume(value); });
 
-  // Audio may only start after a gesture.
+  /* Audio may only start after a gesture — and Chrome counts a completed
+     click, not the pointerdown that begins one. Listening for both, and for a
+     key, means the first sound is ready without the console complaining that
+     the context was built too early. */
+  const GESTURES = ['click', 'pointerup', 'keydown', 'touchend'];
   const unlock = () => {
     unlockAudio();
-    window.removeEventListener('pointerdown', unlock);
-    window.removeEventListener('keydown', unlock);
+    for (const kind of GESTURES) window.removeEventListener(kind, unlock);
   };
-  window.addEventListener('pointerdown', unlock, { once: false });
-  window.addEventListener('keydown', unlock, { once: false });
+  for (const kind of GESTURES) window.addEventListener(kind, unlock);
 
   window.addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault();

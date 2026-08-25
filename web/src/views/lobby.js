@@ -11,7 +11,7 @@ import { t } from '../i18n.js';
 import { navigate } from '../router.js';
 import { request, connect, listen, identify } from '../net.js';
 import { play as playSound } from '../audio.js';
-import { isSignedIn, currentUser, sessionToken } from '../auth.js';
+import { isSignedIn, currentUser, sessionToken, sessionReady, onAuthChange } from '../auth.js';
 import { openPanel } from '../ui/panels.js';
 
 const CADENCES = ['bullet', 'blitz', 'rapid', 'classic'];
@@ -38,6 +38,14 @@ export function mountLobby(host) {
   const me = () => (currentUser() ? currentUser().id : null);
 
   function render() {
+    if (!sessionReady()) {
+      host.innerHTML = `
+        <div class="rule-block">
+          <h3>${t('lobby.title')}</h3>
+          <p class="lede">${t('online.connecting')}</p>
+        </div>`;
+      return;
+    }
     if (!isSignedIn()) {
       host.innerHTML = `
         <div class="rule-block">
@@ -254,7 +262,15 @@ export function mountLobby(host) {
 
   render();
 
+  /* Signing in or out anywhere on the site is felt here: the roster, the chat
+     and the challenge buttons all depend on having a name. */
+  const stopWatchingAuth = onAuthChange(() => {
+    if (!isSignedIn() && joined) leave();
+    else render();
+  });
+
   return () => {
+    stopWatchingAuth();
     if (joined) request('hx:lobby:leave', {}).catch(() => {});
     joined = false;
     for (const off of unsubscribe) {

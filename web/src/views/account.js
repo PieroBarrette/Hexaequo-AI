@@ -26,6 +26,9 @@ export function mountAccount(outlet) {
   let hint = null;
   /** 'in' | 'up' | 'forgot' — which form the signed-out panel is showing. */
   let door = 'in';
+  /* Remembered so a Google outage is reported once rather than retried on
+     every redraw. The address-and-password form is unaffected either way. */
+  let googleFailed = false;
 
   const stop = onAuthChange(() => render());
 
@@ -95,9 +98,14 @@ export function mountAccount(outlet) {
       </div></div>`;
 
     const host = outlet.querySelector('#google-button');
+    if (googleFailed) {
+      host.innerHTML = `<p class="lede">${t('account.googleUnavailable')}</p>`;
+      return;
+    }
     renderGoogleButton(host).catch((e) => {
-      host.innerHTML = `<p class="net-error">${t('account.googleUnavailable')}</p>`;
-      console.warn('[auth]', e.message);
+      googleFailed = true;
+      host.innerHTML = `<p class="lede">${t('account.googleUnavailable')}</p>`;
+      console.warn('[auth] Google sign-in unavailable:', e.message);
     });
   }
 
