@@ -366,6 +366,18 @@ select.btn option {
   color: var(--piece-light); text-shadow: 0 1px 0 rgba(0, 0, 0, .5);
 }
 @media (prefers-reduced-motion: reduce) { .eval-fill { transition: none; } }
+
+/* The same picture laid on its side: the whole game rather than one position.
+   Above the move list, which is where you already are when reading a game
+   back, and clickable across its width the way the moves under it are. */
+.eval-curve {
+  flex: none; margin: 10px 12px 0; border-radius: var(--radius-sm);
+  overflow: hidden; border: 1px solid var(--line); cursor: pointer;
+  line-height: 0;
+}
+.eval-curve[hidden] { display: none; }
+.eval-curve svg { width: 100%; height: 64px; display: block; }
+@media (max-width: 560px) { .eval-curve svg { height: 48px; } }
 @media (max-width: 560px) {
   .eval-bar { left: 5px; top: 7px; bottom: 7px; width: 16px; }
   .eval-number { font-size: 9px; }

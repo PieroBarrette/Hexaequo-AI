@@ -193,6 +193,7 @@ export function mountPlay(outlet, params) {
             <button class="drawer-tab is-active" data-tab="moves">${t('game.moveList')}</button>
             <button class="drawer-tab" data-tab="chat">${t('chat.tab')}<i class="tab-dot"></i></button>
           </div>
+          <div class="eval-curve" hidden></div>
           <div class="drawer-body">
             <div class="move-list"></div>
             <div class="chat-pane">
@@ -224,8 +225,11 @@ export function mountPlay(outlet, params) {
   evalBar.innerHTML = '<div class="eval-fill"></div><span class="eval-number"></span>';
   outlet.querySelector('.board-host').appendChild(evalBar);
   /* One number per ply, kept because stepping back and forth through a game
-     asks for the same positions over and over. */
+     asks for the same positions over and over — and because the curve wants
+     every one of them. */
   const evalCache = new Map();
+  const curveEl = outlet.querySelector('.eval-curve');
+  let curveTimer = 0;
   const bubbleEl = outlet.querySelector('.chat-bubble');
   let bubbleTimer = 0;
   const overlay = outlet.querySelector('.result-overlay');
@@ -543,7 +547,9 @@ export function mountPlay(outlet, params) {
       result = null;
       resultSeen = false;
     } while (history.length && stopAt !== null && state.turn !== stopAt);
-    // The undone plies never happened; the review has nowhere to go but back.
+    // The undone plies never happened, and neither did what was thought of
+    // them: the same index now holds a different position.
+    evalCache.clear();
     timeline.length = history.length + 1;
     timelineMoves.length = history.length;
     if (review !== null && review > history.length) review = null;
@@ -1147,6 +1153,8 @@ export function mountPlay(outlet, params) {
     renderReviewBar();
     renderChat();
     renderEvalBar();
+    renderEvalCurve();
+    fillCurve();
     renderNetStatus();
     syncTools();
     tickClocks();
@@ -1685,6 +1693,8 @@ export function mountPlay(outlet, params) {
       tab.classList.toggle('is-active', tab.getAttribute('data-tab') === name);
     }
     moveListEl.style.display = name === 'moves' ? '' : 'none';
+    renderEvalCurve();
+    fillCurve();
     chatPane.style.display = name === 'chat' ? '' : 'none';
     if (name === 'chat' && net) { net.unread = 0; buildDrawerButton(); hideBubble(); }
     renderMoveList();
@@ -1781,7 +1791,8 @@ export function mountPlay(outlet, params) {
    * mid-game, which is the one thing a rated game cannot allow. It is the same
    * rule that hides "play from here".
    */
-  const evalShown = () => (review !== null || Boolean(archiveId)) && !(net && !result);
+  const evalShown = () =>
+    (review !== null || Boolean(archiveId) || Boolean(result)) && !(net && !result);
 
   /**
    * Points to a share of the bar.
@@ -1798,13 +1809,7 @@ export function mountPlay(outlet, params) {
   function renderEvalBar() {
     if (!evalShown()) { evalBar.hidden = true; return; }
     const at = review === null ? timeline.length - 1 : review;
-    let verdict = evalCache.get(at);
-    if (!verdict) {
-      /* Depth six costs about twenty milliseconds, which is under a frame and
-         paid once per position for the whole session. */
-      verdict = judge(cloneState(shownState()), { ms: 250, maxDepth: 6 });
-      evalCache.set(at, verdict);
-    }
+    const verdict = verdictAt(at);
 
     const share = verdict.decisive
       ? (verdict.score > 0 ? 0 : 1)          // black wins: white's share is none
@@ -1820,6 +1825,79 @@ export function mountPlay(outlet, params) {
     evalBar.title = verdict.decisive
       ? t('review.evalDecided', { colour: colourName(verdict.score > 0 ? BLACK : WHITE) })
       : t('review.evalTitle', { n: label, d: verdict.depth });
+  }
+
+  /** The judgement for one ply, computed once and remembered. */
+  function verdictAt(ply) {
+    let found = evalCache.get(ply);
+    if (!found) {
+      found = judge(cloneState(timeline[ply]), { ms: 250, maxDepth: 6 });
+      evalCache.set(ply, found);
+    }
+    return found;
+  }
+
+  /**
+   * Fill in the plies nobody has looked at yet, a few at a time.
+   *
+   * Judging a whole game is a second or two of work. Done in one go it is a
+   * second or two with the page frozen, so it is done in slices with the
+   * browser given the gaps: the curve draws itself in as the answers arrive,
+   * which is also a plainer thing to watch than a spinner.
+   */
+  function fillCurve() {
+    clearTimeout(curveTimer);
+    if (!evalShown() || timeline.length < 2) return;
+    const missing = [];
+    for (let i = 0; i < timeline.length; i++) if (!evalCache.has(i)) missing.push(i);
+    if (!missing.length) return;
+    for (const ply of missing.slice(0, 4)) verdictAt(ply);
+    renderEvalCurve();
+    curveTimer = setTimeout(fillCurve, 0);
+  }
+
+  /**
+   * The whole game as one line: the shape of the match at a glance.
+   *
+   * Dark above the line, light below, split where the balance is — the bar
+   * beside the board laid on its side, so the two read as one picture. Drawn
+   * by hand rather than by a chart library: it is one series of at most a few
+   * hundred numbers, and a dependency would cost more than it draws.
+   */
+  function renderEvalCurve() {
+    const on = evalShown() && timeline.length > 1 && drawerOpen && drawerTab === 'moves';
+    curveEl.hidden = !on;
+    if (!on) return;
+
+    const width = 300;
+    const height = 64;
+    const last = timeline.length - 1;
+    const at = review === null ? last : review;
+    const x = (i) => (i * width) / last;
+    const y = (ply) => {
+      const verdict = evalCache.get(ply);
+      if (!verdict) return height / 2;                    // not judged yet: level
+      const share = verdict.decisive
+        ? (verdict.score > 0 ? 1 : 0)
+        : 1 / (1 + Math.exp(-verdict.score / 250));       // 1 is Black winning
+      return share * height;
+    };
+
+    let line = '';
+    for (let i = 0; i <= last; i++) line += `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(i).toFixed(1)}`;
+    const above = `${line}L${width},0L0,0Z`;             // Black's share of the picture
+
+    curveEl.innerHTML = `
+      <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img"
+           aria-label="${t('review.curve')}">
+        <rect x="0" y="0" width="${width}" height="${height}" fill="var(--piece-light)"/>
+        <path d="${above}" fill="var(--piece-dark)"/>
+        <line x1="0" y1="${height / 2}" x2="${width}" y2="${height / 2}"
+              stroke="var(--line)" stroke-width="1" stroke-dasharray="3 3"/>
+        <line class="curve-at" x1="${x(at).toFixed(1)}" y1="0"
+              x2="${x(at).toFixed(1)}" y2="${height}" stroke="var(--accent)" stroke-width="1.5"/>
+        <circle cx="${x(at).toFixed(1)}" cy="${y(at).toFixed(1)}" r="3" fill="var(--accent)"/>
+      </svg>`;
   }
 
   /** The strip above the board that explains the state of an online game. */
@@ -2241,6 +2319,19 @@ export function mountPlay(outlet, params) {
     else if (name === 'levelWhite') { duelLevels[1] = Number(control.value); refresh(); }
   }
 
+  /** A point on the curve is a point in the game. */
+  function onCurveClick(event) {
+    if (timeline.length < 2) return;
+    const svg = curveEl.querySelector('svg');
+    if (!svg) return;
+    const box = svg.getBoundingClientRect();
+    if (!box.width) return;
+    const share = Math.max(0, Math.min(1, (event.clientX - box.left) / box.width));
+    playSound('ui');
+    stopAutoplay();
+    goToPly(Math.round(share * (timeline.length - 1)));
+  }
+
   function onAnyPointer(event) {
     if (bubbleEl.hidden) return;
     if (bubbleEl.contains(event.target)) {
@@ -2282,6 +2373,7 @@ export function mountPlay(outlet, params) {
    * straight back shut. */
   outlet.addEventListener('click', onToolClick);
   outlet.addEventListener('change', onToolChange);
+  curveEl.addEventListener('click', onCurveClick);
   document.addEventListener('keydown', onKey);
   /* Capture, so the bubble is dealt with before anything else consumes the
      tap — including the board, which stops propagation of its own. */
@@ -2358,6 +2450,7 @@ export function mountPlay(outlet, params) {
     document.removeEventListener('keydown', onKey);
     document.removeEventListener('pointerdown', onAnyPointer, true);
     clearTimeout(bubbleTimer);
+    clearTimeout(curveTimer);
     window.removeEventListener('resize', onResize);
     /* The bar is part of this view now, so it goes when the view goes; only
        the guard reaches outside. */
