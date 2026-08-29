@@ -16,6 +16,7 @@ import { mountSettings, setInstallPrompt } from './views/settings.js';
 import { closeOverlay } from './ui/overlay.js';
 import { openPanel, relabelPanel } from './ui/panels.js';
 import { restoreSession, onAuthChange, currentUser, mustChoosePseudo } from './auth.js';
+import { watchForUpdates } from './update.js';
 
 /** The header chip: your nickname and rating, or an invitation to sign in. */
 function renderAccountChip() {
@@ -133,9 +134,7 @@ async function boot() {
         .catch(() => {});
       if (window.caches) caches.keys().then((keys) => keys.forEach((k) => caches.delete(k))).catch(() => {});
     } else {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(() => { /* offline support is optional */ });
-      });
+      window.addEventListener('load', watchForUpdates);
     }
   }
 }

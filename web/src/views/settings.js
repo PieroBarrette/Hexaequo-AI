@@ -4,6 +4,7 @@ import { t } from '../i18n.js';
 import { get as getSetting, set as setSetting } from '../settings.js';
 import { play, setVolume } from '../audio.js';
 import { miniBoardSvg } from '../ui/miniBoard.js';
+import { checkNow, serverBuild } from '../update.js';
 import { BLACK, WHITE, DISK, RING } from '../game/state.js';
 
 /** Deferred install prompt, captured in main.js. */
@@ -80,6 +81,11 @@ export function mountSettings(outlet) {
         ${row('settings.tryTheSounds', 'settings.tryTheSoundsHint',
           `<button class="btn" data-action="demo">${t('settings.playSample')}</button>`)}
 
+        <h2>${t('update.heading')}</h2>
+        ${row('update.heading', 'update.hint',
+          `<button class="btn" data-action="check-update">${t('update.check')}</button>`)}
+        <p class="lede version-line" style="font-size:12px;margin-top:-4px"></p>
+
         <h2>${t('settings.install')}</h2>
         ${row('settings.install', 'settings.installHint',
           standalone
@@ -91,6 +97,13 @@ export function mountSettings(outlet) {
   }
 
   render();
+
+  /* The build the server is on. Useful when someone reports a problem that was
+     fixed a week ago: the number says whether they are actually running it. */
+  serverBuild().then((build) => {
+    const line = outlet.querySelector('.version-line');
+    if (line && build && !line.textContent) line.textContent = 'build ' + build;
+  });
 
   outlet.addEventListener('click', async (event) => {
     const seg = event.target.closest('[data-set]');
@@ -116,6 +129,23 @@ export function mountSettings(outlet) {
       return;
     }
     const action = event.target.closest('[data-action]');
+    if (action && action.getAttribute('data-action') === 'check-update') {
+      const line = outlet.querySelector('.version-line');
+      const button = action;
+      button.disabled = true;
+      if (line) line.textContent = t('update.checking');
+      const answer = await checkNow();
+      button.disabled = false;
+      if (line) {
+        line.textContent = {
+          ready: t('update.available'),
+          current: t('update.current'),
+          offline: t('update.offline'),
+          unsupported: t('update.unsupported'),
+        }[answer] || '';
+      }
+      return;
+    }
     if (action && action.getAttribute('data-action') === 'demo') {
       // A move, a placement and a capture, spaced as they would fall in play.
       play('move');

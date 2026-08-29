@@ -377,5 +377,18 @@
     "passwordMismatch": "The two passwords do not match.",
     "setPassword": "Save",
     "resetDone": "Done. You can sign in with your new password."
+  },
+  "update": {
+    "ready": "A new version is ready.",
+    "reload": "Update",
+    "later": "Later",
+    "heading": "Version",
+    "hint": "Updates arrive on their own; this button checks straight away.",
+    "check": "Check now",
+    "checking": "Checking…",
+    "current": "You have the latest version.",
+    "available": "New version ready — reload to apply it.",
+    "offline": "Cannot check: no connection.",
+    "unsupported": "This device keeps no offline copy."
   }
 }

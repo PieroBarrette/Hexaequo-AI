@@ -309,7 +309,12 @@ select.btn option {
   background: var(--surface); border-top: 1px solid var(--line);
   transition: height .28s var(--ease);
 }
-.drawer.is-on { height: min(240px, 45%); box-shadow: 0 -14px 40px rgba(0, 0, 0, .35); }
+/* Viewport units, not a percentage. A percentage height resolves against the
+   containing block, and this one is a flex item whose height comes from the
+   layout — so the percentage was indefinite, the whole min() was thrown out as
+   invalid, and the drawer kept the closed rule's zero. It looked like a panel
+   that would not open; it was a declaration the browser never applied. */
+.drawer.is-on { height: min(240px, 38vh); box-shadow: 0 -14px 40px rgba(0, 0, 0, .35); }
 .board-bar { order: 2; }
 .drawer-tabs {
   display: flex; align-items: center; gap: 6px; flex: none;
@@ -574,7 +579,11 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
   .site-header { padding: 6px 8px; gap: 6px; }
   .site-header .logo-word { display: none; }
   #brand { padding: 6px 8px; }
-  .drawer { height: min(200px, 55%); }
+  /* Only the open height. Setting it unconditionally beat the closed state's
+     own rule further up the sheet, so below 820px the drawer never shut — the
+     arrow toggled a shadow and nothing else. Harmless when the drawer hid
+     itself with a transform; a bug the moment its height did the hiding. */
+  .drawer.is-on { height: min(200px, 34vh); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -773,3 +782,31 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
 }
 
 .review-speed { padding: 3px 6px; min-height: 30px; font-size: 12px; }
+
+/*
+ * The update offer.
+ *
+ * An installed app is rarely closed, so a new version has to announce itself.
+ * Offered rather than applied: reloading under someone mid-game would cost
+ * them the local one.
+ */
+.update-bar {
+  position: fixed; left: 50%; bottom: max(16px, env(safe-area-inset-bottom));
+  transform: translate(-50%, 140%);
+  z-index: 60; display: flex; align-items: center; gap: 10px;
+  max-width: min(460px, calc(100vw - 24px));
+  padding: 10px 12px 10px 16px;
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--accent); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  font-size: 14.5px;
+  transition: transform .3s var(--ease);
+}
+.update-bar.is-on { transform: translate(-50%, 0); }
+.update-bar span { flex: 1; min-width: 0; }
+.update-bar .btn { flex: none; min-height: 34px; padding: 6px 12px; }
+.update-bar .btn--icon { width: 34px; min-width: 34px; padding: 6px 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .update-bar { transition: none; }
+}

@@ -50,6 +50,19 @@ function onKeyDown(event) {
 }
 document.addEventListener('keydown', onKeyDown, true);
 
+/*
+ * A panel floats over the screen behind it, which is the whole point — until
+ * that screen changes. Anything that navigates from inside a panel (the
+ * account panel's link to the profile, a challenge accepted in the lobby) was
+ * leaving the panel sitting on top of the page it had just asked for.
+ *
+ * Closing here rather than at each call site means a panel added later cannot
+ * forget to do it.
+ */
+window.addEventListener('routechange', () => {
+  if (openName) closeOverlay();
+});
+
 export const isOverlayOpen = () => Boolean(openName);
 export const overlayName = () => openName;
 

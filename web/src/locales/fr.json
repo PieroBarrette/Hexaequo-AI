@@ -377,5 +377,18 @@
     "passwordMismatch": "Les deux mots de passe ne correspondent pas.",
     "setPassword": "Enregistrer",
     "resetDone": "C’est fait. Vous pouvez vous connecter avec votre nouveau mot de passe."
+  },
+  "update": {
+    "ready": "Une nouvelle version est prête.",
+    "reload": "Mettre à jour",
+    "later": "Plus tard",
+    "heading": "Version",
+    "hint": "La mise à jour se fait toute seule; ce bouton force la vérification.",
+    "check": "Vérifier maintenant",
+    "checking": "Vérification…",
+    "current": "Vous avez la dernière version.",
+    "available": "Nouvelle version prête — rechargez pour l’appliquer.",
+    "offline": "Impossible de vérifier : pas de connexion.",
+    "unsupported": "Cet appareil ne garde pas de copie hors ligne."
   }
 }

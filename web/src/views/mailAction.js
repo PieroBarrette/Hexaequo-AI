@@ -126,8 +126,15 @@ export function mountReset(outlet, params) {
     const button = event.target.closest('[data-action]');
     if (!button) return;
     playSound('ui');
-    if (button.getAttribute('data-action') === 'sign-in') { navigate('home'); openPanel('account'); }
-    else navigate('home');
+    if (button.getAttribute('data-action') === 'sign-in') {
+      /* Wait for the route to settle before opening the panel. A route change
+         closes any open panel, and setting the hash resolves asynchronously —
+         so opening first would have the navigation shut it again. Listening
+         before navigating covers the case where the hash is already correct
+         and the route resolves at once. */
+      window.addEventListener('routechange', () => openPanel('account'), { once: true });
+      navigate('home');
+    } else navigate('home');
   });
 
   render();

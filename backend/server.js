@@ -134,6 +134,60 @@ app.use((req, res, next) => {
 // Static file serving AFTER Socket.IO (only if frontend exists)
 const frontendPath = path.join(__dirname, '../web');
 const fs = require('fs');
+
+/*
+ * The build stamp, computed from what is actually being served.
+ *
+ * The service worker caches under this name and discards every other cache on
+ * activation, so it decides whether an installed app sees a new release. It
+ * used to be a constant edited by hand, which is a step that can be forgotten
+ * — and was, leaving installed copies on old code with no way to tell. Hashing
+ * the files removes the step: change anything and the stamp changes, change
+ * nothing and it does not.
+ */
+function buildStamp() {
+    const hash = require('crypto').createHash('sha1');
+    const walk = (dir) => {
+        let entries;
+        try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+        for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+            const full = path.join(dir, entry.name);
+            if (entry.isDirectory()) { walk(full); continue; }
+            if (!/[.](js|css|json|html|webmanifest)$/.test(entry.name)) continue;
+            hash.update(entry.name);
+            try { hash.update(fs.readFileSync(full)); } catch { /* unreadable: skip */ }
+        }
+    };
+    walk(path.join(frontendPath, 'src'));
+    walk(path.join(frontendPath, 'styles'));
+    for (const file of ['index.html', 'manifest.webmanifest', 'sw.js']) {
+        const full = path.join(frontendPath, file);
+        try { hash.update(fs.readFileSync(full)); } catch { /* not there yet */ }
+    }
+    return hash.digest('hex').slice(0, 12);
+}
+
+const BUILD = fs.existsSync(frontendPath) ? buildStamp() : 'dev';
+
+/* The worker is generated rather than served flat, so its cache name always
+   matches the files it is about to cache. Never cached itself: a stale copy of
+   this file is a copy that can never learn there is a new one. */
+app.get('/sw.js', (req, res, next) => {
+    const source = path.join(frontendPath, 'sw.js');
+    fs.readFile(source, 'utf8', (error, text) => {
+        if (error) return next();
+        res.set('Content-Type', 'application/javascript; charset=utf-8');
+        res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.set('Service-Worker-Allowed', '/');
+        res.send(text.replace('__BUILD__', `hexaequo-${BUILD}`));
+    });
+});
+
+/* So the app can show which version it is running, and check for a newer one. */
+app.get('/api/version', (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json({ build: BUILD });
+});
 if (fs.existsSync(frontendPath)) {
     console.log(`✅ Frontend folder found at: ${frontendPath}`);
     app.use(express.static(frontendPath));

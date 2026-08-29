@@ -2,10 +2,15 @@
  * Service worker: precache the whole app so Hexaequo works offline.
  *
  * The bundle is small and entirely static, so a cache-first strategy is safe.
- * Bump CACHE_VERSION on every release — the activate step removes older caches.
+ *
+ * The version is not written here. The server computes it from the contents of
+ * the files being cached and substitutes it on the way out, so a deploy that
+ * changes anything gets a new cache and one that changes nothing does not.
+ * Bumping it by hand was a step that could be forgotten — and was, for several
+ * releases, which is exactly how an installed app gets stuck on old code.
  */
 
-const CACHE_VERSION = 'hexaequo-v6';
+const CACHE_VERSION = '__BUILD__';
 
 const SHELL = [
   './',
@@ -20,6 +25,7 @@ const SHELL = [
   './src/auth.js',
   './src/net.js',
   './src/audio.js',
+  './src/update.js',
   './src/locales/en.json',
   './src/locales/fr.json',
   './src/game/hex.js',
@@ -54,8 +60,18 @@ self.addEventListener('install', (event) => {
       // addAll rejects wholesale if any single entry 404s; add individually so a
       // missing optional asset cannot block the install.
       .then((cache) => Promise.all(SHELL.map((url) => cache.add(url).catch(() => null))))
-      .then(() => self.skipWaiting())
   );
+});
+
+/*
+ * Step aside until the page says so.
+ *
+ * Taking over the moment a new worker installs leaves the open page running
+ * the old modules against the new caches, which is a half-updated app. The
+ * page offers the update instead, and sends this when the person accepts.
+ */
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
