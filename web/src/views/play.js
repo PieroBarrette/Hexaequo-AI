@@ -25,8 +25,9 @@ import {
 } from '../game/moves.js';
 import { chooseMove } from '../game/ai.js';
 import { request, listen, connect, inviteLink, identify } from '../net.js';
-import { sessionToken, api } from '../auth.js';
+import { sessionToken, api, isSignedIn, onAuthChange } from '../auth.js';
 import { offerPosition, takePosition } from '../handoff.js';
+import { openPanel } from '../ui/panels.js';
 
 const MODE_LOCAL = 'local';
 const MODE_AI = 'ai';
@@ -148,6 +149,7 @@ export function mountPlay(outlet, params) {
       <aside class="rail" data-rail="0"></aside>
       <div class="board-area">
         <div class="net-strip"></div>
+        <div class="guest-note" hidden></div>
         <div class="board-host" style="flex:1;display:flex;min-width:0"></div>
         <div class="piece-picker" hidden></div>
         <div class="resume-sheet" hidden></div>
@@ -212,6 +214,7 @@ export function mountPlay(outlet, params) {
   const chainBar = outlet.querySelector('.chain-bar');
   const pickerEl = outlet.querySelector('.piece-picker');
   const resumeEl = outlet.querySelector('.resume-sheet');
+  const guestNote = outlet.querySelector('.guest-note');
   const overlay = outlet.querySelector('.result-overlay');
   const drawer = outlet.querySelector('.drawer');
   const moveListEl = outlet.querySelector('.move-list');
@@ -778,6 +781,7 @@ export function mountPlay(outlet, params) {
     net.opponentPresent = Boolean(view.seats && view.seats[1 - net.colour]);
     net.rated = Boolean(view.rated);
     net.people = view.players || [null, null];
+    net.settled = view.settled || [false, false];
     net.awaiting = view.awaitingReturn
       ? { seat: view.awaitingReturn.seat, until: Date.now() + view.awaitingReturn.msLeft }
       : null;
@@ -814,6 +818,7 @@ export function mountPlay(outlet, params) {
     // The accepted move arrives through the hx:moved broadcast, which the
     // server sends to the whole room including us, so there is nothing to
     // apply here — only the pending flag to clear.
+    if (net.settled && net.colour !== null) net.settled[net.colour] = true;
     refresh();
   }
 
@@ -836,7 +841,19 @@ export function mountPlay(outlet, params) {
     }
   }
 
+  /** Whether signing in would still make this game count. */
+  const guestSeat = () => Boolean(net) && net.ready && !result && net.colour !== null
+    && !isSignedIn() && !(net.people && net.people[net.colour])
+    && !(net.settled && net.settled[net.colour]);
+
   async function joinRoom() {
+    /* Signing in while sitting at the board should be felt at the board: take
+       the seat again so it carries our name, and with it the stake. */
+    net.unsubscribe.push(onAuthChange(async () => {
+      if (!net || result) return;
+      await identify(sessionToken()).catch(() => {});
+      await claimSeat();
+    }));
     await claimSeat();
 
     net.unsubscribe.push(listen('hx:moved', (payload) => {
@@ -854,6 +871,7 @@ export function mountPlay(outlet, params) {
       if (!net || payload.code !== net.code) return;
       net.people = payload.players || [null, null];
       net.rated = Boolean(payload.rated);
+      if (payload.settled) net.settled = payload.settled;
       refresh();
     }));
     net.unsubscribe.push(listen('hx:rated', (payload) => {
@@ -1672,8 +1690,25 @@ export function mountPlay(outlet, params) {
     if (resignButton) resignButton.disabled = !net || !net.ready || !!result;
   }
 
+  /**
+   * "You are playing as a guest."
+   *
+   * Said once, where it can be acted on, and only while acting on it would
+   * still change anything: the seat takes your name and the game starts
+   * counting, right up until you play from it.
+   */
+  function renderGuestNote() {
+    const show = guestSeat();
+    guestNote.hidden = !show;
+    if (!show) return;
+    guestNote.innerHTML = `<span>${t('online.guestNote')}</span>`
+      + `<button class="btn btn--sm btn--primary" data-action="guest-sign-in">`
+      + `${t('account.signIn')}</button>`;
+  }
+
   /** The strip above the board that explains the state of an online game. */
   function renderNetStatus() {
+    renderGuestNote();
     const strip = outlet.querySelector('.net-strip');
     // A resumed game keeps the note saying where it came from.
     if (resumedNote) return;
@@ -2061,6 +2096,7 @@ export function mountPlay(outlet, params) {
     else if (action === 'rev-last') { stopAutoplay(); goToPly(timeline.length - 1); }
     else if (action === 'rev-live') { stopAutoplay(); goToPly(timeline.length - 1); }
     else if (action === 'resume') { stopAutoplay(); openResumeSheet(); }
+    else if (action === 'guest-sign-in') { openPanel('account'); }
     else if (action === 'rev-play') {
       if (isAutoplaying()) { stopAutoplay(); renderReviewBar(); } else startAutoplay();
     }

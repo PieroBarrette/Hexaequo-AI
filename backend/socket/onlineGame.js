@@ -101,6 +101,7 @@ function publicView(room) {
         notations: room.notations,
         result: room.result,
         seats: [Boolean(room.seats[0]), Boolean(room.seats[1])],
+        settled: room.settled.slice(),
         names: room.names,
         chat: room.chat,
         // A rematch already agreed: whoever arrives late is sent to the new room
@@ -250,6 +251,16 @@ async function createRoom({ timeControl = 'none', reserved = null } = {}) {
         lastSeen: Date.now(),
         timeControl: Object.prototype.hasOwnProperty.call(TIME_CONTROLS, timeControl) ? timeControl : 'none',
         everFull: false,
+        /*
+         * Whether each seat is settled: true once that seat has played a move.
+         * Until then whoever holds it may still sign in and have the seat take
+         * their name, which is also what decides whether the game counts. The
+         * window closes per seat rather than at the game's first move, or the
+         * second player — who cannot move until the first has — would never
+         * have one. It closes at all so that nobody can wait to see whether
+         * they are winning before making the game rated.
+         */
+        settled: [false, false],
         grace: null,
         clock: null,
     };
@@ -375,17 +386,20 @@ function attachOnlineGames(io) {
                     elo: user.elo,
                     gamesPlayed: user.games_played,
                 };
-                // Seats already held by this socket adopt the identity, so a
-                // player who signs in while waiting still gets a rated game.
+                /* Seats already held by this socket adopt the identity, so a
+                   player who signs in while waiting still gets a rated game —
+                   but only a seat that has not played yet. Once someone has
+                   moved from a seat, it stays whoever moved. */
                 for (const code of socket.data.hxRooms) {
                     const room = rooms.get(code);
                     if (!room) continue;
                     const seat = seatOf(room, socket.id);
-                    if (seat === -1 || room.result) continue;
+                    if (seat === -1 || room.result || room.settled[seat]) continue;
                     room.players[seat] = { ...socket.data.user };
                     room.names[seat] = user.pseudo;
                     io.to(code).emit('hx:seats', {
                         code, players: room.players.map(seatView), rated: isRated(room),
+                        settled: room.settled.slice(),
                     });
                 }
                 reply(callback, { ok: true, user: { pseudo: user.pseudo, elo: user.elo } });
@@ -442,9 +456,10 @@ function attachOnlineGames(io) {
                 const name = (socket.data.user && socket.data.user.pseudo)
                     || String((payload && payload.name) || '').slice(0, 24);
                 room.names[seat] = name || null;
-            } else if (socket.data.user) {
-                // Returning to a seat we already held: refresh the identity in
-                // case the player signed in since.
+            } else if (socket.data.user && !room.settled[seat]) {
+                // Returning to a seat we already held, before playing from it:
+                // take the identity, which is also what makes the game rated.
+                // Once the seat has moved it keeps whoever it started with.
                 room.players[seat] = { ...socket.data.user };
                 room.names[seat] = socket.data.user.pseudo;
             }
@@ -468,6 +483,7 @@ function attachOnlineGames(io) {
             // name, and whether the game they are in now counts.
             socket.to(code).emit('hx:seats', {
                 code, players: room.players.map(seatView), rated: isRated(room),
+                settled: room.settled.slice(),
             });
             reply(callback, { ok: true, colour: seat, ...publicView(room) });
         });
@@ -499,6 +515,7 @@ function attachOnlineGames(io) {
             if (!outcome.ok) return reply(callback, { ok: false, error: outcome.error });
 
             socket.data.hxLastMoveAt = now;
+            room.settled[seat] = true;   // this seat is now whoever played from it
             room.state = outcome.state;
             room.moves.push(outcome.move);
             room.notations.push(outcome.notation);

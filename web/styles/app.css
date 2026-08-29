@@ -329,6 +329,16 @@ select.btn option {
 }
 .board-host { position: relative; }
 
+/* One quiet line, on the way to the board rather than over it. */
+.guest-note {
+  flex: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 7px 10px; font-size: 12.5px; color: var(--muted);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  border-bottom: 1px solid var(--line);
+}
+.guest-note[hidden] { display: none; }
+.guest-note .btn { flex: none; }
+
 /*
  * The move list rises from the bottom of the board area rather than the side.
  * The sides belong to the reserves, which must stay readable at all times; the

@@ -140,7 +140,8 @@
     "share": "Partager",
     "shareText": "Une partie d’Hexaequo vous attend",
     "enterNow": "Entrer maintenant",
-    "autoEnter": "La partie s’ouvrira d’elle-même dès que votre adversaire aura ouvert le lien."
+    "autoEnter": "La partie s’ouvrira d’elle-même dès que votre adversaire aura ouvert le lien.",
+    "guestNote": "Vous jouez en invité — connectez-vous avant votre premier coup pour que la partie compte au classement."
   },
   "result": {
     "wins": "{colour} gagne",

@@ -140,7 +140,8 @@
     "share": "Share",
     "shareText": "A game of Hexaequo is waiting for you",
     "enterNow": "Go in now",
-    "autoEnter": "The game will open on its own as soon as your opponent follows the link."
+    "autoEnter": "The game will open on its own as soon as your opponent follows the link.",
+    "guestNote": "You are playing as a guest — sign in before your first move for this game to count."
   },
   "result": {
     "wins": "{colour} wins",

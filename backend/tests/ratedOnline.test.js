@@ -173,6 +173,66 @@ async function run() {
         b.disconnect();
     });
 
+    await test('a seat that has played keeps the guest who played from it', async () => {
+        /* The window to sign in and be counted closes per seat, at that seat's
+           own first move — not at the game's, or white would never have one,
+           since white cannot move until black has. It closes at all so nobody
+           can wait to see whether they are winning before making the game
+           count. */
+        const black = await makeUser('i');
+        const white = await makeUser('j');
+        const a = await open();
+        const b = await open();
+        await ask(a, 'hx:identify', { token: black.token });
+        const created = await ask(a, 'hx:create', { timeControl: 'none' });
+        const joined = await ask(b, 'hx:join', { code: created.code });   // a guest
+        assert.deepStrictEqual(joined.settled, [false, false], 'nobody has played yet');
+
+        // Black moves. White has still not, so white's window is open.
+        const position = state.deserializeState(created.state);
+        const intent = moves.moveIntent(moves.generateMoves(position)[0]);
+        const played = await ask(a, 'hx:move', { code: created.code, intent });
+        assert.ok(played.ok, 'black played');
+
+        const heard = waitFor(a, 'hx:seats');
+        await ask(b, 'hx:identify', { token: white.token });
+        const event = await heard;
+        assert.strictEqual(event.rated, true, 'white was still in time');
+        assert.deepStrictEqual(event.settled, [true, false], 'only black has played');
+
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('a guest who signs in after their own first move stays a guest', async () => {
+        const black = await makeUser('k');
+        const a = await open();
+        const b = await open();
+        await ask(a, 'hx:identify', { token: black.token });
+        const created = await ask(a, 'hx:create', { timeControl: 'none' });
+        await ask(b, 'hx:join', { code: created.code });
+
+        // Black, then white — both seats have now played.
+        let view = created;
+        for (const socket of [a, b]) {
+            const position = state.deserializeState(view.state);
+            const intent = moves.moveIntent(moves.generateMoves(position)[0]);
+            await new Promise((r) => setTimeout(r, MIN_WAIT));
+            view = await ask(socket, 'hx:move', { code: created.code, intent });
+            assert.ok(view.ok, 'the move was accepted');
+        }
+        const white = await makeUser('l');
+        await ask(b, 'hx:identify', { token: white.token });
+        // Nothing to wait for: the seat is settled, so no hx:seats is sent.
+        const after = await ask(b, 'hx:join', { code: created.code });
+        assert.deepStrictEqual(after.settled, [true, true], 'both seats have played');
+        assert.strictEqual(after.rated, false, 'the game stays friendly');
+        assert.strictEqual(after.players[1], null, 'and the seat stays anonymous');
+
+        a.disconnect();
+        b.disconnect();
+    });
+
     await test('a full rated game moves both ratings and lands on the leaderboard', async () => {
         const black = await makeUser('e');
         const white = await makeUser('f');
