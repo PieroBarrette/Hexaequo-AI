@@ -7,9 +7,14 @@
 
 import { t } from '../i18n.js';
 import { api, currentUser } from '../auth.js';
+import { watchPresence, onPresence, presenceOf } from '../presence.js';
 
 export function mountLeaderboard(outlet) {
   let state = { status: 'loading', players: [], total: 0 };
+  /* Nobody is watched until there is a table to put lights on; released when
+     the panel closes, so a list nobody is looking at is not kept up to date. */
+  let stopWatching = () => {};
+  const stopPresence = onPresence(() => { if (state.status === 'ready') render(); });
 
   function render() {
     if (state.status === 'loading') {
@@ -43,7 +48,9 @@ export function mountLeaderboard(outlet) {
             ${state.players.map((p) => `
               <tr class="${me && p.id === me.id ? 'is-me' : ''}">
                 <td class="num rank">${p.rank}</td>
-                <td><a class="player-link" href="#/profile?id=${escapeHtml(p.id)}"
+                <td class="player-cell"><span class="pip is-${presenceOf(p.id)}"
+                          title="${t('presence.' + presenceOf(p.id))}"></span
+                    ><a class="player-link" href="#/profile?id=${escapeHtml(p.id)}"
                        >${escapeHtml(p.pseudo)}</a></td>
                 <td class="num elo">${p.elo}</td>
                 <td class="num">${p.games_played}</td>
@@ -63,7 +70,11 @@ export function mountLeaderboard(outlet) {
   api('/users/leaderboard?limit=100')
     .then((body) => {
       state = { status: 'ready', players: body.players || [], total: body.total || 0 };
+      stopWatching();
+      stopWatching = watchPresence(state.players.map((p) => p.id));
       render();
     })
     .catch(() => { state.status = 'error'; render(); });
+
+  return () => { stopWatching(); stopPresence(); };
 }

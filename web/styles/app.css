@@ -623,6 +623,11 @@ select.btn option {
 .pip.is-free { background: var(--green, #5cba7d); }
 .pip.is-playing { background: var(--accent); }
 .pip.is-offline { background: color-mix(in srgb, var(--muted) 55%, transparent); }
+/* A light and a name are one thing, not two lines. The cell is narrow on a
+   phone, and inline they broke apart. */
+.player-cell { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.player-cell .pip { margin-right: 0; }
+.player-cell .player-link { min-width: 0; }
 h1 > .pip { width: 11px; height: 11px; margin-right: 10px; }
 
 /*
