@@ -1,0 +1,77 @@
+/*
+ * Standalone content pages.
+ *
+ * These are read by people arriving from a search and by crawlers, and they
+ * load none of the app — no router, no modules, nothing to wait for. They share
+ * only the colour tokens, so a rules page always looks like the game it
+ * describes.
+ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+:root[data-theme="dark"] { color-scheme: dark; }
+:root[data-theme="light"] { color-scheme: light; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.65 var(--font-sans);
+  -webkit-text-size-adjust: 100%;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── Chrome ──────────────────────────────────────────────────────────────── */
+
+.doc-head {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 12px clamp(16px, 5vw, 40px);
+  background: var(--surface); border-bottom: 1px solid var(--line);
+}
+.doc-brand {
+  display: flex; align-items: center; gap: 10px;
+  color: var(--text); font-weight: 300; letter-spacing: .22em; font-size: 15px;
+}
+.doc-brand:hover { text-decoration: none; }
+.doc-brand .mark { height: 26px; width: auto; display: block; }
+.doc-nav { margin-left: auto; display: flex; gap: 18px; font-size: 14px; }
+
+.doc-foot {
+  padding: 28px clamp(16px, 5vw, 40px) 40px;
+  border-top: 1px solid var(--line);
+  color: var(--muted); font-size: 13px; text-align: center;
+}
+.doc-foot p { margin: 4px 0; }
+.doc-foot a { color: var(--muted); }
+
+/* ── The page itself ─────────────────────────────────────────────────────── */
+
+.doc {
+  max-width: 720px; margin: 0 auto;
+  padding: clamp(24px, 6vw, 56px) clamp(16px, 5vw, 40px);
+}
+.doc h1 { font-size: clamp(26px, 5vw, 34px); line-height: 1.2; margin: 0 0 12px; font-weight: 600; }
+.doc h2 {
+  font-size: 19px; font-weight: 600; margin: 34px 0 8px;
+  padding-top: 20px; border-top: 1px solid var(--line);
+}
+.doc h2:first-of-type { border-top: 0; padding-top: 0; }
+.doc p { margin: 0 0 14px; }
+.doc ul { margin: 0 0 18px; padding-left: 22px; }
+.doc li { margin-bottom: 8px; }
+.doc-lede { color: var(--muted); font-size: 17.5px; margin-bottom: 26px; }
+.doc-caption { color: var(--muted); font-size: 14px; }
+
+.doc-cta { margin: 40px 0 0; text-align: center; }
+.doc-button {
+  display: inline-block; padding: 13px 28px; border-radius: var(--radius-md);
+  background: var(--accent); color: var(--accent-ink);
+  font-weight: 600; font-size: 17px;
+}
+.doc-button:hover { text-decoration: none; filter: brightness(1.08); }
+
+@media (max-width: 560px) {
+  .doc-nav { margin-left: 0; width: 100%; gap: 14px; }
+}

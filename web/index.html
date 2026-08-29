@@ -28,6 +28,37 @@
 
 <link rel="stylesheet" href="./styles/tokens.css">
 <link rel="stylesheet" href="./styles/app.css">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "VideoGame",
+  "name": "Hexaequo",
+  "url": "https://hexaequo.com/",
+  "description": "A free two-player abstract strategy board game with no dice and no hidden information. There is no fixed board: the players build it as they play, laying hexagonal tiles and moving disks and rings.",
+  "image": "https://hexaequo.com/assets/icons/icon-512x512.png",
+  "inLanguage": ["en", "fr"],
+  "genre": ["Abstract strategy", "Board game", "Strategy"],
+  "gamePlatform": ["Web browser", "Progressive Web App"],
+  "playMode": ["SinglePlayer", "MultiPlayer"],
+  "numberOfPlayers": { "@type": "QuantitativeValue", "minValue": 1, "maxValue": 2 },
+  "applicationCategory": "GameApplication",
+  "operatingSystem": "Any",
+  "author": { "@type": "Person", "name": "Piero Barrette" },
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "CAD", "availability": "https://schema.org/InStock" },
+  "isAccessibleForFree": true
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Hexaequo",
+  "url": "https://hexaequo.com/",
+  "inLanguage": ["en", "fr"],
+  "publisher": { "@type": "Person", "name": "Piero Barrette" }
+}
+</script>
 </head>
 <body>
 
@@ -65,9 +96,11 @@
     <p>
       <a href="/#/play">Play</a> ·
       <a href="/#/online">Play online</a> ·
-      <a href="/#/rules">Rules</a> ·
-      <a href="/privacy">Privacy policy</a> ·
-      <a href="/terms">Terms of service</a>
+      <a href="/rules/">Rules</a> ·
+      <a href="/play/">About the game</a> ·
+      <a href="/fr/jouer/" hreflang="fr">Français</a> ·
+      <a href="/privacy/">Privacy policy</a> ·
+      <a href="/terms/">Terms of service</a>
     </p>
   </div>
 </main>

@@ -25,7 +25,8 @@
         "test:profile": "node tests/profile.test.js",
         "test:mail": "node tests/emailAccount.test.js",
         "test:lobby": "node tests/lobby.test.js",
-        "test:match": "node tests/matchmaking.test.js"
+        "test:match": "node tests/matchmaking.test.js",
+        "pages": "node scripts/makePages.js"
     },
     "dependencies": {
         "bcryptjs": "^2.4.3",

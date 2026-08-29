@@ -1,4 +1,10 @@
+# Hexaequo — https://hexaequo.com
 User-agent: *
 Allow: /
+
+# The app's own routes are fragments of one page; there is nothing behind
+# these paths for a crawler to read.
+Disallow: /api/
+Disallow: /socket.io/
 
 Sitemap: https://hexaequo.com/sitemap.xml

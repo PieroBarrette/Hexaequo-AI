@@ -1,0 +1,33 @@
+# Hexaequo
+
+> A free abstract strategy board game for two players, played in a web browser.
+> There is no fixed board: the players build it as they play, laying hexagonal
+> tiles and moving two kinds of piece. No dice, no hidden information, no
+> account required, no advertising.
+
+Hexaequo is played on a board that does not exist at the start. Each player has
+9 tiles, 6 disks and 3 rings. On your turn you do exactly one of three things:
+lay a tile, place a piece from your reserve, or move a piece already on the
+board. A disk steps to a neighbouring tile or jumps over a piece, capturing it,
+and may chain several jumps in one turn. A ring leaps to any tile two spaces
+away and captures whatever it lands on. You win by capturing six enemy disks,
+three enemy rings, or by leaving your opponent with no piece on the board.
+
+It can be played by two people on one device, against a computer opponent at
+four strengths, or online — by invitation link, or as a rated game matched by
+rating, with clocks and a leaderboard. It installs to a phone home screen and
+works offline. Created by Piero Barrette.
+
+## Pages
+
+- [Play Hexaequo](https://hexaequo.com/play/): what the game is, how it is
+  played, and the four ways to play it.
+- [Rules](https://hexaequo.com/rules/): the complete rules, in full.
+- [Jouer à Hexaequo](https://hexaequo.com/fr/jouer/): the same in French.
+- [Règles](https://hexaequo.com/fr/regles/): the complete rules in French.
+- [The game itself](https://hexaequo.com/): the playable application.
+
+## Optional
+
+- [Privacy policy](https://hexaequo.com/privacy/)
+- [Terms of service](https://hexaequo.com/terms/)

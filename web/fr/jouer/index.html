@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="fr" data-theme="dark" data-board-style="modern">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e1015">
+<title>Jouer à Hexaequo — un jeu de stratégie abstrait gratuit pour deux</title>
+<meta name="description" content="Hexaequo est un jeu de stratégie abstrait gratuit pour deux joueurs, sans hasard ni information cachée. Il n’y a pas de plateau fixe : on le construit en jouant. En local, contre l’ordinateur, ou en ligne.">
+<link rel="canonical" href="https://hexaequo.com/fr/jouer/">
+<link rel="alternate" hreflang="fr" href="https://hexaequo.com/fr/jouer/">
+<link rel="alternate" hreflang="en" href="https://hexaequo.com/play/">
+<link rel="alternate" hreflang="x-default" href="https://hexaequo.com/play/">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Hexaequo">
+<meta property="og:title" content="Jouer à Hexaequo — un jeu de stratégie abstrait gratuit pour deux">
+<meta property="og:url" content="https://hexaequo.com/fr/jouer/">
+<meta property="og:description" content="Hexaequo est un jeu de stratégie abstrait gratuit pour deux joueurs, sans hasard ni information cachée. Il n’y a pas de plateau fixe : on le construit en jouant. En local, contre l’ordinateur, ou en ligne.">
+<meta property="og:image" content="https://hexaequo.com/assets/icons/icon-512x512.png">
+<meta name="twitter:card" content="summary">
+
+<link rel="icon" href="/assets/icons/icon-192x192.png" sizes="192x192">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles/tokens.css">
+<link rel="stylesheet" href="/styles/page.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "VideoGame",
+  "name": "Hexaequo",
+  "alternateName": "Hexaequo — abstract strategy game",
+  "url": "https://hexaequo.com",
+  "description": "Hexaequo est un jeu de stratégie abstrait gratuit pour deux joueurs, sans hasard ni information cachée. Il n’y a pas de plateau fixe : on le construit en jouant. En local, contre l’ordinateur, ou en ligne.",
+  "inLanguage": [
+    "en",
+    "fr"
+  ],
+  "image": "https://hexaequo.com/assets/icons/icon-512x512.png",
+  "genre": [
+    "Abstract strategy",
+    "Board game",
+    "Strategy"
+  ],
+  "gamePlatform": [
+    "Web browser",
+    "Progressive Web App"
+  ],
+  "playMode": [
+    "SinglePlayer",
+    "MultiPlayer",
+    "CoOp"
+  ],
+  "numberOfPlayers": {
+    "@type": "QuantitativeValue",
+    "minValue": 1,
+    "maxValue": 2
+  },
+  "applicationCategory": "GameApplication",
+  "operatingSystem": "Any",
+  "author": {
+    "@type": "Person",
+    "name": "Piero Barrette"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "Piero Barrette"
+  },
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "CAD",
+    "availability": "https://schema.org/InStock"
+  },
+  "isAccessibleForFree": true
+}
+</script>
+</head>
+<body>
+<header class="doc-head">
+  <a class="doc-brand" href="/"><svg class="mark" aria-hidden="true" viewBox="-145.1 -166.5 705.8 573.0" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Hexaequo">
+  <title>Hexaequo</title>
+  <!-- The opening position: two black tiles, two white tiles, alternating disk and ring. -->
+  <path d="M138.56 -80.00 L138.56 80.00 L0.00 160.00 L-138.56 80.00 L-138.56 -80.00 L-0.00 -160.00Z" fill="#000000" stroke="#000000" stroke-width="11" stroke-linejoin="round"/>
+  <circle cx="0.00" cy="0.00" r="60.80" fill="#ffffff"/>
+  <path d="M415.69 -80.00 L415.69 80.00 L277.13 160.00 L138.56 80.00 L138.56 -80.00 L277.13 -160.00Z" fill="#ffffff" stroke="#000000" stroke-width="11" stroke-linejoin="round"/>
+  <circle cx="277.13" cy="0.00" r="80.80" fill="none" stroke="#000000" stroke-width="40.00"/>
+  <path d="M277.13 160.00 L277.13 320.00 L138.56 400.00 L-0.00 320.00 L0.00 160.00 L138.56 80.00Z" fill="#ffffff" stroke="#000000" stroke-width="11" stroke-linejoin="round"/>
+  <circle cx="138.56" cy="240.00" r="60.80" fill="#000000"/>
+  <path d="M554.26 160.00 L554.26 320.00 L415.69 400.00 L277.13 320.00 L277.13 160.00 L415.69 80.00Z" fill="#000000" stroke="#000000" stroke-width="11" stroke-linejoin="round"/>
+  <circle cx="415.69" cy="240.00" r="80.80" fill="none" stroke="#ffffff" stroke-width="40.00"/>
+</svg><span>HEXAEQUO</span></a>
+  <nav class="doc-nav">
+    <a href="/">Accueil</a>
+    <a href="/fr/regles/">Règles</a>
+    <a href="/play/" hreflang="en">English</a>
+  </nav>
+</header>
+
+<main class="doc">
+  <h1>Hexaequo</h1>
+  <p class="doc-lede">Hexaequo est un jeu de stratégie abstrait pour deux joueurs. Aucun hasard, rien de caché, et pas de plateau dans la boîte — le plateau se construit en jouant, en posant des tuiles hexagonales et en y déplaçant des disques et des anneaux.</p>
+
+  <h2>Quatre façons de jouer</h2>
+  <ul>
+    <li><b>À deux sur un même écran</b> — On se passe l’appareil. Rien à installer, aucun compte requis.</li>
+    <li><b>Contre l’ordinateur</b> — Quatre niveaux, du débutant qui laisse passer des captures à un adversaire qui calcule sept coups d’avance.</li>
+    <li><b>En ligne avec un ami</b> — Créez une partie et transmettez le lien. Celui qui l’a prend la place libre.</li>
+    <li><b>Parties classées en ligne</b> — Connectez-vous et affrontez quelqu’un de votre force, avec pendules et classement mondial.</li>
+  </ul>
+
+  <h2>Ce qui le distingue</h2>
+  <ul>
+    <li><b>Le plateau n’est pas donné</b> — Chaque partie commence avec quatre tuiles. L’endroit où le plateau s’étend est lui-même un coup, et une partie jouée large ne ressemble en rien à une partie jouée serrée.</li>
+    <li><b>Trois façons de gagner</b> — Prendre six disques, prendre trois anneaux, ou ne laisser à l’adversaire aucune pièce sur le plateau. Chacune tire le jeu dans une direction différente.</li>
+    <li><b>Sans hasard ni information cachée</b> — Tout ce que les deux joueurs savent est sur la table. Une défaite est toujours quelque chose qu’on aurait pu voir venir.</li>
+    <li><b>Cinq minutes pour apprendre</b> — Deux sortes de pièces, une sorte de tuile, et un tour se résume à un seul choix.</li>
+  </ul>
+
+  <h2>Gratuit, et ça le restera</h2>
+  <p>Hexaequo fonctionne dans un navigateur, sans rien installer. On peut l’ajouter à l’écran d’accueil d’un téléphone et y jouer hors ligne. Aucune publicité, aucun achat, et aucun suivi au-delà de ce qu’exige un compte que vous choisissez de créer.</p>
+  <p><a href="/fr/regles/">Lire les règles complètes</a></p>
+  <p class="doc-cta"><a class="doc-button" href="/#/play">Jouer à Hexaequo</a></p>
+</main>
+
+<footer class="doc-foot">
+  <p>Un jeu créé par Piero Barrette</p>
+  <p>
+    <a href="/fr/confidentialite/">Politique de confidentialité</a> ·
+    <a href="/fr/conditions/">Conditions d&#39;utilisation</a> ·
+    <a href="/fr/regles/">Règles</a>
+  </p>
+</footer>
+</body>
+</html>
