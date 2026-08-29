@@ -333,7 +333,9 @@
     "resumeTwo": "Two players here",
     "resumeWatch": "Let the computer play both",
     "resumedFrom": "Carried on from {game}, move {n} — a local game",
-    "resumedHere": "Carried on from move {n} — a local game"
+    "resumedHere": "Carried on from move {n} — a local game",
+    "evalTitle": "Engine evaluation: {n} (depth {d})",
+    "evalDecided": "The engine sees a forced win for {colour}"
   },
   "chat": {
     "tab": "Chat",

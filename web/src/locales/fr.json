@@ -333,7 +333,9 @@
     "resumeTwo": "À deux sur cet appareil",
     "resumeWatch": "Laisser l’ordinateur jouer les deux",
     "resumedFrom": "Reprise de {game}, au coup {n} — partie locale",
-    "resumedHere": "Reprise au coup {n} — partie locale"
+    "resumedHere": "Reprise au coup {n} — partie locale",
+    "evalTitle": "Évaluation de l’ordinateur : {n} (profondeur {d})",
+    "evalDecided": "L’ordinateur voit une victoire forcée pour les {colour}s"
   },
   "chat": {
     "tab": "Clavardage",

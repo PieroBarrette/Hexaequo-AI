@@ -330,6 +330,48 @@ select.btn option {
 .board-host { position: relative; }
 
 /*
+ * Where the game stands, down the side of the board.
+ *
+ * Black above, white below, in the colours of the pieces themselves — the
+ * quickest reading of "who is winning" in a game whose two sides are a dark
+ * disk and a light one. The white share grows from the bottom, so the line
+ * between them is the balance.
+ *
+ * Shown only while reading a game back. Setting the engine on a live position
+ * while the other player waits is analysis mid-game, which is the one thing a
+ * rated game cannot allow.
+ */
+.eval-bar {
+  position: absolute; left: 10px; top: 12px; bottom: 12px; width: 19px;
+  z-index: 4; border-radius: 7px; overflow: hidden;
+  background: var(--piece-dark); border: 1px solid var(--line);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .18);
+}
+.eval-bar[hidden] { display: none; }
+.eval-fill {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: var(--piece-light);
+  border-top: 1px solid var(--piece-light-edge);
+  transition: height .3s var(--ease);
+}
+.eval-number {
+  position: absolute; left: 0; right: 0; bottom: 3px;
+  font: 600 10px/1 var(--font-mono); text-align: center;
+  color: var(--piece-dark); letter-spacing: -.03em;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, .5);
+}
+/* The number sits on whichever half has room for it. */
+.eval-bar.is-black-ahead .eval-number {
+  bottom: auto; top: 3px;
+  color: var(--piece-light); text-shadow: 0 1px 0 rgba(0, 0, 0, .5);
+}
+@media (prefers-reduced-motion: reduce) { .eval-fill { transition: none; } }
+@media (max-width: 560px) {
+  .eval-bar { left: 5px; top: 7px; bottom: 7px; width: 16px; }
+  .eval-number { font-size: 9px; }
+}
+
+/*
  * What the opponent just said, over the corner of the board nearest the arrow
  * that opens the chat — with a tail pointing at it, so the bubble and the
  * mark on the arrow read as the same message rather than two.

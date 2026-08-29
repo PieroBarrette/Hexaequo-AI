@@ -23,7 +23,7 @@ import {
   generateMoves, generateDiskMoves, availableJumps, checkWinner, moveNotation, moveIntent,
   findLegalMove,
 } from '../game/moves.js';
-import { chooseMove } from '../game/ai.js';
+import { chooseMove, judge, DISK_POINTS } from '../game/ai.js';
 import { request, listen, connect, inviteLink, identify } from '../net.js';
 import { sessionToken, api, isSignedIn, onAuthChange } from '../auth.js';
 import { offerPosition, takePosition } from '../handoff.js';
@@ -216,6 +216,16 @@ export function mountPlay(outlet, params) {
   const pickerEl = outlet.querySelector('.piece-picker');
   const resumeEl = outlet.querySelector('.resume-sheet');
   const guestNote = outlet.querySelector('.guest-note');
+  /* Added rather than templated: createBoard replaces the whole contents of
+     its host, so anything written into it beforehand is thrown away. */
+  const evalBar = document.createElement('div');
+  evalBar.className = 'eval-bar';
+  evalBar.hidden = true;
+  evalBar.innerHTML = '<div class="eval-fill"></div><span class="eval-number"></span>';
+  outlet.querySelector('.board-host').appendChild(evalBar);
+  /* One number per ply, kept because stepping back and forth through a game
+     asks for the same positions over and over. */
+  const evalCache = new Map();
   const bubbleEl = outlet.querySelector('.chat-bubble');
   let bubbleTimer = 0;
   const overlay = outlet.querySelector('.result-overlay');
@@ -331,6 +341,7 @@ export function mountPlay(outlet, params) {
    * are never recorded — so the game it came from cannot be touched.
    */
   function newGame(from) {
+    evalCache.clear();
     state = from ? cloneState(from) : createState();
     history = [];
     moveLog = [];
@@ -756,6 +767,7 @@ export function mountPlay(outlet, params) {
   }
 
   function adoptRoom(view) {
+    evalCache.clear();
     if (view.colour !== undefined && view.colour !== null && view.colour >= 0) net.colour = view.colour;
     state = deserializeState(view.state);
     moveLog = (view.notations || []).map((text, i) => ({
@@ -1003,6 +1015,7 @@ export function mountPlay(outlet, params) {
       return;
     }
 
+    evalCache.clear();
     timelineMoves = (archive.moves || []).slice();
     timeline = replayTimeline(timelineMoves);
     if (timeline.length !== timelineMoves.length + 1) {
@@ -1133,6 +1146,7 @@ export function mountPlay(outlet, params) {
     renderMoveList();
     renderReviewBar();
     renderChat();
+    renderEvalBar();
     renderNetStatus();
     syncTools();
     tickClocks();
@@ -1757,6 +1771,55 @@ export function mountPlay(outlet, params) {
     guestNote.innerHTML = `<span>${t('online.guestNote')}</span>`
       + `<button class="btn btn--sm btn--primary" data-action="guest-sign-in">`
       + `${t('account.signIn')}</button>`;
+  }
+
+  /**
+   * How the position on screen stands, drawn down the side of the board.
+   *
+   * Only while reading a game back, and never in a live online game: setting
+   * the engine on the position while the other player waits is analysis
+   * mid-game, which is the one thing a rated game cannot allow. It is the same
+   * rule that hides "play from here".
+   */
+  const evalShown = () => (review !== null || Boolean(archiveId)) && !(net && !result);
+
+  /**
+   * Points to a share of the bar.
+   *
+   * A logistic rather than a straight line, because the difference between
+   * level and a disk down matters and the difference between five disks down
+   * and six does not — past a point the game is simply lost, and the bar
+   * should say so without needing more room to say it in.
+   */
+  function evalShare(score) {
+    return 1 / (1 + Math.exp(-score / 250));
+  }
+
+  function renderEvalBar() {
+    if (!evalShown()) { evalBar.hidden = true; return; }
+    const at = review === null ? timeline.length - 1 : review;
+    let verdict = evalCache.get(at);
+    if (!verdict) {
+      /* Depth six costs about twenty milliseconds, which is under a frame and
+         paid once per position for the whole session. */
+      verdict = judge(cloneState(shownState()), { ms: 250, maxDepth: 6 });
+      evalCache.set(at, verdict);
+    }
+
+    const share = verdict.decisive
+      ? (verdict.score > 0 ? 0 : 1)          // black wins: white's share is none
+      : 1 - evalShare(verdict.score);
+    const points = verdict.score / DISK_POINTS;
+    const label = verdict.decisive ? '✓' : Math.abs(points).toFixed(1);
+
+    evalBar.hidden = false;
+    evalBar.classList.toggle('is-black-ahead', verdict.score > 0);
+    evalBar.querySelector('.eval-fill').style.height = `${(share * 100).toFixed(1)}%`;
+    const number = evalBar.querySelector('.eval-number');
+    number.textContent = label;
+    evalBar.title = verdict.decisive
+      ? t('review.evalDecided', { colour: colourName(verdict.score > 0 ? BLACK : WHITE) })
+      : t('review.evalTitle', { n: label, d: verdict.depth });
   }
 
   /** The strip above the board that explains the state of an online game. */

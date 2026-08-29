@@ -294,6 +294,62 @@ export function chooseMove(state, level = 1) {
   return best;
 }
 
+/** The scale the bar is read on: a hundred points is one captured disk. */
+export const DISK_POINTS = 100;
+
+/** Past this, the search has found the end of the game rather than an edge. */
+export const DECISIVE = MATE - 1000;
+
+/**
+ * How the position stands, without choosing a move.
+ *
+ * The same search the opponent uses, run for its number instead of its move.
+ * A static evaluation would have been cheaper and wrong: it cannot see that
+ * the piece about to be taken is about to be taken, so the bar would lurch
+ * every half-move as a capture came into and went out of range.
+ *
+ * Noise is off. It exists to keep the engine from playing the same game twice,
+ * and a bar that shimmers while nothing on the board has changed is a bar
+ * nobody can read.
+ *
+ * @returns {{ score: number, depth: number, decisive: boolean }}
+ *   score is absolute and positive for Black, in points; decisive says the
+ *   search reached a finish rather than an estimate.
+ */
+export function judge(state, { ms = 140, maxDepth = 5 } = {}) {
+  const heldNoise = noise;
+  const heldQuiesce = useQuiescence;
+  noise = 0;
+  useQuiescence = true;
+  nodes = 0;
+  aborted = false;
+  table.clear();
+  deadline = Date.now() + ms;
+
+  let value = evaluateForSideToMove(state);
+  let reached = 0;
+  for (let depth = 1; depth <= maxDepth; depth++) {
+    const found = negamax(state, depth, -INFINITY, INFINITY, 0);
+    // A search cut short mid-depth has explored some moves and not others,
+    // which is worse than the depth below it, not better.
+    if (aborted) break;
+    value = found;
+    reached = depth;
+    if (Math.abs(value) > DECISIVE) break;
+    if (Date.now() > deadline) break;
+  }
+
+  noise = heldNoise;
+  useQuiescence = heldQuiesce;
+  return {
+    // negamax answers for the side to move; the bar reads the same way round
+    // whoever that is.
+    score: state.turn === BLACK ? value : -value,
+    depth: reached,
+    decisive: Math.abs(value) > DECISIVE,
+  };
+}
+
 /** Exposed for the self-test so it can silence evaluation noise. */
 export function setNoise(value) {
   const previous = noise;
