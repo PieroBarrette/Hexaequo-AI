@@ -833,3 +833,23 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
   width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
   box-shadow: 0 0 0 2px var(--surface);
 }
+
+/*
+ * Carrying on from a position.
+ *
+ * The choice of opponent is asked for rather than assumed, so the sheet sits
+ * over the board where the eye already is, not in a corner.
+ */
+.resume-sheet {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  z-index: 8; display: flex; flex-direction: column; gap: 8px;
+  min-width: min(300px, 84vw); padding: 18px;
+  background: var(--surface); border: 1px solid var(--accent);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+}
+.resume-sheet[hidden] { display: none; }
+.resume-title {
+  margin: 0 0 4px; font-weight: 600; font-size: 15px; text-align: center;
+}
+.resume-choice { min-height: var(--tap); font-size: 15px; }
+.review-resume { font-size: 12px; }

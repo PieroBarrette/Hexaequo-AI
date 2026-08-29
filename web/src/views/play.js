@@ -26,6 +26,7 @@ import {
 import { chooseMove } from '../game/ai.js';
 import { request, listen, connect, inviteLink, identify } from '../net.js';
 import { sessionToken, api } from '../auth.js';
+import { offerPosition, takePosition } from '../handoff.js';
 
 const MODE_LOCAL = 'local';
 const MODE_AI = 'ai';
@@ -66,6 +67,7 @@ export function mountPlay(outlet, params) {
    * — never a move the player did not choose, never one that is not legal.
    */
   let premove = null;
+  let resumedNote = false;      // this game was carried on from another one
 
   let timeline = [];
   let timelineMoves = [];
@@ -148,6 +150,7 @@ export function mountPlay(outlet, params) {
         <div class="net-strip"></div>
         <div class="board-host" style="flex:1;display:flex;min-width:0"></div>
         <div class="piece-picker" hidden></div>
+        <div class="resume-sheet" hidden></div>
         <div class="chain-bar">
           <span class="taken"></span>
           <button class="btn btn--icon" data-action="end-jump" title="${t('game.endJump')}">✓</button>
@@ -176,6 +179,7 @@ export function mountPlay(outlet, params) {
             <option value="2">2×</option>
             <option value="4">4×</option>
           </select>
+          <button class="btn review-resume" data-action="resume">${t('review.resume')}</button>
           <button class="btn review-live" data-action="rev-live">${t('review.backToLive')}</button>
           </div>
           <span class="bar-gap"></span>
@@ -207,6 +211,7 @@ export function mountPlay(outlet, params) {
   const rails = [outlet.querySelector('[data-rail="0"]'), outlet.querySelector('[data-rail="1"]')];
   const chainBar = outlet.querySelector('.chain-bar');
   const pickerEl = outlet.querySelector('.piece-picker');
+  const resumeEl = outlet.querySelector('.resume-sheet');
   const overlay = outlet.querySelector('.result-overlay');
   const drawer = outlet.querySelector('.drawer');
   const moveListEl = outlet.querySelector('.move-list');
@@ -311,8 +316,16 @@ export function mountPlay(outlet, params) {
 
   /* ── Game lifecycle ───────────────────────────────────────────────────── */
 
-  function newGame() {
-    state = createState();
+  /**
+   * Start a game, from the opening or from a position handed over.
+   *
+   * A resumed game keeps no history from before its first move: it is a new
+   * game that happens to begin in the middle of somebody else's, not a
+   * continuation of it. Nothing about it reaches the database — local games
+   * are never recorded — so the game it came from cannot be touched.
+   */
+  function newGame(from) {
+    state = from ? cloneState(from) : createState();
     history = [];
     moveLog = [];
     repetitions = new Map();
@@ -1321,6 +1334,71 @@ export function mountPlay(outlet, params) {
       + menu;
   }
 
+  /** Say where this game came from, so nobody mistakes it for a fresh one. */
+  function showResumeNote(handoff) {
+    resumedNote = true;
+    const strip = outlet.querySelector('.net-strip');
+    strip.className = 'net-strip is-on';
+    strip.innerHTML = `<span class="net-msg">${
+      handoff.from
+        ? t('review.resumedFrom', { game: escapeText(handoff.from), n: handoff.ply })
+        : t('review.resumedHere', { n: handoff.ply })
+    }</span>`;
+  }
+
+  /* ── Playing on from a position ───────────────────────────────────────── */
+
+  /**
+   * Offer to carry on from whatever is on screen.
+   *
+   * The choice of opponent is asked for rather than assumed: someone reading a
+   * game back may want to try the position against the engine, or to set it up
+   * for two people at a table, or simply to watch it played out.
+   */
+  function openResumeSheet() {
+    const options = [
+      ['ai', t('review.resumeVsAi')],
+      ['local', t('review.resumeTwo')],
+      ['aiai', t('review.resumeWatch')],
+    ];
+    resumeEl.innerHTML = `<p class="resume-title">${t('review.resumeTitle', { n: reviewPly() })}</p>`
+      + options.map(([id, label]) =>
+        `<button class="btn resume-choice" data-resume="${id}">${label}</button>`).join('')
+      + `<button class="btn btn--link" data-resume="cancel">${t('game.cancel')}</button>`;
+    resumeEl.hidden = false;
+  }
+
+  const closeResumeSheet = () => { resumeEl.hidden = true; resumeEl.innerHTML = ''; };
+
+  const reviewPly = () => (review === null ? timeline.length - 1 : review);
+
+  /**
+   * Hand the position to a fresh local game.
+   *
+   * Local games are never written anywhere, so the game this came from is
+   * untouched by construction rather than by care — there is no code path from
+   * here that could reach it.
+   */
+  function resumeFrom(mode) {
+    const position = shownState();
+    if (!position) return;
+    offerPosition({
+      position: cloneState(position),
+      mode,
+      // Carry on as the colour whose turn it is: the interesting question is
+      // almost always "what should have been played here".
+      side: position.turn,
+      from: archive
+        ? `${(archive.black && archive.black.pseudo) || t('profile.guest')} – `
+          + `${(archive.white && archive.white.pseudo) || t('profile.guest')}`
+        : null,
+      ply: reviewPly(),
+    });
+    closeResumeSheet();
+    playSound('ui');
+    navigate('play', { resumed: '1' });
+  }
+
   /* ── Review ───────────────────────────────────────────────────────────── */
 
   /**
@@ -1440,6 +1518,11 @@ export function mountPlay(outlet, params) {
     reviewBar.querySelector('[data-action="rev-next"]').disabled = at === last;
     reviewBar.querySelector('[data-action="rev-last"]').disabled = at === last;
     reviewBar.classList.toggle('is-back', review !== null);
+    /* Not during a live online game: setting the position up against the
+       engine while the other player waits is analysis mid-game, which is the
+       one thing a rated game cannot allow. Everywhere else it is offered. */
+    const liveOnline = Boolean(net) && !result;
+    reviewBar.querySelector('[data-action="resume"]').hidden = liveOnline;
     const playButton = reviewBar.querySelector('[data-action="rev-play"]');
     playButton.textContent = isAutoplaying() ? '⏸' : '▶';
     playButton.classList.toggle('is-on', isAutoplaying());
@@ -1547,6 +1630,8 @@ export function mountPlay(outlet, params) {
   /** The strip above the board that explains the state of an online game. */
   function renderNetStatus() {
     const strip = outlet.querySelector('.net-strip');
+    // A resumed game keeps the note saying where it came from.
+    if (resumedNote) return;
 
     if (archiveId) {
       if (!archive) return;                 // an error is already on the strip
@@ -1898,6 +1983,14 @@ export function mountPlay(outlet, params) {
     refresh();
   });
 
+  resumeEl.addEventListener('click', (event) => {
+    const choice = event.target.closest('[data-resume]');
+    if (!choice) return;
+    const which = choice.getAttribute('data-resume');
+    if (which === 'cancel') { playSound('ui'); closeResumeSheet(); return; }
+    resumeFrom(which);
+  });
+
   pickerEl.addEventListener('click', (event) => {
     const choice = event.target.closest('[data-choose]');
     if (!choice || !picker) return;
@@ -1931,6 +2024,7 @@ export function mountPlay(outlet, params) {
     else if (action === 'rev-next') { stopAutoplay(); stepReview(1); }
     else if (action === 'rev-last') { stopAutoplay(); goToPly(timeline.length - 1); }
     else if (action === 'rev-live') { stopAutoplay(); goToPly(timeline.length - 1); }
+    else if (action === 'resume') { stopAutoplay(); openResumeSheet(); }
     else if (action === 'rev-play') {
       if (isAutoplaying()) { stopAutoplay(); renderReviewBar(); } else startAutoplay();
     }
@@ -2019,7 +2113,21 @@ export function mountPlay(outlet, params) {
   });
   const stopWatchingLanguage = onLanguageChange(relabel);
 
-  newGame();
+  /*
+   * A position handed over from a game being read back.
+   *
+   * It becomes an ordinary local game — nothing here writes anywhere, so the
+   * game it came from cannot be affected by whatever happens next.
+   */
+  const resumed = params && params.get('resumed') === '1' ? takePosition() : null;
+  if (resumed) {
+    mode = resumed.mode;
+    if (resumed.mode === MODE_AI) humanSide = resumed.side;
+    aiRunning = resumed.mode === MODE_AI_AI;
+  }
+
+  newGame(resumed ? resumed.position : null);
+  if (resumed) showResumeNote(resumed);
   showDrawerTab('moves');
   if (archiveId) loadArchive();
   if (net) {

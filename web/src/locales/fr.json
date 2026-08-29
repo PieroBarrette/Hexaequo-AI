@@ -318,7 +318,14 @@
     "reviewingArchive": "Partie terminée — révision",
     "play": "Lecture",
     "pause": "Pause",
-    "speed": "Vitesse de lecture"
+    "speed": "Vitesse de lecture",
+    "resume": "Reprendre ici",
+    "resumeTitle": "Reprendre au coup {n}",
+    "resumeVsAi": "Contre l’ordinateur",
+    "resumeTwo": "À deux sur cet appareil",
+    "resumeWatch": "Laisser l’ordinateur jouer les deux",
+    "resumedFrom": "Reprise de {game}, au coup {n} — partie locale",
+    "resumedHere": "Reprise au coup {n} — partie locale"
   },
   "chat": {
     "tab": "Clavardage",

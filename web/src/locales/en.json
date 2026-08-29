@@ -318,7 +318,14 @@
     "reviewingArchive": "Finished game — review",
     "play": "Play",
     "pause": "Pause",
-    "speed": "Playback speed"
+    "speed": "Playback speed",
+    "resume": "Play on from here",
+    "resumeTitle": "Play on from move {n}",
+    "resumeVsAi": "Against the computer",
+    "resumeTwo": "Two players here",
+    "resumeWatch": "Let the computer play both",
+    "resumedFrom": "Carried on from {game}, move {n} — a local game",
+    "resumedHere": "Carried on from move {n} — a local game"
   },
   "chat": {
     "tab": "Chat",

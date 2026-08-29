@@ -26,6 +26,7 @@ const SHELL = [
   './src/net.js',
   './src/audio.js',
   './src/update.js',
+  './src/handoff.js',
   './src/locales/en.json',
   './src/locales/fr.json',
   './src/game/hex.js',
