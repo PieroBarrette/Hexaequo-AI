@@ -11,7 +11,7 @@
  */
 
 const {
-    createRoom, online, statusOf, isPlaying, onGameFinished,
+    createRoom, rooms, online, statusOf, isPlaying, roomOf, onGameFinished,
 } = require('./onlineGame');
 const { query } = require('../config/database');
 
@@ -45,6 +45,25 @@ const agreements = new Map();
  * claimed nothing had ever been said in it.
  */
 const chat = [];
+
+/** Games in progress that anybody may look in on. */
+function liveGames() {
+    const out = [];
+    for (const room of rooms.values()) {
+        if (room.result) continue;
+        const [black, white] = room.players;
+        if (!black || !white || !room.seats[0] || !room.seats[1]) continue;
+        out.push({
+            code: room.code,
+            black: { pseudo: black.pseudo, elo: black.elo },
+            white: { pseudo: white.pseudo, elo: white.elo },
+            timeControl: room.timeControl,
+            plies: room.moves.length,
+            watchers: room.watchers.size,
+        });
+    }
+    return out.sort((a, b) => b.plies - a.plies);
+}
 
 /** Fill the cache from the database, once, at start-up. */
 async function loadChat() {
@@ -124,7 +143,7 @@ function attachLobby(io) {
         pushPending = true;
         const timer = setTimeout(() => {
             pushPending = false;
-            io.to(LOBBY_ROOM).emit('hx:lobby:update', { players: roster() });
+            io.to(LOBBY_ROOM).emit('hx:lobby:update', { players: roster(), games: liveGames() });
         }, PUSH_MS);
         if (timer.unref) timer.unref();
     }
@@ -219,7 +238,7 @@ function attachLobby(io) {
             socket.join(LOBBY_ROOM);
             socket.data.hxInLobby = true;
             announce();
-            reply(callback, { ok: true, players: roster(), chat, you: user.userId });
+            reply(callback, { ok: true, players: roster(), games: liveGames(), chat, you: user.userId });
         });
 
         socket.on('hx:lobby:leave', (payload, callback) => {
@@ -343,12 +362,15 @@ function attachLobby(io) {
                 if (deal.timer.unref) deal.timer.unref();
                 agreements.set(deal.id, deal);
                 for (const [person, other] of [[deal.from, deal.to], [deal.to, deal.from]]) {
+                    const theirs = roomOf(other.userId);
                     toUser(person.userId, 'hx:challenge:agreed', {
                         id: deal.id,
                         timeControl: deal.timeControl,
                         opponent: { pseudo: other.pseudo, elo: other.elo },
                         // The one who said yes already knows they said yes.
                         youAccepted: person.userId === user.userId,
+                        // Where the other one is, so waiting can be watching.
+                        watchCode: theirs && !roomOf(person.userId) ? theirs.code : null,
                     });
                 }
                 return reply(callback, { ok: true, deferred: true, id: deal.id });
@@ -382,11 +404,13 @@ function attachLobby(io) {
                 const mine = deal.from.userId === user.userId ? deal.to
                     : (deal.to.userId === user.userId ? deal.from : null);
                 if (!mine) continue;
+                const theirs = roomOf(mine.userId);
                 agreed = {
                     id: deal.id,
                     timeControl: deal.timeControl,
                     opponent: { pseudo: mine.pseudo, elo: mine.elo },
                     youAccepted: true,      // nothing new happened; say nothing about it
+                    watchCode: theirs && !roomOf(user.userId) ? theirs.code : null,
                 };
             }
             reply(callback, { ok: true, incoming, agreed });
@@ -426,6 +450,6 @@ function attachLobby(io) {
 }
 
 module.exports = {
-    attachLobby, present, challenges, agreements, chat, roster, loadChat,
+    attachLobby, present, challenges, agreements, chat, roster, liveGames, loadChat,
     CHALLENGE_TTL_MS, PUSH_MS,
 };

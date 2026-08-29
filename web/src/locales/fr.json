@@ -433,5 +433,15 @@
     "agreedWith": "Partie convenue avec {name} — elle s’ouvrira dès que vos deux plateaux seront libres.",
     "agreedNote": "{name} a accepté. La partie commencera après la partie en cours.",
     "sentToBusy": "Invitation envoyée à {name}, qui est en partie. S’il accepte, vous jouerez juste après."
+  },
+  "watch": {
+    "badge": "SPECTATEUR",
+    "count": "{n} spectateurs",
+    "countOne": "{n} spectateur",
+    "action": "Regarder",
+    "while": "Regarder en attendant",
+    "liveTitle": "Parties en cours",
+    "liveCount": "{n} parties",
+    "liveCountOne": "{n} partie"
   }
 }

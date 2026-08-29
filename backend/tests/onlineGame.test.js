@@ -527,6 +527,121 @@ async function run() {
         b.disconnect();
     });
 
+    await test('somebody can look in on a game without taking a seat', async () => {
+        const a = await open();
+        const b = await open();
+        const eye = await open();
+        const room = await ask(a, 'hx:create', {});
+        await ask(b, 'hx:join', { code: room.code });
+
+        const seen = waitFor(a, 'hx:watchers');
+        const view = await ask(eye, 'hx:watch', { code: room.code });
+        assert.ok(view.ok, view.error);
+        assert.strictEqual(view.watching, true, 'said plainly to be a look, not a seat');
+        assert.strictEqual(view.colour, null, 'and it comes with no colour');
+        assert.strictEqual(view.chat, undefined, 'what the players say is not sent here');
+        const told = await seen;
+        assert.strictEqual(told.n, 1, 'the players are told they are watched');
+
+        /* The moves arrive. This is the whole point: a room is a broadcast,
+           and a spectator is simply in it. */
+        const heard = waitFor(eye, 'hx:moved');
+        await ask(a, 'hx:move', { code: room.code, intent: await legalIntent(room.state) });
+        const move = await heard;
+        assert.strictEqual(move.code, room.code, 'the spectator saw it');
+
+        a.disconnect();
+        b.disconnect();
+        eye.disconnect();
+    });
+
+    await test('a spectator cannot play, resign, chat or ask for a rematch', async () => {
+        const a = await open();
+        const b = await open();
+        const eye = await open();
+        const room = await ask(a, 'hx:create', {});
+        await ask(b, 'hx:join', { code: room.code });
+        await ask(eye, 'hx:watch', { code: room.code });
+
+        const intent = await legalIntent(room.state);
+        for (const [event, payload] of [
+            ['hx:move', { code: room.code, intent }],
+            ['hx:resign', { code: room.code }],
+            ['hx:chat', { code: room.code, text: 'hello' }],
+            ['hx:rematch', { code: room.code }],
+        ]) {
+            const refused = await ask(eye, event, payload);
+            assert.strictEqual(refused.ok, false, event + ' was refused');
+            assert.strictEqual(refused.error, 'NOT_A_PLAYER', event + ' said why');
+        }
+
+        a.disconnect();
+        b.disconnect();
+        eye.disconnect();
+    });
+
+    await test('what the players say does not reach the people watching', async () => {
+        /* The chat used to go to the whole socket.io room, and a spectator is
+           in that room. It is addressed to the two seats now. */
+        const a = await open();
+        const b = await open();
+        const eye = await open();
+        const room = await ask(a, 'hx:create', {});
+        await ask(b, 'hx:join', { code: room.code });
+        await ask(eye, 'hx:watch', { code: room.code });
+
+        let leaked = false;
+        eye.on('hx:chat', () => { leaked = true; });
+        const heard = waitFor(b, 'hx:chat');
+        await ask(a, 'hx:chat', { code: room.code, text: 'entre nous' });
+        const message = await heard;
+        assert.strictEqual(message.message.text, 'entre nous', 'the other player heard it');
+        await new Promise((r) => setTimeout(r, 250));
+        assert.strictEqual(leaked, false, 'and nobody else did');
+
+        a.disconnect();
+        b.disconnect();
+        eye.disconnect();
+    });
+
+    await test('leaving takes you off the count', async () => {
+        const a = await open();
+        const b = await open();
+        const eye = await open();
+        const room = await ask(a, 'hx:create', {});
+        await ask(b, 'hx:join', { code: room.code });
+        await ask(eye, 'hx:watch', { code: room.code });
+
+        const dropped = waitFor(a, 'hx:watchers');
+        await ask(eye, 'hx:unwatch', { code: room.code });
+        assert.strictEqual((await dropped).n, 0, 'the players are told');
+
+        // And a disconnection counts as leaving, since nothing else will say so.
+        const other = await open();
+        const back = waitFor(a, 'hx:watchers');
+        await ask(other, 'hx:watch', { code: room.code });
+        assert.strictEqual((await back).n, 1);
+        const gone = waitFor(a, 'hx:watchers');
+        other.disconnect();
+        assert.strictEqual((await gone).n, 0, 'a closed tab is not a spectator');
+
+        a.disconnect();
+        b.disconnect();
+        eye.disconnect();
+    });
+
+    await test('a player cannot watch the game they are sitting at', async () => {
+        const a = await open();
+        const b = await open();
+        const room = await ask(a, 'hx:create', {});
+        await ask(b, 'hx:join', { code: room.code });
+        const refused = await ask(a, 'hx:watch', { code: room.code });
+        assert.strictEqual(refused.ok, false);
+        assert.strictEqual(refused.error, 'ALREADY_PLAYING');
+        a.disconnect();
+        b.disconnect();
+    });
+
     await test('declining a rematch clears the offer', async () => {
         const a = await open();
         const b = await open();

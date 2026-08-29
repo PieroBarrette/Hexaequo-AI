@@ -605,6 +605,16 @@ select.btn option {
  * board, grey away — amber being a state you can still be invited from, since
  * a game agreed to now is played when the current one ends.
  */
+/* How many are looking on. Small, because it is a fact about the room rather
+   than about the game. */
+.net-eyes {
+  font: 600 11px/1 var(--font-mono); color: var(--muted);
+  white-space: nowrap; flex: none; letter-spacing: .02em;
+}
+.net-stake.is-watching {
+  color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
 .pip {
   display: inline-block; width: 9px; height: 9px; border-radius: 50%;
   flex: none; vertical-align: middle; margin-right: 7px;

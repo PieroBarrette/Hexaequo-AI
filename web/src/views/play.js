@@ -93,11 +93,15 @@ export function mountPlay(outlet, params) {
   const archiveId = params && params.get('game');
   let archive = null;
 
-  const wantsOnline = params && params.get('online') === '1' && params.get('code');
+  const watching = Boolean(params && params.get('watch') === '1' && params.get('code'));
+  const wantsOnline = watching
+    || Boolean(params && params.get('online') === '1' && params.get('code'));
   let net = wantsOnline
     ? {
       code: String(params.get('code')).toUpperCase(),
       colour: null,
+      watching,                // no seat: here to look, not to play
+      watchers: 0,
       pending: false,          // a move is in flight
       noFly: false,            // that move came from a drag, so do not re-animate it
       opponentPresent: false,
@@ -217,6 +221,12 @@ export function mountPlay(outlet, params) {
   const pickerEl = outlet.querySelector('.piece-picker');
   const resumeEl = outlet.querySelector('.resume-sheet');
   const guestNote = outlet.querySelector('.guest-note');
+  /* Watching a game shows the moves and nothing else: what two players say
+     over a board is theirs, and the server does not send it here. */
+  if (net && net.watching) {
+    const chatTab = outlet.querySelector('[data-tab="chat"]');
+    if (chatTab) chatTab.hidden = true;
+  }
   /* Added rather than templated: createBoard replaces the whole contents of
      its host, so anything written into it beforehand is thrown away. */
   const evalBar = document.createElement('div');
@@ -803,6 +813,7 @@ export function mountPlay(outlet, params) {
     net.rated = Boolean(view.rated);
     net.people = view.players || [null, null];
     net.settled = view.settled || [false, false];
+    net.watchers = view.watchers || 0;
     net.awaiting = view.awaitingReturn
       ? { seat: view.awaitingReturn.seat, until: Date.now() + view.awaitingReturn.msLeft }
       : null;
@@ -853,7 +864,7 @@ export function mountPlay(outlet, params) {
     try {
       await connect();
       await identify(sessionToken()).catch(() => {});
-      const view = await request('hx:join', { code: net.code });
+      const view = await request(net.watching ? 'hx:watch' : 'hx:join', { code: net.code });
       if (!view.ok) { net.error = view.error; net.ready = false; refresh(); return; }
       adoptRoom(view);
     } catch {
@@ -887,6 +898,11 @@ export function mountPlay(outlet, params) {
       adoptClock(payload.clock);
       net.awaiting = null;
       refresh();
+    }));
+    net.unsubscribe.push(listen('hx:watchers', (payload) => {
+      if (!net || payload.code !== net.code) return;
+      net.watchers = payload.n || 0;
+      renderNetStatus();
     }));
     net.unsubscribe.push(listen('hx:seats', (payload) => {
       if (!net || payload.code !== net.code) return;
@@ -1688,6 +1704,9 @@ export function mountPlay(outlet, params) {
   }
 
   function showDrawerTab(name) {
+    /* Watching a game shows the moves and nothing else: what the two players
+       say over a board is theirs, and the server does not send it here. */
+    if (net && net.watching && name === 'chat') name = 'moves';
     drawerTab = name;
     for (const tab of outlet.querySelectorAll('.drawer-tab')) {
       tab.classList.toggle('is-active', tab.getAttribute('data-tab') === name);
@@ -1721,7 +1740,7 @@ export function mountPlay(outlet, params) {
     show('[data-action="step"]', local && isDuel);
     show('[data-action="undo"]', local);
     show('[data-action="new"]', local);
-    show('[data-action="resign"]', !!net);
+    show('[data-action="resign"]', Boolean(net) && !net.watching);
 
     const run = tools.querySelector('[data-action="run"]');
     run.textContent = aiRunning ? '⏸' : '▶';
@@ -1940,6 +1959,8 @@ export function mountPlay(outlet, params) {
       message = t('online.waiting');
     } else if (result) {
       message = '';
+    } else if (net.watching) {
+      message = t('game.turnOf', { colour: colourName(state.turn) });
     } else {
       message = state.turn === net.colour ? t('game.yourTurn') : t('game.turnOf', { colour: colourName(state.turn) });
     }
@@ -1950,9 +1971,21 @@ export function mountPlay(outlet, params) {
       ? `<span class="net-stake is-rated" title="${t('online.rated')}">${t('online.rated')}</span>`
       : `<span class="net-stake" title="${t('online.signInToRate')}">${t('online.unrated')}</span>`;
 
+    /* Who is looking on. Said to the players because being watched is worth
+       knowing, and to the spectators because a room with others in it is a
+       different thing from an empty one. */
+    const eyes = net.watchers
+      ? `<span class="net-eyes" title="${t('watch.count', { n: net.watchers })}">`
+        + `👁 ${net.watchers}</span>`
+      : '';
+    const asWatcher = net.watching
+      ? `<span class="net-stake is-watching">${t('watch.badge')}</span>` : '';
+
     strip.className = `net-strip is-on ${tone}`;
     strip.innerHTML =
-      `<span class="net-msg">${message}</span>`
+      asWatcher
+      + `<span class="net-msg">${message}</span>`
+      + eyes
       + `<span class="grow"></span>`
       + stakeLabel
       + `<code class="room-code room-code--sm">${net.code}</code>`
@@ -2442,6 +2475,7 @@ export function mountPlay(outlet, params) {
     clearInterval(countdownTimer);
     clearInterval(clockTimer);
     if (net) {
+      if (net.watching) request('hx:unwatch', { code: net.code }).catch(() => {});
       for (const off of net.unsubscribe) { try { off(); } catch { /* already gone */ } }
       net = null;                       // stops in-flight handlers from touching a dead view
     }

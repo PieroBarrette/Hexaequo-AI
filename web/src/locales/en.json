@@ -433,5 +433,15 @@
     "agreedWith": "Game agreed with {name} — it opens as soon as you are both free.",
     "agreedNote": "{name} accepted. The game starts once their current one ends.",
     "sentToBusy": "Invitation sent to {name}, who is in a game. If they accept, you play straight after."
+  },
+  "watch": {
+    "badge": "WATCHING",
+    "count": "{n} watching",
+    "countOne": "{n} watching",
+    "action": "Watch",
+    "while": "Watch while you wait",
+    "liveTitle": "Games in progress",
+    "liveCount": "{n} games",
+    "liveCountOne": "{n} game"
   }
 }

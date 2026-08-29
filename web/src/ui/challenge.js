@@ -66,6 +66,9 @@ function agreedChip() {
         ${t('challenge.agreedWith', { name: escapeText(agreed.opponent.pseudo) })}
       </div>
       <div class="hail-actions">
+        ${agreed.watchCode
+    ? `<button class="btn btn--sm btn--primary" data-hail="watch">${t('watch.while')}</button>`
+    : ''}
         <button class="btn btn--sm" data-hail="cancel">${t('game.cancel')}</button>
       </div>
     </div>`;
@@ -94,6 +97,12 @@ async function onClick(event) {
     // A game that can start now arrives through hx:challenge:ready, which both
     // sides receive; one that cannot arrives as an agreement.
     if (!response.ok) say(t('online.errors.' + response.error));
+    return;
+  }
+  if (action === 'watch' && agreed && agreed.watchCode) {
+    /* The chip stays: the agreement is still standing, and it is what opens
+       the real game when the one being watched ends. */
+    navigate('play', { watch: '1', code: agreed.watchCode });
     return;
   }
   if ((action === 'decline' && incoming) || (action === 'cancel' && agreed)) {

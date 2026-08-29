@@ -115,6 +115,18 @@ function isPlaying(userId) {
     return false;
 }
 
+/** The room this account is playing in, if any. */
+function roomOf(userId) {
+    for (const room of rooms.values()) {
+        if (room.result) continue;
+        for (let seat = 0; seat < 2; seat++) {
+            const player = room.players[seat];
+            if (player && player.userId === userId && room.seats[seat]) return room;
+        }
+    }
+    return null;
+}
+
 /** 'free' — here and able to start; 'playing' — here but at a board; 'offline'. */
 function statusOf(userId) {
     if (!online.has(userId)) return 'offline';
@@ -137,6 +149,10 @@ function announcePresence(io, userId) {
     }
 }
 
+function announceWatchers(io, room) {
+    io.to(room.code).emit('hx:watchers', { code: room.code, n: room.watchers.size });
+}
+
 /* Anything that ends a game changes two lights at once. */
 const gameOverListeners = new Set();
 function onGameFinished(fn) { gameOverListeners.add(fn); return () => gameOverListeners.delete(fn); }
@@ -152,6 +168,7 @@ function publicView(room) {
         result: room.result,
         seats: [Boolean(room.seats[0]), Boolean(room.seats[1])],
         settled: room.settled.slice(),
+        watchers: room.watchers.size,
         names: room.names,
         chat: room.chat,
         // A rematch already agreed: whoever arrives late is sent to the new room
@@ -311,12 +328,22 @@ async function createRoom({ timeControl = 'none', reserved = null } = {}) {
          * they are winning before making the game rated.
          */
         settled: [false, false],
+        /* Socket ids watching without a seat. Not players: every event that
+           acts on a game already refuses anyone seatOf cannot place, so this
+           is a read path and nothing else. */
+        watchers: new Set(),
         grace: null,
         clock: null,
     };
     room.clock = makeClock(room.timeControl);
     rooms.set(code, room);
     return room;
+}
+
+function spectatorView(room) {
+    const view = publicView(room);
+    delete view.chat;
+    return { ...view, watching: true, colour: null };
 }
 
 function seatOf(room, socketId) {
@@ -411,6 +438,7 @@ function attachOnlineGames(io) {
 
     io.on('connection', (socket) => {
         socket.data.hxRooms = new Set();
+        socket.data.hxWatched = new Set();
         socket.data.hxLastMoveAt = 0;
         socket.data.user = null;
 
@@ -470,6 +498,42 @@ function attachOnlineGames(io) {
                 socket.data.user = null;
                 reply(callback, { ok: false, error: 'BAD_TOKEN' });
             }
+        });
+
+        /**
+         * Look in on a game without sitting down to it.
+         *
+         * A separate event from hx:join for a reason: joining takes the free
+         * seat, and a room with one seat free is exactly the room somebody is
+         * waiting in. Watching never claims anything.
+         */
+        socket.on('hx:watch', (payload, callback) => {
+            const code = String((payload && payload.code) || '').toUpperCase().trim();
+            const room = rooms.get(code);
+            if (!room) return reply(callback, { ok: false, error: 'NO_SUCH_ROOM' });
+            if (seatOf(room, socket.id) !== -1) {
+                // Already at this board. Nothing to watch that is not already
+                // in front of them.
+                return reply(callback, { ok: false, error: 'ALREADY_PLAYING' });
+            }
+            touch(room);
+            room.watchers.add(socket.id);
+            socket.data.hxWatched.add(code);
+            socket.join(code);
+            announceWatchers(io, room);
+            reply(callback, { ok: true, ...spectatorView(room) });
+        });
+
+        socket.on('hx:unwatch', (payload, callback) => {
+            const code = String((payload && payload.code) || '').toUpperCase().trim();
+            const room = rooms.get(code);
+            socket.data.hxWatched.delete(code);
+            if (!room) return reply(callback, { ok: true });
+            room.watchers.delete(socket.id);
+            // Only leave the socket.io room if we were not also sitting in it.
+            if (seatOf(room, socket.id) === -1) socket.leave(code);
+            announceWatchers(io, room);
+            reply(callback, { ok: true });
         });
 
         /**
@@ -686,7 +750,12 @@ function attachOnlineGames(io) {
             room.chat.push(message);
             if (room.chat.length > CHAT_HISTORY) room.chat.shift();
             touch(room);
-            io.to(code).emit('hx:chat', { code, message });
+            /* Addressed to the two seats rather than broadcast to the room:
+               anyone watching shares the room, and what the players say over a
+               game is between them. */
+            for (const seatId of room.seats) {
+                if (seatId) io.to(seatId).emit('hx:chat', { code, message });
+            }
             reply(callback, { ok: true });
         });
 
@@ -766,6 +835,12 @@ function attachOnlineGames(io) {
         });
 
         socket.on('disconnect', () => {
+            for (const code of socket.data.hxWatched) {
+                const watched = rooms.get(code);
+                if (!watched) continue;
+                watched.watchers.delete(socket.id);
+                announceWatchers(io, watched);
+            }
             const who = socket.data.user;
             if (who) {
                 const entry = online.get(who.userId);
@@ -800,6 +875,6 @@ function attachOnlineGames(io) {
 
 module.exports = {
     attachOnlineGames, rooms, createRoom, publicView, isRated,
-    online, statusOf, isPlaying, announcePresence, onGameFinished,
+    online, statusOf, isPlaying, roomOf, announcePresence, onGameFinished,
     RECONNECT_GRACE_MS, TIME_CONTROLS,
 };

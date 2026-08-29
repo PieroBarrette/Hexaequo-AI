@@ -8,6 +8,7 @@
  */
 
 import { t } from '../i18n.js';
+import { navigate } from '../router.js';
 import { request, connect, listen, identify } from '../net.js';
 import { play as playSound } from '../audio.js';
 import { isSignedIn, currentUser, sessionToken, sessionReady, onAuthChange } from '../auth.js';
@@ -27,6 +28,7 @@ export function mountLobby(host) {
   let joined = false;
   let busy = false;
   let players = [];
+  let games = [];
   let messages = [];
   let cadence = 'rapid';
   let notice = null;        // the last thing that happened, in words
@@ -82,6 +84,14 @@ export function mountLobby(host) {
         </div>
         <div class="lobby-list">${playerRows()}</div>
       </div>
+      ${games.length ? `
+      <div class="rule-block">
+        <div class="lobby-head">
+          <h3>${t('watch.liveTitle')}</h3>
+          <span class="lobby-count">${t('watch.liveCount', { n: games.length })}</span>
+        </div>
+        <div class="lobby-list">${gameRows()}</div>
+      </div>` : ''}
       <div class="rule-block chat-block">
         <div class="chat-log lobby-chat">${chatRows()}</div>
         <form class="chat-form">
@@ -118,6 +128,25 @@ export function mountLobby(host) {
     }).join('');
   }
 
+  /**
+   * The games somebody could look in on.
+   *
+   * Only rooms with two signed-in players: a room opened from a private link
+   * is between whoever holds that link, and putting it on a public list would
+   * make it something its players never agreed to.
+   */
+  function gameRows() {
+    return games.map((game) => `<div class="lobby-row">`
+      + `<span class="lobby-name">${escapeText(game.black.pseudo)}`
+      + `<span class="lobby-elo">${game.black.elo}</span>`
+      + ` <span class="net-vs">${t('profile.versus')}</span> `
+      + `${escapeText(game.white.pseudo)}<span class="lobby-elo">${game.white.elo}</span></span>`
+      + `<span class="lobby-status">${t('profile.plies', { n: game.plies })}</span>`
+      + (game.watchers ? `<span class="net-eyes">👁 ${game.watchers}</span>` : '')
+      + `<button class="btn btn--sm" data-watch="${escapeText(game.code)}">`
+      + `${t('watch.action')}</button></div>`).join('');
+  }
+
   function chatRows() {
     if (!messages.length) return `<p class="lede">${t('lobby.quiet')}</p>`;
     const mine = me();
@@ -133,6 +162,7 @@ export function mountLobby(host) {
     if (unsubscribe.length) return;
     unsubscribe.push(listen('hx:lobby:update', (payload) => {
       players = payload.players || [];
+      games = payload.games || [];
       if (joined) render();
     }));
     unsubscribe.push(listen('hx:lobby:chat', (payload) => {
@@ -170,6 +200,7 @@ export function mountLobby(host) {
       if (!response.ok) { notice = t('online.errors.' + response.error); render(); return; }
       joined = true;
       players = response.players || [];
+      games = response.games || [];
       messages = response.chat ? response.chat.slice() : [];
       render();
     } catch {
@@ -195,8 +226,15 @@ export function mountLobby(host) {
    * dead.
    */
   host.addEventListener('click', async (event) => {
-    const mine = event.target.closest('[data-cadence], [data-challenge], [data-action]');
+    const mine = event.target.closest('[data-cadence], [data-challenge], [data-action], [data-watch]');
     if (mine && host.contains(mine)) event.stopPropagation();
+
+    const look = event.target.closest('[data-watch]');
+    if (look) {
+      playSound('ui');
+      navigate('play', { watch: '1', code: look.getAttribute('data-watch') });
+      return;
+    }
 
     const pick = event.target.closest('[data-cadence]');
     if (pick) { cadence = pick.getAttribute('data-cadence'); playSound('ui'); render(); return; }
