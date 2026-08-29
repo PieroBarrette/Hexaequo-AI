@@ -72,7 +72,9 @@
     "choosePiece": "Which piece?",
     "levelOf": "{colour} level",
     "premoveArmed": "Premove ready",
-    "premoveCancel": "Cancel"
+    "premoveCancel": "Cancel",
+    "you": "You",
+    "computer": "Computer"
   },
   "online": {
     "title": "Play online",
@@ -136,7 +138,9 @@
     "privateLede": "Open a game and send the link to whoever you like.",
     "tabPlay": "Play",
     "share": "Share",
-    "shareText": "A game of Hexaequo is waiting for you"
+    "shareText": "A game of Hexaequo is waiting for you",
+    "enterNow": "Go in now",
+    "autoEnter": "The game will open on its own as soon as your opponent follows the link."
   },
   "result": {
     "wins": "{colour} wins",
@@ -320,7 +324,7 @@
     "play": "Play",
     "pause": "Pause",
     "speed": "Playback speed",
-    "resume": "Play on from here",
+    "resume": "Play from here",
     "resumeTitle": "Play on from move {n}",
     "resumeVsAi": "Against the computer",
     "resumeTwo": "Two players here",

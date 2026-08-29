@@ -157,8 +157,9 @@ export function mountOnline(outlet) {
               ${navigator.share
     ? `<button class="btn btn--primary" data-action="share">${t('online.share')}</button>` : ''}
               <button class="btn${navigator.share ? '' : ' btn--primary'}" data-action="copy">${t('online.copyLink')}</button>
-              <button class="btn" data-action="enter">${t('nav.play')}</button>
+              <button class="btn" data-action="enter">${t('online.enterNow')}</button>
             </div>
+            <p class="lede" style="margin-top:10px">${t('online.autoEnter')}</p>
             <p class="lede" style="margin-top:10px;word-break:break-all">${inviteLink(created.code)}</p>
           </div>
         ` : `
@@ -281,6 +282,13 @@ export function mountOnline(outlet) {
       playSound('ui');
       navigate('play', { online: '1', code: payload.code });
     }));
+    unsubscribe.push(listen('hx:opponent', (payload) => {
+      if (!created || payload.code !== created.code || !payload.joined) return;
+      const code = created.code;
+      created = null;
+      playSound('ui');
+      navigate('play', { online: '1', code });
+    }));
     // A reconnection loses the queue slot with the socket it was on; take it
     // again rather than leaving the player staring at a dead timer.
     unsubscribe.push(listen('connect', async () => {
@@ -338,6 +346,7 @@ export function mountOnline(outlet) {
       try {
         await connect();
         await identify(sessionToken()).catch(() => {});
+        subscribe();
         const response = await request('hx:create', { timeControl: cadence });
         if (!response.ok) { busy = false; return fail(response.error); }
         created = response;

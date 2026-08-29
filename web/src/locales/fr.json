@@ -72,7 +72,9 @@
     "choosePiece": "Quelle pièce ?",
     "levelOf": "Niveau des {colour}s",
     "premoveArmed": "Coup à l’avance prêt",
-    "premoveCancel": "Annuler"
+    "premoveCancel": "Annuler",
+    "you": "Vous",
+    "computer": "Ordinateur"
   },
   "online": {
     "title": "Jouer en ligne",
@@ -136,7 +138,9 @@
     "privateLede": "Créez une partie et transmettez le lien à qui vous voulez.",
     "tabPlay": "Jouer",
     "share": "Partager",
-    "shareText": "Une partie d’Hexaequo vous attend"
+    "shareText": "Une partie d’Hexaequo vous attend",
+    "enterNow": "Entrer maintenant",
+    "autoEnter": "La partie s’ouvrira d’elle-même dès que votre adversaire aura ouvert le lien."
   },
   "result": {
     "wins": "{colour} gagne",
@@ -320,7 +324,7 @@
     "play": "Lecture",
     "pause": "Pause",
     "speed": "Vitesse de lecture",
-    "resume": "Reprendre ici",
+    "resume": "Jouer depuis ici",
     "resumeTitle": "Reprendre au coup {n}",
     "resumeVsAi": "Contre l’ordinateur",
     "resumeTwo": "À deux sur cet appareil",

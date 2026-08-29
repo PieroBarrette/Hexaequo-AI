@@ -1178,6 +1178,52 @@ export function mountPlay(outlet, params) {
     return out + '</div>';
   }
 
+  const LEVEL_KEYS = ['levelBeginner', 'levelEasy', 'levelMedium', 'levelStrong'];
+
+  /**
+   * Who is playing this colour, written above their pieces.
+   *
+   * It used to be a bare black or white dot on a bar at the top, which said
+   * which colours existed but not who held them — and in an online game the
+   * names were at the top while the pieces were at the sides, so nothing tied
+   * one to the other. Here the name sits over the inventory it owns, which is
+   * also the plainest way to see which colour you are playing.
+   */
+  function railWho(player) {
+    let who = null;                       // { pseudo, elo, userId }
+    let label = colourName(player);
+    let you = false;
+
+    if (archive) {
+      who = archive[player === BLACK ? 'black' : 'white'] || null;
+    } else if (net) {
+      who = net.people ? net.people[player] : null;
+      you = net.colour === player;
+      /* A seat held by someone who never signed in has no record to show, but
+         it is taken all the same: say "guest" rather than name the colour as
+         though nobody were sitting there. */
+      if (!who && (you || net.opponentPresent)) label = t('profile.guest');
+    } else if (isAI(player)) {
+      label = t('game.computer') + ' · ' + t('game.' + LEVEL_KEYS[levelFor(player)]);
+    } else if (mode === MODE_AI) {
+      you = player === humanSide;
+      label = t('game.you');
+    }
+
+    const name = who && who.pseudo ? escapeText(who.pseudo) : escapeText(label);
+    const linked = who && who.userId
+      ? `<a class="player-link rail-name" href="#/profile?id=${escapeText(who.userId)}">${name}</a>`
+      : `<span class="rail-name">${who && !who.pseudo ? t('profile.guest') : name}</span>`;
+
+    return `<div class="rail-who${you ? ' is-you' : ''}">`
+      + `<span class="player-dot${player === WHITE ? ' is-white' : ''}"`
+      + ` title="${colourName(player)}"></span>`
+      + linked
+      + (who && who.elo != null ? `<span class="rail-elo">${who.elo}</span>` : '')
+      + (you ? `<span class="rail-you">${t('game.you')}</span>` : '')
+      + '</div>';
+  }
+
   /** The reserves, for whichever position is on screen. */
   function renderRails(position, reviewing) {
     for (let player = 0; player < 2; player++) {
@@ -1192,8 +1238,7 @@ export function mountPlay(outlet, params) {
       }
       const taken = position.capturedDisks[player] + position.capturedRings[player] > 0;
       rail.innerHTML =
-        `<div class="player-dot${player === WHITE ? ' is-white' : ''}"`
-        + ` title="${colourName(player)} — ${isAI(player) ? 'IA' : ''}"></div>`
+        railWho(player)
         + (net && net.clock ? `<div class="clock" data-clock="${player}">${formatClock(remainingFor(player))}</div>` : '')
         + stackHtml('tile', player, position.tileReserve[player],
           live && tilePlacementSpots(position).length > 0)
@@ -1635,19 +1680,9 @@ export function mountPlay(outlet, params) {
 
     if (archiveId) {
       if (!archive) return;                 // an error is already on the strip
-      const name = (side) => {
-        const who = archive[side] || {};
-        const shown = escapeText(who.pseudo || t('profile.guest'));
-        return who.userId
-          ? '<a class="player-link" href="#/profile?id=' + escapeText(who.userId) + '">' + shown + '</a>'
-          : shown;
-      };
       strip.className = 'net-strip is-on';
       strip.innerHTML =
-        '<span class="player-dot"></span><span>' + name('black') + '</span>'
-        + '<span class="net-vs">' + t('profile.versus') + '</span>'
-        + '<span class="player-dot is-white"></span><span>' + name('white') + '</span>'
-        + '<span class="net-msg">' + t('review.reviewingArchive') + '</span>'
+        '<span class="net-msg">' + t('review.reviewingArchive') + '</span>'
         + '<span class="grow"></span>'
         + (archive.rated
           ? '<span class="net-stake is-rated">' + t('online.rated') + '</span>'
@@ -1680,21 +1715,15 @@ export function mountPlay(outlet, params) {
       message = state.turn === net.colour ? t('game.yourTurn') : t('game.turnOf', { colour: colourName(state.turn) });
     }
 
-    /* Who is on the other side, and whether anything is at stake. */
-    const other = net.people && net.colour !== null ? net.people[1 - net.colour] : null;
-    const opponentLabel = other
-      ? `<span class="net-vs">${escapeText(other.pseudo)}<span class="net-elo">${other.elo}</span></span>`
-      : '';
+    /* Who is on the other side is written over their pieces; what is left for
+       the strip is what is happening and what is at stake. */
     const stakeLabel = net.rated
       ? `<span class="net-stake is-rated" title="${t('online.rated')}">${t('online.rated')}</span>`
       : `<span class="net-stake" title="${t('online.signInToRate')}">${t('online.unrated')}</span>`;
 
     strip.className = `net-strip is-on ${tone}`;
     strip.innerHTML =
-      `<span class="player-dot${net.colour === WHITE ? ' is-white' : ''}"></span>`
-      + `<span>${net.colour === null ? '' : t('online.youAre', { colour: colourName(net.colour) })}</span>`
-      + opponentLabel
-      + `<span class="net-msg">${message}</span>`
+      `<span class="net-msg">${message}</span>`
       + `<span class="grow"></span>`
       + stakeLabel
       + `<code class="room-code room-code--sm">${net.code}</code>`
@@ -1938,15 +1967,15 @@ export function mountPlay(outlet, params) {
     if (review !== null || result || thinking || isAI(state.turn)) return false;
     if (!canAct() && !canPremove()) return false;
     const cell = drag.cell;
-    const board = canPremove() ? premoveBoard() : state;
-    const player = board.turn;
+    const position = canPremove() ? premoveBoard() : state;
+    const player = position.turn;
     let code;
     if (chain) {
       if (cell !== chain.current) return false;
       code = makePiece(player, DISK);
     } else if (!picker && !placeMode
-      && board.pieceAt[cell] >= 0 && pieceOwner(board.pieceAt[cell]) === player) {
-      code = board.pieceAt[cell];
+      && position.pieceAt[cell] >= 0 && pieceOwner(position.pieceAt[cell]) === player) {
+      code = position.pieceAt[cell];
       selected = cell;
     } else {
       return false;
@@ -1957,6 +1986,7 @@ export function mountPlay(outlet, params) {
     clearEffect();
     refresh();
     drag.flyer = board.beginDrag(cell, code);
+    if (!drag.flyer) { drag.active = false; refresh(); return false; }
     return true;
   }
 

@@ -184,7 +184,7 @@ select.btn option {
   box-shadow: 0 0 0 1px var(--line);
 }
 .player-dot.is-white { background: var(--piece-light); border-color: var(--piece-light-edge); }
-.rail.is-thinking .player-dot { animation: pulse 1s ease-in-out infinite; }
+.rail.is-thinking .rail-who .player-dot { animation: pulse 1s ease-in-out infinite; }
 .stack { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; width: 100%; }
 .token {
   width: 36px; height: 36px; display: block; padding: 2px; border-radius: var(--radius-sm);
@@ -197,6 +197,29 @@ select.btn option {
 .token.is-armed { filter: drop-shadow(0 0 4px var(--accent)) drop-shadow(0 0 2px var(--accent)); }
 /* What is yours, above; what you have taken from the other player, below.
    A dashed hairline was not enough to read as a division at a glance. */
+/* Whose pieces these are. Full width of the rail so the name has room, and
+   on a phone so it stays a heading rather than joining the row of pieces. */
+.rail-who {
+  display: flex; align-items: center; gap: 6px; flex: none; width: 100%;
+  min-width: 0; padding: 1px 2px 5px;
+  border-bottom: 1px solid var(--line); margin-bottom: 2px;
+}
+.rail-who .player-dot { flex: none; }
+.rail-name {
+  font-size: 13px; font-weight: 600; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rail-elo {
+  font: 600 11px/1 var(--font-mono); color: var(--accent);
+  font-variant-numeric: tabular-nums; flex: none;
+}
+.rail-you {
+  font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted); border: 1px solid var(--line);
+  border-radius: 3px; padding: 1px 4px; flex: none; margin-left: auto;
+}
+.rail.is-turn .rail-who { border-bottom-color: var(--accent); }
+
 .rail-sep {
   width: 86%; height: 0; margin: 9px 0 5px;
   border-top: 2px solid var(--line-strong, var(--muted));
@@ -262,14 +285,16 @@ select.btn option {
 }
 .bar-tools {
   display: flex; align-items: center; gap: 6px;
-  flex: 0 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: thin;
+  flex: 0 4 auto; min-width: 0; overflow-x: auto; scrollbar-width: thin;
 }
 .bar-gap { flex: 1; min-width: 4px; }
 .bar-right { display: flex; align-items: center; gap: 6px; flex: none; }
 
 .review-bar {
-  display: none; align-items: center; gap: 6px; flex: none;
+  display: none; align-items: center; gap: 6px; flex: 0 1 auto;
+  min-width: 0; overflow-x: auto; scrollbar-width: thin;
 }
+.review-bar > * { flex: none; }
 .review-bar.is-on { display: flex; }
 .review-ply {
   font: 600 12px/1 var(--font-mono); color: var(--muted);
@@ -289,7 +314,7 @@ select.btn option {
   .board-bar { flex-wrap: wrap; gap: 5px; padding: 5px 6px; }
   .bar-tools { flex: 1 1 100%; }
   .bar-gap { display: none; }
-  .review-bar { flex: 1 1 auto; }
+  .review-bar { flex: 1 1 100%; flex-wrap: wrap; overflow-x: visible; row-gap: 5px; }
   .bar-right { margin-left: auto; }
   .review-live { margin-left: 0; padding: 5px 9px; min-height: 32px; }
   .review-ply { min-width: 4.2em; }
@@ -590,6 +615,7 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
     border-top: 1px solid var(--line); border-left: 0; border-right: 0;
   }
   .rail.is-turn { border-color: var(--accent); }
+  .rail-who { flex: 0 0 100%; }
   .stack { width: auto; }
   .site-header { padding: 6px 8px; gap: 6px; }
   .site-header .logo-word { display: none; }
@@ -875,4 +901,10 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
   margin: 0 0 4px; font-weight: 600; font-size: 15px; text-align: center;
 }
 .resume-choice { min-height: var(--tap); font-size: 15px; }
-.review-resume { font-size: 12px; }
+.review-resume {
+  font-size: 12px; font-weight: 600; white-space: nowrap;
+  color: var(--accent); border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.review-resume::before { content: '⤺'; margin-right: 5px; font-weight: 400; }
+.review-resume:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); }
