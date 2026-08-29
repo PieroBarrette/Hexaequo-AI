@@ -329,6 +329,43 @@ select.btn option {
 }
 .board-host { position: relative; }
 
+/*
+ * What the opponent just said, over the corner of the board nearest the arrow
+ * that opens the chat — with a tail pointing at it, so the bubble and the
+ * mark on the arrow read as the same message rather than two.
+ */
+.chat-bubble {
+  position: absolute; right: 10px; z-index: 6;
+  bottom: calc(var(--below-board, 0px) + 14px);
+  max-width: min(300px, calc(100% - 24px));
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 8px 11px 9px; cursor: pointer;
+  border-radius: var(--radius-sm); border: 1px solid var(--line);
+  background: var(--surface); color: var(--text);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .28);
+  animation: bubble-in .22s var(--ease) both;
+}
+.chat-bubble[hidden] { display: none; }
+.chat-bubble::after {
+  content: ''; position: absolute; right: 16px; bottom: -7px;
+  width: 12px; height: 12px; transform: rotate(45deg);
+  background: var(--surface);
+  border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
+}
+.chat-bubble:hover { border-color: var(--accent); }
+.chat-bubble:hover::after { border-right-color: var(--accent); border-bottom-color: var(--accent); }
+.bubble-who {
+  font-size: 11px; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--accent);
+}
+.bubble-text { font-size: 13.5px; line-height: 1.35; overflow-wrap: anywhere; }
+.bubble-more { font-size: 11px; color: var(--muted); margin-top: 2px; }
+@keyframes bubble-in {
+  from { opacity: 0; transform: translateY(8px) scale(.96); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .chat-bubble { animation: none; } }
+
 /* One quiet line, on the way to the board rather than over it. */
 .guest-note {
   flex: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;

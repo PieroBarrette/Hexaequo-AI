@@ -158,6 +158,7 @@ export function mountPlay(outlet, params) {
           <button class="btn btn--icon" data-action="end-jump" title="${t('game.endJump')}">✓</button>
           <button class="btn btn--icon" data-action="cancel-jump" title="${t('game.cancel')}">✕</button>
         </div>
+        <div class="chat-bubble" hidden></div>
         <div class="result-overlay">
           <div class="result-card">
             <div class="result-title"></div>
@@ -215,6 +216,8 @@ export function mountPlay(outlet, params) {
   const pickerEl = outlet.querySelector('.piece-picker');
   const resumeEl = outlet.querySelector('.resume-sheet');
   const guestNote = outlet.querySelector('.guest-note');
+  const bubbleEl = outlet.querySelector('.chat-bubble');
+  let bubbleTimer = 0;
   const overlay = outlet.querySelector('.result-overlay');
   const drawer = outlet.querySelector('.drawer');
   const moveListEl = outlet.querySelector('.move-list');
@@ -887,6 +890,7 @@ export function mountPlay(outlet, params) {
         net.unread++;
         playSound('message');
         buildDrawerButton();      // the arrow carries the mark while shut
+        showBubble(payload.message);
       }
       renderChat();
     }));
@@ -1645,6 +1649,22 @@ export function mountPlay(outlet, params) {
     } catch { /* the next message is the player's own retry */ }
   }
 
+  /**
+   * Open or shut the drawer, on a given tab.
+   *
+   * The drawer takes room from the board rather than covering it, so the board
+   * has to be told its frame changed — and the result card has to be told how
+   * much room is left beneath it.
+   */
+  function setDrawer(open, tab) {
+    drawerOpen = open;
+    drawer.classList.toggle('is-on', drawerOpen);
+    buildDrawerButton();
+    showDrawerTab(tab || drawerTab);
+    measureBelowBoard();
+    setTimeout(() => { measureBelowBoard(); refresh(true); }, 300);
+  }
+
   function showDrawerTab(name) {
     drawerTab = name;
     for (const tab of outlet.querySelectorAll('.drawer-tab')) {
@@ -1652,7 +1672,7 @@ export function mountPlay(outlet, params) {
     }
     moveListEl.style.display = name === 'moves' ? '' : 'none';
     chatPane.style.display = name === 'chat' ? '' : 'none';
-    if (name === 'chat' && net) { net.unread = 0; buildDrawerButton(); }
+    if (name === 'chat' && net) { net.unread = 0; buildDrawerButton(); hideBubble(); }
     renderMoveList();
     renderChat();
     if (name === 'chat') chatInput.focus();
@@ -1688,6 +1708,39 @@ export function mountPlay(outlet, params) {
       thinking || !history.length || review !== null;
     const resignButton = tools.querySelector('[data-action="resign"]');
     if (resignButton) resignButton.disabled = !net || !net.ready || !!result;
+  }
+
+  /**
+   * What the opponent just said, while the panel that would show it is shut.
+   *
+   * A dot on an arrow says a message exists; it does not say what it was, so
+   * it cannot be answered without first going to look. The bubble carries the
+   * words to where you are already looking, and tapping it opens the chat to
+   * reply. Dismissing it is not reading it: the mark on the arrow stays until
+   * the message has actually been seen in the panel.
+   */
+  function showBubble(message) {
+    clearTimeout(bubbleTimer);
+    const text = message.text.length > 140 ? message.text.slice(0, 139) + '…' : message.text;
+    const more = net.unread > 1
+      ? `<span class="bubble-more">${t('chat.andMore', { n: net.unread - 1 })}</span>` : '';
+    bubbleEl.innerHTML = `<span class="bubble-who">${escapeText(bubbleName())}</span>`
+      + `<span class="bubble-text">${escapeText(text)}</span>${more}`;
+    bubbleEl.hidden = false;
+    /* Long enough to read a sentence, short enough not to become furniture. */
+    bubbleTimer = setTimeout(hideBubble, 12000);
+  }
+
+  function hideBubble() {
+    clearTimeout(bubbleTimer);
+    bubbleTimer = 0;
+    bubbleEl.hidden = true;
+  }
+
+  /** Who is speaking, for the line above the words. */
+  function bubbleName() {
+    const other = net && net.people && net.colour !== null ? net.people[1 - net.colour] : null;
+    return other && other.pseudo ? other.pseudo : t('profile.guest');
   }
 
   /**
@@ -2108,17 +2161,7 @@ export function mountPlay(outlet, params) {
     }
     else if (action === 'run') { aiRunning = !aiRunning; refresh(); if (aiRunning) scheduleAI(); }
     else if (action === 'step') stepAI();
-    else if (action === 'drawer') {
-      drawerOpen = !drawerOpen;
-      drawer.classList.toggle('is-on', drawerOpen);
-      buildDrawerButton();
-      showDrawerTab(drawerTab);
-      // The drawer now takes room from the board rather than covering it, so
-      // the board has to be told its frame changed — and the result card has
-      // to be told how much room is left beneath it.
-      measureBelowBoard();
-      setTimeout(() => { measureBelowBoard(); refresh(true); }, 300);
-    }
+    else if (action === 'drawer') setDrawer(!drawerOpen, drawerTab);
     else if (action === 'end-jump') { if (chain) finishChain(); }
     else if (action === 'cancel-jump') { chain = null; selected = null; clearEffect(); refresh(); }
   }
@@ -2133,6 +2176,16 @@ export function mountPlay(outlet, params) {
     else if (name === 'level') { level = Number(control.value); setSetting('aiLevel', level); refresh(); }
     else if (name === 'levelBlack') { duelLevels[0] = Number(control.value); refresh(); }
     else if (name === 'levelWhite') { duelLevels[1] = Number(control.value); refresh(); }
+  }
+
+  function onAnyPointer(event) {
+    if (bubbleEl.hidden) return;
+    if (bubbleEl.contains(event.target)) {
+      playSound('ui');
+      setDrawer(true, 'chat');       // which clears the mark, and the bubble
+      return;
+    }
+    hideBubble();
   }
 
   function onKey(event) {
@@ -2167,6 +2220,9 @@ export function mountPlay(outlet, params) {
   outlet.addEventListener('click', onToolClick);
   outlet.addEventListener('change', onToolChange);
   document.addEventListener('keydown', onKey);
+  /* Capture, so the bubble is dealt with before anything else consumes the
+     tap — including the board, which stops propagation of its own. */
+  document.addEventListener('pointerdown', onAnyPointer, true);
 
   /* Leaving a local game in progress throws it away — ask first. Online games
      live on the server, and a finished game has nothing left to lose. */
@@ -2237,6 +2293,8 @@ export function mountPlay(outlet, params) {
     stopWatchingSettings();
     stopWatchingLanguage();
     document.removeEventListener('keydown', onKey);
+    document.removeEventListener('pointerdown', onAnyPointer, true);
+    clearTimeout(bubbleTimer);
     window.removeEventListener('resize', onResize);
     /* The bar is part of this view now, so it goes when the view goes; only
        the guard reaches outside. */

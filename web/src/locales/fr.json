@@ -338,7 +338,9 @@
     "placeholder": "Écrire un message…",
     "send": "Envoyer",
     "empty": "Dites bonjour à votre adversaire.",
-    "unread": "{n} message(s) non lu(s)"
+    "unread": "{n} message(s) non lu(s)",
+    "andMore": "+{n} autres",
+    "andMoreOne": "+{n} autre"
   },
   "lobby": {
     "title": "Salon",

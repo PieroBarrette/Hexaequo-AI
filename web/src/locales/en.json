@@ -338,7 +338,9 @@
     "placeholder": "Write a message…",
     "send": "Send",
     "empty": "Say hello to your opponent.",
-    "unread": "{n} unread message(s)"
+    "unread": "{n} unread message(s)",
+    "andMore": "+{n} more",
+    "andMoreOne": "+{n} more"
   },
   "lobby": {
     "title": "Lobby",
