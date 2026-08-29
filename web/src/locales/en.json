@@ -110,12 +110,13 @@
       "OFFLINE": "Cannot reach the server. Check your connection.",
       "SIGN_IN_REQUIRED": "Sign in to use quick match.",
       "ENGINE_UNAVAILABLE": "The game server is unavailable.",
-      "NOT_HERE": "That player has left the lobby.",
+      "NOT_HERE": "That player is not in the lobby right now.",
       "NOT_IN_LOBBY": "Enter the lobby first.",
       "GAME_IN_PROGRESS": "The game is not over.",
       "NO_SUCH_CHALLENGE": "That challenge is gone.",
       "NOT_YOURS": "That challenge is not addressed to you.",
-      "EMPTY": "Empty message."
+      "EMPTY": "Empty message.",
+      "NOT_YOURSELF": "You cannot challenge yourself."
     },
     "rated": "Rated game",
     "unratedFriendly": "Friendly game — no rating at stake",
@@ -375,7 +376,14 @@
     "drew": "Drawn",
     "guest": "Guest",
     "versus": "vs",
-    "notReplayable": "This game was recorded before moves were kept in full, so it cannot be replayed."
+    "notReplayable": "This game was recorded before moves were kept in full, so it cannot be replayed.",
+    "versusRecord": "Against {name}",
+    "versusNever": "You have never met {name}.",
+    "theirGames": "Their games",
+    "theirRecord": "Their record",
+    "mine": "My profile",
+    "gamesOne": "{n} game",
+    "pliesOne": "{n} move"
   },
   "mail": {
     "verifyTitle": "Confirming your address",

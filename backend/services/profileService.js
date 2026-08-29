@@ -174,4 +174,37 @@ async function replay(gameId, viewerId) {
     };
 }
 
-module.exports = { stats, history, replay, PAGE_SIZE };
+/**
+ * The record between two players, from the first one's side.
+ *
+ * The question anyone looks at another player's page to answer is "how do I do
+ * against them", and it is one query rather than a second page of history to
+ * read and count by hand.
+ */
+async function versus(userId, otherId) {
+    if (!userId || !otherId || userId === otherId) return null;
+    const { rows } = await query(
+        `SELECT
+            (CASE
+                WHEN g.winner = 'draw' OR g.winner IS NULL THEN 'draw'
+                WHEN (g.winner = 'black') = (g.black_player_id = $1) THEN 'win'
+                ELSE 'loss'
+             END) AS outcome,
+            count(*)::int AS n
+         FROM games g
+         WHERE (g.black_player_id = $1 AND g.white_player_id = $2)
+            OR (g.black_player_id = $2 AND g.white_player_id = $1)
+         GROUP BY 1`,
+        [userId, otherId]
+    );
+    const record = { played: 0, wins: 0, losses: 0, draws: 0 };
+    for (const row of rows) {
+        record.played += row.n;
+        if (row.outcome === 'win') record.wins += row.n;
+        else if (row.outcome === 'loss') record.losses += row.n;
+        else record.draws += row.n;
+    }
+    return record.played ? record : null;
+}
+
+module.exports = { stats, history, replay, versus, PAGE_SIZE };

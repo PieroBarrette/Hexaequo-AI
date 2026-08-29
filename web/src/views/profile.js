@@ -1,5 +1,5 @@
 /**
- * A player's own page: what their record is, where their rating has been, and
+ * A player's page — your own at #/profile, anybody else's at #/profile?id=…: what their record is, where their rating has been, and
  * every game they have played — each one a link into the review board.
  *
  * The record here is computed from the games themselves, so a friendly counts
@@ -7,11 +7,12 @@
  * shown rather than one of them chosen for the reader.
  */
 
-import { t } from '../i18n.js';
+import { t, currentLanguage } from '../i18n.js';
 import { navigate } from '../router.js';
-import { api, isSignedIn, sessionReady, onAuthChange } from '../auth.js';
+import { api, isSignedIn, sessionReady, onAuthChange, sessionToken } from '../auth.js';
 import { play as playSound } from '../audio.js';
 import { openPanel } from '../ui/panels.js';
+import { request, connect, identify } from '../net.js';
 
 const escapeText = (value) => String(value).replace(/[&<>"']/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -22,7 +23,7 @@ const cadenceLabel = (id) =>
 function shortDate(value) {
   if (!value) return '';
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString(undefined,
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString(currentLanguage(),
     { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
@@ -68,8 +69,37 @@ export function mountProfile(outlet, params) {
   let games = null;
   let page = 1;
   let error = null;
+  let notice = null;
 
-  const stop = onAuthChange(() => { if (!who) load(); });
+  const stop = onAuthChange(() => load());
+
+  /** Whether this page belongs to somebody other than the person reading it. */
+  const someoneElse = () => Boolean(who) && !(stats && stats.isYou);
+
+  /**
+   * How the two of you have got on, and an invitation.
+   *
+   * A leaderboard whose names lead nowhere is a list. What makes it a place is
+   * being able to look someone up, see that you are two games down to them, and
+   * ask for another.
+   */
+  function versusBlock() {
+    const record = stats.versus;
+    return `
+      <div class="rule-block versus-block">
+        <div class="versus-line">
+          ${record
+    ? `<span>${t('profile.versusRecord', { name: escapeText(stats.pseudo) })}
+         <b>${record.wins} · ${record.losses} · ${record.draws}</b>
+         <span class="muted-small">(${t('profile.games', { n: record.played })})</span></span>`
+    : `<span class="lede">${t('profile.versusNever', { name: escapeText(stats.pseudo) })}</span>`}
+          ${isSignedIn()
+    ? `<button class="btn btn--primary btn--sm" data-action="challenge">${t('lobby.challenge')}</button>`
+    : ''}
+        </div>
+        ${notice ? `<p class="lede" style="margin:8px 0 0">${escapeText(notice)}</p>` : ''}
+      </div>`;
+  }
 
   function recordLine(labelKey, record) {
     return `<div class="row"><span>${t(labelKey)}</span>
@@ -91,10 +121,14 @@ export function mountProfile(outlet, params) {
         ${outcomeChip(game)}
         <span class="game-vs">
           <span class="player-dot${game.colour === 1 ? ' is-white' : ''}"></span>
-          ${game.opponent.pseudo ? escapeText(game.opponent.pseudo) : t('profile.guest')}
+          ${game.opponent.userId && game.opponent.pseudo
+    ? `<a class="player-link game-name" href="#/profile?id=${escapeText(game.opponent.userId)}"
+          >${escapeText(game.opponent.pseudo)}</a>`
+    : `<span class="game-name">${game.opponent.pseudo
+      ? escapeText(game.opponent.pseudo) : t('profile.guest')}</span>`}
         </span>
-        <span class="game-meta">${cadenceLabel(game.timeControl)}</span>
-        <span class="game-meta">${t('profile.plies', { n: game.plies })}</span>
+        <span class="game-meta is-cadence">${cadenceLabel(game.timeControl)}</span>
+        <span class="game-meta is-plies">${t('profile.plies', { n: game.plies })}</span>
         ${game.rated ? change : `<span class="muted-small">${t('online.unrated')}</span>`}
         <span class="game-meta">${shortDate(game.playedAt)}</span>
       </button>`;
@@ -140,13 +174,17 @@ export function mountProfile(outlet, params) {
           <div class="profile-elo">
             <b>${stats.elo}</b>
             <span class="muted-small">${t('profile.peak', { n: stats.peakElo })}</span>
+            ${someoneElse() && isSignedIn()
+    ? `<a class="player-link" href="#/profile">${t('profile.mine')}</a>` : ''}
           </div>
         </div>
+
+        ${someoneElse() ? versusBlock() : ''}
 
         ${curveSvg(stats.curve || [])}
 
         <div class="rule-block">
-          <h3>${t('profile.record')}</h3>
+          <h3>${t(someoneElse() ? 'profile.theirRecord' : 'profile.record')}</h3>
           ${recordLine('profile.allGames', stats.all)}
           ${recordLine('profile.ratedGames', stats.rated)}
           ${cadences.length ? `<h3 style="margin-top:16px">${t('profile.byCadence')}</h3>` : ''}
@@ -156,7 +194,7 @@ export function mountProfile(outlet, params) {
         </div>
 
         <div class="rule-block">
-          <h3>${t('profile.history')}</h3>
+          <h3>${t(someoneElse() ? 'profile.theirGames' : 'profile.history')}</h3>
           ${games && games.games.length
     ? `<div class="game-list">${games.games.map(gameRow).join('')}</div>`
     : `<p class="lede">${t('profile.noGames')}</p>`}
@@ -172,6 +210,27 @@ export function mountProfile(outlet, params) {
       <span class="muted-small">${page} / ${pages}</span>
       <button class="btn btn--sm" data-page="${page + 1}" ${page >= pages ? 'disabled' : ''}>→</button>
     </div>`;
+  }
+
+  /**
+   * Ask this player for a game.
+   *
+   * A challenge is delivered to somebody who is in the lobby; if they are not
+   * there, say so plainly rather than pretending it went.
+   */
+  async function challenge() {
+    if (!who || !isSignedIn()) return;
+    try {
+      await connect();
+      await identify(sessionToken()).catch(() => {});
+      const response = await request('hx:challenge', { userId: who, timeControl: 'rapid' });
+      notice = response.ok
+        ? t('lobby.challengeSent', { name: stats ? stats.pseudo : '' })
+        : t('online.errors.' + response.error);
+    } catch {
+      notice = t('online.errors.OFFLINE');
+    }
+    render();
   }
 
   async function load() {
@@ -199,6 +258,7 @@ export function mountProfile(outlet, params) {
       load();
       return;
     }
+    if (event.target.closest('.player-link')) return;   // the name, not the game
     const row = event.target.closest('[data-game]');
     if (row) {
       playSound('ui');
@@ -208,9 +268,15 @@ export function mountProfile(outlet, params) {
       return;
     }
     const action = event.target.closest('[data-action]');
-    if (action && action.getAttribute('data-action') === 'sign-in') {
+    if (!action) return;
+    if (action.getAttribute('data-action') === 'sign-in') {
       playSound('ui');
       openPanel('account');
+      return;
+    }
+    if (action.getAttribute('data-action') === 'challenge') {
+      playSound('ui');
+      challenge();
     }
   });
 

@@ -43,7 +43,8 @@ export function mountLeaderboard(outlet) {
             ${state.players.map((p) => `
               <tr class="${me && p.id === me.id ? 'is-me' : ''}">
                 <td class="num rank">${p.rank}</td>
-                <td>${escapeHtml(p.pseudo)}</td>
+                <td><a class="player-link" href="#/profile?id=${escapeHtml(p.id)}"
+                       >${escapeHtml(p.pseudo)}</a></td>
                 <td class="num elo">${p.elo}</td>
                 <td class="num">${p.games_played}</td>
                 <td class="num">${p.win_rate}%</td>

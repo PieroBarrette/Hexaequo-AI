@@ -45,12 +45,17 @@ router.get('/games/:id', optionalAuth, async (req, res, next) => {
 });
 
 /* Anyone's record, by account id — what a name in the lobby or on the
-   leaderboard links to. */
-router.get('/:id', async (req, res, next) => {
+   leaderboard links to. Public: a leaderboard whose names lead nowhere is a
+   list, not a community. */
+router.get('/:id', optionalAuth, async (req, res, next) => {
     try {
         if (notAnId(res, req.params.id)) return;
         const data = await profile.stats(req.params.id);
         if (!data) return fail(res, 404, 'No such account');
+        // How the person looking has fared against them, when there is a
+        // person looking and they have met.
+        data.versus = req.user ? await profile.versus(req.user.id, req.params.id) : null;
+        data.isYou = Boolean(req.user && req.user.id === req.params.id);
         res.json(data);
     } catch (error) { next(error); }
 });

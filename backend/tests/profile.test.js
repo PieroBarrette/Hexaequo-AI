@@ -250,6 +250,42 @@ async function run() {
         solo.disconnect();
     });
 
+    await test('two players can see how they have fared against each other', async () => {
+        /* The head-to-head is the same story told from two sides: what one
+           won, the other lost. Only their games against each other count —
+           the friendly against a guest is between neither of them. */
+        const mine = await profile.versus(black.user.id, white.user.id);
+        const theirs = await profile.versus(white.user.id, black.user.id);
+        assert.ok(mine, 'they have met');
+        assert.strictEqual(mine.played, 1, 'once, in the rated game');
+        assert.strictEqual(mine.wins + mine.losses + mine.draws, mine.played);
+        assert.strictEqual(theirs.played, mine.played);
+        assert.strictEqual(theirs.wins, mine.losses, 'my loss is their win');
+        assert.strictEqual(theirs.losses, mine.wins);
+        assert.strictEqual(theirs.draws, mine.draws);
+    });
+
+    await test('a stranger, and yourself, have no head-to-head', async () => {
+        const stranger = '00000000-0000-0000-0000-000000000000';
+        assert.strictEqual(await profile.versus(black.user.id, stranger), null,
+            'never met is null, not a row of zeroes');
+        assert.strictEqual(await profile.versus(black.user.id, black.user.id), null,
+            'and you do not play yourself');
+        assert.strictEqual(await profile.versus(null, white.user.id), null,
+            'nor does a signed-out reader have a record');
+    });
+
+    await test('the record and games of another player are public', async () => {
+        // Public by design: a leaderboard whose names lead nowhere is a list.
+        const record = await profile.stats(white.user.id);
+        assert.ok(record, 'the record is readable without being that player');
+        assert.strictEqual(record.pseudo, white.user.pseudo);
+        const list = await profile.history(white.user.id);
+        assert.ok(list.games.length >= 1, 'and so are their games');
+        assert.ok(list.games.every((g) => g.opponent),
+            'each one naming who it was against');
+    });
+
     await test('an id nobody owns finds nothing', async () => {
         assert.strictEqual(await profile.stats('00000000-0000-0000-0000-000000000000'), null);
         assert.strictEqual(await profile.replay('00000000-0000-0000-0000-000000000000', null), null);

@@ -110,12 +110,13 @@
       "OFFLINE": "Serveur injoignable. Vérifiez votre connexion.",
       "SIGN_IN_REQUIRED": "Connectez-vous pour la partie rapide.",
       "ENGINE_UNAVAILABLE": "Le serveur de jeu n'est pas disponible.",
-      "NOT_HERE": "Ce joueur a quitté le salon.",
+      "NOT_HERE": "Ce joueur n’est pas dans le salon en ce moment.",
       "NOT_IN_LOBBY": "Entrez dans le salon d'abord.",
       "GAME_IN_PROGRESS": "La partie n'est pas terminée.",
       "NO_SUCH_CHALLENGE": "Ce défi n'existe plus.",
       "NOT_YOURS": "Ce défi ne vous est pas adressé.",
-      "EMPTY": "Message vide."
+      "EMPTY": "Message vide.",
+      "NOT_YOURSELF": "Vous ne pouvez pas vous défier vous-même."
     },
     "rated": "Partie classée",
     "unratedFriendly": "Partie amicale — le classement ne bouge pas",
@@ -375,7 +376,14 @@
     "drew": "Nulle",
     "guest": "Invité",
     "versus": "contre",
-    "notReplayable": "Cette partie a été enregistrée avant que les coups soient conservés en entier : impossible de la rejouer."
+    "notReplayable": "Cette partie a été enregistrée avant que les coups soient conservés en entier : impossible de la rejouer.",
+    "versusRecord": "Contre {name}",
+    "versusNever": "Vous n’avez jamais croisé {name}.",
+    "theirGames": "Ses parties",
+    "theirRecord": "Son bilan",
+    "mine": "Mon profil",
+    "gamesOne": "{n} partie",
+    "pliesOne": "{n} coup"
   },
   "mail": {
     "verifyTitle": "Confirmation de votre adresse",

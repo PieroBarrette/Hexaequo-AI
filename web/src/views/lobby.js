@@ -108,7 +108,8 @@ export function mountLobby(host) {
         : `<button class="btn btn--sm" data-challenge="${escapeText(player.userId)}">`
           + `${sentTo === player.userId ? '✓' : t('lobby.challenge')}</button>`;
       return `<div class="lobby-row${isMe ? ' is-me' : ''}">`
-        + `<span class="lobby-name">${escapeText(player.pseudo)}</span>`
+        + `<span class="lobby-name"><a class="player-link"`
+          + ` href="#/profile?id=${escapeText(player.userId)}">${escapeText(player.pseudo)}</a></span>`
         + `<span class="lobby-elo">${player.elo}</span>`
         + `<span class="lobby-status${player.playing ? ' is-busy' : ''}">${status}</span>`
         + action + '</div>';

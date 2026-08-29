@@ -47,7 +47,13 @@ const ALLOWED_ORIGINS = [
     'http://127.0.0.1:3000',
     'http://127.0.0.1:3001',
     'http://localhost:5500',
-    'http://127.0.0.1:5500'
+    'http://127.0.0.1:5500',
+    // The dev static servers: serve.py on 8001, http.server on 8765. net.js
+    // already points them at this port; they were missing from the other end.
+    'http://localhost:8001',
+    'http://127.0.0.1:8001',
+    'http://localhost:8765',
+    'http://127.0.0.1:8765'
 ];
 
 // Security middleware

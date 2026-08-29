@@ -58,10 +58,19 @@ function lookup(bundle, path) {
  * Translate `path`, falling back to English and then to the path itself so a
  * missing key is visible rather than silently blank.
  * Placeholders are written {name} and filled from `vars`.
+ *
+ * A string that counts something may add a sibling key ending in "One", used
+ * when n is exactly one. Both languages here put the break in the same place,
+ * so one extra form is enough; a string without the sibling is unaffected.
  */
 export function t(path, vars) {
-  let text = lookup(bundles[active] || {}, path);
-  if (text === undefined) text = lookup(bundles.en || {}, path);
+  const one = vars && Math.abs(Number(vars.n)) === 1 ? path + 'One' : null;
+  /* A language is asked for both forms before falling back, so a locale that
+     has the plural but not the singular keeps its own words. */
+  const from = (bundle) =>
+    (one ? lookup(bundle || {}, one) : undefined) ?? lookup(bundle || {}, path);
+  let text = from(bundles[active]);
+  if (text === undefined) text = from(bundles.en);
   if (text === undefined) return path;
   if (vars) {
     text = text.replace(/\{(\w+)\}/g, (whole, name) =>

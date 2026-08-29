@@ -1635,7 +1635,13 @@ export function mountPlay(outlet, params) {
 
     if (archiveId) {
       if (!archive) return;                 // an error is already on the strip
-      const name = (side) => escapeText((archive[side] && archive[side].pseudo) || t('profile.guest'));
+      const name = (side) => {
+        const who = archive[side] || {};
+        const shown = escapeText(who.pseudo || t('profile.guest'));
+        return who.userId
+          ? '<a class="player-link" href="#/profile?id=' + escapeText(who.userId) + '">' + shown + '</a>'
+          : shown;
+      };
       strip.className = 'net-strip is-on';
       strip.innerHTML =
         '<span class="player-dot"></span><span>' + name('black') + '</span>'
