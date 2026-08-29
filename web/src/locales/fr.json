@@ -118,7 +118,9 @@
       "NO_SUCH_CHALLENGE": "Ce défi n'existe plus.",
       "NOT_YOURS": "Ce défi ne vous est pas adressé.",
       "EMPTY": "Message vide.",
-      "NOT_YOURSELF": "Vous ne pouvez pas vous défier vous-même."
+      "NOT_YOURSELF": "Vous ne pouvez pas vous défier vous-même.",
+      "ALREADY_ASKING": "Vous avez déjà une invitation en attente. Attendez la réponse ou annulez-la.",
+      "ALREADY_ASKED": "Ce joueur a déjà une invitation en attente."
     },
     "rated": "Partie classée",
     "unratedFriendly": "Partie amicale — le classement ne bouge pas",
@@ -417,5 +419,16 @@
     "available": "Nouvelle version prête — rechargez pour l’appliquer.",
     "offline": "Impossible de vérifier : pas de connexion.",
     "unsupported": "Cet appareil ne garde pas de copie hors ligne."
+  },
+  "presence": {
+    "free": "En ligne",
+    "playing": "En partie",
+    "offline": "Hors ligne"
+  },
+  "challenge": {
+    "afterThisGame": "sera jouée après votre partie en cours",
+    "agreedWith": "Partie convenue avec {name} — elle s’ouvrira dès que vos deux plateaux seront libres.",
+    "agreedNote": "{name} a accepté. La partie commencera après la partie en cours.",
+    "sentToBusy": "Invitation envoyée à {name}, qui est en partie. S’il accepte, vous jouerez juste après."
   }
 }

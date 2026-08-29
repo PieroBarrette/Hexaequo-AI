@@ -91,6 +91,56 @@ function seatView(seat) {
     return { pseudo: seat.pseudo, elo: seat.elo, userId: seat.userId };
 }
 
+/* ── Presence ─────────────────────────────────────────────────────────────
+ *
+ * Who is on the site, not merely who has walked into the lobby. A green light
+ * beside a name has to answer for someone reading their own profile page or
+ * halfway through a game, so the map is filled from hx:identify — the one
+ * thing every signed-in socket does, wherever it is.
+ *
+ * One entry per account however many tabs are open: the newest socket holds
+ * it, and only that socket can clear it.
+ */
+const online = new Map();
+
+/** Whether this account is at a board right now. */
+function isPlaying(userId) {
+    for (const room of rooms.values()) {
+        if (room.result) continue;
+        for (let seat = 0; seat < 2; seat++) {
+            const player = room.players[seat];
+            if (player && player.userId === userId && room.seats[seat]) return true;
+        }
+    }
+    return false;
+}
+
+/** 'free' — here and able to start; 'playing' — here but at a board; 'offline'. */
+function statusOf(userId) {
+    if (!online.has(userId)) return 'offline';
+    return isPlaying(userId) ? 'playing' : 'free';
+}
+
+/**
+ * Tell whoever is watching this account that its light has changed.
+ *
+ * Watching is per socket and by name, so a page showing one player is not sent
+ * the comings and goings of everyone else.
+ */
+function announcePresence(io, userId) {
+    const status = statusOf(userId);
+    for (const socket of io.sockets.sockets.values()) {
+        const watching = socket.data && socket.data.hxWatching;
+        if (watching && watching.has(userId)) {
+            socket.emit('hx:presence', { statuses: { [userId]: status } });
+        }
+    }
+}
+
+/* Anything that ends a game changes two lights at once. */
+const gameOverListeners = new Set();
+function onGameFinished(fn) { gameOverListeners.add(fn); return () => gameOverListeners.delete(fn); }
+
 function publicView(room) {
     return {
         rated: isRated(room),
@@ -296,6 +346,15 @@ function finish(io, room, result) {
         code: room.code, result, clock: clockView(room), rated: isRated(room),
     });
 
+    /* Both players are free again: their lights, and anyone who agreed to
+       play them next, are waiting on exactly this. */
+    for (const player of room.players) {
+        if (player) announcePresence(io, player.userId);
+    }
+    for (const fn of gameOverListeners) {
+        try { fn(room); } catch (error) { console.error('[online] game-over hook:', error.message); }
+    }
+
     ratedGames.recordGame(room, result)
         .then((record) => {
             if (!record || !record.rated) return;
@@ -402,11 +461,29 @@ function attachOnlineGames(io) {
                         settled: room.settled.slice(),
                     });
                 }
+                online.set(user.id, {
+                    userId: user.id, pseudo: user.pseudo, elo: user.elo, socketId: socket.id,
+                });
+                announcePresence(io, user.id);
                 reply(callback, { ok: true, user: { pseudo: user.pseudo, elo: user.elo } });
             } catch (error) {
                 socket.data.user = null;
                 reply(callback, { ok: false, error: 'BAD_TOKEN' });
             }
+        });
+
+        /**
+         * Watch a handful of accounts and be told when their lights change.
+         *
+         * The reply carries the answer as it stands, so a page never has to
+         * draw a light it does not know yet; the pushes carry the changes.
+         */
+        socket.on('hx:presence:watch', (payload, callback) => {
+            const ids = Array.isArray(payload && payload.userIds) ? payload.userIds : [];
+            socket.data.hxWatching = new Set(ids.slice(0, 200).map(String));
+            const statuses = {};
+            for (const id of socket.data.hxWatching) statuses[id] = statusOf(id);
+            reply(callback, { ok: true, statuses });
         });
 
         /** Open a room and take the black seat. */
@@ -467,6 +544,10 @@ function attachOnlineGames(io) {
                 const firstTime = !room.everFull;
                 room.everFull = true;
                 if (firstTime) startClock(io, room);   // the game begins when both are seated
+                // Both are at a board now, so both lights turn amber.
+                for (const player of room.players) {
+                    if (player) announcePresence(io, player.userId);
+                }
             }
             // Back in time: call off the abandonment countdown.
             if (room.grace && room.grace.seat === seat) cancelGrace(room);
@@ -685,6 +766,15 @@ function attachOnlineGames(io) {
         });
 
         socket.on('disconnect', () => {
+            const who = socket.data.user;
+            if (who) {
+                const entry = online.get(who.userId);
+                // Another tab may hold the entry; only its own socket clears it.
+                if (entry && entry.socketId === socket.id) {
+                    online.delete(who.userId);
+                    announcePresence(io, who.userId);
+                }
+            }
             for (const code of socket.data.hxRooms) {
                 const room = rooms.get(code);
                 if (!room) continue;
@@ -710,5 +800,6 @@ function attachOnlineGames(io) {
 
 module.exports = {
     attachOnlineGames, rooms, createRoom, publicView, isRated,
+    online, statusOf, isPlaying, announcePresence, onGameFinished,
     RECONNECT_GRACE_MS, TIME_CONTROLS,
 };

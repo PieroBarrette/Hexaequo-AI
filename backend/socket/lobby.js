@@ -10,11 +10,17 @@
  * somebody to address, and a name to address them by.
  */
 
-const { createRoom, rooms } = require('./onlineGame');
+const {
+    createRoom, online, statusOf, isPlaying, onGameFinished,
+} = require('./onlineGame');
 const { query } = require('../config/database');
 
 const PUSH_MS = 1000;                     // coalesce presence updates
 const CHALLENGE_TTL_MS = 60 * 1000;
+/* An invitation accepted by somebody mid-game waits for their board to clear.
+   Long enough for a real game to finish, short enough that a forgotten
+   agreement does not pull two people into a room an hour later. */
+const AGREEMENT_TTL_MS = 20 * 60 * 1000;
 const CHAT_MAX_LENGTH = 300;
 const CHAT_MIN_INTERVAL_MS = 700;
 const CHAT_HISTORY = 80;          // shown to someone arriving
@@ -25,6 +31,11 @@ const LOBBY_ROOM = 'hx:lobby';
 const present = new Map();
 /** id → { from, to, timeControl } while an invitation is outstanding. */
 const challenges = new Map();
+/*
+ * Invitations that have been said yes to but cannot start yet, because one of
+ * the two is still at another board. They sit here until both are free.
+ */
+const agreements = new Map();
 /*
  * The last few things said, kept in memory for speed and in the database for
  * keeps.
@@ -86,17 +97,6 @@ let nextChallengeId = 1;
  * about the same thing would drift, and a stale "available" is a worse lie than
  * a scan of a handful of rooms.
  */
-function isPlaying(userId) {
-    for (const room of rooms.values()) {
-        if (room.result) continue;
-        for (let seat = 0; seat < 2; seat++) {
-            const player = room.players[seat];
-            if (player && player.userId === userId && room.seats[seat]) return true;
-        }
-    }
-    return false;
-}
-
 function roster() {
     const out = [];
     for (const entry of present.values()) {
@@ -129,18 +129,76 @@ function attachLobby(io) {
         if (timer.unref) timer.unref();
     }
 
+    /** Send to whoever holds this account, wherever on the site they are. */
+    function toUser(userId, event, payload) {
+        const entry = online.get(userId);
+        if (entry) io.to(entry.socketId).emit(event, payload);
+    }
+
     /** Take an invitation off the table, telling both sides why if there is a why. */
     function dropChallenge(id, event) {
-        const challenge = challenges.get(id);
+        const challenge = challenges.get(id) || agreements.get(id);
         if (!challenge) return;
         clearTimeout(challenge.timer);
         challenges.delete(id);
+        agreements.delete(id);
         if (!event) return;
         for (const userId of [challenge.from.userId, challenge.to.userId]) {
-            const entry = present.get(userId);
-            if (entry) io.to(entry.socketId).emit(event, { id });
+            toUser(userId, event, { id });
         }
     }
+
+    /**
+     * Open the room two people have agreed to, once neither is at another
+     * board. Called when a game ends and when somebody's light changes, so an
+     * agreement made mid-game starts the moment it can.
+     */
+    async function tryStartAgreement(id) {
+        const deal = agreements.get(id);
+        if (!deal) return;
+        for (const person of [deal.from, deal.to]) {
+            if (statusOf(person.userId) !== 'free') return;      // not yet
+        }
+        agreements.delete(id);
+        clearTimeout(deal.timer);
+        await openAgreedRoom(deal);
+    }
+
+    /** Build the room and send both players into it. */
+    async function openAgreedRoom(deal) {
+        // Colours by coin toss, as in quick match: being the one who asked
+        // should not decide who moves first.
+        const [black, white] = Math.random() < 0.5
+            ? [deal.from, deal.to]
+            : [deal.to, deal.from];
+        let room;
+        try {
+            room = await createRoom({
+                timeControl: deal.timeControl,
+                reserved: [black.userId, white.userId],
+            });
+        } catch (error) {
+            for (const person of [deal.from, deal.to]) {
+                toUser(person.userId, 'hx:challenge:expired', { id: deal.id });
+            }
+            return null;
+        }
+        const send = (person, seat, opponent) => toUser(person.userId, 'hx:challenge:ready', {
+            code: room.code,
+            colour: seat,
+            timeControl: room.timeControl,
+            opponent: { pseudo: opponent.pseudo, elo: opponent.elo },
+        });
+        send(black, 0, white);
+        send(white, 1, black);
+        return { room, black, white };
+    }
+
+    /* A finished game frees two people; any agreement waiting on either of
+       them can now open. */
+    onGameFinished(() => {
+        for (const id of [...agreements.keys()]) tryStartAgreement(id);
+    });
 
     io.on('connection', (socket) => {
         const reply = (callback, payload) => {
@@ -208,14 +266,25 @@ function attachLobby(io) {
             if (!user) return reply(callback, { ok: false, error: 'SIGN_IN_REQUIRED' });
             const targetId = String((payload && payload.userId) || '');
             if (targetId === user.userId) return reply(callback, { ok: false, error: 'NOT_YOURSELF' });
-            const target = present.get(targetId);
+            const target = online.get(targetId);
             if (!target) return reply(callback, { ok: false, error: 'NOT_HERE' });
 
-            // One invitation at a time between the same two people, so a
-            // repeated click does not fill the other player's screen.
-            for (const existing of challenges.values()) {
+            /*
+             * One at a time, in both directions. A repeated click resends
+             * rather than stacking; a second person's invitation waits until
+             * the first has been answered, so nobody is asked two questions
+             * they can only say yes to once.
+             */
+            for (const existing of [...challenges.values(), ...agreements.values()]) {
                 if (existing.from.userId === user.userId && existing.to.userId === targetId) {
                     return reply(callback, { ok: true, id: existing.id, resent: true });
+                }
+                if (existing.from.userId === user.userId) {
+                    return reply(callback, { ok: false, error: 'ALREADY_ASKING' });
+                }
+                if (existing.to.userId === targetId || existing.from.userId === targetId
+                    || existing.to.userId === user.userId) {
+                    return reply(callback, { ok: false, error: 'ALREADY_ASKED' });
                 }
             }
 
@@ -236,8 +305,12 @@ function attachLobby(io) {
 
             io.to(target.socketId).emit('hx:challenge:incoming', {
                 id, from: challenge.from, timeControl,
+                // Said plainly, so the answer can be an informed yes: accepting
+                // while at another board schedules the game rather than
+                // starting it.
+                busy: isPlaying(target.userId),
             });
-            reply(callback, { ok: true, id });
+            reply(callback, { ok: true, id, busy: isPlaying(target.userId) });
         });
 
         socket.on('hx:challenge:accept', async (payload, callback) => {
@@ -247,49 +320,86 @@ function attachLobby(io) {
             if (!challenge) return reply(callback, { ok: false, error: 'NO_SUCH_CHALLENGE' });
             if (challenge.to.userId !== user.userId) return reply(callback, { ok: false, error: 'NOT_YOURS' });
 
-            const challenger = present.get(challenge.from.userId);
-            if (!challenger) {
+            if (!online.has(challenge.from.userId)) {
                 dropChallenge(challenge.id, null);
                 return reply(callback, { ok: false, error: 'NOT_HERE' });
             }
 
-            // Colours by coin toss, as in quick match: being the one who asked
-            // should not decide who moves first.
-            const [black, white] = Math.random() < 0.5
-                ? [challenge.from, challenge.to]
-                : [challenge.to, challenge.from];
-            let room;
-            try {
-                room = await createRoom({
-                    timeControl: challenge.timeControl,
-                    reserved: [black.userId, white.userId],
-                });
-            } catch (error) {
-                return reply(callback, { ok: false, error: 'ENGINE_UNAVAILABLE' });
-            }
-            dropChallenge(challenge.id, null);
+            clearTimeout(challenge.timer);
+            challenges.delete(challenge.id);
 
-            const send = (person, seat, opponent) => {
-                const entry = present.get(person.userId);
-                if (!entry) return;
-                io.to(entry.socketId).emit('hx:challenge:ready', {
-                    code: room.code,
-                    colour: seat,
-                    timeControl: room.timeControl,
-                    opponent: { pseudo: opponent.pseudo, elo: opponent.elo },
-                });
-            };
-            send(black, 0, white);
-            send(white, 1, black);
-            reply(callback, { ok: true, code: room.code, colour: black.userId === user.userId ? 0 : 1 });
+            /*
+             * Somebody still at a board can say yes; what they are agreeing to
+             * is the next game rather than this minute. The agreement is held
+             * until neither of them is playing, and both are told which of the
+             * two answers they got.
+             */
+            const waiting = [challenge.from, challenge.to]
+                .some((person) => statusOf(person.userId) === 'playing');
+            if (waiting) {
+                const deal = { ...challenge, timer: null, agreedAt: Date.now() };
+                deal.timer = setTimeout(
+                    () => dropChallenge(deal.id, 'hx:challenge:expired'), AGREEMENT_TTL_MS);
+                if (deal.timer.unref) deal.timer.unref();
+                agreements.set(deal.id, deal);
+                for (const [person, other] of [[deal.from, deal.to], [deal.to, deal.from]]) {
+                    toUser(person.userId, 'hx:challenge:agreed', {
+                        id: deal.id,
+                        timeControl: deal.timeControl,
+                        opponent: { pseudo: other.pseudo, elo: other.elo },
+                        // The one who said yes already knows they said yes.
+                        youAccepted: person.userId === user.userId,
+                    });
+                }
+                return reply(callback, { ok: true, deferred: true, id: deal.id });
+            }
+
+            const opened = await openAgreedRoom(challenge);
+            if (!opened) return reply(callback, { ok: false, error: 'ENGINE_UNAVAILABLE' });
+            reply(callback, {
+                ok: true,
+                code: opened.room.code,
+                colour: opened.black.userId === user.userId ? 0 : 1,
+            });
+        });
+
+        /** Anything addressed to me that is still standing. */
+        socket.on('hx:challenge:pending', (payload, callback) => {
+            const user = socket.data.user;
+            if (!user) return reply(callback, { ok: true, incoming: null, agreed: null });
+            let incoming = null;
+            let agreed = null;
+            for (const challenge of challenges.values()) {
+                if (challenge.to.userId !== user.userId) continue;
+                incoming = {
+                    id: challenge.id,
+                    from: challenge.from,
+                    timeControl: challenge.timeControl,
+                    busy: isPlaying(user.userId),
+                };
+            }
+            for (const deal of agreements.values()) {
+                const mine = deal.from.userId === user.userId ? deal.to
+                    : (deal.to.userId === user.userId ? deal.from : null);
+                if (!mine) continue;
+                agreed = {
+                    id: deal.id,
+                    timeControl: deal.timeControl,
+                    opponent: { pseudo: mine.pseudo, elo: mine.elo },
+                    youAccepted: true,      // nothing new happened; say nothing about it
+                };
+            }
+            reply(callback, { ok: true, incoming, agreed });
         });
 
         socket.on('hx:challenge:decline', (payload, callback) => {
             const user = socket.data.user;
-            const challenge = challenges.get(String((payload && payload.id) || ''));
+            const id = String((payload && payload.id) || '');
+            const challenge = challenges.get(id) || agreements.get(id);
             if (!challenge) return reply(callback, { ok: true });
             // Either side may call it off: the target declines, the challenger
-            // withdraws.
+            // withdraws, and an agreement already made can be cancelled by
+            // whoever changes their mind first.
             if (!user || (challenge.to.userId !== user.userId && challenge.from.userId !== user.userId)) {
                 return reply(callback, { ok: false, error: 'NOT_YOURS' });
             }
@@ -303,7 +413,7 @@ function attachLobby(io) {
             const entry = present.get(user.userId);
             if (!entry || entry.socketId !== socket.id) return;   // another tab holds it
             present.delete(user.userId);
-            for (const challenge of [...challenges.values()]) {
+            for (const challenge of [...challenges.values(), ...agreements.values()]) {
                 if (challenge.from.userId === user.userId || challenge.to.userId === user.userId) {
                     dropChallenge(challenge.id, 'hx:challenge:expired');
                 }
@@ -316,6 +426,6 @@ function attachLobby(io) {
 }
 
 module.exports = {
-    attachLobby, present, challenges, chat, roster, isPlaying, loadChat,
+    attachLobby, present, challenges, agreements, chat, roster, loadChat,
     CHALLENGE_TTL_MS, PUSH_MS,
 };

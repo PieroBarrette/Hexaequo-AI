@@ -13,6 +13,7 @@ import { api, isSignedIn, sessionReady, onAuthChange, sessionToken } from '../au
 import { play as playSound } from '../audio.js';
 import { openPanel } from '../ui/panels.js';
 import { request, connect, identify } from '../net.js';
+import { watchPresence, onPresence, presenceOf } from '../presence.js';
 
 const escapeText = (value) => String(value).replace(/[&<>"']/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -70,8 +71,24 @@ export function mountProfile(outlet, params) {
   let page = 1;
   let error = null;
   let notice = null;
+  let cadence = 'rapid';
 
   const stop = onAuthChange(() => load());
+  /* One account watched while this page is open; the light follows them in and
+     out without the page being reloaded. */
+  const stopWatching = who ? watchPresence([who]) : () => {};
+  const stopPresence = who ? onPresence(() => render()) : () => {};
+
+  /**
+   * Green here and free, amber here but at a board, grey not here.
+   *
+   * Amber is deliberately not a closed door: somebody in the middle of a game
+   * can still agree to play the next one, so the challenge button stays.
+   */
+  function presencePip() {
+    const status = presenceOf(who);
+    return `<span class="pip is-${status}" title="${t('presence.' + status)}"></span>`;
+  }
 
   /** Whether this page belongs to somebody other than the person reading it. */
   const someoneElse = () => Boolean(who) && !(stats && stats.isYou);
@@ -88,12 +105,17 @@ export function mountProfile(outlet, params) {
     return `
       <div class="rule-block versus-block">
         <div class="versus-line">
+          ${someoneElse() && isSignedIn() && presenceOf(who) !== 'offline'
+    ? `<select class="btn btn--sm" data-control="challenge-cadence">${
+      ['bullet', 'blitz', 'rapid', 'classic'].map((id) =>
+        `<option value="${id}"${id === cadence ? ' selected' : ''}>${cadenceLabel(id)}</option>`)
+        .join('')}</select>` : ''}
           ${record
     ? `<span>${t('profile.versusRecord', { name: escapeText(stats.pseudo) })}
          <b>${record.wins} · ${record.losses} · ${record.draws}</b>
          <span class="muted-small">(${t('profile.games', { n: record.played })})</span></span>`
     : `<span class="lede">${t('profile.versusNever', { name: escapeText(stats.pseudo) })}</span>`}
-          ${isSignedIn()
+          ${isSignedIn() && presenceOf(who) !== 'offline'
     ? `<button class="btn btn--primary btn--sm" data-action="challenge">${t('lobby.challenge')}</button>`
     : ''}
         </div>
@@ -167,7 +189,8 @@ export function mountProfile(outlet, params) {
       <div class="page"><div class="page-inner">
         <div class="profile-head">
           <div>
-            <h1 style="margin:0">${escapeText(stats.pseudo)}</h1>
+            <h1 style="margin:0">
+              ${someoneElse() ? presencePip() : ''}${escapeText(stats.pseudo)}</h1>
             <p class="lede" style="margin:2px 0 0">
               ${t('profile.since', { date: shortDate(stats.memberSince) })}</p>
           </div>
@@ -223,10 +246,12 @@ export function mountProfile(outlet, params) {
     try {
       await connect();
       await identify(sessionToken()).catch(() => {});
-      const response = await request('hx:challenge', { userId: who, timeControl: 'rapid' });
-      notice = response.ok
-        ? t('lobby.challengeSent', { name: stats ? stats.pseudo : '' })
-        : t('online.errors.' + response.error);
+      const response = await request('hx:challenge', { userId: who, timeControl: cadence });
+      notice = !response.ok
+        ? t('online.errors.' + response.error)
+        : (presenceOf(who) === 'playing'
+          ? t('challenge.sentToBusy', { name: stats ? stats.pseudo : '' })
+          : t('lobby.challengeSent', { name: stats ? stats.pseudo : '' }));
     } catch {
       notice = t('online.errors.OFFLINE');
     }
@@ -249,6 +274,11 @@ export function mountProfile(outlet, params) {
     }
     render();
   }
+
+  outlet.addEventListener('change', (event) => {
+    const control = event.target.closest('[data-control="challenge-cadence"]');
+    if (control) cadence = control.value;
+  });
 
   outlet.addEventListener('click', (event) => {
     const pageButton = event.target.closest('[data-page]');
@@ -282,5 +312,5 @@ export function mountProfile(outlet, params) {
 
   render();
   load();
-  return () => stop();
+  return () => { stop(); stopWatching(); stopPresence(); };
 }

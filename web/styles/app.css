@@ -545,6 +545,48 @@ select.btn option {
 }
 .lobby-row.is-me { color: var(--accent); }
 .lobby-name { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/*
+ * Whether somebody is here, and whether they are free. Green free, amber at a
+ * board, grey away — amber being a state you can still be invited from, since
+ * a game agreed to now is played when the current one ends.
+ */
+.pip {
+  display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+  flex: none; vertical-align: middle; margin-right: 7px;
+  background: var(--muted); box-shadow: 0 0 0 2px var(--surface);
+}
+.pip.is-free { background: var(--green, #5cba7d); }
+.pip.is-playing { background: var(--accent); }
+.pip.is-offline { background: color-mix(in srgb, var(--muted) 55%, transparent); }
+h1 > .pip { width: 11px; height: 11px; margin-right: 10px; }
+
+/*
+ * An invitation, wherever you are on the site. Fixed rather than in the flow,
+ * because it has to reach you on a page it knows nothing about — and clear of
+ * the bottom bar on a phone, which is where a thumb already is.
+ */
+.hail-host {
+  position: fixed; z-index: 60; right: 14px; bottom: 14px;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+  max-width: min(340px, calc(100vw - 28px));
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.hail-host[hidden] { display: none; }
+.hail {
+  width: 100%; padding: 11px 13px;
+  border-radius: var(--radius-sm); border: 1px solid var(--line);
+  background: var(--surface); color: var(--text);
+  box-shadow: 0 14px 44px rgba(0, 0, 0, .34);
+  animation: bubble-in .22s var(--ease) both;
+}
+.hail--ask { border-color: var(--accent); }
+.hail-title { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+.hail-lede { font-size: 12.5px; color: var(--muted); }
+.hail-actions { display: flex; gap: 7px; margin-top: 9px; }
+.hail--deal .hail-actions { margin-top: 7px; }
+.hail--note { font-size: 12.5px; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .hail { animation: none; } }
 .lobby-elo { font: 600 13px/1 var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
 .lobby-status { font-size: 12px; color: var(--muted); min-width: 5.5em; text-align: right; }
 .lobby-status.is-busy { color: var(--accent); }

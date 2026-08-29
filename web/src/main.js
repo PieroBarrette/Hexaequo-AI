@@ -15,6 +15,7 @@ import { mountVerify, mountReset } from './views/mailAction.js';
 import { mountSettings, setInstallPrompt } from './views/settings.js';
 import { closeOverlay } from './ui/overlay.js';
 import { openPanel, relabelPanel } from './ui/panels.js';
+import { mountChallenges } from './ui/challenge.js';
 import { restoreSession, onAuthChange, currentUser, mustChoosePseudo } from './auth.js';
 import { watchForUpdates } from './update.js';
 
@@ -63,6 +64,11 @@ async function boot() {
     if (mustChoosePseudo()) openPanel('account');
   });
   restoreSession();
+
+  /* Invitations are addressed to a person, not to a page, so the card that
+     carries them is mounted above the router rather than inside any view. It
+     dials the server only once there is a session to be addressed. */
+  mountChallenges();
 
   document.getElementById('brand').addEventListener('click', () => {
     playSound('ui');

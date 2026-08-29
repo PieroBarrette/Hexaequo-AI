@@ -71,7 +71,12 @@ async function run() {
         socket.on('connect', () => resolve(socket));
         socket.on('connect_error', reject);
     });
-    const reset = () => { lobby.present.clear(); lobby.challenges.clear(); lobby.chat.length = 0; };
+    const reset = () => {
+        lobby.present.clear();
+        lobby.challenges.clear();
+        lobby.agreements.clear();
+        lobby.chat.length = 0;
+    };
 
     console.log('\nLobby\n');
 
@@ -304,7 +309,9 @@ async function run() {
         b.disconnect();
     });
 
-    await test('you cannot challenge someone who has gone', async () => {
+    await test('leaving the lobby does not put you out of reach', async () => {
+        /* Presence is the site, not the room: somebody reading their own
+           profile page is still somebody you can ask for a game. */
         reset();
         const one = await makeUser('r');
         const two = await makeUser('s');
@@ -315,11 +322,117 @@ async function run() {
         await ask(a, 'hx:lobby:enter', {});
         await ask(b, 'hx:lobby:enter', {});
         await ask(b, 'hx:lobby:leave', {});
+        assert.strictEqual(lobby.present.has(two.user.id), false, 'gone from the roster');
+
+        const heard = waitFor(b, 'hx:challenge:incoming');
+        const response = await ask(a, 'hx:challenge', { userId: two.user.id, timeControl: 'rapid' });
+        assert.ok(response.ok, response.error);
+        const event = await heard;
+        assert.strictEqual(event.from.pseudo, one.user.pseudo, 'and still reachable');
+        assert.strictEqual(event.busy, false, 'they are free to play now');
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('you cannot challenge someone who has gone', async () => {
+        reset();
+        const one = await makeUser('v');
+        const two = await makeUser('w');
+        const a = await open();
+        const b = await open();
+        await ask(a, 'hx:identify', { token: one.token });
+        await ask(b, 'hx:identify', { token: two.token });
+        await ask(a, 'hx:lobby:enter', {});
+        b.disconnect();
+        await new Promise((r) => setTimeout(r, 300));
         const response = await ask(a, 'hx:challenge', { userId: two.user.id, timeControl: 'rapid' });
         assert.strictEqual(response.ok, false);
         assert.strictEqual(response.error, 'NOT_HERE');
         a.disconnect();
+    });
+
+    await test('a player at another board can agree to play next', async () => {
+        /* An amber light is not a closed door. Accepting mid-game schedules
+           the room rather than opening it, and it opens by itself the moment
+           the board they are at clears. */
+        reset();
+        const one = await makeUser('x');
+        const two = await makeUser('y');
+        const three = await makeUser('z');
+        const a = await open();
+        const b = await open();
+        const c = await open();
+        await ask(a, 'hx:identify', { token: one.token });
+        await ask(b, 'hx:identify', { token: two.token });
+        await ask(c, 'hx:identify', { token: three.token });
+
+        // Two of them sit down to a game; the third asks one of them for one.
+        const busyRoom = await ask(a, 'hx:create', { timeControl: 'none' });
+        await ask(b, 'hx:join', { code: busyRoom.code });
+
+        const asked = waitFor(a, 'hx:challenge:incoming');
+        const sent = await ask(c, 'hx:challenge', { userId: one.user.id, timeControl: 'rapid' });
+        assert.ok(sent.ok, sent.error);
+        assert.strictEqual(sent.busy, true, 'the challenger is told they are at a board');
+        const incoming = await asked;
+        assert.strictEqual(incoming.busy, true, 'and so is the person asked');
+
+        const agreedByChallenger = waitFor(c, 'hx:challenge:agreed');
+        const accepted = await ask(a, 'hx:challenge:accept', { id: incoming.id });
+        assert.strictEqual(accepted.ok, true);
+        assert.strictEqual(accepted.deferred, true, 'said yes, but not yet');
+        const deal = await agreedByChallenger;
+        assert.strictEqual(deal.opponent.pseudo, one.user.pseudo);
+        assert.strictEqual(lobby.agreements.size, 1, 'held, not spent');
+
+        // The board clears, and the agreed game opens on its own.
+        const readyForBoth = Promise.all([waitFor(a, 'hx:challenge:ready'), waitFor(c, 'hx:challenge:ready')]);
+        await ask(a, 'hx:resign', { code: busyRoom.code });
+        const [forOne, forThree] = await readyForBoth;
+        assert.strictEqual(forOne.code, forThree.code, 'the same room');
+        assert.notStrictEqual(forOne.colour, forThree.colour, 'one of each colour');
+        assert.strictEqual(lobby.agreements.size, 0, 'and the agreement is spent');
+
+        rooms.delete(busyRoom.code);
+        rooms.delete(forOne.code);
+        a.disconnect();
         b.disconnect();
+        c.disconnect();
+    });
+
+    await test('one invitation at a time, in both directions', async () => {
+        reset();
+        const one = await makeUser('aa');
+        const two = await makeUser('ab');
+        const three = await makeUser('ac');
+        const a = await open();
+        const b = await open();
+        const c = await open();
+        await ask(a, 'hx:identify', { token: one.token });
+        await ask(b, 'hx:identify', { token: two.token });
+        await ask(c, 'hx:identify', { token: three.token });
+
+        const first = await ask(a, 'hx:challenge', { userId: two.user.id, timeControl: 'rapid' });
+        assert.ok(first.ok, first.error);
+
+        // The same person again is the same invitation, not a second one.
+        const again = await ask(a, 'hx:challenge', { userId: two.user.id, timeControl: 'rapid' });
+        assert.strictEqual(again.resent, true);
+        assert.strictEqual(lobby.challenges.size, 1);
+
+        // Somebody else while one is outstanding: no.
+        const other = await ask(a, 'hx:challenge', { userId: three.user.id, timeControl: 'rapid' });
+        assert.strictEqual(other.ok, false);
+        assert.strictEqual(other.error, 'ALREADY_ASKING');
+
+        // And nobody else may ask the person already being asked.
+        const piling = await ask(c, 'hx:challenge', { userId: two.user.id, timeControl: 'rapid' });
+        assert.strictEqual(piling.ok, false);
+        assert.strictEqual(piling.error, 'ALREADY_ASKED');
+
+        a.disconnect();
+        b.disconnect();
+        c.disconnect();
     });
 
     await test('the roster says who is in a game', async () => {

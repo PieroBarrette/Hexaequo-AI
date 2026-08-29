@@ -118,7 +118,9 @@
       "NO_SUCH_CHALLENGE": "That challenge is gone.",
       "NOT_YOURS": "That challenge is not addressed to you.",
       "EMPTY": "Empty message.",
-      "NOT_YOURSELF": "You cannot challenge yourself."
+      "NOT_YOURSELF": "You cannot challenge yourself.",
+      "ALREADY_ASKING": "You already have an invitation out. Wait for an answer, or call it off.",
+      "ALREADY_ASKED": "That player already has an invitation waiting."
     },
     "rated": "Rated game",
     "unratedFriendly": "Friendly game — no rating at stake",
@@ -417,5 +419,16 @@
     "available": "New version ready — reload to apply it.",
     "offline": "Cannot check: no connection.",
     "unsupported": "This device keeps no offline copy."
+  },
+  "presence": {
+    "free": "Online",
+    "playing": "In a game",
+    "offline": "Offline"
+  },
+  "challenge": {
+    "afterThisGame": "will be played after your current game",
+    "agreedWith": "Game agreed with {name} — it opens as soon as you are both free.",
+    "agreedNote": "{name} accepted. The game starts once their current one ends.",
+    "sentToBusy": "Invitation sent to {name}, who is in a game. If they accept, you play straight after."
   }
 }

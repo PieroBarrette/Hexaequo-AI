@@ -8,7 +8,6 @@
  */
 
 import { t } from '../i18n.js';
-import { navigate } from '../router.js';
 import { request, connect, listen, identify } from '../net.js';
 import { play as playSound } from '../audio.js';
 import { isSignedIn, currentUser, sessionToken, sessionReady, onAuthChange } from '../auth.js';
@@ -30,7 +29,6 @@ export function mountLobby(host) {
   let players = [];
   let messages = [];
   let cadence = 'rapid';
-  let incoming = null;      // a challenge addressed to us
   let notice = null;        // the last thing that happened, in words
   let sentTo = null;
   const unsubscribe = [];
@@ -68,7 +66,6 @@ export function mountLobby(host) {
     }
 
     host.innerHTML = `
-      ${incoming ? challengeCard() : ''}
       ${notice ? `<p class="lobby-notice">${escapeText(notice)}</p>` : ''}
       <div class="rule-block">
         <div class="lobby-head">
@@ -104,10 +101,15 @@ export function mountLobby(host) {
       const isMe = player.userId === mine;
       const status = isMe ? t('lobby.you')
         : (player.playing ? t('lobby.playing') : t('lobby.available'));
-      const action = isMe || player.playing ? ''
+      /* Amber is not a closed door: someone at a board can still say yes to a
+         game played after this one. */
+      const action = isMe ? ''
         : `<button class="btn btn--sm" data-challenge="${escapeText(player.userId)}">`
           + `${sentTo === player.userId ? '✓' : t('lobby.challenge')}</button>`;
+      const light = `<span class="pip is-${player.playing ? 'playing' : 'free'}"`
+        + ` title="${player.playing ? t('lobby.playing') : t('lobby.available')}"></span>`;
       return `<div class="lobby-row${isMe ? ' is-me' : ''}">`
+        + light
         + `<span class="lobby-name"><a class="player-link"`
           + ` href="#/profile?id=${escapeText(player.userId)}">${escapeText(player.pseudo)}</a></span>`
         + `<span class="lobby-elo">${player.elo}</span>`
@@ -125,18 +127,6 @@ export function mountLobby(host) {
       + `<span class="chat-text">${escapeText(message.text)}</span></div>`).join('');
   }
 
-  function challengeCard() {
-    return `
-      <div class="rule-block challenge-card">
-        <h3>${t('lobby.incoming', { name: escapeText(incoming.from.pseudo), elo: incoming.from.elo })}</h3>
-        <p class="lede">${cadenceLabel(incoming.timeControl)}</p>
-        <div class="row-actions">
-          <button class="btn btn--primary" data-action="accept">${t('lobby.accept')}</button>
-          <button class="btn" data-action="decline">${t('lobby.decline')}</button>
-        </div>
-      </div>`;
-  }
-
   /* ── Server ───────────────────────────────────────────────────────────── */
 
   function subscribe() {
@@ -149,28 +139,17 @@ export function mountLobby(host) {
       messages.push(payload.message);
       if (joined) render();
     }));
-    unsubscribe.push(listen('hx:challenge:incoming', (payload) => {
-      incoming = payload;
-      notice = null;
-      playSound('ui');
-      render();
-    }));
-    unsubscribe.push(listen('hx:challenge:declined', (payload) => {
-      if (incoming && incoming.id === payload.id) incoming = null;
+    /* The invitation card lives above the whole site now, so this view only
+       needs to hear what became of one it sent. */
+    unsubscribe.push(listen('hx:challenge:declined', () => {
       sentTo = null;
       notice = t('lobby.declined');
       render();
     }));
-    unsubscribe.push(listen('hx:challenge:expired', (payload) => {
-      if (incoming && incoming.id === payload.id) incoming = null;
+    unsubscribe.push(listen('hx:challenge:expired', () => {
       sentTo = null;
       notice = t('lobby.expired');
       render();
-    }));
-    unsubscribe.push(listen('hx:challenge:ready', (payload) => {
-      incoming = null;
-      playSound('ui');
-      navigate('play', { online: '1', code: payload.code });
     }));
     // A reconnection loses the seat in the room; step back in.
     unsubscribe.push(listen('connect', async () => {
@@ -243,22 +222,6 @@ export function mountLobby(host) {
     if (action === 'sign-in') { openPanel('account'); return; }
     if (action === 'enter') { enter(); return; }
     if (action === 'leave') { leave(); return; }
-    if (action === 'accept' && incoming) {
-      const id = incoming.id;
-      incoming = null;
-      render();
-      const response = await request('hx:challenge:accept', { id })
-        .catch(() => ({ ok: false, error: 'OFFLINE' }));
-      // The room arrives through hx:challenge:ready, which both sides receive.
-      if (!response.ok) { notice = t('online.errors.' + response.error); render(); }
-      return;
-    }
-    if (action === 'decline' && incoming) {
-      const id = incoming.id;
-      incoming = null;
-      render();
-      request('hx:challenge:decline', { id }).catch(() => {});
-    }
   });
 
   host.addEventListener('submit', (event) => {
