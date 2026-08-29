@@ -68,6 +68,7 @@ export function mountSettings(outlet) {
 
         <h2>${t('game.mode')}</h2>
         ${row('settings.showValidMoves', 'settings.showValidMovesHint', toggle('showValidMoves', getSetting('showValidMoves')))}
+        ${row('settings.premove', 'settings.premoveHint', toggle('premove', getSetting('premove')))}
         ${row('settings.aiLevel', 'settings.aiLevelHint', segmented('aiLevel', getSetting('aiLevel'), [
           { value: 0, label: t('game.levelBeginner') },
           { value: 1, label: t('game.levelEasy') },

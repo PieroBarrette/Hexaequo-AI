@@ -235,6 +235,18 @@ const VOICES = {
     });
   },
 
+  /**
+   * The opponent has said something.
+   *
+   * Two rising notes — short, and unlike anything the game itself makes, so it
+   * is recognisable from another room without being an alarm.
+   */
+  message(at) {
+    const m = material();
+    strike(at, { freq: m.body * 1.6, peak: 0.16, decay: 0.16, type: 'sine', bend: 0.999 });
+    strike(at + 0.09, { freq: m.body * 2.4, peak: 0.18, decay: 0.26, type: 'sine', bend: 0.999 });
+  },
+
   /** A control being pressed: short enough not to be noticed twice. */
   ui(at) {
     const m = material();

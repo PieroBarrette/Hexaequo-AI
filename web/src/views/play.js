@@ -56,6 +56,17 @@ export function mountPlay(outlet, params) {
    * back. Looking back never touches the game — it is a second reader of the
    * same history, which is what makes it safe to offer mid-game.
    */
+  /**
+   * A move chosen during the opponent's turn, waiting for ours.
+   *
+   * Stored as an intent rather than a move, because the position it will be
+   * played into is not the one it was chosen in. When our turn arrives the
+   * intent is offered to the new position: if it still names a legal move it
+   * goes, and if it does not it is quietly dropped. That is the whole promise
+   * — never a move the player did not choose, never one that is not legal.
+   */
+  let premove = null;
+
   let timeline = [];
   let timelineMoves = [];
   let review = null;
@@ -111,6 +122,19 @@ export function mountPlay(outlet, params) {
   const canAct = () => !archiveId && (review === null) && (net
     ? net.ready && !net.pending && state.turn === net.colour
     : !isAI(state.turn));
+
+  /** Whether the player may line a move up while the other side thinks. */
+  const canPremove = () => Boolean(
+    net && net.ready && !net.pending && !result && review === null
+    && net.colour !== null && state.turn !== net.colour && getSetting('premove')
+  );
+
+  /** The board as it would be if it were our turn, for choosing against. */
+  function premoveBoard() {
+    const hypothetical = cloneState(state);
+    hypothetical.turn = net.colour;
+    return hypothetical;
+  }
 
   /** The position on screen: the game itself, or the ply being reviewed. */
   const shownState = () => (review === null ? state : timeline[review]) || state;
@@ -251,9 +275,14 @@ export function mountPlay(outlet, params) {
      motion — up to raise the panel, down to put it away — where an ≡ read as a
      hamburger menu. */
   function buildDrawerButton() {
+    /* The unread mark belongs here as well as on the tab: when a message
+       arrives the drawer is usually shut, and the tab that carries the other
+       mark is the very thing you cannot see. */
+    const unread = Boolean(net && net.unread);
     toolsRight.innerHTML =
-      `<button class="btn btn--icon${drawerOpen ? ' is-on' : ''}" data-action="drawer"`
-      + ` title="${t('game.moveList')}">${drawerOpen ? '⌄' : '⌃'}</button>`;
+      `<button class="btn btn--icon${drawerOpen ? ' is-on' : ''}${unread ? ' has-unread' : ''}"`
+      + ` data-action="drawer" title="${unread ? t('chat.unread', { n: net.unread }) : t('game.moveList')}">`
+      + `${drawerOpen ? '⌄' : '⌃'}<i class="tab-dot"></i></button>`;
   }
 
   /**
@@ -350,8 +379,43 @@ export function mountPlay(outlet, params) {
    * server, which will echo the position back to both players.
    */
   function commit(move, noFly, flyPath, captureList) {
+    /* Chosen out of turn: keep it rather than send it. Every selection path in
+       the view ends here, so catching it in one place is enough. */
+    if (canPremove()) {
+      premove = moveIntent(move);
+      selected = null;
+      chain = null;
+      picker = null;
+      placeMode = null;
+      playSound('ui');
+      refresh();
+      return;
+    }
     if (net) { sendIntent(move, noFly); return; }
     applyLocal(move, noFly, flyPath, captureList);
+  }
+
+  function clearPremove(sound) {
+    if (!premove) return;
+    premove = null;
+    if (sound) playSound('ui');
+    refresh();
+  }
+
+  /**
+   * Our turn has come: play what was lined up, if it is still playable.
+   *
+   * Tested against the position that actually arrived, not the one it was
+   * chosen in — the opponent may have taken the piece, or filled the square.
+   */
+  function runPremove() {
+    if (!premove || !net || result) return;
+    if (state.turn !== net.colour || net.pending) return;
+    const intent = premove;
+    premove = null;
+    const move = findLegalMove(state, intent);
+    if (!move) { refresh(); return; }
+    sendIntent(move, false);
   }
 
   function applyLocal(move, noFly, flyPath, captureList) {
@@ -632,6 +696,8 @@ export function mountPlay(outlet, params) {
     }
 
     refresh();
+    // Whatever was lined up gets its moment now, if it is still legal.
+    if (premove) afterEffect(runPremove);
   }
 
   /** Re-read the room, after a refused move or a reconnection. */
@@ -689,6 +755,7 @@ export function mountPlay(outlet, params) {
     }
     if (review !== null && review >= timeline.length) review = null;
     lastMove = null;
+    premove = null;
     net.chat = (view.chat || []).slice();
     net.rematchOffered = view.rematchOfferedBy !== null && view.rematchOfferedBy !== undefined
       && view.rematchOfferedBy !== net.colour;
@@ -787,7 +854,8 @@ export function mountPlay(outlet, params) {
       // Somebody else's message, with the tab closed: mark it and chime once.
       if (payload.message.seat !== net.colour && !(drawerOpen && drawerTab === 'chat')) {
         net.unread++;
-        playSound('ui');
+        playSound('message');
+        buildDrawerButton();      // the arrow carries the mark while shut
       }
       renderChat();
     }));
@@ -935,13 +1003,17 @@ export function mountPlay(outlet, params) {
        player is watching it and a past ply while they are reading back. */
     const position = shownState();
     const reviewing = review !== null;
-    const player = position.turn;
-    const human = !result && !thinking && canAct();
+    const lining = canPremove();
+    const player = lining ? net.colour : position.turn;
+    const human = (!result && !thinking && canAct()) || lining;
     const dragging = !!(drag && drag.active);
     const idle = human && !chain && !picker && selected === null && !placeMode && !dragging;
     const aid = getSetting('showValidMoves');
-    const spots = reviewing ? [] : tilePlacementSpots(chain ? chain.preview : state);
-    const source = chain ? chain.preview : position;
+    /* While lining a move up, everything is chosen against the board as it
+       would be on our turn — the reserves, the legal squares, all of it. */
+    const acting = lining ? premoveBoard() : position;
+    const spots = reviewing ? [] : tilePlacementSpots(chain ? chain.preview : acting);
+    const source = chain ? chain.preview : acting;
 
     const targets = new Map();
     if (human) {
@@ -959,7 +1031,8 @@ export function mountPlay(outlet, params) {
     }
 
     const canPlacePiece = human
-      && (state.diskReserve[player] > 0 || (state.ringReserve[player] > 0 && state.capturedDisks[player] > 0));
+      && (acting.diskReserve[player] > 0
+        || (acting.ringReserve[player] > 0 && acting.capturedDisks[player] > 0));
     const hints = new Set();
     if (idle && canPlacePiece) {
       for (const k of source.tileKeys) {
@@ -977,6 +1050,12 @@ export function mountPlay(outlet, params) {
     /* The move that produced what is on screen: the game's last move while
        watching, and the reviewed ply's own move while reading back. */
     const showEffect = Boolean(effect) && (!reviewing || effect.review);
+    const premoveCells = [];
+    if (premove && !reviewing) {
+      if (premove.type === 'tile' || premove.type === 'piece') premoveCells.push(premove.cell);
+      else if (premove.type === 'disk') premoveCells.push(premove.path[0], premove.path[premove.path.length - 1]);
+      else premoveCells.push(premove.from, premove.to);
+    }
     const marked = reviewing ? (review > 0 ? timelineMoves[review - 1] : null) : lastMove;
     const lastMoveCells = [];
     if (marked && !chain) {
@@ -988,7 +1067,7 @@ export function mountPlay(outlet, params) {
     board.render({
       state: source,
       spots,
-      spotsLive: human && !chain && !dragging && position.tileReserve[player] > 0
+      spotsLive: human && !chain && !dragging && acting.tileReserve[player] > 0
         && (placeMode === 'tile' || idle),
       placeMode,
       targets,
@@ -999,6 +1078,7 @@ export function mountPlay(outlet, params) {
       chainCurrent: chain ? chain.current : null,
       chainPiece: makePiece(player, DISK),
       lastMoveCells: [...new Set(lastMoveCells)],
+      premoveCells: [...new Set(premoveCells)],
       // Only the cell: the choice itself is drawn over the board, not in it.
       picker: picker ? { cell: picker.cell } : null,
       hidden: showEffect && effect.hidden != null ? effect.hidden : -1,
@@ -1178,7 +1258,25 @@ export function mountPlay(outlet, params) {
    * want to look at once the game is over, and a modal that cannot be closed
    * is a modal that gets in the way of every review.
    */
+  /**
+   * How much of the board area sits below the board itself.
+   *
+   * The end-of-game card stops there rather than covering everything, so the
+   * bar and the drawer stay usable while it is up. Measured rather than
+   * guessed: the bar is one row on a wide screen and two on a phone, and the
+   * drawer's height changes as it opens.
+   */
+  function measureBelowBoard() {
+    const area = outlet.querySelector('.board-area');
+    let below = 0;
+    for (const node of [drawer, outlet.querySelector('.board-bar')]) {
+      if (node) below += node.getBoundingClientRect().height;
+    }
+    area.style.setProperty('--below-board', `${Math.round(below)}px`);
+  }
+
   function renderResult() {
+    measureBelowBoard();
     overlay.classList.toggle('is-on', !!result && !resultSeen);
     if (!result || resultSeen) return;
     overlay.querySelector('.result-title').innerHTML = result.draw
@@ -1408,7 +1506,7 @@ export function mountPlay(outlet, params) {
     }
     moveListEl.style.display = name === 'moves' ? '' : 'none';
     chatPane.style.display = name === 'chat' ? '' : 'none';
-    if (name === 'chat' && net) net.unread = 0;
+    if (name === 'chat' && net) { net.unread = 0; buildDrawerButton(); }
     renderMoveList();
     renderChat();
     if (name === 'chat') chatInput.focus();
@@ -1533,10 +1631,11 @@ export function mountPlay(outlet, params) {
   /* ── Interaction ──────────────────────────────────────────────────────── */
 
   function openPicker(cell) {
-    const player = state.turn;
+    const board = canPremove() ? premoveBoard() : state;
+    const player = board.turn;
     const options = [];
-    if (state.diskReserve[player] > 0) options.push('disk');
-    if (state.ringReserve[player] > 0 && state.capturedDisks[player] > 0) options.push('ring');
+    if (board.diskReserve[player] > 0) options.push('disk');
+    if (board.ringReserve[player] > 0 && board.capturedDisks[player] > 0) options.push('ring');
     if (!options.length) return false;
     // With a single legal piece there is nothing to choose: place it.
     if (options.length === 1) {
@@ -1607,9 +1706,13 @@ export function mountPlay(outlet, params) {
   function onCell(cell, pieceChoice) {
     // Reading back through the game is a view, never a move.
     if (review !== null || result || thinking || isAI(state.turn)) return;
-    const player = state.turn;
-    const isMine = (k) => state.pieceAt[k] >= 0 && pieceOwner(state.pieceAt[k]) === player;
-    const isFreeOwnTile = (k) => state.tileAt[k] === player && state.pieceAt[k] < 0;
+    if (!canAct() && !canPremove()) return;
+    /* While lining a move up, the board is read as though it were our turn —
+       the position it will be played into is close enough to choose against. */
+    const player = canPremove() ? net.colour : state.turn;
+    const board = canPremove() ? premoveBoard() : state;
+    const isMine = (k) => board.pieceAt[k] >= 0 && pieceOwner(board.pieceAt[k]) === player;
+    const isFreeOwnTile = (k) => board.tileAt[k] === player && board.pieceAt[k] < 0;
 
     if (picker) {
       if (pieceChoice) {
@@ -1625,7 +1728,7 @@ export function mountPlay(outlet, params) {
     }
 
     if (placeMode === 'tile') {
-      if (state.tileAt[cell] < 0 && tilePlacementSpots(state).includes(cell)) commit({ type: 'tile', cell });
+      if (board.tileAt[cell] < 0 && tilePlacementSpots(board).includes(cell)) commit({ type: 'tile', cell });
       else { placeMode = null; refresh(); }
       return;
     }
@@ -1651,8 +1754,8 @@ export function mountPlay(outlet, params) {
     }
 
     if (isMine(cell)) { selected = cell; refresh(); return; }
-    if (state.tileAt[cell] < 0) {
-      if (state.tileReserve[player] > 0 && tilePlacementSpots(state).includes(cell)) {
+    if (board.tileAt[cell] < 0) {
+      if (board.tileReserve[player] > 0 && tilePlacementSpots(board).includes(cell)) {
         commit({ type: 'tile', cell });
       }
       return;
@@ -1662,22 +1765,23 @@ export function mountPlay(outlet, params) {
 
   /** Attempt to move the piece on `from` to `to`. Returns true if a move began. */
   function tryMove(from, to, byDrag) {
-    const player = state.turn;
-    const code = state.pieceAt[from];
+    const board = canPremove() ? premoveBoard() : state;
+    const player = board.turn;
+    const code = board.pieceAt[from];
     if (pieceType(code) === DISK) {
       for (let i = 0; i < 6; i++) {
-        if (from + STEP[i] === to && state.tileAt[to] >= 0 && state.pieceAt[to] < 0) {
+        if (from + STEP[i] === to && board.tileAt[to] >= 0 && board.pieceAt[to] < 0) {
           commit({ type: 'disk', path: [from, to], captures: [] }, byDrag);
           return true;
         }
       }
-      const lifted = withPieceLifted(state, from);
+      const lifted = withPieceLifted(board, from);
       const jump = availableJumps(lifted, from, player, [from], 0).find((j) => j.land === to);
       if (jump) { startChain(from); takeJump(jump, byDrag); return true; }
     } else {
       for (let i = 0; i < 12; i++) {
-        if (from + RING_OFFSETS[i] !== to || state.tileAt[to] < 0) continue;
-        const occupant = state.pieceAt[to];
+        if (from + RING_OFFSETS[i] !== to || board.tileAt[to] < 0) continue;
+        const occupant = board.pieceAt[to];
         if (occupant >= 0 && pieceOwner(occupant) === player) break;
         commit({
           type: 'ring', from, to,
@@ -1696,6 +1800,8 @@ export function mountPlay(outlet, params) {
     if (!target) {
       if (picker || selected !== null || placeMode) {
         picker = null; selected = null; placeMode = null; refresh();
+      } else if (premove) {
+        clearPremove(true);
       }
       return;
     }
@@ -1739,15 +1845,17 @@ export function mountPlay(outlet, params) {
 
   function beginDrag() {
     if (review !== null || result || thinking || isAI(state.turn)) return false;
+    if (!canAct() && !canPremove()) return false;
     const cell = drag.cell;
-    const player = state.turn;
+    const board = canPremove() ? premoveBoard() : state;
+    const player = board.turn;
     let code;
     if (chain) {
       if (cell !== chain.current) return false;
       code = makePiece(player, DISK);
     } else if (!picker && !placeMode
-      && state.pieceAt[cell] >= 0 && pieceOwner(state.pieceAt[cell]) === player) {
-      code = state.pieceAt[cell];
+      && board.pieceAt[cell] >= 0 && pieceOwner(board.pieceAt[cell]) === player) {
+      code = board.pieceAt[cell];
       selected = cell;
     } else {
       return false;
@@ -1840,8 +1948,10 @@ export function mountPlay(outlet, params) {
       buildDrawerButton();
       showDrawerTab(drawerTab);
       // The drawer now takes room from the board rather than covering it, so
-      // the board has to be told its frame changed.
-      setTimeout(() => refresh(true), 300);
+      // the board has to be told its frame changed — and the result card has
+      // to be told how much room is left beneath it.
+      measureBelowBoard();
+      setTimeout(() => { measureBelowBoard(); refresh(true); }, 300);
     }
     else if (action === 'end-jump') { if (chain) finishChain(); }
     else if (action === 'cancel-jump') { chain = null; selected = null; clearEffect(); refresh(); }
@@ -1867,6 +1977,7 @@ export function mountPlay(outlet, params) {
     }
     if (event.key === 'Escape') {
       if (review !== null) { goToPly(timeline.length - 1); return; }
+      if (premove) { clearPremove(true); return; }
       if (drawerOpen) { drawerOpen = false; drawer.classList.remove('is-on'); return; }
       selected = null; chain = null; placeMode = null; picker = null; clearEffect(); refresh();
     } else if (event.key === 'Enter' && chain) {

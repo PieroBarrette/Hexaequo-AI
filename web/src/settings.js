@@ -15,6 +15,7 @@ export const DEFAULTS = {
   sound: true,
   volume: 0.7,
   showValidMoves: true,
+  premove: false,
   aiLevel: 2,             // see AI_LEVELS_VERSION below
   aiLevelsVersion: 0,
 };

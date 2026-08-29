@@ -195,7 +195,13 @@ select.btn option {
 .token.is-usable { cursor: pointer; }
 .token.is-usable:hover { transform: translateY(-3px) scale(1.12); background: var(--accent-soft); }
 .token.is-armed { filter: drop-shadow(0 0 4px var(--accent)) drop-shadow(0 0 2px var(--accent)); }
-.rail-sep { width: 78%; height: 0; border-top: 1px dashed var(--line); margin: 5px 0 3px; }
+/* What is yours, above; what you have taken from the other player, below.
+   A dashed hairline was not enough to read as a division at a glance. */
+.rail-sep {
+  width: 86%; height: 0; margin: 9px 0 5px;
+  border-top: 2px solid var(--line-strong, var(--muted));
+  opacity: .55;
+}
 
 .chain-bar {
   position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 5;
@@ -205,8 +211,17 @@ select.btn option {
 .chain-bar.is-on { display: flex; }
 .chain-bar .taken { display: flex; gap: 3px; padding: 0 4px; }
 
+/*
+ * The end-of-game card covers the board, and only the board.
+ *
+ * It used to cover the whole board area, which was the same thing until the
+ * controls moved in underneath it. Then its backdrop lay over the bar and the
+ * drawer: the arrow that closes the drawer could not be reached, and tapping
+ * anywhere else did nothing because the taps were landing on the backdrop.
+ */
 .result-overlay {
-  position: absolute; inset: 0; z-index: 6; display: none;
+  position: absolute; left: 0; right: 0; top: 0; z-index: 6; display: none;
+  bottom: var(--below-board, 0px);
   align-items: center; justify-content: center; padding: 20px;
   background: color-mix(in srgb, var(--bg) 78%, transparent);
 }
@@ -809,4 +824,12 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
 
 @media (prefers-reduced-motion: reduce) {
   .update-bar { transition: none; }
+}
+
+/* The unread mark, on the drawer's own arrow as well as on the chat tab. */
+.btn--icon.has-unread { position: relative; border-color: var(--accent); }
+.btn--icon.has-unread .tab-dot {
+  display: block; position: absolute; top: 4px; right: 4px;
+  width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+  box-shadow: 0 0 0 2px var(--surface);
 }

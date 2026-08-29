@@ -32,10 +32,6 @@ export function mountAccount(outlet) {
 
   const stop = onAuthChange(() => render());
 
-  function statLine(labelKey, value) {
-    return `<div class="row"><span>${t(labelKey)}</span><b>${value}</b></div>`;
-  }
-
   /* ── Signed out ───────────────────────────────────────────────────────── */
 
   function doorTabs() {
@@ -136,7 +132,6 @@ export function mountAccount(outlet) {
       return;
     }
 
-    const total = user.gamesPlayed || 0;
     outlet.innerHTML = `
       <div class="page"><div class="page-inner">
         <div class="account-head">
@@ -147,12 +142,10 @@ export function mountAccount(outlet) {
           </div>
         </div>
         ${error ? `<p class="net-error">${error}</p>` : ''}
-        <h2>${t('account.record')}</h2>
-        ${statLine('account.rating', user.elo)}
-        ${statLine('account.played', total)}
-        ${statLine('account.wins', user.wins || 0)}
-        ${statLine('account.losses', user.losses || 0)}
-        ${statLine('account.draws', user.draws || 0)}
+        <!-- The record used to be repeated here, from the counters on the
+             session's copy of the account — which never refreshed, so it sat
+             at 1000 and no games forever. The profile computes it from the
+             games themselves and is one tap away. -->
         <div class="row-actions" style="margin-top:22px">
           <button class="btn btn--primary" data-action="profile">${t('account.seeProfile')}</button>
           <button class="btn" data-action="rename">${t('account.changeNickname')}</button>

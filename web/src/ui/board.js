@@ -168,10 +168,25 @@ export function createBoard(container) {
         + ` stroke-width="1.6"/>`;
     }
 
-    /* Trace of the previous move. */
+    /*
+     * Trace of the previous move.
+     *
+     * A wash inside the outline as well as the outline itself: a thin line at
+     * half opacity was nearly invisible against a pale tile, and knowing what
+     * the opponent just did is the one thing you always want to see.
+     */
     for (const k of v.lastMoveCells) {
+      out += `<path d="${hexPath(cx(k), cy(k), SIZE * .94)}"`
+        + ` fill="var(--last-move-fill)" stroke="var(--last-move-edge)"`
+        + ` stroke-width="3" pointer-events="none"/>`;
+    }
+
+    /* A move lined up for our turn: dashed, because it has not happened and
+       may yet turn out to be illegal. */
+    for (const k of v.premoveCells || []) {
       out += `<path d="${hexPath(cx(k), cy(k), SIZE * .94)}" fill="none"`
-        + ` stroke="var(--accent)" stroke-opacity=".5" stroke-width="2.5" pointer-events="none"/>`;
+        + ` stroke="var(--accent)" stroke-width="3" stroke-dasharray="7 6"`
+        + ` pointer-events="none"/>`;
     }
 
     const focus = v.chainCurrent != null ? v.chainCurrent : v.selected;

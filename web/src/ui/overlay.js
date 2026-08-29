@@ -77,9 +77,20 @@ export function openOverlay(name, title, mount) {
 
   const node = ensureHost();
   node.querySelector('.overlay-title').textContent = title;
-  const body = node.querySelector('.overlay-body');
-  body.innerHTML = '';
-  body.scrollTop = 0;
+
+  /*
+   * A brand-new container for every mount.
+   *
+   * Emptying the old one only removes its children — anything a panel had
+   * listened for on the container itself survived, so opening the settings
+   * twice left two click handlers on it, and a switch flipped twice and
+   * appeared not to move at all. Opening a third time made it work again.
+   * The router learned this for views; the overlay had not.
+   */
+  const old = node.querySelector('.overlay-body');
+  const body = document.createElement('div');
+  body.className = 'overlay-body';
+  old.replaceWith(body);
 
   lastFocus = document.activeElement;
   const result = mount(body);

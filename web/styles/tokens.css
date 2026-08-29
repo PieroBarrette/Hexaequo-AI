@@ -34,6 +34,9 @@
 
 /* ── Modern · dark — brushed metal on graphite ───────────────────────────── */
 :root[data-theme="dark"][data-board-style="modern"] {
+  --last-move-fill: color-mix(in srgb, var(--accent) 20%, transparent);
+  --last-move-edge: color-mix(in srgb, var(--accent) 85%, transparent);
+  --line-strong: #404859;
   --bg: #0e1015;
   --surface: #171a21;
   --surface-2: #1d212a;
@@ -63,6 +66,9 @@
 
 /* ── Modern · light — pale stone ─────────────────────────────────────────── */
 :root[data-theme="light"][data-board-style="modern"] {
+  --last-move-fill: color-mix(in srgb, var(--accent) 26%, transparent);
+  --last-move-edge: var(--accent);
+  --line-strong: #9aa3b4;
   --bg: #eef0f4;
   --surface: #f7f8fa;
   --surface-2: #e7eaef;
@@ -92,6 +98,9 @@
 
 /* ── Classic · dark — walnut and oak by lamplight ────────────────────────── */
 :root[data-theme="dark"][data-board-style="classic"] {
+  --last-move-fill: color-mix(in srgb, var(--accent) 20%, transparent);
+  --last-move-edge: color-mix(in srgb, var(--accent) 85%, transparent);
+  --line-strong: #5c452c;
   --bg: #17110b;
   --surface: #221a11;
   --surface-2: #2c2116;
@@ -121,6 +130,9 @@
 
 /* ── Classic · light — maple table in daylight ───────────────────────────── */
 :root[data-theme="light"][data-board-style="classic"] {
+  --last-move-fill: color-mix(in srgb, var(--accent) 28%, transparent);
+  --last-move-edge: var(--accent);
+  --line-strong: #a68a5c;
   --bg: #f2e8d4;
   --surface: #fbf5e7;
   --surface-2: #ece0c7;
