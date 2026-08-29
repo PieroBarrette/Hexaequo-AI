@@ -69,7 +69,8 @@
     "confirmLeave": "Leave this game? The progress will be lost.",
     "placeDisk": "Disk",
     "placeRing": "Ring",
-    "choosePiece": "Which piece?"
+    "choosePiece": "Which piece?",
+    "levelOf": "{colour} level"
   },
   "online": {
     "title": "Play online",
@@ -130,7 +131,9 @@
     "quickSignIn": "Quick match pairs you by rating, so it needs an account. Sign in to play.",
     "privateTitle": "Private game",
     "privateLede": "Open a game and send the link to whoever you like.",
-    "tabPlay": "Play"
+    "tabPlay": "Play",
+    "share": "Share",
+    "shareText": "A game of Hexaequo is waiting for you"
   },
   "result": {
     "wins": "{colour} wins",

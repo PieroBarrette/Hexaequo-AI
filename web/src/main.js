@@ -98,6 +98,24 @@ async function boot() {
   };
   for (const kind of GESTURES) window.addEventListener(kind, unlock);
 
+  /*
+   * Hold the page at its own scale.
+   *
+   * Safari ignores user-scalable=no on purpose, so a pinch has to be refused
+   * here — and a double tap, which iOS also reads as zoom. The board sizes
+   * itself to the screen, so a zoomed one only ever means pieces pushed off
+   * the edge with no obvious way back.
+   */
+  for (const kind of ['gesturestart', 'gesturechange', 'gestureend']) {
+    document.addEventListener(kind, (event) => event.preventDefault(), { passive: false });
+  }
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', (event) => {
+    const now = Date.now();
+    if (now - lastTouchEnd < 300) event.preventDefault();
+    lastTouchEnd = now;
+  }, { passive: false });
+
   window.addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault();
     setInstallPrompt(event);

@@ -69,7 +69,8 @@
     "confirmLeave": "Quitter la partie ? La progression sera perdue.",
     "placeDisk": "Disque",
     "placeRing": "Anneau",
-    "choosePiece": "Quelle pièce ?"
+    "choosePiece": "Quelle pièce ?",
+    "levelOf": "Niveau des {colour}s"
   },
   "online": {
     "title": "Jouer en ligne",
@@ -130,7 +131,9 @@
     "quickSignIn": "La partie rapide vous apparie selon votre classement : connectez-vous pour y accéder.",
     "privateTitle": "Partie privée",
     "privateLede": "Créez une partie et transmettez le lien à qui vous voulez.",
-    "tabPlay": "Jouer"
+    "tabPlay": "Jouer",
+    "share": "Partager",
+    "shareText": "Une partie d’Hexaequo vous attend"
   },
   "result": {
     "wins": "{colour} gagne",

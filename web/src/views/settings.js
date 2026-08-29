@@ -30,7 +30,11 @@ function toggle(name, value) {
 }
 
 function row(titleKey, hintKey, control) {
-  return `<div class="setting">
+  /* A row holding a switch answers to a tap anywhere along it. The switch
+     itself is 50x29, which is smaller than a fingertip lands reliably, and
+     missing it looked like the switch was stuck rather than unhit. */
+  const switchable = control.includes('data-toggle=');
+  return `<div class="setting${switchable ? ' is-switchable' : ''}">
     <div class="setting-label"><b>${t(titleKey)}</b><small>${t(hintKey)}</small></div>
     ${control}
   </div>`;
@@ -100,7 +104,10 @@ export function mountSettings(outlet) {
       if (name !== 'language') render();   // a language change re-mounts the view
       return;
     }
-    const sw = event.target.closest('[data-toggle]');
+    /* Either the switch itself, or anywhere on the row that holds one. */
+    const switchRow = event.target.closest('.setting.is-switchable');
+    const sw = event.target.closest('[data-toggle]')
+      || (switchRow ? switchRow.querySelector('[data-toggle]') : null);
     if (sw) {
       const name = sw.getAttribute('data-toggle');
       setSetting(name, !getSetting(name));

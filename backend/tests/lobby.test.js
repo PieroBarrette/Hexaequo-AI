@@ -158,6 +158,47 @@ async function run() {
         c.disconnect();
     });
 
+    await test('the conversation survives the server being restarted', async () => {
+        reset();
+        await query("DELETE FROM lobby_messages WHERE pseudo LIKE 'LobbyTest%'");
+        const one = await makeUser('v');
+        const a = await open();
+        await ask(a, 'hx:identify', { token: one.token });
+        await ask(a, 'hx:lobby:enter', {});
+        const sent = await ask(a, 'hx:lobby:chat', { text: 'toujours là demain' });
+        assert.ok(sent.ok, sent.error);
+
+        /* The write is deliberately not awaited by the server — saying a thing
+           should not wait on a disk — so wait for it here. */
+        let stored = 0;
+        for (let i = 0; i < 40 && !stored; i++) {
+            stored = (await query(
+                "SELECT count(*)::int n FROM lobby_messages WHERE pseudo = $1", [one.user.pseudo]
+            )).rows[0].n;
+            if (!stored) await new Promise((r) => setTimeout(r, 150));
+        }
+
+        /* What a restart looks like from here: the memory is gone, and the
+           only thing left is what was written down. Before this, a deploy or
+           an idle spin-down silently erased the room's history. */
+        lobby.chat.length = 0;
+        await lobby.loadChat();
+        const kept = lobby.chat.filter((m) => m.pseudo === one.user.pseudo);
+        assert.strictEqual(kept.length, 1, 'the message was written down');
+        assert.strictEqual(kept[0].text, 'toujours là demain');
+
+        // And somebody arriving after the restart is given it.
+        const b = await open();
+        const two = await makeUser('w');
+        await ask(b, 'hx:identify', { token: two.token });
+        const arrival = await ask(b, 'hx:lobby:enter', {});
+        assert.ok(arrival.chat.some((m) => m.text === 'toujours là demain'),
+            'and handed to whoever arrives next');
+        await query("DELETE FROM lobby_messages WHERE pseudo LIKE 'LobbyTest%'");
+        a.disconnect();
+        b.disconnect();
+    });
+
     await test('an empty message is not a message', async () => {
         reset();
         const one = await makeUser('h');

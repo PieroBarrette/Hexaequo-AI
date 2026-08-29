@@ -34,6 +34,8 @@ body {
 }
 
 button, select, input { font: inherit; color: inherit; }
+/* Removes the browser's 300ms wait for a second tap, and with it the zoom. */
+button, select, input, .cell, a { touch-action: manipulation; }
 button { cursor: pointer; }
 button:disabled { opacity: .35; cursor: not-allowed; }
 
@@ -230,10 +232,28 @@ select.btn option {
  * board is tinted and a way back is offered, so nobody loses track of which
  * position is the real one.
  */
+/*
+ * Everything that acts on the game, in one bar beneath it.
+ *
+ * The controls used to sit in the site header, where they crowded out the
+ * identity and navigation on a phone in portrait — and the drawer's toggle
+ * ended up at the top of the screen pointing at a panel that rises from the
+ * bottom. Here they are within reach of a thumb and next to what they change.
+ */
+.board-bar {
+  flex: none; display: flex; align-items: center; gap: 6px;
+  padding: 6px 8px; border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+.bar-tools {
+  display: flex; align-items: center; gap: 6px;
+  flex: 0 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: thin;
+}
+.bar-gap { flex: 1; min-width: 4px; }
+.bar-right { display: flex; align-items: center; gap: 6px; flex: none; }
+
 .review-bar {
-  display: none; align-items: center; justify-content: center;
-  gap: 6px; flex-wrap: wrap;      /* the way back appears late and must still fit */
-  flex: none; padding: 6px 10px; border-top: 1px solid var(--line);
+  display: none; align-items: center; gap: 6px; flex: none;
 }
 .review-bar.is-on { display: flex; }
 .review-ply {
@@ -241,10 +261,25 @@ select.btn option {
   min-width: 5.5em; text-align: center; font-variant-numeric: tabular-nums;
 }
 .review-live { display: none; font-size: 12px; margin-left: 6px; }
-@media (max-width: 480px) {
-  /* On a phone the arrows are the controls that matter; the words shrink. */
+@media (max-width: 560px) {
+  /*
+   * Two rows on a phone: the controls above, the way through the game and the
+   * drawer below.
+   *
+   * On one row the drawer's toggle ended up a hundred pixels past the edge of
+   * the screen, reachable only by scrolling the bar sideways — which is worse
+   * than where it started. The second row costs about forty pixels of board
+   * and leaves nothing out of reach.
+   */
+  .board-bar { flex-wrap: wrap; gap: 5px; padding: 5px 6px; }
+  .bar-tools { flex: 1 1 100%; }
+  .bar-gap { display: none; }
+  .review-bar { flex: 1 1 auto; }
+  .bar-right { margin-left: auto; }
   .review-live { margin-left: 0; padding: 5px 9px; min-height: 32px; }
-  .review-ply { min-width: 4.4em; }
+  .review-ply { min-width: 4.2em; }
+  .board-bar select.btn { font-size: 13px; padding: 5px 6px; min-height: 34px; }
+  .board-bar .btn--icon { width: 34px; min-width: 34px; min-height: 34px; }
 }
 .review-bar.is-back .review-live { display: inline-flex; }
 .game.is-reviewing .board-host { background: color-mix(in srgb, var(--accent) 7%, transparent); }
@@ -259,14 +294,23 @@ select.btn option {
  * The sides belong to the reserves, which must stay readable at all times; the
  * bottom is also where the chat tab will live for online games.
  */
+/*
+ * The drawer opens above the bar, not over it.
+ *
+ * It used to be positioned over the whole board area, which was fine while its
+ * own toggle lived in the site header. With the toggle at the bottom, an open
+ * drawer covered the button that closes it. Sitting in the flow instead means
+ * the bar is always reachable and nothing is ever hidden behind anything.
+ */
 .drawer {
-  position: absolute; left: 0; right: 0; bottom: 0; z-index: 9;
-  height: min(240px, 45%);
+  order: 1; flex: none; z-index: 9;
+  height: 0; overflow: hidden;
   display: flex; flex-direction: column;
   background: var(--surface); border-top: 1px solid var(--line);
-  transform: translateY(101%); transition: transform .3s var(--ease);
+  transition: height .28s var(--ease);
 }
-.drawer.is-on { transform: none; box-shadow: 0 -14px 40px rgba(0, 0, 0, .35); }
+.drawer.is-on { height: min(240px, 45%); box-shadow: 0 -14px 40px rgba(0, 0, 0, .35); }
+.board-bar { order: 2; }
 .drawer-tabs {
   display: flex; align-items: center; gap: 6px; flex: none;
   padding: 8px 12px; border-bottom: 1px solid var(--line);
@@ -467,10 +511,19 @@ select.btn option {
 
 /* ── Settings ────────────────────────────────────────────────────────────── */
 
+/*
+ * A settings row.
+ *
+ * Rows whose control is a switch are tappable end to end: a 50x29 switch is
+ * well under what a finger reliably hits, and aiming at one on a phone felt
+ * like the thing was stuck rather than missed.
+ */
 .setting {
   display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
   padding: 13px 0; border-bottom: 1px solid var(--line);
 }
+.setting.is-switchable { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.setting.is-switchable:active { background: var(--surface-2); }
 .setting:last-child { border-bottom: 0; }
 .setting-label { flex: 1; min-width: 170px; }
 .setting-label b { display: block; font-weight: 600; }
@@ -486,6 +539,10 @@ select.btn option {
   width: 50px; height: 29px; border-radius: 15px; border: 1px solid var(--line);
   background: var(--surface-2); position: relative; padding: 0; flex: none;
   transition: background .2s var(--ease), border-color .2s var(--ease);
+}
+/* The switch draws at 50x29 and answers to a much larger area than that. */
+.switch::before {
+  content: ''; position: absolute; inset: -10px -12px; border-radius: 24px;
 }
 .switch::after {
   content: ''; position: absolute; top: 3px; left: 3px; width: 21px; height: 21px;
@@ -504,7 +561,9 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
 
 @media (max-width: 820px) {
   .game { flex-wrap: wrap; }
-  .board-area { order: 1; flex: 1 0 100%; min-height: 42vh; }
+  /* The bar lives inside this box now, so the minimum has to cover the board
+     and the bar rather than the board alone. */
+  .board-area { order: 1; flex: 1 0 100%; min-height: 52vh; }
   .rail {
     order: 2; flex: 1 1 50%; width: auto; max-height: 34vh;
     flex-direction: row; flex-wrap: wrap; align-content: flex-start;
@@ -514,6 +573,7 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
   .stack { width: auto; }
   .site-header { padding: 6px 8px; gap: 6px; }
   .site-header .logo-word { display: none; }
+  #brand { padding: 6px 8px; }
   .drawer { height: min(200px, 55%); }
 }
 
@@ -532,7 +592,19 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
 
 /* ── Account ─────────────────────────────────────────────────────────────── */
 
-#account-chip { display: flex; align-items: center; gap: 8px; }
+/*
+ * The right-hand side of the header.
+ *
+ * It was a plain block, so its three buttons flowed as inline boxes and wrapped
+ * onto a second line as soon as the account chip carried a name — which is why
+ * the bar was two rows tall on a phone for four buttons.
+ */
+#site-nav { display: flex; align-items: center; gap: 6px; flex: none; }
+#account-chip {
+  display: flex; align-items: center; gap: 8px;
+  max-width: 42vw; overflow: hidden; white-space: nowrap;
+}
+#account-chip .chip-name { overflow: hidden; text-overflow: ellipsis; }
 #account-chip .chip-elo { color: var(--accent); font-variant-numeric: tabular-nums; font-weight: 600; }
 #account-chip.is-signed-in { border-color: var(--accent); }
 .account-head { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }

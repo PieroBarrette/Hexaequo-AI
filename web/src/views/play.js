@@ -66,6 +66,11 @@ export function mountPlay(outlet, params) {
   let mode = MODE_AI;
   let humanSide = BLACK;
   let level = getSetting('aiLevel');
+  /* Watching two engines is only interesting if they can differ, so the duel
+     keeps a level per colour rather than one for both. */
+  let duelLevels = [level, level];
+
+  const levelFor = (player) => (mode === MODE_AI_AI ? duelLevels[player] : level);
 
   /* Online games: the server owns the position, so this view only sends move
      intents and renders whatever comes back. `net` is null for local play. */
@@ -133,7 +138,9 @@ export function mountPlay(outlet, params) {
             <div class="result-actions"></div>
           </div>
         </div>
-        <div class="review-bar">
+        <div class="board-bar">
+          <div class="bar-tools"></div>
+          <div class="review-bar">
           <button class="btn btn--icon" data-action="rev-first" title="${t('review.first')}">⏮</button>
           <button class="btn btn--icon" data-action="rev-prev" title="${t('review.previous')}">◀</button>
           <span class="review-ply" data-field="ply"></span>
@@ -146,6 +153,9 @@ export function mountPlay(outlet, params) {
             <option value="4">4×</option>
           </select>
           <button class="btn review-live" data-action="rev-live">${t('review.backToLive')}</button>
+          </div>
+          <span class="bar-gap"></span>
+          <div class="bar-right"></div>
         </div>
         <div class="drawer">
           <div class="drawer-tabs">
@@ -182,18 +192,32 @@ export function mountPlay(outlet, params) {
   const chatForm = outlet.querySelector('.chat-form');
   const chatInput = outlet.querySelector('.chat-input');
 
-  /* Game controls live in the site header so the board keeps its height. */
-  const tools = document.getElementById('header-tools');
-  const toolsRight = document.getElementById('header-tools-right');
+  /*
+   * Game controls sit under the board, not in the site header.
+   *
+   * In the header they crowded out the identity and navigation on a phone in
+   * portrait, and the drawer's own toggle ended up at the top of the screen
+   * pointing at a panel that rises from the bottom. Everything that acts on
+   * the game is in one bar beneath it now, within reach of a thumb.
+   */
+  const tools = outlet.querySelector('.bar-tools');
+  const toolsRight = outlet.querySelector('.bar-right');
   buildTools();
 
   function buildTools() {
     tools.innerHTML = toolsMarkup();
     buildDrawerButton();
     tools.querySelector('[data-control="level"]').value = String(level);
+    tools.querySelector('[data-control="levelBlack"]').value = String(duelLevels[0]);
+    tools.querySelector('[data-control="levelWhite"]').value = String(duelLevels[1]);
     tools.querySelector('[data-control="mode"]').value = mode;
     const side = tools.querySelector('[data-control="side"]');
     if (side) side.value = String(humanSide);
+  }
+
+  function levelOptions(prefix = '') {
+    return ['levelBeginner', 'levelEasy', 'levelMedium', 'levelStrong']
+      .map((key, i) => `<option value="${i}">${prefix}${t('game.' + key)}</option>`).join('');
   }
 
   function toolsMarkup() {
@@ -207,11 +231,14 @@ export function mountPlay(outlet, params) {
       <option value="0">${t('game.playAs', { colour: t('common.black') })}</option>
       <option value="1">${t('game.playAs', { colour: t('common.white') })}</option>
     </select>
-    <select class="btn" data-control="level">
-      <option value="0">${t('game.levelBeginner')}</option>
-      <option value="1">${t('game.levelEasy')}</option>
-      <option value="2">${t('game.levelMedium')}</option>
-      <option value="3">${t('game.levelStrong')}</option>
+    <select class="btn" data-control="level" title="${t('settings.aiLevel')}">
+      ${levelOptions()}
+    </select>
+    <select class="btn" data-control="levelBlack" title="${t('game.levelOf', { colour: t('common.black') })}">
+      ${levelOptions('● ')}
+    </select>
+    <select class="btn" data-control="levelWhite" title="${t('game.levelOf', { colour: t('common.white') })}">
+      ${levelOptions('○ ')}
     </select>
     <button class="btn btn--icon" data-action="run" title="${t('game.run')}">▶</button>
     <button class="btn btn--icon" data-action="step" title="${t('game.stepOnce')}">⏭</button>
@@ -440,10 +467,12 @@ export function mountPlay(outlet, params) {
     if (result || thinking || drag) return;
     if (!isAI(state.turn)) return;
     if (mode === MODE_AI_AI && !aiRunning) return;
+    // Whose engine is about to think, and therefore at what strength.
+    const mover = state.turn;
     thinking = true;
     refresh();
     setTimeout(() => {
-      const move = chooseMove(state, level);
+      const move = chooseMove(state, levelFor(mover));
       thinking = false;
       if (move) commit(move); else refresh();
     }, 40);
@@ -451,10 +480,11 @@ export function mountPlay(outlet, params) {
 
   function stepAI() {
     if (result || thinking || !isAI(state.turn)) return;
+    const mover = state.turn;
     thinking = true;
     refresh();
     setTimeout(() => {
-      const move = chooseMove(state, level);
+      const move = chooseMove(state, levelFor(mover));
       thinking = false;
       if (move) commit(move); else refresh();
     }, 40);
@@ -795,6 +825,20 @@ export function mountPlay(outlet, params) {
        watching our own game while the abandonment countdown ran, so take the
        seat back instead — hx:join is also how the countdown is called off. */
     net.unsubscribe.push(listen('connect', () => { if (net) claimSeat(); }));
+  }
+
+  /**
+   * Hand the invitation to whatever the device uses for sharing.
+   *
+   * A cancelled sheet throws, and is not a failure worth reporting: the player
+   * changed their mind, and the code is on screen either way.
+   */
+  async function shareLink() {
+    if (!net) return;
+    const url = inviteLink(net.code);
+    try {
+      await navigator.share({ title: 'Hexaequo', text: t('online.shareText'), url });
+    } catch { /* dismissed, or refused by the platform */ }
   }
 
   async function resign() {
@@ -1382,7 +1426,9 @@ export function mountPlay(outlet, params) {
     const local = !net && !archiveId;
     show('[data-control="mode"]', local);
     show('[data-control="side"]', local && mode === MODE_AI);
-    show('[data-control="level"]', local && mode !== MODE_LOCAL);
+    show('[data-control="level"]', local && mode === MODE_AI);
+    show('[data-control="levelBlack"]', local && isDuel);
+    show('[data-control="levelWhite"]', local && isDuel);
     show('[data-action="run"]', local && isDuel);
     show('[data-action="step"]', local && isDuel);
     show('[data-action="undo"]', local);
@@ -1463,6 +1509,12 @@ export function mountPlay(outlet, params) {
       + `<span class="grow"></span>`
       + stakeLabel
       + `<code class="room-code room-code--sm">${net.code}</code>`
+      /* The device's own share sheet where there is one — that is how a link
+         reaches a message, an email or whatever else is installed. Copying
+         stays for everything that has no sheet to offer. */
+      + (navigator.share
+        ? `<button class="btn btn--icon" data-action="share-link" title="${t('online.share')}">⇪</button>`
+        : '')
       + `<button class="btn btn--icon" data-action="copy-link" title="${t('online.copyLink')}">⧉</button>`;
 
     // Keep the abandonment countdown ticking without redrawing the board.
@@ -1774,6 +1826,7 @@ export function mountPlay(outlet, params) {
     else if (action === 'rev-play') {
       if (isAutoplaying()) { stopAutoplay(); renderReviewBar(); } else startAutoplay();
     }
+    else if (action === 'share-link' && net) { shareLink(); }
     else if (action === 'copy-link' && net) {
       navigator.clipboard.writeText(inviteLink(net.code)).catch(() => {});
       button.textContent = '✓';
@@ -1786,6 +1839,9 @@ export function mountPlay(outlet, params) {
       drawer.classList.toggle('is-on', drawerOpen);
       buildDrawerButton();
       showDrawerTab(drawerTab);
+      // The drawer now takes room from the board rather than covering it, so
+      // the board has to be told its frame changed.
+      setTimeout(() => refresh(true), 300);
     }
     else if (action === 'end-jump') { if (chain) finishChain(); }
     else if (action === 'cancel-jump') { chain = null; selected = null; clearEffect(); refresh(); }
@@ -1799,6 +1855,8 @@ export function mountPlay(outlet, params) {
     if (name === 'mode') { mode = control.value; aiRunning = false; newGame(); }
     else if (name === 'side') { humanSide = Number(control.value); newGame(); }
     else if (name === 'level') { level = Number(control.value); setSetting('aiLevel', level); refresh(); }
+    else if (name === 'levelBlack') { duelLevels[0] = Number(control.value); refresh(); }
+    else if (name === 'levelWhite') { duelLevels[1] = Number(control.value); refresh(); }
   }
 
   function onKey(event) {
@@ -1823,9 +1881,12 @@ export function mountPlay(outlet, params) {
     }
   }
 
-  tools.addEventListener('click', onToolClick);
-  tools.addEventListener('change', onToolChange);
-  toolsRight.addEventListener('click', onToolClick);
+  /* One listener each, on the view.
+   *
+   * The bar used to live in the site header, outside this container, so it
+   * needed listeners of its own. Now that it is inside, a second listener
+   * means every click is handled twice — which toggled the drawer open and
+   * straight back shut. */
   outlet.addEventListener('click', onToolClick);
   outlet.addEventListener('change', onToolChange);
   document.addEventListener('keydown', onKey);
@@ -1886,13 +1947,9 @@ export function mountPlay(outlet, params) {
     stopWatchingLanguage();
     document.removeEventListener('keydown', onKey);
     window.removeEventListener('resize', onResize);
-    // The header toolbar outlives the view, so its handlers must go with it.
+    /* The bar is part of this view now, so it goes when the view goes; only
+       the guard reaches outside. */
     setLeaveGuard(null);
-    tools.removeEventListener('click', onToolClick);
-    tools.removeEventListener('change', onToolChange);
-    toolsRight.removeEventListener('click', onToolClick);
-    tools.innerHTML = '';
-    toolsRight.innerHTML = '';
     delete window.__hexaequo;
   };
 }

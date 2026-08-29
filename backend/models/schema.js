@@ -214,6 +214,16 @@ CREATE INDEX IF NOT EXISTS idx_elo_history_user ON elo_history(user_id);
 -- ============================================
 -- Spectators Table
 -- ============================================
+CREATE TABLE IF NOT EXISTS lobby_messages (
+    id BIGSERIAL PRIMARY KEY,
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    pseudo VARCHAR(30) NOT NULL,          -- kept even if the account goes
+    text VARCHAR(300) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_lobby_messages_time ON lobby_messages(created_at DESC);
+
 CREATE TABLE IF NOT EXISTS spectators (
     id SERIAL PRIMARY KEY,
     room_code VARCHAR(8) REFERENCES rooms(code) ON DELETE CASCADE,
@@ -363,6 +373,17 @@ const migrations = `
     -- a Google sign-up, whose nickname really was invented for them.
     UPDATE users SET pseudo_chosen = TRUE
      WHERE password_hash IS NOT NULL AND pseudo_chosen IS NOT TRUE;
+
+    -- The lobby chat used to live only in memory, so every deploy and every
+    -- idle spin-down silently erased the conversation.
+    CREATE TABLE IF NOT EXISTS lobby_messages (
+        id BIGSERIAL PRIMARY KEY,
+        user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+        pseudo VARCHAR(30) NOT NULL,
+        text VARCHAR(300) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_lobby_messages_time ON lobby_messages(created_at DESC);
 `;
 
 async function createSchema() {

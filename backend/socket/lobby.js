@@ -11,19 +11,71 @@
  */
 
 const { createRoom, rooms } = require('./onlineGame');
+const { query } = require('../config/database');
 
 const PUSH_MS = 1000;                     // coalesce presence updates
 const CHALLENGE_TTL_MS = 60 * 1000;
 const CHAT_MAX_LENGTH = 300;
 const CHAT_MIN_INTERVAL_MS = 700;
-const CHAT_HISTORY = 80;
+const CHAT_HISTORY = 80;          // shown to someone arriving
+const CHAT_KEEP = 500;            // kept in the table behind that
 const LOBBY_ROOM = 'hx:lobby';
 
 /** userId → presence. One entry per account, however many tabs are open. */
 const present = new Map();
 /** id → { from, to, timeControl } while an invitation is outstanding. */
 const challenges = new Map();
+/*
+ * The last few things said, kept in memory for speed and in the database for
+ * keeps.
+ *
+ * It used to be memory alone, which meant every deploy and every idle
+ * spin-down quietly erased the conversation — someone came back to a room that
+ * claimed nothing had ever been said in it.
+ */
 const chat = [];
+
+/** Fill the cache from the database, once, at start-up. */
+async function loadChat() {
+    try {
+        const { rows } = await query(
+            `SELECT user_id, pseudo, text, created_at FROM lobby_messages
+             ORDER BY created_at DESC, id DESC LIMIT $1`,
+            [CHAT_HISTORY]
+        );
+        chat.length = 0;
+        for (const row of rows.reverse()) {
+            chat.push({
+                userId: row.user_id,
+                pseudo: row.pseudo,
+                text: row.text,
+                at: new Date(row.created_at).getTime(),
+            });
+        }
+    } catch (error) {
+        // A lobby with no history is still a working lobby.
+        console.error('[lobby] could not read the chat history:', error.message);
+    }
+}
+
+/** Write one message, and trim the table so it cannot grow without end. */
+async function rememberMessage(message) {
+    try {
+        await query(
+            'INSERT INTO lobby_messages (user_id, pseudo, text) VALUES ($1,$2,$3)',
+            [message.userId, message.pseudo, message.text]
+        );
+        if (Math.random() < 0.05) {
+            await query(
+                `DELETE FROM lobby_messages WHERE id NOT IN (
+                     SELECT id FROM lobby_messages ORDER BY id DESC LIMIT $1)`,
+                [CHAT_KEEP]
+            );
+        }
+    } catch (error) {
+        console.error('[lobby] could not store a message:', error.message);
+    }
+}
 
 let nextChallengeId = 1;
 
@@ -64,6 +116,7 @@ function roster() {
 
 function attachLobby(io) {
     let pushPending = false;
+    loadChat();
 
     /** Tell the lobby who is in it, at most once a second. */
     function announce() {
@@ -144,6 +197,7 @@ function attachLobby(io) {
             };
             chat.push(message);
             if (chat.length > CHAT_HISTORY) chat.shift();
+            rememberMessage(message);        // not awaited: saying it is what matters
             io.to(LOBBY_ROOM).emit('hx:lobby:chat', { message });
             reply(callback, { ok: true });
         });
@@ -262,6 +316,6 @@ function attachLobby(io) {
 }
 
 module.exports = {
-    attachLobby, present, challenges, chat, roster, isPlaying,
+    attachLobby, present, challenges, chat, roster, isPlaying, loadChat,
     CHALLENGE_TTL_MS, PUSH_MS,
 };

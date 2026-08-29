@@ -154,7 +154,9 @@ export function mountOnline(outlet) {
             <p class="lede">${t('online.codeLabel')}</p>
             <div class="room-code">${created.code}</div>
             <div class="row-actions">
-              <button class="btn btn--primary" data-action="copy">${t('online.copyLink')}</button>
+              ${navigator.share
+    ? `<button class="btn btn--primary" data-action="share">${t('online.share')}</button>` : ''}
+              <button class="btn${navigator.share ? '' : ' btn--primary'}" data-action="copy">${t('online.copyLink')}</button>
               <button class="btn" data-action="enter">${t('nav.play')}</button>
             </div>
             <p class="lede" style="margin-top:10px;word-break:break-all">${inviteLink(created.code)}</p>
@@ -369,6 +371,17 @@ export function mountOnline(outlet) {
 
     if (action === 'enter' && created) {
       navigate('play', { online: '1', code: created.code });
+      return;
+    }
+
+    if (action === 'share' && created) {
+      /* The device's own sheet: a link reaches a message or an email without
+         anybody having to find where it was copied to. */
+      try {
+        await navigator.share({
+          title: 'Hexaequo', text: t('online.shareText'), url: inviteLink(created.code),
+        });
+      } catch { /* dismissed, or refused by the platform */ }
       return;
     }
 
