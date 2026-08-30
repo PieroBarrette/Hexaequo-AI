@@ -49,21 +49,42 @@ const GAME_COLUMNS = `
     g.time_mode, g.winner, g.result_reason, g.started_at, g.finished_at,
     (SELECT count(*) FROM moves m WHERE m.game_id = g.id) AS plies`;
 
-/** Every game this player has been in, most recent first. */
-async function history(userId, { page = 1, limit = PAGE_SIZE } = {}) {
+/*
+ * Whether the rating moved for this player, written as SQL.
+ *
+ * "Rated" is not a column — it is what the two elo columns being filled means,
+ * the same test asSeenBy makes in JavaScript. Written once so the list and the
+ * count it is paged against can never disagree about what they are counting.
+ */
+const RATED_FOR = (p) => `
+    (CASE WHEN g.black_player_id = ${p} THEN g.black_elo_before ELSE g.white_elo_before END) IS NOT NULL
+AND (CASE WHEN g.black_player_id = ${p} THEN g.black_elo_after  ELSE g.white_elo_after  END) IS NOT NULL`;
+
+/**
+ * Every game this player has been in, most recent first.
+ *
+ * A visitor sees only the rated ones. An unrated game is a friendly — a game
+ * off a shared link, a game with no clock — and belongs to the two people who
+ * played it rather than to the record; listing them turned every casual game
+ * into something strangers could scroll through. Looking at your own profile,
+ * or asking through /me/games, still shows everything: they are your games.
+ */
+async function history(userId, { page = 1, limit = PAGE_SIZE } = {}, viewerId = userId) {
     const size = Math.min(MAX_PAGE_SIZE, Math.max(1, Number(limit) || PAGE_SIZE));
     const offset = (Math.max(1, Number(page) || 1) - 1) * size;
+    const mine = viewerId === userId;
+    const visible = mine ? '' : `AND (${RATED_FOR('$1')})`;
 
     const { rows } = await query(
         `SELECT ${GAME_COLUMNS} FROM games g
-         WHERE g.black_player_id = $1 OR g.white_player_id = $1
+         WHERE (g.black_player_id = $1 OR g.white_player_id = $1) ${visible}
          ORDER BY COALESCE(g.finished_at, g.started_at) DESC
          LIMIT $2 OFFSET $3`,
         [userId, size, offset]
     );
     const total = await query(
-        `SELECT count(*)::int AS n FROM games
-         WHERE black_player_id = $1 OR white_player_id = $1`,
+        `SELECT count(*)::int AS n FROM games g
+         WHERE (g.black_player_id = $1 OR g.white_player_id = $1) ${visible}`,
         [userId]
     );
     return {
@@ -150,6 +171,16 @@ async function replay(gameId, viewerId) {
     );
     if (!rows.length) return null;
     const game = rows[0];
+
+    /* An unrated game is the two players' own. Hiding it from the profile list
+       while still serving it to anyone holding the id would have been a
+       curtain rather than a door — the id is in the link you share to review
+       your own game. Rated games stay open: they are the record the
+       leaderboard rests on, and a record nobody can check is not one. */
+    const rated = game.black_elo_after !== null || game.white_elo_after !== null;
+    const played = viewerId
+        && (viewerId === game.black_player_id || viewerId === game.white_player_id);
+    if (!rated && !played) return null;
 
     const moves = await query(
         `SELECT intent, notation FROM moves

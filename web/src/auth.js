@@ -45,27 +45,56 @@ function announce() {
 /** The raw session token, for the socket handshake. */
 export const sessionToken = () => readToken();
 
-function readToken() {
-  try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
+/*
+ * "Stay signed in" decides which drawer the session goes in.
+ *
+ * localStorage outlives the browser, so the account comes back on its own the
+ * next time the app is opened. sessionStorage lasts as long as the tab and no
+ * longer, which is what someone signing in on a machine that is not theirs is
+ * asking for. The choice itself is remembered — the box should be as they left
+ * it — and defaults to on, because that was the only behaviour there was
+ * before the box existed and nobody should be signed out by an upgrade.
+ *
+ * Reads look in both, so a session started under one setting survives the
+ * setting being changed, and writes clear the other drawer so a token can
+ * never be left behind in the one that outlives the tab.
+ */
+const REMEMBER_KEY = 'hexaequo.remember';
+
+function readFlag(key) {
+  try { return localStorage.getItem(key) ?? sessionStorage.getItem(key); } catch { return null; }
 }
 
-function writeToken(value) {
+let remember = readFlag(REMEMBER_KEY) !== '0';
+
+export const staySignedIn = () => remember;
+
+/** Choose where the next session is kept. Moves the current one there too. */
+export function setStaySignedIn(on) {
+  remember = Boolean(on);
+  try { localStorage.setItem(REMEMBER_KEY, remember ? '1' : '0'); } catch { /* no store */ }
+  const token = readToken();
+  const refresh = readRefresh();
+  writeToken(token);
+  writeRefresh(refresh);
+}
+
+const store = () => (remember ? localStorage : sessionStorage);
+const other = () => (remember ? sessionStorage : localStorage);
+
+function put(key, value) {
   try {
-    if (value) localStorage.setItem(TOKEN_KEY, value);
-    else localStorage.removeItem(TOKEN_KEY);
+    other().removeItem(key);
+    if (value) store().setItem(key, value);
+    else store().removeItem(key);
   } catch { /* private browsing: the session just will not survive a reload */ }
 }
 
-function readRefresh() {
-  try { return localStorage.getItem(REFRESH_KEY); } catch { return null; }
-}
+function readToken() { return readFlag(TOKEN_KEY); }
+function writeToken(value) { put(TOKEN_KEY, value); }
 
-function writeRefresh(value) {
-  try {
-    if (value) localStorage.setItem(REFRESH_KEY, value);
-    else localStorage.removeItem(REFRESH_KEY);
-  } catch { /* as above */ }
-}
+function readRefresh() { return readFlag(REFRESH_KEY); }
+function writeRefresh(value) { put(REFRESH_KEY, value); }
 
 /**
  * Trade the refresh token for a new session.

@@ -250,6 +250,47 @@ async function run() {
         solo.disconnect();
     });
 
+    await test("a friendly is yours to see and nobody else's", async () => {
+        /* Unrated means it never touched the leaderboard, so there is nothing
+           in it for a visitor to check and no reason for them to be reading
+           it. The player who played it still has all of it. */
+        const mine = await profile.history(black.user.id, {}, black.user.id);
+        const theirs = await profile.history(black.user.id, {}, white.user.id);
+        const anonymous = await profile.history(black.user.id, {}, null);
+
+        assert.strictEqual(mine.total, 2, 'my own history keeps the friendly');
+        assert.ok(mine.games.some((g) => !g.rated), 'and it is in the list');
+
+        assert.strictEqual(theirs.total, 1, 'a visitor is shown only the rated game');
+        assert.ok(theirs.games.every((g) => g.rated), 'nothing unrated leaks into the list');
+        assert.strictEqual(anonymous.total, 1, 'and signed out sees the same');
+
+        /* The count is what the pager trusts. A filtered list under an
+           unfiltered total would page into emptiness. */
+        assert.strictEqual(theirs.total, theirs.games.length,
+            'the total counts the same games the list shows');
+    });
+
+    await test('a friendly cannot be replayed by someone who was not in it', async () => {
+        const friendly = (await profile.history(black.user.id, {}, black.user.id))
+            .games.find((g) => !g.rated);
+        assert.ok(friendly, 'there is a friendly to ask for');
+
+        assert.ok(await profile.replay(friendly.id, black.user.id),
+            'the player who played it can read it back');
+        assert.strictEqual(await profile.replay(friendly.id, white.user.id), null,
+            'another player cannot, even knowing the id');
+        assert.strictEqual(await profile.replay(friendly.id, null), null,
+            'nor can a signed-out reader');
+
+        /* Hiding it from the list while still serving it by id would be a
+           curtain rather than a door: that id travels in the review link. */
+        assert.ok(await profile.replay(stored, white.user.id),
+            'a rated game stays readable — the record has to be checkable');
+        assert.ok(await profile.replay(stored, null),
+            'by anyone at all, signed in or not');
+    });
+
     await test('two players can see how they have fared against each other', async () => {
         /* The head-to-head is the same story told from two sides: what one
            won, the other lost. Only their games against each other count —

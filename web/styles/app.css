@@ -981,6 +981,12 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
 /* ── Signing in, and the profile ─────────────────────────────────────────── */
 
 .auth-form { display: flex; flex-direction: column; gap: 8px; margin: 14px 0 4px; }
+/* The whole line is the target: a 13px box is smaller than a fingertip lands. */
+.auth-remember {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  color: var(--muted); font-size: 13px; padding: 2px 0;
+}
+.auth-remember input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
 .auth-input {
   text-align: left; font-weight: 400; background: var(--bg);
   font-size: 15px; padding: 10px 12px;

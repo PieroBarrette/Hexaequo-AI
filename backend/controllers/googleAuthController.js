@@ -58,13 +58,24 @@ exports.setPseudo = async (req, res, next) => {
 /**
  * GET /api/auth/pseudo-available?pseudo=… — so the form can react as you type
  * rather than only on submit.
+ *
+ * Answers signed out too, because that is when it matters most: the sign-up
+ * form asks while the nickname is being typed, and there is no account yet to
+ * ask on behalf of. It tells a stranger only whether a nickname is taken,
+ * which the leaderboard and the lobby say out loud anyway, and the general
+ * rate limit still applies.
+ *
+ * Signed in, your own nickname is not counted against you, so re-saving the
+ * one you already have does not come back as unavailable.
  */
 exports.pseudoAvailable = async (req, res, next) => {
     try {
         const pseudo = googleAuth.normalisePseudo(req.query.pseudo);
+        const me = req.user ? req.user.id : null;
         const { rows } = await query(
-            'SELECT 1 FROM users WHERE lower(pseudo) = lower($1) AND id <> $2 LIMIT 1',
-            [pseudo, req.user.id]
+            `SELECT 1 FROM users
+             WHERE lower(pseudo) = lower($1) AND ($2::uuid IS NULL OR id <> $2::uuid) LIMIT 1`,
+            [pseudo, me]
         );
         res.json({ pseudo, available: rows.length === 0 });
     } catch (error) {

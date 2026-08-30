@@ -1,9 +1,11 @@
 /**
  * A player's own record, history and games.
  *
- * Stats and history are public — a leaderboard that hides the games behind it
- * is not much of a leaderboard — but a game is only readable by someone who
- * played it or by anyone once it is over, which is every game we store.
+ * Stats are public and so are rated games — a leaderboard that hides the games
+ * behind it is not much of a leaderboard. Unrated games are not: a friendly
+ * belongs to the two who played it, so it is left out of a visitor's view of
+ * the history and refused to a stranger asking for it by id. Your own profile,
+ * and /me, still show everything you have played.
  */
 
 const express = require('express');
@@ -60,10 +62,12 @@ router.get('/:id', optionalAuth, async (req, res, next) => {
     } catch (error) { next(error); }
 });
 
-router.get('/:id/games', async (req, res, next) => {
+/* optionalAuth so the service can tell whose history is being read: your own
+   is all of it, someone else's is the rated games only. */
+router.get('/:id/games', optionalAuth, async (req, res, next) => {
     try {
         if (notAnId(res, req.params.id)) return;
-        res.json(await profile.history(req.params.id, req.query));
+        res.json(await profile.history(req.params.id, req.query, req.user ? req.user.id : null));
     } catch (error) { next(error); }
 });
 

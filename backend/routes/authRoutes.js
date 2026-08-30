@@ -5,7 +5,7 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
-const { authenticate } = require('../middleware/authMiddleware');
+const { authenticate, optionalAuth } = require('../middleware/authMiddleware');
 const { authLimiter, passwordResetLimiter } = require('../config/rateLimit');
 const { validate, schemas } = require('../middleware/validationMiddleware');
 
@@ -69,6 +69,6 @@ router.get('/config', googleAuthController.config);
 router.post('/google', authLimiter, googleAuthController.signInWithGoogle);
 router.get('/me', authenticate, googleAuthController.me);
 router.put('/pseudo', authenticate, googleAuthController.setPseudo);
-router.get('/pseudo-available', authenticate, googleAuthController.pseudoAvailable);
+router.get('/pseudo-available', optionalAuth, googleAuthController.pseudoAvailable);
 
 module.exports = router;

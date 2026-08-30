@@ -17,6 +17,7 @@ import {
   currentUser, isSignedIn, mustChoosePseudo, renderGoogleButton,
   chooseNickname, nicknameAvailable, signOut, onAuthChange,
   signUpWithEmail, signInWithEmail, requestPasswordReset,
+  staySignedIn, setStaySignedIn,
 } from '../auth.js';
 
 export function mountAccount(outlet) {
@@ -78,12 +79,17 @@ export function mountAccount(outlet) {
         </form>`;
     }
     if (door === 'up') {
+      /* The nickname is answered while it is typed, in the same place and the
+         same words the rename form uses, so the one rule that can reject a
+         sign-up is settled before the button is pressed rather than after. */
       return `
         <form class="auth-form" data-form="up">
           <input class="btn auth-input" type="email" name="email" autocomplete="email"
                  required placeholder="${t('account.email')}">
-          <input class="btn auth-input" name="pseudo" autocomplete="nickname" required
-                 maxlength="20" spellcheck="false" placeholder="${t('account.nickname')}">
+          <input class="btn auth-input" name="pseudo" data-input="pseudo" autocomplete="nickname"
+                 required maxlength="20" spellcheck="false" placeholder="${t('account.nickname')}">
+          <p class="lede nickname-hint" style="min-height:1.4em;margin:-4px 0 0">${
+            hint || t('account.nicknameRules')}</p>
           <input class="btn auth-input" type="password" name="password" required
                  minlength="8" autocomplete="new-password" placeholder="${t('account.passwordNew')}">
           <button class="btn btn--primary" type="submit" ${busy ? 'disabled' : ''}>
@@ -97,6 +103,10 @@ export function mountAccount(outlet) {
                required placeholder="${t('account.email')}">
         <input class="btn auth-input" type="password" name="password" required
                autocomplete="current-password" placeholder="${t('account.password')}">
+        <label class="auth-remember">
+          <input type="checkbox" name="remember" ${staySignedIn() ? 'checked' : ''}>
+          <span>${t('account.staySignedIn')}</span>
+        </label>
         <button class="btn btn--primary" type="submit" ${busy ? 'disabled' : ''}>
           ${busy ? t('online.connecting') : t('account.signIn')}
         </button>
@@ -117,6 +127,7 @@ export function mountAccount(outlet) {
         <p class="lede" style="font-size:12px;margin-top:18px">${t('account.whyGoogle')}</p>
       </div></div>`;
 
+    restoreTyped();
     const host = outlet.querySelector('#google-button');
     if (googleFailed) {
       host.innerHTML = `<p class="lede">${t('account.googleUnavailable')}</p>`;
@@ -130,6 +141,31 @@ export function mountAccount(outlet) {
   }
 
   /* ── Rendering ────────────────────────────────────────────────────────── */
+
+  /*
+   * What has been typed, kept across redraws.
+   *
+   * render() rebuilds the panel wholesale, and submitting redraws twice — once
+   * to grey the button, once to show what went wrong. Both wiped the fields,
+   * so a sign-up rejected over its nickname handed back an empty form and the
+   * address and password had to be typed again. The values are restored as
+   * properties rather than written into the markup, which keeps the password
+   * out of the HTML and out of anything that reads it.
+   */
+  const typed = Object.create(null);
+
+  function restoreTyped() {
+    for (const field of outlet.querySelectorAll('.auth-form [name]')) {
+      if (field.type === 'checkbox') continue;
+      const kept = typed[field.name];
+      if (kept !== undefined) field.value = kept;
+    }
+  }
+
+  outlet.addEventListener('input', (event) => {
+    const field = event.target.closest('.auth-form [name]');
+    if (field && field.type !== 'checkbox') typed[field.name] = field.value;
+  });
 
   function render() {
     const user = currentUser();
@@ -212,6 +248,13 @@ export function mountAccount(outlet) {
       const field = form.querySelector(`[name="${name}"]`);
       return field ? field.value.trim() : '';
     };
+    const checked = (name) => {
+      const field = form.querySelector(`[name="${name}"]`);
+      return field ? field.checked : false;
+    };
+
+    /* Read before the redraw, since the redraw builds new fields. */
+    if (which === 'in') setStaySignedIn(checked('remember'));
 
     busy = true;
     error = null;
@@ -293,7 +336,13 @@ export function mountAccount(outlet) {
       if (!label) return;
       try {
         const answer = await nicknameAvailable(value);
-        hint = answer.available ? t('account.nicknameFree') : (answer.reason || t('account.nicknameTaken'));
+        /* A `reason` means the name is the wrong shape, and the server says so
+           in English — it has no idea who is reading. The rules line says the
+           same thing in the reader's language, so use ours and keep the
+           server's for the one thing it knows and we do not: already taken. */
+        if (answer.available) hint = t('account.nicknameFree');
+        else if (answer.reason) hint = t('account.nicknameRules');
+        else hint = t('account.nicknameTaken');
       } catch {
         hint = t('account.nicknameRules');
       }
@@ -302,8 +351,15 @@ export function mountAccount(outlet) {
     }, 350);
   });
 
+  /* Only the rename and pick-a-nickname forms, which have no submit button of
+     their own. The sign-up form carries the same field so it gets the same
+     live answer, but it is a real form — Enter belongs to it, and save() would
+     try to change the nickname of an account that does not exist yet. */
   outlet.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' && event.target.closest('[data-input="pseudo"]')) save();
+    if (event.key !== 'Enter') return;
+    if (!event.target.closest('[data-input="pseudo"]')) return;
+    if (event.target.closest('.auth-form')) return;
+    save();
   });
 
   render();
