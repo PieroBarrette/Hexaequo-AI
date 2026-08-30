@@ -364,7 +364,8 @@
     "empty": "Dites bonjour à votre adversaire.",
     "unread": "{n} message(s) non lu(s)",
     "andMore": "+{n} autres",
-    "andMoreOne": "+{n} autre"
+    "andMoreOne": "+{n} autre",
+    "lasts": "Les messages du salon disparaissent après 24 heures."
   },
   "lobby": {
     "title": "Salon",
@@ -385,7 +386,7 @@
     "declined": "Défi refusé",
     "expired": "Le défi a expiré",
     "count": "{n} en ligne",
-    "quiet": "Rien n'a encore été dit.",
+    "quiet": "Rien n’a été dit depuis 24 heures.",
     "signInToTalk": "Connectez-vous pour écrire",
     "noClockNoChallenge": "Choisissez une cadence plus haut pour pouvoir défier quelqu’un."
   },

@@ -16,6 +16,10 @@ import { openPanel } from '../ui/panels.js';
 
 const cadenceLabel = (id) => t('online.cadence' + id.charAt(0).toUpperCase() + id.slice(1));
 
+/* The same day the server keeps, so the two never disagree about what is
+   still here. */
+const CHAT_LIFETIME_MS = 24 * 60 * 60 * 1000;
+
 const escapeText = (value) => String(value).replace(/[&<>"']/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -80,6 +84,7 @@ export function mountLobby(host, readCadence = () => 'rapid') {
       </div>` : ''}
       <div class="rule-block chat-block">
         <div class="chat-log lobby-chat">${chatRows()}</div>
+        <p class="lede chat-note">${t('chat.lasts')}</p>
         ${isSignedIn() ? `
         <form class="chat-form">
           <input class="btn chat-input" maxlength="300" autocomplete="off"
@@ -148,9 +153,14 @@ export function mountLobby(host, readCadence = () => 'rapid') {
   }
 
   function chatRows() {
-    if (!messages.length) return `<p class="lede">${t('lobby.quiet')}</p>`;
+    /* Filtered here as well as on the server: somebody who leaves the page
+       open all day should watch the morning fall off the top without needing
+       anybody else to say something first. */
+    const cutoff = Date.now() - CHAT_LIFETIME_MS;
+    const said = messages.filter((message) => message.at >= cutoff);
+    if (!said.length) return `<p class="lede">${t('lobby.quiet')}</p>`;
     const mine = me();
-    return messages.map((message) =>
+    return said.map((message) =>
       `<div class="chat-line${message.userId === mine ? ' is-mine' : ''}">`
       + `<span class="chat-who">${escapeText(message.pseudo)}</span>`
       + `<span class="chat-text">${escapeText(message.text)}</span></div>`).join('');

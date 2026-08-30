@@ -364,7 +364,8 @@
     "empty": "Say hello to your opponent.",
     "unread": "{n} unread message(s)",
     "andMore": "+{n} more",
-    "andMoreOne": "+{n} more"
+    "andMoreOne": "+{n} more",
+    "lasts": "Anything said here is gone after 24 hours."
   },
   "lobby": {
     "title": "Lobby",
@@ -385,7 +386,7 @@
     "declined": "Challenge declined",
     "expired": "The challenge expired",
     "count": "{n} online",
-    "quiet": "Nothing said yet.",
+    "quiet": "Nothing has been said in the last 24 hours.",
     "signInToTalk": "Sign in to write",
     "noClockNoChallenge": "Pick a time control above to challenge somebody."
   },

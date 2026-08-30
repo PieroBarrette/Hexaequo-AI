@@ -186,6 +186,30 @@ async function run() {
         c.disconnect();
     });
 
+    await test('the room forgets what was said a day ago', async () => {
+        /* A lobby is a room people pass through, not a record. Nothing is
+           deleted for this — the rows stay and the table trims itself by
+           count; they are simply no longer read or shown. */
+        reset();
+        const older = Date.now() - (25 * 60 * 60 * 1000);
+        lobby.chat.push({ userId: null, pseudo: 'Yesterday', text: 'old news', at: older });
+        lobby.chat.push({ userId: null, pseudo: 'Today', text: 'still here', at: Date.now() });
+        lobby.pruneChat();
+        assert.strictEqual(lobby.chat.length, 1, 'the old one is gone');
+        assert.strictEqual(lobby.chat[0].text, 'still here');
+
+        /* And the same cutoff on the way out of the database, computed in SQL
+           so the app's own clock cannot disagree with the column's. */
+        await query(
+            `INSERT INTO lobby_messages (user_id, pseudo, text, created_at)
+             VALUES (NULL, $1, $2, NOW() - interval '30 hours')`,
+            ['Yesterday', 'older than a day']
+        );
+        await lobby.loadChat();
+        assert.ok(!lobby.chat.some((m) => m.text === 'older than a day'),
+            'a message from before the cutoff is not read back');
+    });
+
     await test('the conversation survives the server being restarted', async () => {
         reset();
         await query("DELETE FROM lobby_messages WHERE pseudo LIKE 'LobbyTest%'");

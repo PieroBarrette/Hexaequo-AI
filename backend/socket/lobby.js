@@ -25,6 +25,14 @@ const CHAT_MAX_LENGTH = 300;
 const CHAT_MIN_INTERVAL_MS = 700;
 const CHAT_HISTORY = 80;          // shown to someone arriving
 const CHAT_KEEP = 500;            // kept in the table behind that
+/*
+ * How long anything said here lasts.
+ *
+ * A lobby is a room people pass through, not a record. A day is long enough
+ * that somebody coming back in the evening still sees the morning, and short
+ * enough that nobody arrives to a wall of last week.
+ */
+const CHAT_LIFETIME_MS = 24 * 60 * 60 * 1000;
 const LOBBY_ROOM = 'hx:lobby';
 
 /** userId → presence. One entry per account, however many tabs are open. */
@@ -65,13 +73,27 @@ function liveGames() {
     return out.sort((a, b) => b.plies - a.plies);
 }
 
-/** Fill the cache from the database, once, at start-up. */
+/** Drop anything said more than a day ago. */
+function pruneChat() {
+    const cutoff = Date.now() - CHAT_LIFETIME_MS;
+    let keep = 0;
+    while (keep < chat.length && chat[keep].at < cutoff) keep++;
+    if (keep) chat.splice(0, keep);
+}
+
+/**
+ * Fill the cache from the database, once, at start-up.
+ *
+ * The rows older than a day stay where they are — the table trims itself by
+ * count, and nothing here deletes anybody's data — they are simply not read.
+ */
 async function loadChat() {
     try {
         const { rows } = await query(
             `SELECT user_id, pseudo, text, created_at FROM lobby_messages
+             WHERE created_at > NOW() - $2::interval
              ORDER BY created_at DESC, id DESC LIMIT $1`,
-            [CHAT_HISTORY]
+            [CHAT_HISTORY, `${Math.round(CHAT_LIFETIME_MS / 1000)} seconds`]
         );
         chat.length = 0;
         for (const row of rows.reverse()) {
@@ -235,6 +257,7 @@ function attachLobby(io) {
         socket.on('hx:lobby:enter', (payload, callback) => {
             const user = socket.data.user;
             socket.join(LOBBY_ROOM);
+            pruneChat();
             if (!user) {
                 return reply(callback, {
                     ok: true, players: roster(), games: liveGames(), chat, you: null,
@@ -284,6 +307,7 @@ function attachLobby(io) {
                 at: now,
             };
             chat.push(message);
+            pruneChat();
             if (chat.length > CHAT_HISTORY) chat.shift();
             rememberMessage(message);        // not awaited: saying it is what matters
             io.to(LOBBY_ROOM).emit('hx:lobby:chat', { message });
@@ -488,5 +512,6 @@ function attachLobby(io) {
 
 module.exports = {
     attachLobby, present, challenges, agreements, chat, roster, liveGames, loadChat,
+    pruneChat, CHAT_LIFETIME_MS,
     CHALLENGE_TTL_MS, PUSH_MS,
 };

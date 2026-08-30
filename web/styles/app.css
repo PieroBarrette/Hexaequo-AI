@@ -158,6 +158,8 @@ select.btn option {
 /* Neither way of playing is the main one, so they sit side by side under a
    heading that is a label rather than a third button. */
 /* The two ways into an online game, given the same weight. */
+.chat-note { font-size: 11.5px; margin: 8px 0 0; opacity: .75; }
+
 .online-doors { display: flex; gap: 8px; flex-wrap: wrap; }
 .online-doors .btn { flex: 1 1 160px; min-width: 0; min-height: var(--tap); }
 
