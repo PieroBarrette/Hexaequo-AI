@@ -225,14 +225,28 @@ const VOICES = {
     });
   },
 
-  /** A game that ended in neither: level, and short. */
+  /**
+   * ExAequo: the same note three times, going nowhere.
+   *
+   * Winning rises and losing falls; a draw is the third answer and should sound
+   * like one, not like a shortened version of either — which is what two notes
+   * a fourth apart made it. So it borrows their tempo, the same endGap between
+   * strikes and the same three of them, and spends it on one pitch held level.
+   * Nothing gained, nothing lost, and the ear hears that without being told.
+   *
+   * The middle note of the chord: the low one is where losing settles and the
+   * high one is where winning arrives, so neither of those is neutral. Equal
+   * peak and equal decay throughout, because identical is the whole idea — a
+   * swell or a fade would tilt it back towards one of the other two.
+   */
   draw(at) {
     const m = material();
-    m.chord.slice(0, 2).forEach((freq, i) => {
+    const freq = m.chord[1];
+    for (let i = 0; i < 3; i++) {
       strike(at + i * m.endGap, {
-        freq: freq * 0.75, peak: 0.17, decay: m.endDecay, type: m.endTone, bend: 0.995,
+        freq, peak: 0.19, decay: m.endDecay, type: m.endTone, bend: 0.999,
       });
-    });
+    }
   },
 
   /**
