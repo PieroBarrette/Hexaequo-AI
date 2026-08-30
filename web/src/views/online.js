@@ -24,6 +24,7 @@ import { request, connect, listen, inviteLink, identify } from '../net.js';
 import { play as playSound } from '../audio.js';
 import { isSignedIn, onAuthChange, sessionToken } from '../auth.js';
 import { openPanel } from '../ui/panels.js';
+import { myGameCode } from '../ui/challenge.js';
 import { mountLobby } from './lobby.js';
 import { qrSvg } from '../ui/qr.js';
 
@@ -53,8 +54,15 @@ export function mountOnline(outlet) {
 
   /** Null when not searching; otherwise the last status the server sent. */
   let search = null;
-  /** The code of a game of yours still unfinished, when there is one. */
-  let liveCode = null;
+  /*
+   * The code of a game of yours still unfinished, when there is one.
+   *
+   * Seeded from what the chip already knows, because the chip stands down on
+   * this page and something has to be holding the door in the meantime.
+   * Waiting for our own answer would have shown the two ways in for as long as
+   * the round trip took, with nothing anywhere offering the way back.
+   */
+  let liveCode = myGameCode();
   let ticker = null;
   const unsubscribe = [];
 

@@ -61,10 +61,30 @@ function inMyGame() {
   return String(params.get('code') || '').toUpperCase() === myGame.code;
 }
 
+/**
+ * The code of a game of ours still running, for a page that would rather carry
+ * the way back itself. Read rather than asked for a second time: two answers to
+ * one question can disagree, and the page would be drawing the gap between
+ * them.
+ */
+export const myGameCode = () => (myGame ? myGame.code : null);
+
+/*
+ * Whether the page in front of us already carries the same door.
+ *
+ * The online page puts "rejoin your game" exactly where its two ways in would
+ * be, so the chip there would be the same button twice on one screen. Nowhere
+ * else does, so nowhere else loses it.
+ */
+function pageOffersTheWayBack() {
+  const [name] = (window.location.hash || '').replace(/^#\/?/, '').split('?');
+  return name === 'online';
+}
+
 function render() {
   if (!host) return;
   const chip = agreed && !watchingTheDeal();
-  const back = myGame && !inMyGame();
+  const back = myGame && !inMyGame() && !pageOffersTheWayBack();
   if (!incoming && !outgoing && !chip && !back && !notice) {
     host.hidden = true; host.innerHTML = ''; return;
   }
