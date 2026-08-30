@@ -32,6 +32,21 @@ export function onAuthChange(fn) {
   return () => listeners.delete(fn);
 }
 
+/**
+ * A rating that has just moved.
+ *
+ * The session carries the number the header shows, and it was only ever filled
+ * when the session was fetched — so finishing a rated game left the chip on the
+ * old rating while the profile, which asks the server, showed the new one. The
+ * same number in two places disagreeing is worse than either being late.
+ * Everything that draws it listens for this already.
+ */
+export function ratingChanged(elo) {
+  if (!account || typeof elo !== 'number' || account.elo === elo) return;
+  account.elo = elo;
+  announce();
+}
+
 function announce() {
   // Keep an open socket in step with the session, so signing in mid-visit
   // upgrades the connection instead of needing a reconnect. Only when one is

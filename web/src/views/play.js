@@ -25,7 +25,7 @@ import {
 } from '../game/moves.js';
 import { chooseMove, judge, DISK_POINTS } from '../game/ai.js';
 import { request, listen, connect, identify } from '../net.js';
-import { sessionToken, api, isSignedIn, onAuthChange } from '../auth.js';
+import { sessionToken, api, isSignedIn, onAuthChange, ratingChanged } from '../auth.js';
 import { offerPosition, takePosition } from '../handoff.js';
 import { openPanel } from '../ui/panels.js';
 
@@ -972,6 +972,11 @@ export function mountPlay(outlet, params) {
     net.unsubscribe.push(listen('hx:rated', (payload) => {
       if (!net || payload.code !== net.code) return;
       net.ratings = payload.ratings || null;
+      /* The rating the header is showing has just changed. Told here, where the
+         new one arrives, rather than left for the next page load — the chip and
+         the profile were disagreeing about the same number. */
+      const mine = net.ratings && net.colour !== null ? net.ratings[net.colour] : null;
+      if (mine && typeof mine.after === 'number') ratingChanged(mine.after);
       renderResult();
     }));
     net.unsubscribe.push(listen('hx:chat', (payload) => {

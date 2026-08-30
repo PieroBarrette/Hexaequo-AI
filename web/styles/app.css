@@ -1229,3 +1229,13 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
 .review-explore::before { content: '⌥'; margin-right: 5px; font-weight: 400; }
 .review-bar.is-exploring .review-explore { border-color: var(--accent); color: var(--accent); }
 .review-resume:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+
+/* One tap each, on one line under the box. Deliberately not a picker: a panel
+   to open and a grid to hunt through is a lot of machinery for a wave. */
+.chat-emoji { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.chat-emoji .emoji {
+  background: none; border: 1px solid transparent; border-radius: var(--radius-sm);
+  font-size: 17px; line-height: 1; padding: 3px 5px; cursor: pointer;
+  opacity: .75; transition: opacity .15s var(--ease), border-color .15s var(--ease);
+}
+.chat-emoji .emoji:hover { opacity: 1; border-color: var(--line); }

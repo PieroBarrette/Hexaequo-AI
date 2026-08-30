@@ -16,6 +16,11 @@ import { openPanel } from '../ui/panels.js';
 
 const cadenceLabel = (id) => t('online.cadence' + id.charAt(0).toUpperCase() + id.slice(1));
 
+/* Eight, and no more: greeting, good game, well played, thinking, and the two
+   or three things people actually say over a board. A picker would be a panel
+   to open and a list to scroll for something that is meant to take one tap. */
+const EMOJI = ['👋', '🙂', '😅', '🤔', '👏', '🔥', '😮', '🙃'];
+
 /* The same day the server keeps, so the two never disagree about what is
    still here. */
 const CHAT_LIFETIME_MS = 24 * 60 * 60 * 1000;
@@ -90,7 +95,12 @@ export function mountLobby(host, readCadence = () => 'rapid') {
           <input class="btn chat-input" maxlength="300" autocomplete="off"
                  placeholder="${t('chat.placeholder')}">
           <button class="btn btn--primary" type="submit">${t('chat.send')}</button>
-        </form>` : `
+        </form>
+        <!-- A short row rather than a picker: eight that cover most of what
+             gets said over a board, on one line, costing no space when unused
+             and no dependency at all. -->
+        <div class="chat-emoji">${EMOJI.map((e) =>
+    `<button type="button" class="emoji" data-emoji="${e}">${e}</button>`).join('')}</div>` : `
         <div class="row-actions">
           <button class="btn btn--sm" data-action="sign-in">${t('lobby.signInToTalk')}</button>
         </div>`}
@@ -236,8 +246,21 @@ export function mountLobby(host, readCadence = () => 'rapid') {
    * dead.
    */
   host.addEventListener('click', async (event) => {
-    const mine = event.target.closest('[data-challenge], [data-action], [data-watch], [data-rejoin]');
+    const mine = event.target.closest('[data-challenge], [data-action], [data-watch], [data-rejoin], [data-emoji]');
     if (mine && host.contains(mine)) event.stopPropagation();
+
+    /* Into the box, not straight out as a message: an emoji is usually the end
+       of a sentence rather than the whole of one, and sending on tap would make
+       the row a way to say exactly one thing by accident. */
+    const emoji = event.target.closest('[data-emoji]');
+    if (emoji) {
+      const field = host.querySelector('.chat-input');
+      if (!field) return;
+      const mark = emoji.getAttribute('data-emoji');
+      field.value = (field.value + mark).slice(0, 300);
+      field.focus();
+      return;
+    }
 
     const back = event.target.closest('[data-rejoin]');
     if (back) {

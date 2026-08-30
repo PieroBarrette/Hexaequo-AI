@@ -107,6 +107,10 @@ const online = new Map();
 function isPlaying(userId) {
     for (const room of rooms.values()) {
         if (room.result) continue;
+        /* An invitation nobody has followed is not a game, so it does not turn
+           the light amber. Sitting alone in a room you opened is waiting, and
+           the light that says "at a board" should mean somebody is opposite. */
+        if (!room.everFull) continue;
         for (let seat = 0; seat < 2; seat++) {
             const player = room.players[seat];
             if (player && player.userId === userId && room.seats[seat]) return true;
@@ -147,6 +151,10 @@ function statusOf(userId) {
  * Watching is per socket and by name, so a page showing one player is not sent
  * the comings and goings of everyone else.
  */
+/* Anyone who keeps a list of who is about, so it can be told when that moves. */
+const presenceListeners = new Set();
+function onPresenceChange(fn) { presenceListeners.add(fn); return () => presenceListeners.delete(fn); }
+
 function announcePresence(io, userId) {
     const status = statusOf(userId);
     for (const socket of io.sockets.sockets.values()) {
@@ -154,6 +162,9 @@ function announcePresence(io, userId) {
         if (watching && watching.has(userId)) {
             socket.emit('hx:presence', { statuses: { [userId]: status } });
         }
+    }
+    for (const fn of presenceListeners) {
+        try { fn(userId, status); } catch { /* a bad listener must not stop the rest */ }
     }
 }
 
@@ -1028,6 +1039,6 @@ function attachOnlineGames(io) {
 
 module.exports = {
     attachOnlineGames, rooms, createRoom, publicView, isRated,
-    online, statusOf, isPlaying, roomOf, announcePresence, onGameFinished,
+    online, statusOf, isPlaying, roomOf, announcePresence, onGameFinished, onPresenceChange,
     RECONNECT_GRACE_MS, TIME_CONTROLS,
 };

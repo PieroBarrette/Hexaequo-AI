@@ -11,7 +11,7 @@ const { Server } = require('socket.io');
 const { io: connect } = require('socket.io-client');
 const { pool, query } = require('../config/database');
 const { JWT_SECRET, JWT_EXPIRES_IN } = require('../config/env');
-const { attachOnlineGames, rooms } = require('../socket/onlineGame');
+const { attachOnlineGames, rooms, online } = require('../socket/onlineGame');
 const lobby = require('../socket/lobby');
 
 let passed = 0;
@@ -72,6 +72,9 @@ async function run() {
         socket.on('connect_error', reject);
     });
     const reset = () => {
+        /* The roster is read from who is signed in, so a socket left over from
+           an earlier test is a name left over in the list. */
+        online.clear();
         lobby.present.clear();
         lobby.challenges.clear();
         lobby.agreements.clear();
@@ -120,9 +123,13 @@ async function run() {
         await ask(a, 'hx:identify', { token: one.token });
         await ask(b, 'hx:identify', { token: two.token });
 
+        /* Both are signed in, so both are on the list — the second has not
+           opened the lobby and does not have to. Being reachable is what puts
+           you there; a challenge finds a person wherever they are, and the list
+           used to be the only thing pretending otherwise. */
         const first = await ask(a, 'hx:lobby:enter', {});
         assert.ok(first.ok);
-        assert.strictEqual(first.players.length, 1, 'alone at first');
+        assert.strictEqual(first.players.length, 2, 'everyone signed in, not everyone here');
 
         const second = await ask(b, 'hx:lobby:enter', {});
         assert.strictEqual(second.players.length, 2);
@@ -480,6 +487,31 @@ async function run() {
         a.disconnect();
         b.disconnect();
         c.disconnect();
+    });
+
+    await test('an invitation nobody has followed does not turn the light amber', async () => {
+        /* Amber means somebody is opposite you. Sitting alone in a room you
+           opened is waiting, and it left you looking busy to the very people
+           the invitation was meant to reach. */
+        reset();
+        const host = await makeUser('v');
+        const a = await open();
+        await ask(a, 'hx:identify', { token: host.token });
+        await ask(a, 'hx:lobby:enter', {});
+
+        const created = await ask(a, 'hx:create', { timeControl: 'none' });
+        const waiting = lobby.roster().find((p) => p.userId === host.user.id);
+        assert.ok(waiting, 'still on the list');
+        assert.strictEqual(waiting.playing, false, 'waiting is not playing');
+
+        const b = await open();
+        await ask(b, 'hx:join', { code: created.code });
+        const started = lobby.roster().find((p) => p.userId === host.user.id);
+        assert.strictEqual(started.playing, true, 'somebody came: now it is a game');
+
+        rooms.delete(created.code);
+        a.disconnect();
+        b.disconnect();
     });
 
     await test('the roster says who is in a game', async () => {

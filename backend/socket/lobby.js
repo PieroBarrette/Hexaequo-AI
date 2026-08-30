@@ -11,7 +11,7 @@
  */
 
 const {
-    createRoom, rooms, online, statusOf, isPlaying, roomOf, onGameFinished,
+    createRoom, rooms, online, statusOf, isPlaying, roomOf, onGameFinished, onPresenceChange,
 } = require('./onlineGame');
 const { query } = require('../config/database');
 
@@ -131,21 +131,32 @@ async function rememberMessage(message) {
 
 let nextChallengeId = 1;
 
-/**
- * Whether this player is in a game right now.
+/*
+ * Who is here, and what each of them is doing.
  *
- * Read off the live rooms rather than tracked separately: two sources of truth
- * about the same thing would drift, and a stale "available" is a worse lie than
- * a scan of a handful of rooms.
+ * Whether somebody is at a board is read off the live rooms rather than tracked
+ * separately: two sources of truth about the same thing would drift, and a
+ * stale "available" is a worse lie than a scan of a handful of rooms.
+ *
+ * Everyone signed in, not everyone standing in the lobby.
+ *
+ * It listed only the sockets that had the online page open, so a player
+ * halfway through a local game was invisible and could not be challenged —
+ * though the challenge would have reached them perfectly well, being addressed
+ * by account and sent wherever the person is. The list was the only thing
+ * holding it back, and it read the narrower of the two maps for no reason but
+ * the order the two were written in.
  */
 function roster() {
     const out = [];
-    for (const entry of present.values()) {
+    for (const entry of online.values()) {
+        const here = present.get(entry.userId);
         out.push({
             userId: entry.userId,
             pseudo: entry.pseudo,
             elo: entry.elo,
-            since: entry.since,
+            // Since when they have had the lobby open, where they have it open.
+            since: here ? here.since : null,
             playing: isPlaying(entry.userId),
         });
     }
@@ -239,7 +250,12 @@ function attachLobby(io) {
        them can now open. */
     onGameFinished(() => {
         for (const id of [...agreements.keys()]) tryStartAgreement(id);
+        announce();          // and two lights just changed colour
     });
+
+    /* Signing in, signing out, sitting down at a board: the list is who is here
+       and what they are doing, so it is redrawn whenever either moves. */
+    onPresenceChange(() => announce());
 
     io.on('connection', (socket) => {
         const reply = (callback, payload) => {
