@@ -1956,15 +1956,21 @@ export function mountPlay(outlet, params) {
    * browser given the gaps: the curve draws itself in as the answers arrive,
    * which is also a plainer thing to watch than a spinner.
    */
+  /** Whether the curve is on screen, and so worth the work behind it. */
+  const curveShown = () =>
+    evalShown() && timeline.length > 1 && drawerOpen && drawerTab === 'moves';
+
   function fillCurve() {
     clearTimeout(curveTimer);
-    if (!evalShown() || timeline.length < 2) return;
+    if (!curveShown()) return;
     const missing = [];
     for (let i = 0; i < timeline.length; i++) if (!evalCache.has(i)) missing.push(i);
     if (!missing.length) return;
-    for (const ply of missing.slice(0, 4)) verdictAt(ply);
+    /* Two at a time with a real gap between: a slice small enough that a
+       scroll or a tap lands between them rather than behind them. */
+    for (const ply of missing.slice(0, 2)) verdictAt(ply);
     renderEvalCurve();
-    curveTimer = setTimeout(fillCurve, 0);
+    curveTimer = setTimeout(fillCurve, 16);
   }
 
   /**
@@ -1976,7 +1982,7 @@ export function mountPlay(outlet, params) {
    * hundred numbers, and a dependency would cost more than it draws.
    */
   function renderEvalCurve() {
-    const on = evalShown() && timeline.length > 1 && drawerOpen && drawerTab === 'moves';
+    const on = curveShown();
     curveEl.hidden = !on;
     if (!on) return;
 

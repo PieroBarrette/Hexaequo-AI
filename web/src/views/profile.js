@@ -74,7 +74,8 @@ export function mountProfile(outlet, params) {
   let page = 1;
   let error = null;
   let notice = null;
-  let cadence = 'rapid';
+  /* The second step: which cadence, once somebody has decided to ask. */
+  let choosing = false;
   /* The account panel is gone: what it held — signing out, and changing your
      nickname or password — belongs with the page that is already about you. */
   let managing = false;
@@ -103,6 +104,26 @@ export function mountProfile(outlet, params) {
   const someoneElse = () => Boolean(who) && !(stats && stats.isYou);
 
   /**
+   * Whether there is anybody here to ask.
+   *
+   * Offline is not a maybe: an invitation lives in memory and expires in a
+   * minute, so there is nobody for it to reach. Amber is fine — somebody at a
+   * board can agree to the game after this one.
+   */
+  const canChallenge = () =>
+    someoneElse() && isSignedIn() && presenceOf(who) !== 'offline';
+
+  /** The cadences a challenge can be played at: every one with a clock. */
+  function cadenceChoice() {
+    return `
+      <div class="cadence-grid" style="margin-top:10px">
+        ${['bullet', 'blitz', 'rapid', 'classic'].map((id) =>
+    `<button class="btn cadence" data-send-challenge="${id}">${cadenceLabel(id)}</button>`).join('')}
+        <button class="btn" data-action="challenge-cancel">${t('game.cancel')}</button>
+      </div>`;
+  }
+
+  /**
    * How the two of you have got on, and an invitation.
    *
    * A leaderboard whose names lead nowhere is a list. What makes it a place is
@@ -114,20 +135,16 @@ export function mountProfile(outlet, params) {
     return `
       <div class="rule-block versus-block">
         <div class="versus-line">
-          ${someoneElse() && isSignedIn() && presenceOf(who) !== 'offline'
-    ? `<select class="btn btn--sm" data-control="challenge-cadence">${
-      ['bullet', 'blitz', 'rapid', 'classic'].map((id) =>
-        `<option value="${id}"${id === cadence ? ' selected' : ''}>${cadenceLabel(id)}</option>`)
-        .join('')}</select>` : ''}
           ${record
     ? `<span>${t('profile.versusRecord', { name: escapeText(stats.pseudo) })}
          <b>${record.wins} · ${record.losses} · ${record.draws}</b>
          <span class="muted-small">(${t('profile.games', { n: record.played })})</span></span>`
     : `<span class="lede">${t('profile.versusNever', { name: escapeText(stats.pseudo) })}</span>`}
-          ${isSignedIn() && presenceOf(who) !== 'offline'
+          ${canChallenge() && !choosing
     ? `<button class="btn btn--primary btn--sm" data-action="challenge">${t('lobby.challenge')}</button>`
     : ''}
         </div>
+        ${canChallenge() && choosing ? cadenceChoice() : ''}
         ${notice ? `<p class="lede" style="margin:8px 0 0">${escapeText(notice)}</p>` : ''}
       </div>`;
   }
@@ -339,12 +356,14 @@ export function mountProfile(outlet, params) {
    * A challenge is delivered to somebody who is in the lobby; if they are not
    * there, say so plainly rather than pretending it went.
    */
-  async function challenge() {
+  async function challenge(timeControl) {
     if (!who || !isSignedIn()) return;
+    choosing = false;
+    render();
     try {
       await connect();
       await identify(sessionToken()).catch(() => {});
-      const response = await request('hx:challenge', { userId: who, timeControl: cadence });
+      const response = await request('hx:challenge', { userId: who, timeControl });
       notice = !response.ok
         ? t('online.errors.' + response.error)
         : (presenceOf(who) === 'playing'
@@ -373,12 +392,13 @@ export function mountProfile(outlet, params) {
     render();
   }
 
-  outlet.addEventListener('change', (event) => {
-    const control = event.target.closest('[data-control="challenge-cadence"]');
-    if (control) cadence = control.value;
-  });
-
   outlet.addEventListener('click', (event) => {
+    const send = event.target.closest('[data-send-challenge]');
+    if (send) {
+      playSound('ui');
+      challenge(send.getAttribute('data-send-challenge'));
+      return;
+    }
     const pageButton = event.target.closest('[data-page]');
     if (pageButton && !pageButton.disabled) {
       page = Number(pageButton.getAttribute('data-page'));
@@ -403,7 +423,8 @@ export function mountProfile(outlet, params) {
       return;
     }
     const what = action.getAttribute('data-action');
-    if (what === 'challenge') { playSound('ui'); challenge(); return; }
+    if (what === 'challenge') { playSound('ui'); choosing = true; render(); return; }
+    if (what === 'challenge-cancel') { playSound('ui'); choosing = false; render(); return; }
     if (what === 'manage') { playSound('ui'); managing = true; render(); return; }
     if (what === 'manage-close') {
       playSound('ui');
