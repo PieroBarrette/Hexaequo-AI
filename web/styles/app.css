@@ -301,6 +301,22 @@ select.btn option {
   min-width: 5.5em; text-align: center; font-variant-numeric: tabular-nums;
 }
 .review-live { display: none; font-size: 12px; margin-left: 6px; }
+
+/*
+ * Stepping through a game and playing it back are different jobs, and ▶ for
+ * "next move" beside ▶ for "play" is the same arrow twice. A gap and a rule
+ * between them, and the playback button carries the accent so the eye lands
+ * on the difference rather than on the shape.
+ */
+.review-sep {
+  flex: none; width: 1px; align-self: stretch; margin: 2px 4px;
+  background: var(--line);
+}
+.review-play { color: var(--accent); }
+.review-play.is-on {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: var(--accent);
+}
 @media (max-width: 560px) {
   /*
    * Two rows on a phone: the controls above, the way through the game and the
@@ -653,7 +669,13 @@ h1 > .pip { width: 11px; height: 11px; margin-right: 10px; }
 .hail-title { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
 .hail-lede { font-size: 12.5px; color: var(--muted); }
 .hail-actions { display: flex; gap: 7px; margin-top: 9px; }
-.hail--deal .hail-actions { margin-top: 7px; }
+.hail--deal .hail-actions, .hail--sent .hail-actions,
+.hail--back .hail-actions { margin-top: 7px; }
+.hail--back { border-color: var(--accent); }
+.manage-grid {
+  display: grid; gap: 8px; margin-top: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
 .hail--note { font-size: 12.5px; color: var(--muted); }
 @media (prefers-reduced-motion: reduce) { .hail { animation: none; } }
 .lobby-elo { font: 600 13px/1 var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }

@@ -312,7 +312,14 @@
     "backToSignIn": "Back to signing in",
     "resetSent": "If that address has an account, the link is on its way. Check your mail.",
     "or": "or",
-    "seeProfile": "See my profile"
+    "seeProfile": "See my profile",
+    "manage": "Manage my account",
+    "changePassword": "Change password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "savePassword": "Save",
+    "nicknameSaved": "Nickname saved.",
+    "passwordSaved": "Password changed."
   },
   "leaderboard": {
     "title": "Leaderboard",
@@ -439,7 +446,11 @@
     "afterThisGame": "will be played after your current game",
     "agreedWith": "Game agreed with {name} — it opens as soon as you are both free.",
     "agreedNote": "{name} accepted. The game starts once their current one ends.",
-    "sentToBusy": "Invitation sent to {name}, who is in a game. If they accept, you play straight after."
+    "sentToBusy": "Invitation sent to {name}, who is in a game. If they accept, you play straight after.",
+    "waitingOn": "Challenge sent to {name}, waiting for an answer",
+    "withdraw": "Withdraw",
+    "gameRunning": "You have a game in progress.",
+    "withdrawn": "The challenge was withdrawn."
   },
   "watch": {
     "badge": "WATCHING",

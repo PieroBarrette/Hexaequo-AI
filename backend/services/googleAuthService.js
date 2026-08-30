@@ -131,6 +131,9 @@ function publicUser(user) {
         draws: user.draws,
         avatarUrl: user.avatar_url,
         createdAt: user.created_at,
+        /* Whether there is a password to change: a Google-only account has
+           none, and offering the form would be offering a dead end. */
+        hasPassword: Boolean(user.password_hash),
     };
 }
 

@@ -329,6 +329,11 @@ function attachLobby(io) {
                 // starting it.
                 busy: isPlaying(target.userId),
             });
+            toUser(user.userId, 'hx:challenge:sent', {
+                id,
+                to: { pseudo: challenge.to.pseudo, elo: challenge.to.elo },
+                timeControl,
+            });
             reply(callback, { ok: true, id, busy: isPlaying(target.userId) });
         });
 
@@ -390,15 +395,26 @@ function attachLobby(io) {
             const user = socket.data.user;
             if (!user) return reply(callback, { ok: true, incoming: null, agreed: null });
             let incoming = null;
+            let outgoing = null;
             let agreed = null;
             for (const challenge of challenges.values()) {
-                if (challenge.to.userId !== user.userId) continue;
-                incoming = {
-                    id: challenge.id,
-                    from: challenge.from,
-                    timeControl: challenge.timeControl,
-                    busy: isPlaying(user.userId),
-                };
+                if (challenge.to.userId === user.userId) {
+                    incoming = {
+                        id: challenge.id,
+                        from: challenge.from,
+                        timeControl: challenge.timeControl,
+                        busy: isPlaying(user.userId),
+                    };
+                }
+                /* One invitation at a time means an unanswered one blocks the
+                   next, so whoever sent it has to be able to take it back. */
+                if (challenge.from.userId === user.userId) {
+                    outgoing = {
+                        id: challenge.id,
+                        to: { pseudo: challenge.to.pseudo, elo: challenge.to.elo },
+                        timeControl: challenge.timeControl,
+                    };
+                }
             }
             for (const deal of agreements.values()) {
                 const mine = deal.from.userId === user.userId ? deal.to
@@ -413,7 +429,7 @@ function attachLobby(io) {
                     watchCode: theirs && !roomOf(user.userId) ? theirs.code : null,
                 };
             }
-            reply(callback, { ok: true, incoming, agreed });
+            reply(callback, { ok: true, incoming, outgoing, agreed });
         });
 
         socket.on('hx:challenge:decline', (payload, callback) => {
@@ -427,7 +443,17 @@ function attachLobby(io) {
             if (!user || (challenge.to.userId !== user.userId && challenge.from.userId !== user.userId)) {
                 return reply(callback, { ok: false, error: 'NOT_YOURS' });
             }
-            dropChallenge(challenge.id, 'hx:challenge:declined');
+            /* Who called it off decides what the other one is told: the
+               person asked refused, the person asking withdrew. */
+            const withdrawn = challenge.from.userId === user.userId;
+            clearTimeout(challenge.timer);
+            challenges.delete(id);
+            agreements.delete(id);
+            for (const person of [challenge.from, challenge.to]) {
+                toUser(person.userId, 'hx:challenge:declined', {
+                    id, withdrawn, by: user.userId,
+                });
+            }
             reply(callback, { ok: true });
         });
 

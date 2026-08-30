@@ -302,20 +302,10 @@ export function mountOnline(outlet) {
 
   render();
 
-  /*
-   * A game already under way is where this page was trying to send you anyway.
-   * Asked for on arrival, so the online page is the way back in — the button
-   * that brought you here says "rejoin" for the same reason.
-   */
-  (async () => {
-    if (!isSignedIn()) return;
-    try {
-      await connect();
-      await identify(sessionToken()).catch(() => {});
-      const mine = await request('hx:mygame', {});
-      if (mine && mine.ok && mine.code) navigate('play', { online: '1', code: mine.code });
-    } catch { /* offline: the page below still works */ }
-  })();
+  /* A game under way used to send you straight back to the board from here,
+     which also meant the lobby became unreachable until it finished. The way
+     back follows you around the site instead, so this page can just be this
+     page. */
 
   // Signing in from the panel turns the sign-in prompt into the real thing.
   unsubscribe.push(onAuthChange(() => { if (!search) render(); }));

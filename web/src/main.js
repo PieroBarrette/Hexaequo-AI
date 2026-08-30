@@ -16,7 +16,7 @@ import { mountSettings, setInstallPrompt } from './views/settings.js';
 import { closeOverlay } from './ui/overlay.js';
 import { openPanel, relabelPanel } from './ui/panels.js';
 import { mountChallenges } from './ui/challenge.js';
-import { restoreSession, onAuthChange, currentUser, mustChoosePseudo } from './auth.js';
+import { restoreSession, onAuthChange, currentUser, mustChoosePseudo, isSignedIn } from './auth.js';
 import { watchForUpdates } from './update.js';
 
 /** The header chip: your nickname and rating, or an invitation to sign in. */
@@ -79,7 +79,15 @@ async function boot() {
     const button = event.target.closest('[data-go]');
     if (!button) return;
     playSound('ui');
-    openPanel(button.getAttribute('data-go'));
+    const where = button.getAttribute('data-go');
+    /*
+     * Signed in, the chip carries your name and rating, so it should lead to
+     * the page about you rather than to a panel over whatever you were doing
+     * whose main button said "see my profile". Signed out it is still the
+     * door, because there is no page yet.
+     */
+    if (where === 'account' && isSignedIn()) { closeOverlay(); navigate('profile'); return; }
+    openPanel(where);
   });
 
   onLanguageChange(() => {

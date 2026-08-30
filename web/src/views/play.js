@@ -182,7 +182,9 @@ export function mountPlay(outlet, params) {
           <span class="review-ply" data-field="ply"></span>
           <button class="btn btn--icon" data-action="rev-next" title="${t('review.next')}">▶</button>
           <button class="btn btn--icon" data-action="rev-last" title="${t('review.last')}">⏭</button>
-          <button class="btn btn--icon" data-action="rev-play" title="${t('review.play')}">▶</button>
+          <span class="review-sep"></span>
+          <button class="btn btn--icon review-play" data-action="rev-play"
+                  title="${t('review.play')}">▶</button>
           <select class="btn review-speed" data-control="rev-speed" title="${t('review.speed')}">
             <option value="1">1×</option>
             <option value="2">2×</option>
@@ -296,10 +298,10 @@ export function mountPlay(outlet, params) {
       ${levelOptions()}
     </select>
     <select class="btn" data-control="levelBlack" title="${t('game.levelOf', { colour: t('common.black') })}">
-      ${levelOptions('● ')}
+      ${levelOptions(t('common.black') + ' · ')}
     </select>
     <select class="btn" data-control="levelWhite" title="${t('game.levelOf', { colour: t('common.white') })}">
-      ${levelOptions('○ ')}
+      ${levelOptions(t('common.white') + ' · ')}
     </select>
     <button class="btn btn--icon" data-action="run" title="${t('game.run')}">▶</button>
     <button class="btn btn--icon" data-action="step" title="${t('game.stepOnce')}">⏭</button>
@@ -2501,7 +2503,13 @@ export function mountPlay(outlet, params) {
   newGame(resumed ? resumed.position : null);
   if (resumed) showResumeNote(resumed);
   showDrawerTab('moves');
-  if (archiveId) loadArchive();
+  if (archiveId) {
+    loadArchive();
+    /* Reading a game back is reading the moves as much as the board, and the
+       curve above them is the shape of the whole thing. Open on arrival
+       rather than making it the first thing everybody has to find. */
+    setDrawer(true, 'moves');
+  }
   if (net) {
     joinRoom();
     clockTimer = setInterval(tickClocks, 250);

@@ -9,7 +9,10 @@
 
 import { t, currentLanguage } from '../i18n.js';
 import { navigate } from '../router.js';
-import { api, isSignedIn, sessionReady, onAuthChange, sessionToken } from '../auth.js';
+import {
+  api, isSignedIn, sessionReady, onAuthChange, sessionToken, currentUser, signOut,
+  chooseNickname,
+} from '../auth.js';
 import { play as playSound } from '../audio.js';
 import { openPanel } from '../ui/panels.js';
 import { request, connect, identify } from '../net.js';
@@ -72,6 +75,12 @@ export function mountProfile(outlet, params) {
   let error = null;
   let notice = null;
   let cadence = 'rapid';
+  /* The account panel is gone: what it held — signing out, and changing your
+     nickname or password — belongs with the page that is already about you. */
+  let managing = false;
+  let manageError = null;
+  let manageDone = null;
+  let busy = false;
 
   const stop = onAuthChange(() => load());
   /* One account watched while this page is open; the light follows them in and
@@ -121,6 +130,94 @@ export function mountProfile(outlet, params) {
         </div>
         ${notice ? `<p class="lede" style="margin:8px 0 0">${escapeText(notice)}</p>` : ''}
       </div>`;
+  }
+
+  /**
+   * Your account, where you already are.
+   *
+   * It used to be a panel that opened over whatever you were doing, whose only
+   * real content was three buttons and one of them said "see my profile" —
+   * which is this page. So the page absorbed it.
+   */
+  function accountBlock() {
+    const user = currentUser();
+    if (!user) return '';
+    if (!managing) {
+      return `
+        <div class="rule-block">
+          <div class="row-actions">
+            <button class="btn" data-action="manage">${t('account.manage')}</button>
+            <button class="btn" data-action="signout">${t('account.signOut')}</button>
+          </div>
+        </div>`;
+    }
+    return `
+      <div class="rule-block">
+        <h3>${t('account.manage')}</h3>
+        <p class="lede" style="margin-top:0">${escapeText(user.email || '')}</p>
+        ${manageError ? `<p class="net-error">${escapeText(manageError)}</p>` : ''}
+        ${manageDone ? `<p class="lede">${escapeText(manageDone)}</p>` : ''}
+
+        <h3 style="margin-top:16px">${t('account.changeNickname')}</h3>
+        <div class="row-actions">
+          <input class="btn nickname-input" data-input="pseudo" maxlength="20"
+                 autocomplete="off" spellcheck="false"
+                 value="${escapeText(user.pseudo)}">
+          <button class="btn btn--primary" data-action="save-pseudo" ${busy ? 'disabled' : ''}>
+            ${t('account.saveNickname')}</button>
+        </div>
+
+        ${user.hasPassword === false ? '' : `
+        <h3 style="margin-top:16px">${t('account.changePassword')}</h3>
+        <div class="manage-grid">
+          <input class="btn" type="password" data-input="current" autocomplete="current-password"
+                 placeholder="${t('account.currentPassword')}">
+          <input class="btn" type="password" data-input="next" autocomplete="new-password"
+                 placeholder="${t('account.newPassword')}">
+          <button class="btn btn--primary" data-action="save-password" ${busy ? 'disabled' : ''}>
+            ${t('account.savePassword')}</button>
+        </div>`}
+
+        <div class="row-actions" style="margin-top:18px">
+          <button class="btn" data-action="manage-close">${t('common.close')}</button>
+          <button class="btn" data-action="signout">${t('account.signOut')}</button>
+        </div>
+      </div>`;
+  }
+
+  /** Change the nickname, using the same endpoint the first choice used. */
+  async function savePseudo() {
+    const field = outlet.querySelector('[data-input="pseudo"]');
+    const pseudo = field ? field.value.trim() : '';
+    if (!pseudo) return;
+    busy = true; manageError = null; manageDone = null; render();
+    try {
+      await chooseNickname(pseudo);     // which also refreshes the session copy
+      manageDone = t('account.nicknameSaved');
+      await load();                      // the page is titled with it
+    } catch (error) {
+      manageError = error.message;
+    }
+    busy = false;
+    render();
+  }
+
+  async function savePassword() {
+    const current = outlet.querySelector('[data-input="current"]');
+    const next = outlet.querySelector('[data-input="next"]');
+    if (!current || !next || !current.value || !next.value) return;
+    busy = true; manageError = null; manageDone = null; render();
+    try {
+      await api('/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ currentPassword: current.value, newPassword: next.value }),
+      });
+      manageDone = t('account.passwordSaved');
+    } catch (error) {
+      manageError = error.message;
+    }
+    busy = false;
+    render();
   }
 
   function recordLine(labelKey, record) {
@@ -203,6 +300,7 @@ export function mountProfile(outlet, params) {
         </div>
 
         ${someoneElse() ? versusBlock() : ''}
+        ${!someoneElse() && isSignedIn() ? accountBlock() : ''}
 
         ${curveSvg(stats.curve || [])}
 
@@ -304,10 +402,18 @@ export function mountProfile(outlet, params) {
       openPanel('account');
       return;
     }
-    if (action.getAttribute('data-action') === 'challenge') {
+    const what = action.getAttribute('data-action');
+    if (what === 'challenge') { playSound('ui'); challenge(); return; }
+    if (what === 'manage') { playSound('ui'); managing = true; render(); return; }
+    if (what === 'manage-close') {
       playSound('ui');
-      challenge();
+      managing = false; manageError = null; manageDone = null;
+      render();
+      return;
     }
+    if (what === 'save-pseudo') { playSound('ui'); savePseudo(); return; }
+    if (what === 'save-password') { playSound('ui'); savePassword(); return; }
+    if (what === 'signout') { playSound('ui'); signOut(); navigate('home'); }
   });
 
   render();

@@ -312,7 +312,14 @@
     "backToSignIn": "Retour à la connexion",
     "resetSent": "Si cette adresse a un compte, le lien est parti. Vérifiez vos courriels.",
     "or": "ou",
-    "seeProfile": "Voir mon profil"
+    "seeProfile": "Voir mon profil",
+    "manage": "Gérer mon compte",
+    "changePassword": "Changer le mot de passe",
+    "currentPassword": "Mot de passe actuel",
+    "newPassword": "Nouveau mot de passe",
+    "savePassword": "Enregistrer",
+    "nicknameSaved": "Pseudo enregistré.",
+    "passwordSaved": "Mot de passe changé."
   },
   "leaderboard": {
     "title": "Classement",
@@ -439,7 +446,11 @@
     "afterThisGame": "sera jouée après votre partie en cours",
     "agreedWith": "Partie convenue avec {name} — elle s’ouvrira dès que vos deux plateaux seront libres.",
     "agreedNote": "{name} a accepté. La partie commencera après la partie en cours.",
-    "sentToBusy": "Invitation envoyée à {name}, qui est en partie. S’il accepte, vous jouerez juste après."
+    "sentToBusy": "Invitation envoyée à {name}, qui est en partie. S’il accepte, vous jouerez juste après.",
+    "waitingOn": "Défi envoyé à {name}, en attente de sa réponse",
+    "withdraw": "Annuler le défi",
+    "gameRunning": "Vous avez une partie en cours.",
+    "withdrawn": "Le défi a été annulé."
   },
   "watch": {
     "badge": "SPECTATEUR",
