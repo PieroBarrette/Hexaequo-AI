@@ -158,11 +158,45 @@ select.btn option {
   flex: 1; display: flex; flex-direction: column;
   padding: clamp(16px, 4vh, 32px) 20px; text-align: center; overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  /* The board behind the menu measures itself against this, and would take the
+     whole page for its frame otherwise. Clipped, so the oversized board it
+     holds cannot reach past the screen and put a scrollbar there. */
+  position: relative;
+  overflow-x: hidden;
 }
 .home-inner {
   margin: auto; width: 100%;
   display: flex; flex-direction: column; align-items: center;
   gap: clamp(16px, 4.5vh, 44px);
+  position: relative;            /* above the board behind it */
+  z-index: 1;
+}
+
+/*
+ * The game going on behind the menu.
+ *
+ * Blurred well past reading and faded near to nothing: it is there to be
+ * noticed out of the corner of an eye and never to be looked at. Larger than
+ * the screen and centred, so the blur has somewhere to fall off to instead of
+ * ending in a hard line at the edge, and masked outward so it dissolves into
+ * the page rather than stopping.
+ *
+ * Never a hit target, and never in the way of the words on top of it.
+ */
+.home-board {
+  position: absolute; left: 50%; top: 50%;
+  width: 128%; height: 128%; transform: translate(-50%, -50%);
+  z-index: 0; pointer-events: none;
+  filter: blur(11px);
+  opacity: .42;
+  -webkit-mask-image: radial-gradient(closest-side, #000 58%, transparent 100%);
+  mask-image: radial-gradient(closest-side, #000 58%, transparent 100%);
+}
+.home-board svg { width: 100%; height: 100%; display: block; }
+/* Each redraw is a whole new drawing, so it arrives rather than appears. */
+.home-board svg path, .home-board svg circle { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .home-board { opacity: .18; }
 }
 .home-credit {
   color: var(--muted); font-size: 12px; margin: 0;
