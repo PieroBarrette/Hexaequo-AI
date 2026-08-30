@@ -1714,11 +1714,10 @@ export function mountPlay(outlet, params) {
     reviewBar.querySelector('[data-action="rev-next"]').disabled = at === last;
     reviewBar.querySelector('[data-action="rev-last"]').disabled = at === last;
     reviewBar.classList.toggle('is-back', review !== null);
-    /* Not during a live online game: setting the position up against the
-       engine while the other player waits is analysis mid-game, which is the
-       one thing a rated game cannot allow. Everywhere else it is offered. */
-    const liveOnline = Boolean(net) && !result;
-    reviewBar.querySelector('[data-action="resume"]').hidden = liveOnline;
+    /* Carrying the position off to play it out is analysis, not reading, so
+       it waits for the game to be over like the bar and the curve do. Local
+       or online makes no difference: mid-game, stepping back is looking. */
+    reviewBar.querySelector('[data-action="resume"]').hidden = !isReview();
     const playButton = reviewBar.querySelector('[data-action="rev-play"]');
     playButton.textContent = isAutoplaying() ? '⏸' : '▶';
     playButton.classList.toggle('is-on', isAutoplaying());
@@ -1904,14 +1903,17 @@ export function mountPlay(outlet, params) {
   }
 
   /**
-   * How the position on screen stands, drawn down the side of the board.
+   * This game is over, so the tools of a review are open.
    *
-   * Only while reading a game back, and never in a live online game: setting
-   * the engine on the position while the other player waits is analysis
-   * mid-game, which is the one thing a rated game cannot allow. It is the same
-   * rule that hides "play from here".
+   * A game still going can be read — stepping back through the moves is part
+   * of playing it, and the history stays available throughout. It cannot be
+   * analysed. The evaluation bar, the curve and "play from here" all set the
+   * engine on the position, and doing that mid-game is the one thing a rated
+   * game cannot allow; the difference is between looking at what happened and
+   * asking what to do about it. A stored game counts only once it has arrived,
+   * or the verdict lands on the empty board it has not replaced yet.
    */
-  const evalShown = () => (archiveId ? Boolean(archive) : Boolean(result));
+  const isReview = () => (archiveId ? Boolean(archive) : Boolean(result));
 
   /**
    * Points to a share of the bar.
@@ -1926,7 +1928,7 @@ export function mountPlay(outlet, params) {
   }
 
   function renderEvalBar() {
-    if (!evalShown()) { evalBar.hidden = true; return; }
+    if (!isReview()) { evalBar.hidden = true; return; }
     const at = review === null ? timeline.length - 1 : review;
     const verdict = verdictAt(at);
 
@@ -1966,7 +1968,7 @@ export function mountPlay(outlet, params) {
    */
   /** Whether the curve is on screen, and so worth the work behind it. */
   const curveShown = () =>
-    evalShown() && timeline.length > 1 && drawerOpen && drawerTab === 'moves';
+    isReview() && timeline.length > 1 && drawerOpen && drawerTab === 'moves';
 
   function fillCurve() {
     clearTimeout(curveTimer);
