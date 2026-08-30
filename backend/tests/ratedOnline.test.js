@@ -233,6 +233,67 @@ async function run() {
         b.disconnect();
     });
 
+    await test('the site can say which game you are sitting at', async () => {
+        /* What makes the way out of a game safe: the way back in is one
+           question, asked from anywhere. */
+        const black = await makeUser('m');
+        const a = await open();
+        const b = await open();
+        assert.strictEqual((await ask(a, 'hx:mygame', {})).code, null,
+            'a socket with no name has no game');
+
+        await ask(a, 'hx:identify', { token: black.token });
+        assert.strictEqual((await ask(a, 'hx:mygame', {})).code, null, 'not yet');
+
+        const room = await ask(a, 'hx:create', {});
+        await ask(b, 'hx:join', { code: room.code });
+        assert.strictEqual((await ask(a, 'hx:mygame', {})).code, room.code, 'this one');
+
+        /* Stepping away does not give the game up: the seat is held, a
+           countdown is running on it, and this is the question the way back in
+           is built on. */
+        await ask(a, 'hx:leave', { code: room.code });
+        assert.strictEqual((await ask(a, 'hx:mygame', {})).code, room.code,
+            'still theirs while they are away');
+
+        await ask(b, 'hx:resign', { code: room.code });
+        assert.strictEqual((await ask(a, 'hx:mygame', {})).code, null,
+            'and none once it is over');
+
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('you cannot watch your own game, even after stepping away', async () => {
+        /* The seat being empty does not make the game somebody else's. This is
+           how you could walk out of your own game, find it in the lobby, and
+           come back to it through the door marked "watch". */
+        const black = await makeUser('n');
+        const a = await open();
+        const b = await open();
+        await ask(a, 'hx:identify', { token: black.token });
+        const room = await ask(a, 'hx:create', {});
+        await ask(b, 'hx:join', { code: room.code });
+
+        const seated = await ask(a, 'hx:watch', { code: room.code });
+        assert.strictEqual(seated.error, 'ALREADY_PLAYING', 'refused while sitting in it');
+
+        await ask(a, 'hx:leave', { code: room.code });
+        const away = await ask(a, 'hx:watch', { code: room.code });
+        assert.strictEqual(away.ok, false, 'and refused while away from it');
+        assert.strictEqual(away.error, 'ALREADY_PLAYING');
+
+        // A different socket on the same account is refused for the same reason.
+        const otherTab = await open();
+        await ask(otherTab, 'hx:identify', { token: black.token });
+        const elsewhere = await ask(otherTab, 'hx:watch', { code: room.code });
+        assert.strictEqual(elsewhere.error, 'ALREADY_PLAYING', 'the account, not the socket');
+
+        a.disconnect();
+        b.disconnect();
+        otherTab.disconnect();
+    });
+
     await test('a full rated game moves both ratings and lands on the leaderboard', async () => {
         const black = await makeUser('e');
         const white = await makeUser('f');

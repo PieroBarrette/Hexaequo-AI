@@ -16,7 +16,7 @@
     "leaderboard": "Classement"
   },
   "home": {
-    "playLocal": "Jouer",
+    "playLocal": "Jouer en local",
     "playOnline": "Jouer en ligne",
     "onlineSoon": "Bientôt",
     "rules": "Règles",
@@ -24,7 +24,8 @@
     "purpose": "Hexaequo est un jeu de plateau abstrait gratuit pour deux joueurs. Il n'y a pas de plateau fixe : on le construit en jouant, tuile après tuile. Jouez à deux sur le même appareil, contre l'ordinateur, ou en ligne avec un ami.",
     "leaderboard": "Classement",
     "profile": "Mon profil",
-    "credit": "Un jeu créé par Piero Barrette"
+    "credit": "Un jeu créé par Piero Barrette",
+    "rejoin": "Rejoindre la partie"
   },
   "common": {
     "black": "Noir",
@@ -74,7 +75,11 @@
     "premoveArmed": "Coup à l’avance prêt",
     "premoveCancel": "Annuler",
     "you": "Vous",
-    "computer": "Ordinateur"
+    "computer": "Ordinateur",
+    "drawOffer": "Proposer ExAequo",
+    "drawAccept": "Accepter l’ExAequo",
+    "drawWaiting": "ExAequo proposé…",
+    "drawOfferedBy": "Votre adversaire propose ExAequo."
   },
   "online": {
     "title": "Jouer en ligne",
@@ -120,7 +125,8 @@
       "EMPTY": "Message vide.",
       "NOT_YOURSELF": "Vous ne pouvez pas vous défier vous-même.",
       "ALREADY_ASKING": "Vous avez déjà une invitation en attente. Attendez la réponse ou annulez-la.",
-      "ALREADY_ASKED": "Ce joueur a déjà une invitation en attente."
+      "ALREADY_ASKED": "Ce joueur a déjà une invitation en attente.",
+      "NOT_STARTED": "La partie n’a pas encore commencé."
     },
     "rated": "Partie classée",
     "unratedFriendly": "Partie amicale — le classement ne bouge pas",
@@ -162,7 +168,8 @@
     "rematchAccept": "Accepter la revanche",
     "rematchWaiting": "Revanche proposée…",
     "rematchOffered": "Votre adversaire propose une revanche.",
-    "rematchDeclined": "Revanche refusée."
+    "rematchDeclined": "Revanche refusée.",
+    "byAgreed": "les deux joueurs ont convenu d’un ExAequo"
   },
   "settings": {
     "title": "Paramètres",

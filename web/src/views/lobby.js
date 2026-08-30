@@ -59,10 +59,7 @@ export function mountLobby(host) {
       host.innerHTML = `
         <div class="rule-block">
           <h3>${t('lobby.title')}</h3>
-          <p class="lede">${t('lobby.lede')}</p>
-          <button class="btn btn--primary" data-action="enter" ${busy ? 'disabled' : ''}>
-            ${busy ? t('online.connecting') : t('lobby.enter')}
-          </button>
+          <p class="lede">${busy ? t('online.connecting') : t('lobby.lede')}</p>
         </div>`;
       return;
     }
@@ -73,7 +70,6 @@ export function mountLobby(host) {
         <div class="lobby-head">
           <h3>${t('lobby.title')}</h3>
           <span class="lobby-count">${t('lobby.count', { n: players.length })}</span>
-          <button class="btn btn--sm" data-action="leave">${t('lobby.leave')}</button>
         </div>
         <p class="lede" style="font-size:12px">${t('lobby.cadenceFor')}</p>
         <div class="cadence-grid">
@@ -136,15 +132,25 @@ export function mountLobby(host) {
    * make it something its players never agreed to.
    */
   function gameRows() {
-    return games.map((game) => `<div class="lobby-row">`
+    const mine = me();
+    return games.map((game) => {
+      /* Your own game is not a show to watch, it is a chair to sit back down
+         in — the server refuses to seat you as a spectator at it, and this is
+         the door that does the right thing instead. */
+      const yours = mine && (game.black.userId === mine || game.white.userId === mine);
+      return `<div class="lobby-row">`
       + `<span class="lobby-name">${escapeText(game.black.pseudo)}`
       + `<span class="lobby-elo">${game.black.elo}</span>`
       + ` <span class="net-vs">${t('profile.versus')}</span> `
       + `${escapeText(game.white.pseudo)}<span class="lobby-elo">${game.white.elo}</span></span>`
       + `<span class="lobby-status">${t('profile.plies', { n: game.plies })}</span>`
       + (game.watchers ? `<span class="net-eyes">👁 ${game.watchers}</span>` : '')
-      + `<button class="btn btn--sm" data-watch="${escapeText(game.code)}">`
-      + `${t('watch.action')}</button></div>`).join('');
+      + (yours
+        ? `<button class="btn btn--sm btn--primary" data-rejoin="${escapeText(game.code)}">`
+          + `${t('home.rejoin')}</button></div>`
+        : `<button class="btn btn--sm" data-watch="${escapeText(game.code)}">`
+          + `${t('watch.action')}</button></div>`);
+    }).join('');
   }
 
   function chatRows() {
@@ -226,8 +232,15 @@ export function mountLobby(host) {
    * dead.
    */
   host.addEventListener('click', async (event) => {
-    const mine = event.target.closest('[data-cadence], [data-challenge], [data-action], [data-watch]');
+    const mine = event.target.closest('[data-cadence], [data-challenge], [data-action], [data-watch], [data-rejoin]');
     if (mine && host.contains(mine)) event.stopPropagation();
+
+    const back = event.target.closest('[data-rejoin]');
+    if (back) {
+      playSound('ui');
+      navigate('play', { online: '1', code: back.getAttribute('data-rejoin') });
+      return;
+    }
 
     const look = event.target.closest('[data-watch]');
     if (look) {
@@ -258,8 +271,6 @@ export function mountLobby(host) {
     const action = button.getAttribute('data-action');
     playSound('ui');
     if (action === 'sign-in') { openPanel('account'); return; }
-    if (action === 'enter') { enter(); return; }
-    if (action === 'leave') { leave(); return; }
   });
 
   host.addEventListener('submit', (event) => {
@@ -274,11 +285,13 @@ export function mountLobby(host) {
   });
 
   render();
+  if (isSignedIn()) enter();
 
   /* Signing in or out anywhere on the site is felt here: the roster, the chat
      and the challenge buttons all depend on having a name. */
   const stopWatchingAuth = onAuthChange(() => {
     if (!isSignedIn() && joined) leave();
+    else if (isSignedIn() && !joined) enter();
     else render();
   });
 

@@ -115,13 +115,21 @@ function isPlaying(userId) {
     return false;
 }
 
-/** The room this account is playing in, if any. */
+/**
+ * The unfinished game with this account's name on a seat, if there is one.
+ *
+ * Deliberately not the same question as isPlaying: that one asks whether
+ * somebody is at a board this second, and stepping away answers no. This one
+ * asks which game is still theirs, which stays true while they are away —
+ * the seat is being held and a countdown is running on it. Requiring an
+ * occupied seat here made the way back in vanish at the moment it was needed.
+ */
 function roomOf(userId) {
     for (const room of rooms.values()) {
         if (room.result) continue;
         for (let seat = 0; seat < 2; seat++) {
             const player = room.players[seat];
-            if (player && player.userId === userId && room.seats[seat]) return room;
+            if (player && player.userId === userId) return room;
         }
     }
     return null;
@@ -309,6 +317,10 @@ async function createRoom({ timeControl = 'none', reserved = null } = {}) {
         names: [null, null],
         chat: [],
         rematch: null,          // { seat } while one side has offered
+        /* { seat } while one side has offered a draw. Cleared when they move:
+           playing on is changing your mind, and an offer left standing from
+           twenty plies ago is a trap rather than an offer. */
+        draw: null,
         rematchCode: null,      // the room that replaced this one, once agreed
         // When set, only these accounts may take the matching seat — a paired
         // game is not something a passer-by can walk into.
@@ -511,9 +523,15 @@ function attachOnlineGames(io) {
             const code = String((payload && payload.code) || '').toUpperCase().trim();
             const room = rooms.get(code);
             if (!room) return reply(callback, { ok: false, error: 'NO_SUCH_ROOM' });
-            if (seatOf(room, socket.id) !== -1) {
-                // Already at this board. Nothing to watch that is not already
-                // in front of them.
+            /*
+             * Yours to play, not to watch — and the seat being empty does not
+             * make it somebody else's. Stepping away frees the socket from the
+             * seat but the game stays yours, which is how you could leave your
+             * own game and come back to it through the door marked "watch".
+             */
+            const me = socket.data.user;
+            if (seatOf(room, socket.id) !== -1
+                || (me && room.players.some((p) => p && p.userId === me.userId))) {
                 return reply(callback, { ok: false, error: 'ALREADY_PLAYING' });
             }
             touch(room);
@@ -660,6 +678,12 @@ function attachOnlineGames(io) {
             if (!outcome.ok) return reply(callback, { ok: false, error: outcome.error });
 
             socket.data.hxLastMoveAt = now;
+            /* Your own move takes your offer off the table: playing on is
+               changing your mind. Theirs stands — they have not moved. */
+            if (room.draw && room.draw.seat === seat) {
+                room.draw = null;
+                socket.to(code).emit('hx:draw:declined', { code, seat, withdrawn: true });
+            }
             room.settled[seat] = true;   // this seat is now whoever played from it
             room.state = outcome.state;
             room.moves.push(outcome.move);
@@ -705,6 +729,93 @@ function attachOnlineGames(io) {
         });
 
         /** Give up; the opponent wins. */
+        /**
+         * Offer to end it level, or take up the offer already on the table.
+         *
+         * One event does both, so the button says what it will do rather than
+         * the player having to remember whose turn it is to ask.
+         */
+        socket.on('hx:draw', (payload, callback) => {
+            const code = String((payload && payload.code) || '').toUpperCase().trim();
+            const room = rooms.get(code);
+            if (!room) return reply(callback, { ok: false, error: 'NO_SUCH_ROOM' });
+            const seat = seatOf(room, socket.id);
+            if (seat === -1) return reply(callback, { ok: false, error: 'NOT_A_PLAYER' });
+            if (room.result) return reply(callback, { ok: false, error: 'GAME_OVER' });
+            if (!room.everFull) return reply(callback, { ok: false, error: 'NOT_STARTED' });
+            touch(room);
+
+            if (room.draw && room.draw.seat === 1 - seat) {
+                // Taking up theirs: agreed, and the game is over.
+                room.draw = null;
+                finish(io, room, { winner: null, reason: 'agreed' });
+                return reply(callback, { ok: true, agreed: true });
+            }
+            if (room.draw && room.draw.seat === seat) {
+                return reply(callback, { ok: true, offered: true, resent: true });
+            }
+            room.draw = { seat };
+            socket.to(code).emit('hx:draw:offer', { code, seat });
+            reply(callback, { ok: true, offered: true });
+        });
+
+        socket.on('hx:draw:decline', (payload, callback) => {
+            const code = String((payload && payload.code) || '').toUpperCase().trim();
+            const room = rooms.get(code);
+            if (!room) return reply(callback, { ok: true });
+            const seat = seatOf(room, socket.id);
+            if (seat === -1) return reply(callback, { ok: false, error: 'NOT_A_PLAYER' });
+            if (!room.draw) return reply(callback, { ok: true });
+            // Either side may take it off the table: the other declines, the
+            // one who offered withdraws.
+            const by = room.draw.seat;
+            room.draw = null;
+            socket.to(code).emit('hx:draw:declined', { code, seat, withdrawn: by === seat });
+            reply(callback, { ok: true });
+        });
+
+        /**
+         * Step away from a game without closing the tab.
+         *
+         * Navigating elsewhere used to leave the seat held and the opponent
+         * none the wiser — they sat waiting for somebody who had gone to read
+         * their profile. Leaving says so, and starts the same countdown a
+         * dropped connection does; coming back through hx:join calls it off.
+         */
+        socket.on('hx:leave', (payload, callback) => {
+            const code = String((payload && payload.code) || '').toUpperCase().trim();
+            const room = rooms.get(code);
+            socket.data.hxRooms.delete(code);
+            if (!room) return reply(callback, { ok: true });
+            const seat = seatOf(room, socket.id);
+            if (seat === -1) { socket.leave(code); return reply(callback, { ok: true }); }
+            room.seats[seat] = null;
+            // A game nobody is watching from that seat is a game nobody is
+            // offering a draw from either.
+            if (room.draw && room.draw.seat === seat) room.draw = null;
+            const grace = startGrace(io, room, seat);
+            socket.to(code).emit('hx:opponent', {
+                code,
+                seat,
+                name: room.names[seat],
+                joined: false,
+                clock: clockView(room),
+                graceMs: grace ? grace.graceMs : null,
+                msLeft: grace ? Math.max(0, grace.deadline - Date.now()) : null,
+            });
+            socket.leave(code);
+            if (room.players[seat]) announcePresence(io, room.players[seat].userId);
+            reply(callback, { ok: true });
+        });
+
+        /** The game this socket's account is sitting at, if any. */
+        socket.on('hx:mygame', (payload, callback) => {
+            const user = socket.data.user;
+            if (!user) return reply(callback, { ok: true, code: null });
+            const room = roomOf(user.userId);
+            reply(callback, { ok: true, code: room ? room.code : null });
+        });
+
         socket.on('hx:resign', (payload, callback) => {
             const code = String((payload && payload.code) || '').toUpperCase().trim();
             const room = rooms.get(code);

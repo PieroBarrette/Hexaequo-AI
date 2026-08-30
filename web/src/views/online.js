@@ -154,10 +154,7 @@ export function mountOnline(outlet) {
             <p class="lede">${t('online.codeLabel')}</p>
             <div class="room-code">${created.code}</div>
             <div class="row-actions">
-              ${navigator.share
-    ? `<button class="btn btn--primary" data-action="share">${t('online.share')}</button>` : ''}
-              <button class="btn${navigator.share ? '' : ' btn--primary'}" data-action="copy">${t('online.copyLink')}</button>
-              <button class="btn" data-action="enter">${t('online.enterNow')}</button>
+              <button class="btn btn--primary" data-action="share">${t('online.share')}</button>
             </div>
             <p class="lede" style="margin-top:10px">${t('online.autoEnter')}</p>
             <p class="lede" style="margin-top:10px;word-break:break-all">${inviteLink(created.code)}</p>
@@ -305,6 +302,21 @@ export function mountOnline(outlet) {
 
   render();
 
+  /*
+   * A game already under way is where this page was trying to send you anyway.
+   * Asked for on arrival, so the online page is the way back in — the button
+   * that brought you here says "rejoin" for the same reason.
+   */
+  (async () => {
+    if (!isSignedIn()) return;
+    try {
+      await connect();
+      await identify(sessionToken()).catch(() => {});
+      const mine = await request('hx:mygame', {});
+      if (mine && mine.ok && mine.code) navigate('play', { online: '1', code: mine.code });
+    } catch { /* offline: the page below still works */ }
+  })();
+
   // Signing in from the panel turns the sign-in prompt into the real thing.
   unsubscribe.push(onAuthChange(() => { if (!search) render(); }));
 
@@ -378,28 +390,21 @@ export function mountOnline(outlet) {
       return;
     }
 
-    if (action === 'enter' && created) {
-      navigate('play', { online: '1', code: created.code });
-      return;
-    }
-
     if (action === 'share' && created) {
-      /* The device's own sheet: a link reaches a message or an email without
-         anybody having to find where it was copied to. */
-      try {
-        await navigator.share({
-          title: 'Hexaequo', text: t('online.shareText'), url: inviteLink(created.code),
-        });
-      } catch { /* dismissed, or refused by the platform */ }
-      return;
-    }
-
-    if (action === 'copy' && created) {
+      /* The device's own sheet, which already offers to copy as one of its
+         choices — so there is no second button for copying. Where there is no
+         sheet, copying is what the sheet call falls back to. */
       const link = inviteLink(created.code);
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: 'Hexaequo', text: t('online.shareText'), url: link });
+        } catch { /* dismissed, or refused by the platform */ }
+        return;
+      }
       try {
         await navigator.clipboard.writeText(link);
-      } catch { /* clipboard access can be refused; the link is on screen anyway */ }
-      button.textContent = t('online.copied');
+        button.textContent = t('online.copied');
+      } catch { /* refused; the link is on screen anyway */ }
     }
   });
 

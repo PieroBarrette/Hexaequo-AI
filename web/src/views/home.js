@@ -1,7 +1,8 @@
 /** Home screen: the mark, and the four ways into the site. */
 
 import { t } from '../i18n.js';
-import { isSignedIn, onAuthChange } from '../auth.js';
+import { isSignedIn, onAuthChange, sessionToken } from '../auth.js';
+import { request, connect, identify } from '../net.js';
 import { navigate } from '../router.js';
 import { logoLockupHtml } from '../ui/logo.js';
 import { play } from '../audio.js';
@@ -25,7 +26,7 @@ export function mountHome(outlet) {
       <p class="home-purpose">${t('home.purpose')}</p>
       <nav class="home-menu">
         <button class="btn btn--primary" data-go="play">${t('home.playLocal')}</button>
-        <button class="btn" data-go="online">${t('home.playOnline')}</button>
+        <button class="btn" data-go="online" data-online-button>${t('home.playOnline')}</button>
         <button class="btn" data-panel="leaderboard">${t('home.leaderboard')}</button>
         <button class="btn" data-go="profile" data-needs-account
                 hidden>${t('home.profile')}</button>
@@ -42,6 +43,28 @@ export function mountHome(outlet) {
       </div>
     </div>`;
 
+  let liveCode = null;
+
+  async function findMyGame() {
+    const button = outlet.querySelector('[data-online-button]');
+    if (!button) return;
+    if (!isSignedIn()) {
+      liveCode = null;
+      button.textContent = t('home.playOnline');
+      button.classList.remove('btn--primary');
+      return;
+    }
+    try {
+      await connect();
+      await identify(sessionToken()).catch(() => {});
+      const mine = await request('hx:mygame', {});
+      liveCode = mine && mine.ok ? mine.code : null;
+    } catch { liveCode = null; }
+    if (!outlet.isConnected) return;
+    button.textContent = liveCode ? t('home.rejoin') : t('home.playOnline');
+    button.classList.toggle('btn--primary', Boolean(liveCode));
+  }
+
   outlet.addEventListener('click', (event) => {
     const panel = event.target.closest('[data-panel]');
     if (panel) {
@@ -52,7 +75,11 @@ export function mountHome(outlet) {
     const go = event.target.closest('[data-go]');
     if (go) {
       play('ui');
-      navigate(go.getAttribute('data-go'));
+      const where = go.getAttribute('data-go');
+      // Straight to the board rather than through the page that would only
+      // send you there.
+      if (where === 'online' && liveCode) navigate('play', { online: '1', code: liveCode });
+      else navigate(where);
       return;
     }
     const action = event.target.closest('[data-action]');
@@ -66,6 +93,7 @@ export function mountHome(outlet) {
   });
 
   showAccountOnly();
-  const stop = onAuthChange(showAccountOnly);
+  findMyGame();
+  const stop = onAuthChange(() => { showAccountOnly(); findMyGame(); });
   return () => stop();
 }

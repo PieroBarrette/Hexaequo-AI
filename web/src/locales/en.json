@@ -16,7 +16,7 @@
     "leaderboard": "Leaderboard"
   },
   "home": {
-    "playLocal": "Play",
+    "playLocal": "Play locally",
     "playOnline": "Play online",
     "onlineSoon": "Coming soon",
     "rules": "Rules",
@@ -24,7 +24,8 @@
     "purpose": "Hexaequo is a free abstract strategy board game for two players. There is no fixed board: you build it as you play, one tile at a time. Play on one device, against the computer, or online with a friend.",
     "leaderboard": "Leaderboard",
     "profile": "My profile",
-    "credit": "A game created by Piero Barrette"
+    "credit": "A game created by Piero Barrette",
+    "rejoin": "Rejoin your game"
   },
   "common": {
     "black": "Black",
@@ -74,7 +75,11 @@
     "premoveArmed": "Premove ready",
     "premoveCancel": "Cancel",
     "you": "You",
-    "computer": "Computer"
+    "computer": "Computer",
+    "drawOffer": "Offer ExAequo",
+    "drawAccept": "Accept ExAequo",
+    "drawWaiting": "ExAequo offered…",
+    "drawOfferedBy": "Your opponent offers ExAequo."
   },
   "online": {
     "title": "Play online",
@@ -120,7 +125,8 @@
       "EMPTY": "Empty message.",
       "NOT_YOURSELF": "You cannot challenge yourself.",
       "ALREADY_ASKING": "You already have an invitation out. Wait for an answer, or call it off.",
-      "ALREADY_ASKED": "That player already has an invitation waiting."
+      "ALREADY_ASKED": "That player already has an invitation waiting.",
+      "NOT_STARTED": "The game has not started yet."
     },
     "rated": "Rated game",
     "unratedFriendly": "Friendly game — no rating at stake",
@@ -162,7 +168,8 @@
     "rematchAccept": "Accept rematch",
     "rematchWaiting": "Rematch offered…",
     "rematchOffered": "Your opponent offers a rematch.",
-    "rematchDeclined": "Rematch declined."
+    "rematchDeclined": "Rematch declined.",
+    "byAgreed": "both players agreed to an ExAequo"
   },
   "settings": {
     "title": "Settings",

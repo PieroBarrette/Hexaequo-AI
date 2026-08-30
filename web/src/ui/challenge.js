@@ -34,11 +34,24 @@ let notice = null;        // the last thing that happened, in words
 let noticeTimer = 0;
 let armed = false;
 
+/** Whether we are looking at the very game the standing agreement points at. */
+function watchingTheDeal() {
+  if (!agreed || !agreed.watchCode) return false;
+  /* Read from the hash rather than asking the router, which keeps its parsing
+     to itself; this needs one answer and not a new export. */
+  const [name, query] = (window.location.hash || '').replace(/^#\/?/, '').split('?');
+  if (name !== 'play') return false;
+  const params = new URLSearchParams(query || '');
+  return params.get('watch') === '1'
+    && String(params.get('code') || '').toUpperCase() === agreed.watchCode;
+}
+
 function render() {
   if (!host) return;
-  if (!incoming && !agreed && !notice) { host.hidden = true; host.innerHTML = ''; return; }
+  const chip = agreed && !watchingTheDeal();
+  if (!incoming && !chip && !notice) { host.hidden = true; host.innerHTML = ''; return; }
   host.hidden = false;
-  host.innerHTML = (incoming ? incomingCard() : '') + (agreed ? agreedChip() : '')
+  host.innerHTML = (incoming ? incomingCard() : '') + (chip ? agreedChip() : '')
     + (notice ? `<div class="hail hail--note">${escapeText(notice)}</div>` : '');
 }
 
@@ -191,6 +204,8 @@ export function mountChallenges() {
   host.hidden = true;
   host.addEventListener('click', onClick);
   document.body.appendChild(host);
+
+  window.addEventListener('routechange', render);
 
   onAuthChange(() => {
     if (isSignedIn()) { arm(); return; }

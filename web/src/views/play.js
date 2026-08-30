@@ -24,7 +24,7 @@ import {
   findLegalMove,
 } from '../game/moves.js';
 import { chooseMove, judge, DISK_POINTS } from '../game/ai.js';
-import { request, listen, connect, inviteLink, identify } from '../net.js';
+import { request, listen, connect, identify } from '../net.js';
 import { sessionToken, api, isSignedIn, onAuthChange } from '../auth.js';
 import { offerPosition, takePosition } from '../handoff.js';
 import { openPanel } from '../ui/panels.js';
@@ -115,6 +115,8 @@ export function mountPlay(outlet, params) {
       rematchAsked: false,     // we have offered
       rematchOffered: false,   // they have offered
       rematchDeclined: false,
+      drawOffered: false,      // they have offered
+      drawAsked: false,        // we have offered
       rematchCode: null,       // the room that replaces this one
       unsubscribe: [],
     }
@@ -303,6 +305,7 @@ export function mountPlay(outlet, params) {
     <button class="btn btn--icon" data-action="step" title="${t('game.stepOnce')}">⏭</button>
     <button class="btn btn--icon" data-action="undo" title="${t('game.undo')}">↶</button>
     <button class="btn btn--icon" data-action="new" title="${t('game.newGame')}">⟳</button>
+    <button class="btn btn--icon" data-action="draw" title="${t('game.drawOffer')}">½</button>
     <button class="btn btn--icon" data-action="resign" title="${t('online.resign')}">⚑</button>`;
   }
 
@@ -628,6 +631,7 @@ export function mountPlay(outlet, params) {
     disks: 'byDisks', rings: 'byRings', cleared: 'byCleared',
     noMoves: 'byNoMoves', repetition: 'byRepetition',
     resigned: 'byResigned', abandoned: 'byAbandoned', timeout: 'byTimeout',
+    agreed: 'byAgreed',
   };
 
   /** The sentence for a result, rendered in whatever language is current. */
@@ -851,6 +855,7 @@ export function mountPlay(outlet, params) {
     // server sends to the whole room including us, so there is nothing to
     // apply here — only the pending flag to clear.
     if (net.settled && net.colour !== null) net.settled[net.colour] = true;
+    net.drawAsked = false;      // playing on is changing your mind
     refresh();
   }
 
@@ -865,7 +870,18 @@ export function mountPlay(outlet, params) {
       await connect();
       await identify(sessionToken()).catch(() => {});
       const view = await request(net.watching ? 'hx:watch' : 'hx:join', { code: net.code });
-      if (!view.ok) { net.error = view.error; net.ready = false; refresh(); return; }
+      if (!view.ok) {
+        /* Turning up to watch a game that is yours to play: the right answer
+           is the seat, not an error message about it. */
+        if (view.error === 'ALREADY_PLAYING') {
+          navigate('play', { online: '1', code: net.code });
+          return;
+        }
+        net.error = view.error;
+        net.ready = false;
+        refresh();
+        return;
+      }
       adoptRoom(view);
     } catch {
       net.error = 'OFFLINE';
@@ -928,6 +944,19 @@ export function mountPlay(outlet, params) {
       }
       renderChat();
     }));
+    net.unsubscribe.push(listen('hx:draw:offer', (payload) => {
+      if (!net || payload.code !== net.code) return;
+      net.drawOffered = true;
+      playSound('ui');
+      refresh();
+    }));
+    net.unsubscribe.push(listen('hx:draw:declined', (payload) => {
+      if (!net || payload.code !== net.code) return;
+      // Either their refusal of ours, or their withdrawal of theirs.
+      if (payload.withdrawn) net.drawOffered = false;
+      else net.drawAsked = false;
+      refresh();
+    }));
     net.unsubscribe.push(listen('hx:rematch:offer', (payload) => {
       if (!net || payload.code !== net.code) return;
       net.rematchOffered = true;
@@ -964,25 +993,37 @@ export function mountPlay(outlet, params) {
     net.unsubscribe.push(listen('connect', () => { if (net) claimSeat(); }));
   }
 
-  /**
-   * Hand the invitation to whatever the device uses for sharing.
-   *
-   * A cancelled sheet throws, and is not a failure worth reporting: the player
-   * changed their mind, and the code is on screen either way.
-   */
-  async function shareLink() {
-    if (!net) return;
-    const url = inviteLink(net.code);
-    try {
-      await navigator.share({ title: 'Hexaequo', text: t('online.shareText'), url });
-    } catch { /* dismissed, or refused by the platform */ }
-  }
-
   async function resign() {
     if (!net || result) return;
     if (!window.confirm(t('online.confirmResign'))) return;
     try { await request('hx:resign', { code: net.code }); } catch { net.error = 'OFFLINE'; }
     refresh();
+  }
+
+  /**
+   * Offer to end it level, or take up the offer already on the table.
+   *
+   * One event does both, as with the rematch: the button says which of the two
+   * it will do, so nobody has to remember whose turn it is to ask.
+   */
+  async function offerDraw() {
+    if (!net || result || net.watching) return;
+    const taking = net.drawOffered;
+    const response = await request('hx:draw', { code: net.code })
+      .catch(() => ({ ok: false, error: 'OFFLINE' }));
+    if (!response.ok) { net.error = response.error; refresh(); return; }
+    if (response.agreed) return;          // hx:ended is on its way to both sides
+    if (!taking) net.drawAsked = true;
+    refresh();
+  }
+
+  /** Take our offer off the table, or refuse theirs. */
+  async function declineDraw() {
+    if (!net) return;
+    net.drawOffered = false;
+    net.drawAsked = false;
+    refresh();
+    request('hx:draw:decline', { code: net.code }).catch(() => {});
   }
 
   /**
@@ -1429,6 +1470,11 @@ export function mountPlay(outlet, params) {
       return `<button class="btn btn--primary" data-action="new">${t('result.rematch')}</button>`
         + viewButton + menu;
     }
+    /* Somebody who was watching has nothing to ask for: a rematch is between
+       the two who played, and a new opponent is a thing you go and find. What
+       is left is the game they just watched. */
+    if (net.watching) return viewButton + menu;
+
     // Online, a rematch is a request, not a decision: the wording says which.
     const label = net.rematchOffered ? t('result.rematchAccept')
       : (net.rematchAsked ? t('result.rematchWaiting') : t('result.rematch'));
@@ -1740,7 +1786,17 @@ export function mountPlay(outlet, params) {
     show('[data-action="step"]', local && isDuel);
     show('[data-action="undo"]', local);
     show('[data-action="new"]', local);
-    show('[data-action="resign"]', Boolean(net) && !net.watching);
+    const seated = Boolean(net) && !net.watching;
+    show('[data-action="resign"]', seated);
+    show('[data-action="draw"]', seated && !result);
+    const draw = tools.querySelector('[data-action="draw"]');
+    if (draw) {
+      const taking = Boolean(net && net.drawOffered);
+      draw.classList.toggle('is-on', taking || Boolean(net && net.drawAsked));
+      draw.disabled = Boolean(net && net.drawAsked && !taking);
+      draw.title = taking ? t('game.drawAccept')
+        : (net && net.drawAsked ? t('game.drawWaiting') : t('game.drawOffer'));
+    }
 
     const run = tools.querySelector('[data-action="run"]');
     run.textContent = aiRunning ? '⏸' : '▶';
@@ -1959,6 +2015,11 @@ export function mountPlay(outlet, params) {
       message = t('online.waiting');
     } else if (result) {
       message = '';
+    } else if (net.drawOffered) {
+      message = t('game.drawOfferedBy');
+      tone = 'is-warn';
+    } else if (net.drawAsked) {
+      message = t('game.drawWaiting');
     } else if (net.watching) {
       message = t('game.turnOf', { colour: colourName(state.turn) });
     } else {
@@ -1981,21 +2042,20 @@ export function mountPlay(outlet, params) {
     const asWatcher = net.watching
       ? `<span class="net-stake is-watching">${t('watch.badge')}</span>` : '';
 
+    const drawAnswer = net.drawOffered && !result
+      ? `<button class="btn btn--sm btn--primary" data-action="draw">${t('lobby.accept')}</button>`
+        + `<button class="btn btn--sm" data-action="draw-decline">${t('lobby.decline')}</button>`
+      : '';
+
     strip.className = `net-strip is-on ${tone}`;
     strip.innerHTML =
       asWatcher
       + `<span class="net-msg">${message}</span>`
+      + drawAnswer
       + eyes
       + `<span class="grow"></span>`
       + stakeLabel
-      + `<code class="room-code room-code--sm">${net.code}</code>`
-      /* The device's own share sheet where there is one — that is how a link
-         reaches a message, an email or whatever else is installed. Copying
-         stays for everything that has no sheet to offer. */
-      + (navigator.share
-        ? `<button class="btn btn--icon" data-action="share-link" title="${t('online.share')}">⇪</button>`
-        : '')
-      + `<button class="btn btn--icon" data-action="copy-link" title="${t('online.copyLink')}">⧉</button>`;
+      + `<code class="room-code room-code--sm">${net.code}</code>`;
 
     // Keep the abandonment countdown ticking without redrawing the board.
     clearInterval(countdownTimer);
@@ -2315,6 +2375,8 @@ export function mountPlay(outlet, params) {
     else if (action === 'new-online') navigate('online');
     else if (action === 'menu') navigate('home');
     else if (action === 'resign') resign();
+    else if (action === 'draw') offerDraw();
+    else if (action === 'draw-decline') declineDraw();
     else if (action === 'review-game') { resultSeen = true; goToPly(0); }
     else if (action === 'rematch') askRematch();
     else if (action === 'rev-first') { stopAutoplay(); goToPly(0); }
@@ -2326,12 +2388,6 @@ export function mountPlay(outlet, params) {
     else if (action === 'guest-sign-in') { openPanel('account'); }
     else if (action === 'rev-play') {
       if (isAutoplaying()) { stopAutoplay(); renderReviewBar(); } else startAutoplay();
-    }
-    else if (action === 'share-link' && net) { shareLink(); }
-    else if (action === 'copy-link' && net) {
-      navigator.clipboard.writeText(inviteLink(net.code)).catch(() => {});
-      button.textContent = '✓';
-      setTimeout(() => { button.textContent = '⧉'; }, 1200);
     }
     else if (action === 'run') { aiRunning = !aiRunning; refresh(); if (aiRunning) scheduleAI(); }
     else if (action === 'step') stepAI();
@@ -2475,7 +2531,11 @@ export function mountPlay(outlet, params) {
     clearInterval(countdownTimer);
     clearInterval(clockTimer);
     if (net) {
+      /* Going elsewhere is not the same as sitting there in silence. Say so,
+         and the server starts the same countdown a dropped connection does;
+         coming back through hx:join calls it off. */
       if (net.watching) request('hx:unwatch', { code: net.code }).catch(() => {});
+      else if (!result) request('hx:leave', { code: net.code }).catch(() => {});
       for (const off of net.unsubscribe) { try { off(); } catch { /* already gone */ } }
       net = null;                       // stops in-flight handlers from touching a dead view
     }

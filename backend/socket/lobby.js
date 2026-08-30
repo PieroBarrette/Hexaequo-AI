@@ -55,8 +55,8 @@ function liveGames() {
         if (!black || !white || !room.seats[0] || !room.seats[1]) continue;
         out.push({
             code: room.code,
-            black: { pseudo: black.pseudo, elo: black.elo },
-            white: { pseudo: white.pseudo, elo: white.elo },
+            black: { pseudo: black.pseudo, elo: black.elo, userId: black.userId },
+            white: { pseudo: white.pseudo, elo: white.elo, userId: white.userId },
             timeControl: room.timeControl,
             plies: room.moves.length,
             watchers: room.watchers.size,

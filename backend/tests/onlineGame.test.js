@@ -642,6 +642,110 @@ async function run() {
         b.disconnect();
     });
 
+    await test('a game can end level by agreement', async () => {
+        const a = await open();
+        const b = await open();
+        const room = await ask(a, 'hx:create', {});
+        await ask(b, 'hx:join', { code: room.code });
+
+        const asked = waitFor(b, 'hx:draw:offer');
+        const offered = await ask(a, 'hx:draw', { code: room.code });
+        assert.strictEqual(offered.offered, true, 'offered, not agreed');
+        assert.strictEqual((await asked).seat, 0, 'and the other side is asked');
+
+        const ended = waitFor(a, 'hx:ended');
+        const taken = await ask(b, 'hx:draw', { code: room.code });
+        assert.strictEqual(taken.agreed, true, 'the same event takes it up');
+        const result = await ended;
+        assert.strictEqual(result.result.winner, null, 'nobody won');
+        assert.strictEqual(result.result.reason, 'agreed');
+
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('playing on takes your own offer off the table', async () => {
+        /* An offer left standing from twenty plies ago is a trap rather than
+           an offer: whoever made it has since decided to play. */
+        const a = await open();
+        const b = await open();
+        const room = await ask(a, 'hx:create', {});
+        await ask(b, 'hx:join', { code: room.code });
+        await ask(a, 'hx:draw', { code: room.code });
+
+        const withdrawn = waitFor(b, 'hx:draw:declined');
+        await ask(a, 'hx:move', { code: room.code, intent: await legalIntent(room.state) });
+        assert.strictEqual((await withdrawn).withdrawn, true, 'the other side is told');
+
+        // And taking it up now offers rather than agrees, since there is
+        // nothing left on the table.
+        const late = await ask(b, 'hx:draw', { code: room.code });
+        assert.strictEqual(late.agreed, undefined, 'no game was ended by it');
+        assert.strictEqual(late.offered, true, 'it is a fresh offer from the other side');
+
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('an offer can be refused, and the game goes on', async () => {
+        const a = await open();
+        const b = await open();
+        const room = await ask(a, 'hx:create', {});
+        await ask(b, 'hx:join', { code: room.code });
+        await ask(a, 'hx:draw', { code: room.code });
+
+        const told = waitFor(a, 'hx:draw:declined');
+        await ask(b, 'hx:draw:decline', { code: room.code });
+        assert.strictEqual((await told).withdrawn, false, 'refused rather than withdrawn');
+
+        const played = await ask(a, 'hx:move', { code: room.code, intent: await legalIntent(room.state) });
+        assert.strictEqual(played.ok, true, 'the game is still live');
+
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('a spectator cannot offer or refuse a draw', async () => {
+        const a = await open();
+        const b = await open();
+        const eye = await open();
+        const room = await ask(a, 'hx:create', {});
+        await ask(b, 'hx:join', { code: room.code });
+        await ask(eye, 'hx:watch', { code: room.code });
+        for (const event of ['hx:draw', 'hx:draw:decline']) {
+            const refused = await ask(eye, event, { code: room.code });
+            assert.strictEqual(refused.ok, false, event + ' was refused');
+            assert.strictEqual(refused.error, 'NOT_A_PLAYER');
+        }
+        a.disconnect();
+        b.disconnect();
+        eye.disconnect();
+    });
+
+    await test('stepping away frees the seat and starts the countdown', async () => {
+        /* Going elsewhere in the site is not the same as sitting there in
+           silence: the opponent was left waiting for somebody who had gone. */
+        const a = await open();
+        const b = await open();
+        const room = await ask(a, 'hx:create', { timeControl: 'bullet' });
+        await ask(b, 'hx:join', { code: room.code });
+
+        const told = waitFor(b, 'hx:opponent');
+        await ask(a, 'hx:leave', { code: room.code });
+        const event = await told;
+        assert.strictEqual(event.joined, false, 'they are away');
+        assert.ok(event.msLeft > 0, 'and the clock on their return is running');
+
+        // Coming back calls it off, and the seat is theirs again.
+        const back = waitFor(b, 'hx:opponent');
+        const rejoined = await ask(a, 'hx:join', { code: room.code });
+        assert.strictEqual(rejoined.colour, 0, 'the same seat');
+        assert.strictEqual((await back).joined, true, 'and the other side is told');
+
+        a.disconnect();
+        b.disconnect();
+    });
+
     await test('declining a rematch clears the offer', async () => {
         const a = await open();
         const b = await open();
