@@ -195,6 +195,8 @@
     "volume": "Volume",
     "showValidMoves": "Afficher les coups valides",
     "showValidMovesHint": "Signale où la pièce choisie peut aller et où une tuile peut être posée. Désactivez pour une partie plus exigeante — les clics fonctionnent toujours.",
+    "showLastMove": "Afficher le coup précédent",
+    "showLastMoveHint": "Marque les cases du dernier coup joué, y compris en revue. Désactivez pour un plateau nu, comme sur une vraie table — à vous de suivre la partie.",
     "aiLevel": "Niveau d'IA par défaut",
     "aiLevelHint": "Profondeur de recherche et temps de réflexion.",
     "preview": "Aperçu",

@@ -1176,7 +1176,12 @@ export function mountPlay(outlet, params) {
       else if (premove.type === 'disk') premoveCells.push(premove.path[0], premove.path[premove.path.length - 1]);
       else premoveCells.push(premove.from, premove.to);
     }
-    const marked = reviewing ? (review > 0 ? timelineMoves[review - 1] : null) : lastMove;
+    /* Off by choice, and off everywhere. Nothing marks the last move on a real
+       table, and someone who turns this off is asking for that board — in a
+       review as much as in a live game. */
+    const marked = !getSetting('showLastMove') ? null
+      : reviewing ? (review > 0 ? timelineMoves[review - 1] : null)
+      : lastMove;
     const lastMoveCells = [];
     if (marked && !chain) {
       if (marked.type === 'tile' || marked.type === 'piece') lastMoveCells.push(marked.cell);
@@ -2491,12 +2496,22 @@ export function mountPlay(outlet, params) {
     if (event.key === 'Escape') {
       if (review !== null) { goToPly(timeline.length - 1); return; }
       if (premove) { clearPremove(true); return; }
-      if (drawerOpen) { drawerOpen = false; drawer.classList.remove('is-on'); return; }
+      /* Through setDrawer, so the arrow on the bar turns over with it. Closing
+         it by hand left the button still pointing up, offering to open a
+         drawer that was already shut. */
+      if (drawerOpen) { setDrawer(false, drawerTab); return; }
       selected = null; chain = null; placeMode = null; picker = null; clearEffect(); refresh();
     } else if (event.key === 'Enter' && chain) {
       finishChain();
     } else if (event.key === 'ArrowLeft') { event.preventDefault(); stepReview(-1); }
     else if (event.key === 'ArrowRight') { event.preventDefault(); stepReview(1); }
+    /* Up and down for the panel, next to left and right for the moves. Both
+       always answer, even when the drawer is already the way the key asks —
+       a key that does nothing on the second press is a key that feels broken.
+       preventDefault stops the page scrolling out from under the board, which
+       on a narrow screen it now can. */
+    else if (event.key === 'ArrowUp') { event.preventDefault(); setDrawer(true, drawerTab); }
+    else if (event.key === 'ArrowDown') { event.preventDefault(); setDrawer(false, drawerTab); }
     else if (event.key === 'Home') { event.preventDefault(); goToPly(0); }
     else if (event.key === 'End') { event.preventDefault(); goToPly(timeline.length - 1); }
     else if ((event.key === 'z' || event.key === 'Z') && (event.ctrlKey || event.metaKey)) {
@@ -2531,7 +2546,7 @@ export function mountPlay(outlet, params) {
   /* Settings and language can be changed from a panel floating over this very
      game, so both have to land without a remount. */
   const stopWatchingSettings = onSettingsChange((name) => {
-    if (name === 'showValidMoves') refresh();
+    if (name === 'showValidMoves' || name === 'showLastMove') refresh();
     else if (name === 'aiLevel' && !net) { level = getSetting('aiLevel'); buildTools(); refresh(); }
   });
   const stopWatchingLanguage = onLanguageChange(relabel);
