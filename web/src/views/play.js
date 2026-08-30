@@ -257,10 +257,29 @@ export function mountPlay(outlet, params) {
   evalBar.hidden = true;
   evalBar.innerHTML = '<div class="eval-fill"></div><span class="eval-number"></span>';
   outlet.querySelector('.board-host').appendChild(evalBar);
+  /* What the engine would play here, beside the bar rather than in it: the bar
+     is nineteen pixels wide and a move is a word. */
+  const evalHint = document.createElement('button');
+  evalHint.className = 'eval-hint';
+  evalHint.type = 'button';
+  evalHint.hidden = true;
+  outlet.querySelector('.board-host').appendChild(evalHint);
   /* One number per ply, kept because stepping back and forth through a game
      asks for the same positions over and over — and because the curve wants
      every one of them. */
   const evalCache = new Map();
+  /* The suggested move per ply, from a deeper search than the bar's. Declared
+     alongside so the one thing that forgets analysis forgets all of it. */
+  const hintCache = new Map();
+  let hintTimer = 0;
+
+  /* Both caches are keyed by ply, and a ply number does not mean the same
+     position from one line to the next — a branch, a new game or a game loaded
+     over this one all put something else at 12. */
+  function forgetAnalysis() {
+    evalCache.clear();
+    hintCache.clear();
+  }
   const curveEl = outlet.querySelector('.eval-curve');
   let curveTimer = 0;
   const bubbleEl = outlet.querySelector('.chat-bubble');
@@ -380,7 +399,7 @@ export function mountPlay(outlet, params) {
    * are never recorded — so the game it came from cannot be touched.
    */
   function newGame(from) {
-    evalCache.clear();
+    forgetAnalysis();
     holdingResult = false;
     clearTimeout(resultTimer);
     state = from ? cloneState(from) : createState();
@@ -587,7 +606,7 @@ export function mountPlay(outlet, params) {
     } while (history.length && stopAt !== null && state.turn !== stopAt);
     // The undone plies never happened, and neither did what was thought of
     // them: the same index now holds a different position.
-    evalCache.clear();
+    forgetAnalysis();
     timeline.length = history.length + 1;
     timelineMoves.length = history.length;
     if (review !== null && review > history.length) review = null;
@@ -812,7 +831,7 @@ export function mountPlay(outlet, params) {
   }
 
   function adoptRoom(view) {
-    evalCache.clear();
+    forgetAnalysis();
     if (view.colour !== undefined && view.colour !== null && view.colour >= 0) net.colour = view.colour;
     state = deserializeState(view.state);
     moveLog = (view.notations || []).map((text, i) => ({
@@ -1103,7 +1122,7 @@ export function mountPlay(outlet, params) {
       return;
     }
 
-    evalCache.clear();
+    forgetAnalysis();
     timelineMoves = (archive.moves || []).slice();
     timeline = replayTimeline(timelineMoves);
     if (timeline.length !== timelineMoves.length + 1) {
@@ -1241,6 +1260,7 @@ export function mountPlay(outlet, params) {
     renderReviewBar();
     renderChat();
     renderEvalBar();
+    renderEvalHint();
     renderEvalCurve();
     fillCurve();
     renderNetStatus();
@@ -1686,6 +1706,7 @@ export function mountPlay(outlet, params) {
     result = null;
     review = null;
     history = [];
+    forgetAnalysis();
     /* Rebuilt from the line that survives, so the threefold rule counts the
        positions this branch actually stands on rather than starting blind. */
     repetitions = new Map();
@@ -1708,6 +1729,7 @@ export function mountPlay(outlet, params) {
     ({ timeline, timelineMoves, moveLog, history, repetitions,
       state, result, lastMove, review } = exploring);
     exploring = null;
+    forgetAnalysis();            // the branch's numbers were not about this game
     selected = null;
     chain = null;
     placeMode = null;
@@ -2125,6 +2147,65 @@ export function mountPlay(outlet, params) {
       ? t('review.evalDecided', { colour: colourName(verdict.score > 0 ? BLACK : WHITE) })
       : t('review.evalTitle', { n: label, d: verdict.depth });
   }
+
+  /*
+   * The move the engine would play in the position on screen.
+   *
+   * Searched deeper than the bar is — the bar wants a number for every ply and
+   * gets a quick one; this wants the right move for one ply and can afford it,
+   * measuring 60 to 320 ms across a whole game. Off the main thread it is not,
+   * so it is asked for after a beat rather than during the redraw: stepping
+   * quickly through a game then never pays for the plies it passed over.
+   *
+   * Kept apart from the bar's own cache because the two are different searches.
+   * Only the move is shown, never a second number, so there is nothing for a
+   * reader to notice disagreeing with the bar.
+   */
+  function renderEvalHint() {
+    const at = review === null ? timeline.length - 1 : review;
+    // Nothing to suggest where the game is already over.
+    const over = Boolean(result) && at === timeline.length - 1;
+    if (!isReview() || over || !timeline[at]) {
+      clearTimeout(hintTimer);
+      evalHint.hidden = true;
+      return;
+    }
+    if (!hintCache.has(at)) {
+      evalHint.hidden = true;
+      clearTimeout(hintTimer);
+      const wanted = at;
+      hintTimer = setTimeout(() => {
+        const verdict = judge(cloneState(timeline[wanted]), { ms: 3500, maxDepth: 7 });
+        hintCache.set(wanted, verdict.move || null);
+        renderEvalHint();
+      }, 120);
+      return;
+    }
+    const move = hintCache.get(at);
+    if (!move) { evalHint.hidden = true; return; }
+    evalHint.hidden = false;
+    evalHint.textContent = moveNotation(move, cellLabel);
+    /* Playable only inside an exploration, which is the one place a move can
+       be played without writing over anything. Elsewhere it is a note. */
+    const playable = Boolean(exploring) && review === null;
+    evalHint.classList.toggle('is-playable', playable);
+    evalHint.disabled = !playable;
+    evalHint.title = playable ? t('review.hintPlay') : t('review.hintTitle');
+  }
+
+  evalHint.addEventListener('click', () => {
+    if (!exploring || review !== null) return;
+    const at = timeline.length - 1;
+    const suggested = hintCache.get(at);
+    if (!suggested) return;
+    /* Resolved against the live position rather than played as it was found:
+       the search ran on a copy, and a move is only ever committed here after
+       the board it belongs to has agreed to it. */
+    const real = findLegalMove(state, moveIntent(suggested));
+    if (!real) return;
+    playSound('ui');
+    commit(real);
+  });
 
   /** The judgement for one ply, computed once and remembered. */
   function verdictAt(ply) {

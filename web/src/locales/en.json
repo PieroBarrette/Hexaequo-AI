@@ -366,6 +366,8 @@
     "explore": "Explore",
     "exploringFrom": "Exploring from move {n} — the game is kept",
     "leaveExploring": "Back to the game",
+    "hintTitle": "The move the engine would play here",
+    "hintPlay": "The move the engine would play here — click to play it",
     "resumedFrom": "Carried on from {game}, move {n} — a local game",
     "resumedHere": "Carried on from move {n} — a local game",
     "evalTitle": "Engine evaluation: {n} (depth {d})",

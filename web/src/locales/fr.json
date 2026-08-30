@@ -366,6 +366,8 @@
     "explore": "Explorer",
     "exploringFrom": "Exploration depuis le coup {n} — la partie est conservée",
     "leaveExploring": "Revenir à la partie",
+    "hintTitle": "Le coup que le moteur jouerait ici",
+    "hintPlay": "Le coup que le moteur jouerait ici — cliquez pour le jouer",
     "resumedFrom": "Reprise de {game}, au coup {n} — partie locale",
     "resumedHere": "Reprise au coup {n} — partie locale",
     "evalTitle": "Évaluation de l’ordinateur : {n} (profondeur {d})",

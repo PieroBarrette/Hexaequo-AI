@@ -436,6 +436,28 @@ select.btn option {
   box-shadow: 0 2px 10px rgba(0, 0, 0, .18);
 }
 .eval-bar[hidden] { display: none; }
+/*
+ * The engine's move, beside the bar and level with its top.
+ *
+ * Quiet by default — it is a note, not an instruction, and reading a game
+ * should not feel like being told the answer before you have looked. It only
+ * becomes a button where pressing it costs nothing: inside an exploration.
+ */
+.eval-hint {
+  position: absolute; left: 34px; top: 12px; z-index: 4;
+  font: 600 11px/1 var(--font-mono); letter-spacing: -.02em;
+  color: var(--muted); background: color-mix(in srgb, var(--surface) 82%, transparent);
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: 4px 7px; cursor: default;
+}
+.eval-hint[hidden] { display: none; }
+.eval-hint::before { content: '▸ '; opacity: .7; }
+.eval-hint.is-playable {
+  cursor: pointer; color: var(--accent); border-color: var(--accent);
+}
+.eval-hint.is-playable:hover {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
 .eval-fill {
   position: absolute; left: 0; right: 0; bottom: 0;
   background: var(--piece-light);

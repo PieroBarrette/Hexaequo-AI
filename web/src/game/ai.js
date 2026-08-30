@@ -312,9 +312,16 @@ export const DECISIVE = MATE - 1000;
  * and a bar that shimmers while nothing on the board has changed is a bar
  * nobody can read.
  *
- * @returns {{ score: number, depth: number, decisive: boolean }}
+ * The move it settled on comes back with the number, because the search had to
+ * pick one to arrive at the number and was throwing it away afterwards. Free,
+ * where asking separately would have cost the whole search again — and
+ * noise-free like the score, so a position always names the same move instead
+ * of choosing differently between two it scores alike.
+ *
+ * @returns {{ score: number, depth: number, decisive: boolean, move: object|null }}
  *   score is absolute and positive for Black, in points; decisive says the
- *   search reached a finish rather than an estimate.
+ *   search reached a finish rather than an estimate; move is what the side to
+ *   move should play, or null where there is nothing to play.
  */
 export function judge(state, { ms = 140, maxDepth = 5 } = {}) {
   const heldNoise = noise;
@@ -328,12 +335,35 @@ export function judge(state, { ms = 140, maxDepth = 5 } = {}) {
 
   let value = evaluateForSideToMove(state);
   let reached = 0;
+  let best = null;
+
+  /* The root is walked here rather than left to negamax, which reports a score
+     and keeps the move to itself. Same search either way: one ply expanded by
+     hand so the choice it makes can be seen. */
+  const root = generateMoves(state);
+  if (!root.length) {
+    noise = heldNoise;
+    useQuiescence = heldQuiesce;
+    return { score: 0, depth: 0, decisive: false, move: null };
+  }
+  sortMoves(root, 0);
+
   for (let depth = 1; depth <= maxDepth; depth++) {
-    const found = negamax(state, depth, -INFINITY, INFINITY, 0);
-    // A search cut short mid-depth has explored some moves and not others,
-    // which is worse than the depth below it, not better.
-    if (aborted) break;
-    value = found;
+    let alpha = -INFINITY;
+    let bestThisDepth = null;
+    let completed = true;
+    for (const move of root) {
+      applyMove(state, move);
+      const score = -negamax(state, depth - 1, -INFINITY, -alpha, 1);
+      undoMove(state, move);
+      // A depth cut short has looked at some moves and not the others, which is
+      // worse than the depth below it rather than better.
+      if (aborted) { completed = false; break; }
+      if (score > alpha || bestThisDepth === null) { alpha = score; bestThisDepth = move; }
+    }
+    if (!completed) break;
+    value = alpha;
+    best = bestThisDepth;
     reached = depth;
     if (Math.abs(value) > DECISIVE) break;
     if (Date.now() > deadline) break;
@@ -347,6 +377,7 @@ export function judge(state, { ms = 140, maxDepth = 5 } = {}) {
     score: state.turn === BLACK ? value : -value,
     depth: reached,
     decisive: Math.abs(value) > DECISIVE,
+    move: best,
   };
 }
 
