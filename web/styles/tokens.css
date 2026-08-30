@@ -38,6 +38,19 @@
      tile colour, so the contrast holds in all four palettes by construction. */
   --coord-on-dark: color-mix(in srgb, var(--tile-light) 70%, transparent);
   --coord-on-light: color-mix(in srgb, var(--tile-dark) 70%, transparent);
+
+  /*
+   * A hair of light in the middle of the ground, falling away to nothing.
+   *
+   * Black to black, near enough: three percent of white is below the point
+   * anyone would name it a colour, and above the point a large flat expanse
+   * reads as unfinished. Derived rather than written out, so each palette
+   * lifts its own ground — the wood themes stay wood and the light ones, whose
+   * ground is already near white, barely move at all, which is right.
+   */
+  --bg-lift: color-mix(in srgb, var(--bg) 97%, #fff);
+  --board-lift: color-mix(in srgb, var(--board-bg) 96%, #fff);
+  --board-sink: color-mix(in srgb, var(--board-bg) 97%, #000);
 }
 
 /* ── Modern · dark — brushed metal on graphite ───────────────────────────── */

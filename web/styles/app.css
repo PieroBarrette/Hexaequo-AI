@@ -22,7 +22,12 @@ html, body {
 }
 
 body {
+  /* The same hair of light behind the whole page, so the chrome around the
+     board belongs to it rather than sitting on a different black. The colour
+     underneath stays, because a gradient does not paint the overscroll. */
   background: var(--bg);
+  background-image:
+    radial-gradient(140% 100% at 50% 0%, var(--bg-lift) 0%, var(--bg) 62%);
   color: var(--text);
   font: 15px/1.5 var(--font-sans);
   display: flex;
@@ -221,9 +226,21 @@ select.btn option {
    about a selection dragged over it — they are separate mechanisms. On the
    whole board rather than on the coordinates alone, since the board is a
    dragging surface and any text it ever gains would have the same problem. */
+/*
+ * The board sits in the widest empty space on the site, and flat black across
+ * all of it reads as a page that has not finished loading. A slow rise towards
+ * where the pieces are, falling away past the edges, gives it somewhere to be
+ * — nothing you would look at, only something you would miss.
+ *
+ * Centred a little above the middle, where the board itself sits once the bar
+ * below has taken its share of the height.
+ */
 .board {
   flex: 1; width: 100%; height: 100%; display: block;
-  touch-action: none; background: var(--board-bg);
+  touch-action: none;
+  background:
+    radial-gradient(120% 95% at 50% 42%,
+      var(--board-lift) 0%, var(--board-bg) 55%, var(--board-sink) 100%);
   -webkit-user-select: none; user-select: none;
 }
 .board-fx { pointer-events: none; }
