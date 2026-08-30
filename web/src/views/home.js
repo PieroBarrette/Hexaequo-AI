@@ -1,8 +1,7 @@
 /** Home screen: the mark, and the four ways into the site. */
 
 import { t } from '../i18n.js';
-import { isSignedIn, onAuthChange, sessionToken } from '../auth.js';
-import { request, connect, identify } from '../net.js';
+import { isSignedIn, onAuthChange } from '../auth.js';
 import { navigate } from '../router.js';
 import { logoLockupHtml } from '../ui/logo.js';
 import { play } from '../audio.js';
@@ -47,25 +46,16 @@ export function mountHome(outlet) {
       </div>
     </div>`;
 
-  let liveCode = null;
-
-  async function findMyGame() {
-    const button = outlet.querySelector('[data-online-button]');
-    if (!button) return;
-    if (!isSignedIn()) {
-      liveCode = null;
-      button.textContent = t('home.playOnline');
-      return;
-    }
-    try {
-      await connect();
-      await identify(sessionToken()).catch(() => {});
-      const mine = await request('hx:mygame', {});
-      liveCode = mine && mine.ok ? mine.code : null;
-    } catch { liveCode = null; }
-    if (!outlet.isConnected) return;
-    button.textContent = liveCode ? t('home.rejoin') : t('home.playOnline');
-  }
+/*
+ * The online door stays the online door.
+ *
+ * It used to turn into "rejoin your game" whenever one was unfinished and go
+ * straight to the board, which meant an unfinished game shut the online page
+ * altogether: no lobby, no chat, no leaderboard of who is about. The chip in
+ * the corner already offers the way back from every page, so the button does
+ * not have to be that offer as well — and being it cost the only route to
+ * everything else.
+ */
 
   outlet.addEventListener('click', (event) => {
     const panel = event.target.closest('[data-panel]');
@@ -77,11 +67,7 @@ export function mountHome(outlet) {
     const go = event.target.closest('[data-go]');
     if (go) {
       play('ui');
-      const where = go.getAttribute('data-go');
-      // Straight to the board rather than through the page that would only
-      // send you there.
-      if (where === 'online' && liveCode) navigate('play', { online: '1', code: liveCode });
-      else navigate(where);
+      navigate(go.getAttribute('data-go'));
       return;
     }
     const action = event.target.closest('[data-action]');
@@ -95,7 +81,6 @@ export function mountHome(outlet) {
   });
 
   showAccountOnly();
-  findMyGame();
-  const stop = onAuthChange(() => { showAccountOnly(); findMyGame(); });
+  const stop = onAuthChange(() => showAccountOnly());
   return () => stop();
 }

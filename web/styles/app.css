@@ -396,7 +396,10 @@ select.btn option {
   .board-bar select.btn { font-size: 13px; padding: 5px 6px; min-height: 34px; }
   .board-bar .btn--icon { width: 34px; min-width: 34px; min-height: 34px; }
 }
-.review-bar.is-back .review-live { display: inline-flex; }
+/* :not([hidden]) because this rule is what would otherwise overrule the
+   attribute — an author `display` beats the one the browser attaches to
+   `hidden`, so the button would stay on screen having been told not to. */
+.review-bar.is-back .review-live:not([hidden]) { display: inline-flex; }
 .game.is-reviewing .board-host { background: color-mix(in srgb, var(--accent) 7%, transparent); }
 .game.is-reviewing .board-host::after {
   content: ''; position: absolute; inset: 0; pointer-events: none;

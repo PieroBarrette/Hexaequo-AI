@@ -53,6 +53,8 @@ export function mountOnline(outlet) {
 
   /** Null when not searching; otherwise the last status the server sent. */
   let search = null;
+  /** The code of a game of yours still unfinished, when there is one. */
+  let liveCode = null;
   let ticker = null;
   const unsubscribe = [];
 
@@ -89,6 +91,25 @@ export function mountOnline(outlet) {
               ${cadenceLabel(id)}
             </button>`).join('')}
         </div>
+      </div>`;
+  }
+
+  /**
+   * One door back, in place of the two ways in.
+   *
+   * With a game still going, starting another is the one thing that cannot be
+   * meant — so the page offers the way back to it instead of a quick match and
+   * a new room. Only these two are taken away: the lobby underneath keeps its
+   * list, its chat and its names, which is the reason the page is reachable at
+   * all while a game is unfinished.
+   */
+  function rejoinBlock() {
+    return `
+      <div class="rule-block">
+        <div class="online-doors">
+          <button class="btn btn--primary" data-action="rejoin">${t('home.rejoin')}</button>
+        </div>
+        <p class="lede" style="font-size:12px;margin:10px 0 0">${t('online.finishFirst')}</p>
       </div>`;
   }
 
@@ -149,11 +170,31 @@ export function mountOnline(outlet) {
   }
 
   function render() {
+    /* A game of your own outranks the doors, but not a room you are in the
+       middle of opening or a search already running — those are answers to
+       something you just pressed. */
+    const rejoin = Boolean(liveCode) && !search && !created;
     top.innerHTML = `
       ${error ? `<p class="net-error">${error}</p>` : ''}
-      ${search || created ? '' : cadenceBlock()}
-      ${search ? searchBlock() : (created ? waitingBlock() : doorsBlock())}`;
+      ${search || created || rejoin ? '' : cadenceBlock()}
+      ${rejoin ? rejoinBlock()
+    : search ? searchBlock() : (created ? waitingBlock() : doorsBlock())}`;
     renderQr();
+  }
+
+  /** Ask whether a game of ours is still going, and redraw if the answer moved. */
+  async function findMyGame() {
+    const was = liveCode;
+    if (!isSignedIn()) liveCode = null;
+    else {
+      try {
+        await connect();
+        await identify(sessionToken()).catch(() => {});
+        const mine = await request('hx:mygame', {});
+        liveCode = mine && mine.ok ? mine.code : null;
+      } catch { liveCode = null; }
+    }
+    if (outlet.isConnected && liveCode !== was) render();
   }
 
   /** The link as something a camera can read. A tap anywhere closes it. */
@@ -277,9 +318,11 @@ export function mountOnline(outlet) {
   /* ── Wiring ───────────────────────────────────────────────────────────── */
 
   render();
+  findMyGame();
 
-  // Signing in from the panel turns the sign-in prompt into the real thing.
-  unsubscribe.push(onAuthChange(() => { if (!search) render(); }));
+  /* Signing in from the panel turns the sign-in prompt into the real thing —
+     and is also when a game of yours can first be found. */
+  unsubscribe.push(onAuthChange(() => { if (!search) render(); findMyGame(); }));
 
   /* Anywhere on the sheet puts the code away. */
   qrSheet.addEventListener('click', () => { showingQr = false; renderQr(); });
@@ -304,6 +347,10 @@ export function mountOnline(outlet) {
     if (action === 'queue') return enterQueue();
     if (action === 'unqueue') return leaveQueue();
     if (action === 'qr') { showingQr = true; renderQr(); return; }
+    if (action === 'rejoin' && liveCode) {
+      navigate('play', { online: '1', code: liveCode });
+      return;
+    }
 
     if (action === 'create') {
       busy = true;

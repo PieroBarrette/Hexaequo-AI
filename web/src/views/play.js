@@ -1734,7 +1734,12 @@ export function mountPlay(outlet, params) {
     /* Carrying the position off to play it out is analysis, not reading, so
        it waits for the game to be over like the bar and the curve do. Local
        or online makes no difference: mid-game, stepping back is looking. */
-    reviewBar.querySelector('[data-action="resume"]').hidden = !isReview();
+    /* "Back to the game" only while there is a game to be back in. In a review
+       there is no present to return to — the last ply is just the last ply, and
+       ⏭ already goes there in one press. Mid-game it is the one control that
+       says something the arrows do not: stop reading, the board has moved on
+       without you. */
+    reviewBar.querySelector('[data-action="rev-live"]').hidden = isReview();
     const playButton = reviewBar.querySelector('[data-action="rev-play"]');
     playButton.textContent = isAutoplaying() ? '⏸' : '▶';
     playButton.classList.toggle('is-on', isAutoplaying());

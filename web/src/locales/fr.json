@@ -154,7 +154,8 @@
     "cadenceTitle": "Cadence",
     "quickNeedsClock": "La partie rapide demande une pendule : choisissez une cadence.",
     "showQr": "Afficher un code QR",
-    "qrHint": "Balayez ce code avec un autre appareil pour rejoindre la partie."
+    "qrHint": "Balayez ce code avec un autre appareil pour rejoindre la partie.",
+    "finishFirst": "Vous avez une partie en cours. Terminez-la avant d'en commencer une autre — le salon reste ouvert."
   },
   "result": {
     "wins": "{colour} gagne",

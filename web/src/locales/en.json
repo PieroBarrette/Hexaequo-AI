@@ -154,7 +154,8 @@
     "cadenceTitle": "Time control",
     "quickNeedsClock": "Quick match needs a clock: pick a time control.",
     "showQr": "Show a QR code",
-    "qrHint": "Scan this with another device to join the game."
+    "qrHint": "Scan this with another device to join the game.",
+    "finishFirst": "You have a game in progress. Finish it before starting another — the lobby stays open."
   },
   "result": {
     "wins": "{colour} wins",
