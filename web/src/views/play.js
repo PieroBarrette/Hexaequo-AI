@@ -2285,7 +2285,15 @@ export function mountPlay(outlet, params) {
        same curve, and the curve is in no hurry — what matters is that a tap or
        an arrow lands between the slices rather than behind them. */
     verdictAt(missing[0]);
+    /* The bar and the note as well as the curve. This fills whatever ply is
+       missing, and the ply on screen is usually the one that just appeared —
+       so it was answering the question and then redrawing only the part of the
+       page that had not asked it. The note stayed blank and the bar kept the
+       previous ply's number until something else forced a redraw, which is
+       what pressing an arrow was doing. */
     renderEvalCurve();
+    renderEvalBar();
+    renderEvalHint();
     curveTimer = setTimeout(fillCurve, 32);
   }
 
