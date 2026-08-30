@@ -401,6 +401,7 @@ export function mountPlay(outlet, params) {
   function recordPly(move) {
     timelineMoves.push(move);
     timeline.push(cloneState(state));
+    review = null;                  // the game has moved on; so does the board
   }
 
   function recordPosition() {
@@ -1910,8 +1911,7 @@ export function mountPlay(outlet, params) {
    * mid-game, which is the one thing a rated game cannot allow. It is the same
    * rule that hides "play from here".
    */
-  const evalShown = () =>
-    (review !== null || Boolean(archiveId) || Boolean(result)) && !(net && !result);
+  const evalShown = () => (archiveId ? Boolean(archive) : Boolean(result));
 
   /**
    * Points to a share of the bar.
