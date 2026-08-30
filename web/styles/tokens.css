@@ -31,11 +31,13 @@
   --spot-line: color-mix(in srgb, var(--accent) 45%, transparent);
   --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
 
-  /* Board coordinates: thinner than the muted text they come from, because
-     they should read when looked for and disappear when they are not. Derived
-     the same way, so each palette gets its own grey rather than one grey that
-     is wrong on three of them. */
-  --coord-ink: color-mix(in srgb, var(--muted) 70%, transparent);
+  /* Board coordinates, faint enough to ignore and dark enough to read.
+     Two of them, because they are printed on the tiles and the tiles come in
+     two colours: one ink cannot be quiet on the dark ones and legible on the
+     pale ones at the same time. Each is a washed-out version of the opposing
+     tile colour, so the contrast holds in all four palettes by construction. */
+  --coord-on-dark: color-mix(in srgb, var(--tile-light) 70%, transparent);
+  --coord-on-light: color-mix(in srgb, var(--tile-dark) 70%, transparent);
 }
 
 /* ── Modern · dark — brushed metal on graphite ───────────────────────────── */

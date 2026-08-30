@@ -198,7 +198,7 @@
     "showLastMove": "Afficher le coup précédent",
     "showLastMoveHint": "Marque les cases du dernier coup joué, y compris en revue. Désactivez pour un plateau nu, comme sur une vraie table — à vous de suivre la partie.",
     "showCoordinates": "Afficher les coordonnées",
-    "showCoordinatesHint": "Une lettre et un chiffre en bordure du plateau, comme aux échecs. Ce sont ceux de l'historique : « D I8 » se lit sur le plateau.",
+    "showCoordinatesHint": "La coordonnée de chaque tuile, écrite dessus en tout petit. Ce sont celles de l'historique : « D I8 » se lit sur le plateau. Une pièce posée la recouvre.",
     "aiLevel": "Niveau d'IA par défaut",
     "aiLevelHint": "Profondeur de recherche et temps de réflexion.",
     "preview": "Aperçu",

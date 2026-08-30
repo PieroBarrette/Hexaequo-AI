@@ -8,7 +8,7 @@
 
 import { key, hexPath } from '../game/hex.js';
 import { BLACK, DISK, makePiece } from '../game/state.js';
-import { pieceSvg, cx, cy, SIZE, coordinateLabels, coordinateSlots } from './board.js';
+import { pieceSvg, cx, cy, SIZE, coordinateLabels } from './board.js';
 
 /**
  * `lastMove` and `coords` are opt-in, and the rules figures do not ask for
@@ -45,14 +45,6 @@ export function miniBoardSvg(spec) {
 
   let out = '';
 
-  /* Under everything, as on the real board — and counted into the frame below,
-     since the labels sit a whole cell beyond the rim and the padding alone does
-     not reach them. */
-  if (spec.coords) {
-    out += coordinateLabels(all);
-    for (const k of coordinateSlots(all).keys()) all.push(k);
-  }
-
   /* Framed either way, drawn only when asked — which is what the real board
      does with the move aid off: the cell is still there and still a hit target,
      it just stops announcing itself. Dropping the cells instead would resize
@@ -85,6 +77,11 @@ export function miniBoardSvg(spec) {
     const k = key(q, r);
     out += `<path d="${hexPath(cx(k), cy(k), SIZE * .94)}"`
       + ` fill="var(--last-move-fill)" stroke="var(--last-move-edge)" stroke-width="3"/>`;
+  }
+  // Same place in the order as the real board: on the tiles, under the pieces.
+  if (spec.coords) {
+    const dark = new Set(tiles.filter(([, , c]) => c === BLACK).map(([q, r]) => key(q, r)));
+    out += coordinateLabels(tiles.map(([q, r]) => key(q, r)), (k) => dark.has(k));
   }
   if (route.length > 1) {
     let d = '';
