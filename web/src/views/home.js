@@ -7,7 +7,6 @@ import { logoLockupHtml } from '../ui/logo.js';
 import { play } from '../audio.js';
 import { get as getSetting, set as setSetting, resolvedTheme } from '../settings.js';
 import { openPanel } from '../ui/panels.js';
-import { startHomeBoard } from '../ui/homeBoard.js';
 
 export function mountHome(outlet) {
   /* Restoring the session finishes after this view is built, so anything that
@@ -20,11 +19,6 @@ export function mountHome(outlet) {
   };
   outlet.innerHTML = `
     <div class="home">
-      <!-- A game going on behind all this, blurred past reading. Ahead of the
-           content in the markup so it sits under it without a stacking trick,
-           and hidden from anything that reads the page aloud: it is scenery,
-           and there is nothing in it to hear. -->
-      <div class="home-board" aria-hidden="true"></div>
       <div class="home-inner">
       ${logoLockupHtml('lg')}
       <p class="lede">${t('meta.tagline')}</p>
@@ -88,6 +82,5 @@ export function mountHome(outlet) {
 
   showAccountOnly();
   const stop = onAuthChange(() => showAccountOnly());
-  const stopBoard = startHomeBoard(outlet.querySelector('.home-board'));
-  return () => { stop(); stopBoard(); };
+  return () => stop();
 }

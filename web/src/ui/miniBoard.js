@@ -112,16 +112,8 @@ export function miniBoardSvg(spec) {
     if (y < y0) y0 = y;
     if (y > y1) y1 = y;
   }
-  /* A frame given rather than fitted. A diagram is drawn once and should sit
-     snugly in its box; a board being played is redrawn as it grows, and fitting
-     the box to it each time zooms the whole picture out a step every time a
-     tile is laid. Given a frame, the pieces keep their size and the board grows
-     inside it, which is the difference between a game going on and a camera
-     that will not sit still. */
-  const pad = SIZE * (spec.pad || 1.15);
-  const vb = spec.frame
-    ? spec.frame
-    : [x0 - pad, y0 - pad, (x1 - x0) + 2 * pad, (y1 - y0) + 2 * pad];
+  const pad = SIZE * 1.15;
+  const vb = [x0 - pad, y0 - pad, (x1 - x0) + 2 * pad, (y1 - y0) + 2 * pad];
 
   return `<svg viewBox="${vb.map((n) => n.toFixed(1)).join(' ')}"`
     + ` preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"`
