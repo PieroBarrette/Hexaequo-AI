@@ -11,6 +11,7 @@
 
 import { t } from '../i18n.js';
 import { navigate } from '../router.js';
+import { closeOverlay } from '../ui/overlay.js';
 import { play as playSound } from '../audio.js';
 import {
   currentUser, isSignedIn, mustChoosePseudo, renderGoogleButton,
@@ -30,7 +31,30 @@ export function mountAccount(outlet) {
      every redraw. The address-and-password form is unaffected either way. */
   let googleFailed = false;
 
-  const stop = onAuthChange(() => render());
+  /*
+   * The panel is a door, and a door that stays open is in the way.
+   *
+   * Signing in used to leave it standing there, redrawn as a little profile
+   * card over the page you were already on — with a button offering to take
+   * you to your profile, which is where the header chip goes anyway. Once you
+   * are through, it closes and gives you back the page you were on, signed in.
+   *
+   * On the way through, not on being through: what closes it is settling —
+   * signed in and named — having not been settled a moment ago. Opening it
+   * deliberately while already settled, from "manage my account", still shows
+   * the account. And a new account stops at the nickname, which is the one
+   * thing the door still has to ask for; saving that settles it, and then it
+   * closes too.
+   */
+  const settled = () => isSignedIn() && !mustChoosePseudo();
+  let wasSettled = settled();
+  const stop = onAuthChange(() => {
+    const now = settled();
+    const justArrived = now && !wasSettled;
+    wasSettled = now;
+    if (justArrived) { closeOverlay(); return; }
+    render();
+  });
 
   /* ── Signed out ───────────────────────────────────────────────────────── */
 

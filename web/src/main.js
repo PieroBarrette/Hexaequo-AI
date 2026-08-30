@@ -13,7 +13,7 @@ import { mountPrivacy, mountTerms } from './views/legal.js';
 import { mountProfile } from './views/profile.js';
 import { mountVerify, mountReset } from './views/mailAction.js';
 import { mountSettings, setInstallPrompt } from './views/settings.js';
-import { closeOverlay } from './ui/overlay.js';
+import { closeOverlay, overlayName } from './ui/overlay.js';
 import { openPanel, relabelPanel } from './ui/panels.js';
 import { mountChallenges } from './ui/challenge.js';
 import { restoreSession, onAuthChange, currentUser, mustChoosePseudo, isSignedIn } from './auth.js';
@@ -66,7 +66,12 @@ async function boot() {
      so nothing waits on this; the header fills in when the answer arrives. */
   onAuthChange(() => {
     renderAccountChip();
-    if (mustChoosePseudo()) openPanel('account');
+    /* Only when it is not already the panel on screen. openPanel toggles — a
+       second call on the open one closes it, which is right for a nav button
+       pressed twice and wrong here: signing up from inside the account panel
+       asked for the nickname and slammed the door in the same breath, so a new
+       account was never asked for its name at all. */
+    if (mustChoosePseudo() && overlayName() !== 'account') openPanel('account');
   });
   restoreSession();
 
