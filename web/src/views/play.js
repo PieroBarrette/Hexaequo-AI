@@ -1645,6 +1645,19 @@ export function mountPlay(outlet, params) {
   function goToPly(index, animate) {
     const last = timeline.length - 1;
     const target = Math.max(0, Math.min(last, index));
+    /* Asking for the ply already on screen is a redraw, never an arrival.
+     *
+     * Clamping turned a step past either end into a step onto the end you were
+     * already standing on, and that played as an arrival: the last move of the
+     * game animated and sounded again on every press of the right arrow at the
+     * end of it. The buttons on the bar grey out there and said so honestly;
+     * the keys had no such thing and kept replaying the move.
+     *
+     * It still draws before returning. Callers treat this as "show ply n" and
+     * expect the view to be right afterwards — loading a stored game with no
+     * moves in it asks for ply 0 while already on ply 0, and the result card
+     * would never appear if that did nothing at all. */
+    if (target === (review === null ? last : review)) { refresh(true); return; }
     review = target >= last ? null : target;
     /* Moving through the game says nothing about the panel. This used to open
        it on the way into a review, which made a look at the previous move cost
