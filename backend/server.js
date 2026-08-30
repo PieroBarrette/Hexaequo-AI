@@ -56,9 +56,42 @@ const ALLOWED_ORIGINS = [
     'http://127.0.0.1:8765'
 ];
 
+/*
+ * Security headers, Content-Security-Policy included.
+ *
+ * It used to be off — "for the admin interface", whose inline styles it would
+ * have flagged. That traded the whole site's main defence against cross-site
+ * scripting for one page's convenience, and the site carries user-written text:
+ * pseudonyms, lobby chat. The admin page is gated behind an env flag now and
+ * off in production, so it no longer gets a vote.
+ *
+ * script-src carries no 'unsafe-inline': every script is a file this server
+ * serves, or the Google sign-in client, and nothing runs from an attribute or
+ * a <script> smuggled into a name. style-src has to allow inline, since the
+ * views set style="" through innerHTML in many places; a style is a far smaller
+ * thing to hand an attacker than a script. The Google origins are what the
+ * sign-in button loads and the frame it opens in. Everything else the app talks
+ * to is itself — in production one origin serves both the page and the socket.
+ */
+const CSP = {
+    defaultSrc: ["'self'"],
+    scriptSrc: ["'self'", 'https://accounts.google.com', 'https://apis.google.com'],
+    styleSrc: ["'self'", "'unsafe-inline'"],
+    imgSrc: ["'self'", 'data:', 'https://*.googleusercontent.com', 'https://accounts.google.com'],
+    fontSrc: ["'self'", 'data:'],
+    connectSrc: ["'self'", 'https://accounts.google.com'],
+    frameSrc: ["'self'", 'https://accounts.google.com'],
+    frameAncestors: ["'self'"],
+    baseUri: ["'self'"],
+    formAction: ["'self'"],
+    objectSrc: ["'none'"],
+    upgradeInsecureRequests: [],
+};
+
 // Security middleware
 app.use(helmet({
-    contentSecurityPolicy: false // Disable for admin interface
+    contentSecurityPolicy: { useDefaults: true, directives: CSP },
+    crossOriginEmbedderPolicy: false, // GIS loads cross-origin; COEP would block it
 }));
 app.use(cors({
     origin: ALLOWED_ORIGINS,
@@ -95,7 +128,21 @@ app.use('/api/users', userRoutes);
 app.use('/api/games', gameRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/ai', aiRoutes);
-app.use('/api/admin', adminRoutes);
+/*
+ * The admin console runs SQL and is off unless someone deliberately turns it
+ * on. It is a database shell reachable over the public internet — the single
+ * biggest way for the data to come to harm — so it does not sit there waiting.
+ * Set ENABLE_ADMIN=1 on the host to bring it up for as long as it is needed,
+ * and clear it after. Off, the routes below simply do not exist, and a scanner
+ * knocking on /api/admin gets the same 404 as any other made-up path.
+ */
+const adminEnabled = process.env.ENABLE_ADMIN === '1' || process.env.ENABLE_ADMIN === 'true';
+if (adminEnabled) {
+    app.use('/api/admin', adminRoutes);
+    console.log('⚠️  Admin console ENABLED at /api/admin — turn ENABLE_ADMIN off when done');
+} else {
+    console.log('🔒 Admin console disabled (set ENABLE_ADMIN=1 to enable)');
+}
 app.use('/api/matchmaking', matchmakingRoutes);
 // Records, game history and replays.
 app.use('/api/profile', profileRoutes);
@@ -131,11 +178,21 @@ if (io.engine) {
     console.log('✅ Socket.IO engine listeners attached');
 }
 
-// Debug: Log all incoming requests in production
-app.use((req, res, next) => {
-    console.log(`[DEBUG] ${req.method} ${req.path}`);
-    next();
-});
+/*
+ * Request logging, off unless asked for.
+ *
+ * This once logged every request unconditionally, which on a public server
+ * means logging every vulnerability scanner's march through a wordlist of PHP
+ * filenames — pages of /wp-login.php and /c99.php that say nothing about this
+ * app, which serves no PHP. The noise buried anything worth reading. Set
+ * DEBUG_HTTP=1 to bring it back while chasing something.
+ */
+if (process.env.DEBUG_HTTP === '1') {
+    app.use((req, res, next) => {
+        console.log(`[HTTP] ${req.method} ${req.path}`);
+        next();
+    });
+}
 
 // Static file serving AFTER Socket.IO (only if frontend exists)
 const frontendPath = path.join(__dirname, '../web');
@@ -209,6 +266,22 @@ app.use('/api/*', (req, res, next) => {
     });
 });
 
+/*
+ * Paths that only a scanner would ask for get a flat 404, not the app.
+ *
+ * A single-page app answers every unknown path with index.html, because the
+ * path is a client-side route it has not seen yet. A request for /wp-login.php
+ * or /.env is not that: it is a bot looking for a server this is not, and
+ * handing it 200 and a page of HTML both wastes the bytes and tells it someone
+ * is home. These extensions belong to stacks this app does not run; refusing
+ * them by shape keeps the fallback for real routes and quiets the logs.
+ */
+const SCANNER_PATH = /\.(php|asp|aspx|jsp|cgi|env|sql|bak|old|git|htaccess|ini)$|^\/(wp-|wordpress|phpmyadmin|\.git|\.env)/i;
+app.get('*', (req, res, next) => {
+    if (SCANNER_PATH.test(req.path)) return res.status(404).type('txt').send('Not found');
+    next();
+});
+
 // SPA fallback - serve index.html for all non-API routes (LAST middleware)
 app.get('*', (req, res, next) => {
     // Don't intercept API, socket.io, or health routes
@@ -236,8 +309,40 @@ process.on('unhandledRejection', (reason, promise) => {
     console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
+/*
+ * A default secret in a public repository is not a secret.
+ *
+ * The config carries fallback values so the app runs on a fresh clone with no
+ * setup — fine for a laptop, a loaded gun in production, where the fallback is
+ * a string the whole world can read on GitHub and use to sign a token for any
+ * account. So production refuses to start on one. Better a failed deploy, with
+ * the last good build still serving, than a live site anyone can walk into. The
+ * admin password is only asked for when the admin console is actually on.
+ */
+const KNOWN_DEFAULTS = {
+    JWT_SECRET: 'your-secret-key-change-in-production',
+    DEBUG_PASSWORD: 'hexadmin2026',
+};
+function assertSecrets() {
+    if (NODE_ENV !== 'production') return;
+    const bad = [];
+    const jwt = process.env.JWT_SECRET;
+    if (!jwt || jwt === KNOWN_DEFAULTS.JWT_SECRET) bad.push('JWT_SECRET');
+    if (adminEnabled) {
+        const pw = process.env.DEBUG_PASSWORD;
+        if (!pw || pw === KNOWN_DEFAULTS.DEBUG_PASSWORD) bad.push('DEBUG_PASSWORD');
+    }
+    if (bad.length) {
+        console.error(`❌ Refusing to start: ${bad.join(', ')} must be set to a real secret `
+            + `in production (the built-in default is public). Set it on the host and redeploy.`);
+        process.exit(1);
+    }
+}
+
 // Start server
 const startServer = () => {
+    assertSecrets();
+
     // Test database connection (optional - will work without DB in dev)
     (async () => {
         try {

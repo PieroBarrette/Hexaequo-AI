@@ -9,16 +9,39 @@ const express = require('express');
 const router = express.Router();
 const { query } = require('../config/database');
 
-const DEBUG_PASSWORD = process.env.DEBUG_PASSWORD || 'hexadmin2026';
+/* No default. An unset password does not mean "let anyone in", it means the
+   console stays shut — every request below fails the check. The server also
+   refuses to boot with the admin console on and this unset, so in practice it
+   is always a real value by the time anything reaches here. */
+const DEBUG_PASSWORD = process.env.DEBUG_PASSWORD || null;
 
-// Middleware to check admin password
+/*
+ * Check the admin password in constant time.
+ *
+ * A header is the place for it — the X-Admin-Password one — since that keeps it
+ * out of the URL, where a query string lands in access logs and browser
+ * history. The query and body are still read so the existing console keeps
+ * working, but a header is preferred. A plain === leaks the answer through how
+ * long it takes to fail, stopping at the first wrong character, which over many
+ * tries narrows the password; timingSafeEqual takes the same time either way.
+ * None of it matters until the whole router is switched on, which it is not by
+ * default.
+ */
 const checkAdminAuth = (req, res, next) => {
-    const password = req.query.pwd || req.body?.pwd;
-    if (!password || password !== DEBUG_PASSWORD) {
+    const password = req.get('x-admin-password') || req.query.pwd || req.body?.pwd;
+    if (!DEBUG_PASSWORD || !password || !safeEqual(password, DEBUG_PASSWORD)) {
         return res.status(401).json({ error: 'Unauthorized - invalid or missing password' });
     }
     next();
 };
+
+function safeEqual(a, b) {
+    const crypto = require('crypto');
+    const ab = Buffer.from(String(a));
+    const bb = Buffer.from(String(b));
+    if (ab.length !== bb.length) return false;
+    return crypto.timingSafeEqual(ab, bb);
+}
 
 // ==== JSON API Endpoints ====
 
