@@ -155,6 +155,9 @@
     "quickNeedsClock": "Quick match needs a clock: pick a time control.",
     "showQr": "Show a QR code",
     "qrHint": "Scan this with another device to join the game.",
+    "cancelWarning": "Cancelling closes the game: the link you sent will stop working.",
+    "keepWaiting": "Keep waiting",
+    "cancelAnyway": "Yes, cancel",
     "finishFirst": "You have a game in progress. Finish it before starting another — the lobby stays open."
   },
   "result": {
@@ -463,6 +466,8 @@
     "waitingOn": "Challenge sent to {name}, waiting for an answer",
     "withdraw": "Withdraw",
     "gameRunning": "You have a game in progress.",
+    "gameWaiting": "A game you opened is waiting for an opponent.",
+    "seeInvite": "See the invitation",
     "withdrawn": "The challenge was withdrawn."
   },
   "watch": {

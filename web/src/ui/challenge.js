@@ -103,6 +103,22 @@ function render() {
  * you hunt for the door back. It follows you instead — every page, one press.
  */
 function backChip() {
+  /*
+   * A room nobody has opened yet is an invitation, not a game, and saying
+   * "rejoin your game" about it promised a board with somebody at it. It leads
+   * to the online page instead, where the link, the code and the way to call it
+   * off all are — rather than repeating the cancel here and asking the same
+   * question in two places.
+   */
+  if (myGame.waiting) {
+    return `
+      <div class="hail hail--back">
+        <div class="hail-lede">${t('challenge.gameWaiting')}</div>
+        <div class="hail-actions">
+          <button class="btn btn--sm btn--primary" data-hail="waiting">${t('challenge.seeInvite')}</button>
+        </div>
+      </div>`;
+  }
   return `
     <div class="hail hail--back">
       <div class="hail-lede">${t('challenge.gameRunning')}</div>
@@ -191,6 +207,10 @@ async function onClick(event) {
   }
   if (action === 'back' && myGame) {
     navigate('play', { online: '1', code: myGame.code });
+    return;
+  }
+  if (action === 'waiting') {
+    navigate('online');
     return;
   }
   if (action === 'watch' && agreed && agreed.watchCode) {
@@ -285,7 +305,9 @@ async function catchUp() {
   if (!isSignedIn()) { myGame = null; render(); return; }
   try {
     const mine = await request('hx:mygame', {}).catch(() => null);
-    myGame = mine && mine.ok && mine.code ? { code: mine.code } : null;
+    myGame = mine && mine.ok && mine.code
+      ? { code: mine.code, waiting: Boolean(mine.waiting) }
+      : null;
     const response = await request('hx:challenge:pending', {});
     if (!response || !response.ok) { render(); return; }
     incoming = response.incoming || null;

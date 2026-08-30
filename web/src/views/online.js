@@ -63,6 +63,8 @@ export function mountOnline(outlet) {
    * the round trip took, with nothing anywhere offering the way back.
    */
   let liveCode = myGameCode();
+  /** True while cancelling is being confirmed rather than done. */
+  let confirmingCancel = false;
   let ticker = null;
   const unsubscribe = [];
 
@@ -165,6 +167,21 @@ export function mountOnline(outlet) {
    * phone that is not the one holding it.
    */
   function waitingBlock() {
+    /* Cancelling asks first. The link is already out — in a message, on a
+       screen someone is about to scan — and there is nothing to undo it with
+       once the room is gone, so the button that throws it away should not be
+       the one next to "share" that a thumb finds by accident. */
+    if (confirmingCancel) {
+      return `
+        <div class="rule-block">
+          <h3>${t('online.waiting')}</h3>
+          <p class="lede">${t('online.cancelWarning')}</p>
+          <div class="row-actions">
+            <button class="btn btn--primary" data-action="keep-waiting">${t('online.keepWaiting')}</button>
+            <button class="btn btn--danger" data-action="cancel-room">${t('online.cancelAnyway')}</button>
+          </div>
+        </div>`;
+    }
     return `
       <div class="rule-block">
         <h3>${t('online.waiting')}</h3>
@@ -172,7 +189,7 @@ export function mountOnline(outlet) {
         <div class="row-actions">
           <button class="btn btn--primary" data-action="share">${t('online.share')}</button>
           <button class="btn" data-action="qr">${t('online.showQr')}</button>
-          <button class="btn" data-action="cancel-room">${t('game.cancel')}</button>
+          <button class="btn" data-action="ask-cancel">${t('game.cancel')}</button>
         </div>
       </div>`;
   }
@@ -190,9 +207,18 @@ export function mountOnline(outlet) {
     renderQr();
   }
 
-  /** Ask whether a game of ours is still going, and redraw if the answer moved. */
+  /**
+   * Ask what the server has of ours, and redraw if the answer moved.
+   *
+   * A room nobody has joined comes back as the room it is rather than as a
+   * game: the block that opened it is put back — share it, show the code,
+   * call it off — instead of a button offering to rejoin an empty board. That
+   * block used to live only in this view's memory, so walking away from the
+   * page took the only way to cancel with it and left the invitation standing
+   * for two hours.
+   */
   async function findMyGame() {
-    const was = liveCode;
+    const was = `${liveCode}/${created ? created.code : ''}`;
     if (!isSignedIn()) liveCode = null;
     else {
       try {
@@ -200,9 +226,12 @@ export function mountOnline(outlet) {
         await identify(sessionToken()).catch(() => {});
         const mine = await request('hx:mygame', {});
         liveCode = mine && mine.ok ? mine.code : null;
+        // Only when there is nothing on screen already answering for it: a
+        // room being opened right now is its own, better, source of truth.
+        if (liveCode && mine.waiting && !created && !search) created = { code: liveCode };
       } catch { liveCode = null; }
     }
-    if (outlet.isConnected && liveCode !== was) render();
+    if (outlet.isConnected && `${liveCode}/${created ? created.code : ''}` !== was) render();
   }
 
   /** The link as something a camera can read. A tap anywhere closes it. */
@@ -379,11 +408,28 @@ export function mountOnline(outlet) {
       return;
     }
 
+    if (action === 'ask-cancel' && created) {
+      confirmingCancel = true;
+      showingQr = false;
+      render();
+      return;
+    }
+
+    if (action === 'keep-waiting') {
+      confirmingCancel = false;
+      render();
+      return;
+    }
+
     if (action === 'cancel-room' && created) {
       /* A room nobody joined has no game to protect, so it goes rather than
-         standing empty for whoever follows the link afterwards. */
+         standing empty for whoever follows the link afterwards. Both records
+         of it go: leaving liveCode behind would put a "rejoin your game"
+         button where the room used to be. */
       const code = created.code;
       created = null;
+      liveCode = null;
+      confirmingCancel = false;
       showingQr = false;
       render();
       request('hx:cancel', { code }).catch(() => {});

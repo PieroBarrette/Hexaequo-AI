@@ -155,6 +155,72 @@ async function run() {
         a.disconnect();
     });
 
+    await test('a room nobody has opened is waiting, not in progress', async () => {
+        /* The two used to be one answer, so an invitation nobody had followed
+           came back as a game under way — a way into an empty board, and no
+           way to call the invitation off. */
+        const host = await makeUser('w');
+        const guest = await makeUser('x');
+        const a = await open();
+        await ask(a, 'hx:identify', { token: host.token });
+
+        const room = await ask(a, 'hx:create', { timeControl: 'rapid' });
+        const waiting = await ask(a, 'hx:mygame', {});
+        assert.strictEqual(waiting.code, room.code, 'it is mine');
+        assert.strictEqual(waiting.waiting, true, 'and nobody has opened it');
+
+        const b = await open();
+        await ask(b, 'hx:identify', { token: guest.token });
+        await ask(b, 'hx:join', { code: room.code });
+
+        const started = await ask(a, 'hx:mygame', {});
+        assert.strictEqual(started.code, room.code);
+        assert.strictEqual(started.waiting, false, 'somebody came: it is a game now');
+
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('whoever opened a room can still call it off after walking away', async () => {
+        /* Leaving releases the seat but not the claim. Cancelling was checked
+           by seat alone, so it was refused to the very person who opened it,
+           and the invitation stood until the sweeper took it hours later. */
+        const host = await makeUser('y');
+        const a = await open();
+        await ask(a, 'hx:identify', { token: host.token });
+        const room = await ask(a, 'hx:create', { timeControl: 'rapid' });
+        await ask(a, 'hx:leave', { code: room.code });
+
+        const cancelled = await ask(a, 'hx:cancel', { code: room.code });
+        assert.strictEqual(cancelled.ok, true, 'the owner may still call it off');
+
+        const late = await open();
+        const followed = await ask(late, 'hx:join', { code: room.code });
+        assert.strictEqual(followed.ok, false, 'and the link leads nowhere');
+        assert.strictEqual(followed.error, 'NO_SUCH_ROOM');
+
+        const gone = await ask(a, 'hx:mygame', {});
+        assert.strictEqual(gone.code, null, 'nothing of theirs is left running');
+        a.disconnect();
+        late.disconnect();
+    });
+
+    await test('a stranger cannot call off a room that is not theirs', async () => {
+        const host = await makeUser('z');
+        const other = await makeUser('z2');
+        const a = await open();
+        const b = await open();
+        await ask(a, 'hx:identify', { token: host.token });
+        await ask(b, 'hx:identify', { token: other.token });
+        const room = await ask(a, 'hx:create', { timeControl: 'rapid' });
+
+        const refused = await ask(b, 'hx:cancel', { code: room.code });
+        assert.strictEqual(refused.ok, false, 'it is not theirs to close');
+        assert.strictEqual(refused.error, 'NOT_A_PLAYER');
+        a.disconnect();
+        b.disconnect();
+    });
+
     await test('signing in mid-room upgrades the game to rated', async () => {
         const black = await makeUser('c');
         const white = await makeUser('d');

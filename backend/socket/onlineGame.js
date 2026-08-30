@@ -819,7 +819,14 @@ function attachOnlineGames(io) {
             const code = String((payload && payload.code) || '').toUpperCase().trim();
             const room = rooms.get(code);
             if (!room) return reply(callback, { ok: true });
-            if (seatOf(room, socket.id) === -1) {
+            /* By seat, or by the account whose name is on one. Walking away
+               from a room releases the seat but not the claim, and cancelling
+               is the one thing you may still want to do afterwards — it was
+               refused as NOT_A_PLAYER to the very person who opened it. */
+            const user = socket.data.user;
+            const owns = seatOf(room, socket.id) !== -1
+                || Boolean(user && room.players.some((p) => p && p.userId === user.userId));
+            if (!owns) {
                 return reply(callback, { ok: false, error: 'NOT_A_PLAYER' });
             }
             if (room.everFull || room.result) {
@@ -831,12 +838,24 @@ function attachOnlineGames(io) {
             reply(callback, { ok: true });
         });
 
-        /** The game this socket's account is sitting at, if any. */
+        /**
+         * The game this socket's account is sitting at, if any.
+         *
+         * `waiting` separates a room nobody has ever opened from a game under
+         * way. They are the same row here and were the same answer, so a
+         * private game created and not yet followed came back as "you have a
+         * game in progress" — offering a way into an empty board and no way to
+         * call the invitation off.
+         */
         socket.on('hx:mygame', (payload, callback) => {
             const user = socket.data.user;
-            if (!user) return reply(callback, { ok: true, code: null });
+            if (!user) return reply(callback, { ok: true, code: null, waiting: false });
             const room = roomOf(user.userId);
-            reply(callback, { ok: true, code: room ? room.code : null });
+            reply(callback, {
+                ok: true,
+                code: room ? room.code : null,
+                waiting: Boolean(room) && !room.everFull,
+            });
         });
 
         socket.on('hx:resign', (payload, callback) => {

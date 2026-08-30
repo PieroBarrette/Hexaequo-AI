@@ -76,6 +76,13 @@ button:disabled { opacity: .35; cursor: not-allowed; }
 }
 .btn--primary:hover:not(:disabled) { filter: brightness(1.08); }
 
+/* For the answer that throws something away. Outlined rather than filled: the
+   safe choice beside it is the one that should look like the button. */
+.btn--danger { color: var(--danger); border-color: var(--danger); }
+.btn--danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+}
+
 select.btn { padding-right: 8px; }
 /*
  * Which engine is which, without relying on text.

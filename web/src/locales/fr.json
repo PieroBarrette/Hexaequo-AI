@@ -155,6 +155,9 @@
     "quickNeedsClock": "La partie rapide demande une pendule : choisissez une cadence.",
     "showQr": "Afficher un code QR",
     "qrHint": "Balayez ce code avec un autre appareil pour rejoindre la partie.",
+    "cancelWarning": "Annuler ferme la partie : le lien déjà envoyé ne fonctionnera plus.",
+    "keepWaiting": "Continuer d'attendre",
+    "cancelAnyway": "Oui, annuler",
     "finishFirst": "Vous avez une partie en cours. Terminez-la avant d'en commencer une autre — le salon reste ouvert."
   },
   "result": {
@@ -463,6 +466,8 @@
     "waitingOn": "Défi envoyé à {name}, en attente de sa réponse",
     "withdraw": "Annuler le défi",
     "gameRunning": "Vous avez une partie en cours.",
+    "gameWaiting": "Une partie que vous avez créée attend un adversaire.",
+    "seeInvite": "Voir l'invitation",
     "withdrawn": "Le défi a été annulé."
   },
   "watch": {
