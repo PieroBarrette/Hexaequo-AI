@@ -2587,7 +2587,11 @@ export function mountPlay(outlet, params) {
 
   newGame(resumed ? resumed.position : null);
   if (resumed) showResumeNote(resumed);
-  showDrawerTab('moves');
+  /* Against another person the panel opens on the chat: the move list is on
+     the board in front of you, and the one thing the board cannot show is the
+     person on the other end. Watching a game is the exception — a spectator is
+     not part of that conversation and has no chat tab at all. */
+  showDrawerTab(net && !net.watching ? 'chat' : 'moves');
   if (archiveId) {
     loadArchive();
     setDrawer(true, 'moves');      // a stored game is nothing but a review
