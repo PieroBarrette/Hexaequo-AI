@@ -54,6 +54,10 @@ export async function connect() {
       reconnectionDelay: 500,
       reconnectionDelayMax: 4000,
     });
+    /* A new connection is a new socket to the server, whatever this object is
+       called on our side — so whoever it was told, it has not been told yet. */
+    socket.on('connect', forgetIdentity);
+    socket.on('disconnect', forgetIdentity);
   }
   if (socket.connected) return socket;
   await new Promise((resolve, reject) => {
@@ -74,9 +78,7 @@ export function disconnect() {
 
 export const isConnected = () => Boolean(socket && socket.connected);
 
-/** Emit and await the server's acknowledgement. Rejects rather than hanging. */
-export async function request(event, payload = {}, timeoutMs = 8000) {
-  const live = await connect();
+function ask(live, event, payload, timeoutMs) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`${event} timed out`)), timeoutMs);
     live.emit(event, payload, (response) => {
@@ -84,6 +86,57 @@ export async function request(event, payload = {}, timeoutMs = 8000) {
       resolve(response || { ok: false, error: 'EMPTY_RESPONSE' });
     });
   });
+}
+
+/*
+ * The socket carries who you are, and carries it again after every reconnect.
+ *
+ * A socket knows nothing until it is told, and hx:identify is the telling. That
+ * used to be each view's errand, run once when the view was built — so a
+ * connection that dropped and came back was anonymous to the server while the
+ * page still showed you signed in. You stayed listed in the lobby, green light
+ * and all, from the entry the old socket had left behind, and challenging
+ * somebody came back "sign in first" from a socket that had never been told
+ * your name.
+ *
+ * The transport owns it now: a connection identifies itself, and every request
+ * waits for that to have happened. Nothing above this layer has to remember,
+ * and there is no window between arriving and being known.
+ *
+ * The token arrives through a function auth.js hands over rather than an
+ * import: auth.js already imports this module, and the two must not reach for
+ * each other.
+ */
+let readSessionToken = () => null;
+let identified = null;          // a promise while identifying, else null
+
+export function useSessionToken(fn) {
+  readSessionToken = typeof fn === 'function' ? fn : (() => null);
+}
+
+/** Forget what this socket was told, so the next request says it again. */
+export function forgetIdentity() { identified = null; }
+
+function settleIdentity(live) {
+  if (identified) return identified;
+  identified = (async () => {
+    try {
+      await ask(live, 'hx:identify', { token: readSessionToken() || null }, 5000);
+    } catch {
+      /* Unreachable or refused: the socket stays anonymous, which still plays.
+         Cleared so the next request asks again rather than trusting this. */
+      identified = null;
+    }
+  })();
+  return identified;
+}
+
+/** Emit and await the server's acknowledgement. Rejects rather than hanging. */
+export async function request(event, payload = {}, timeoutMs = 8000) {
+  const live = await connect();
+  // Never for hx:identify itself, which is the thing being waited on.
+  if (event !== 'hx:identify') await settleIdentity(live);
+  return ask(live, event, payload, timeoutMs);
 }
 
 /** Subscribe to a server event; returns an unsubscribe function. */
@@ -106,13 +159,16 @@ export function inviteLink(code) {
 }
 
 /**
- * Tell the server who is on this socket.
+ * Say who is on this socket, now.
  *
- * Called after connecting and again after signing in, so that signing in
- * mid-session upgrades the connection instead of requiring a reconnect. An
- * unidentified socket still plays — its games are simply unrated.
+ * Signing in or out mid-session changes the answer, so the old one is dropped
+ * before asking again — otherwise the socket would keep the name it was given
+ * when the page loaded. Connecting no longer needs this: the transport
+ * identifies itself and every request waits for it. An unidentified socket
+ * still plays; its games are simply unrated.
  */
 export async function identify(token) {
+  forgetIdentity();
   try {
     return await request('hx:identify', { token: token || null }, 5000);
   } catch {

@@ -10,7 +10,7 @@
  * nothing here is a cross-site form target.
  */
 
-import { serverOrigin, identify, isConnected } from './net.js';
+import { serverOrigin, identify, isConnected, useSessionToken } from './net.js';
 
 const TOKEN_KEY = 'hexaequo.token';
 const REFRESH_KEY = 'hexaequo.refresh';
@@ -46,6 +46,11 @@ export function ratingChanged(elo) {
   account.elo = elo;
   announce();
 }
+
+/* The transport identifies every connection it makes, and this is where it
+   gets the token — handed over rather than imported, since net.js must not
+   reach back into this module. Registered at load, before any socket exists. */
+useSessionToken(() => readToken());
 
 function announce() {
   // Keep an open socket in step with the session, so signing in mid-visit
