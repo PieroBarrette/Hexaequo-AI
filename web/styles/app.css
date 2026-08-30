@@ -834,14 +834,43 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
 /* ── Small screens ───────────────────────────────────────────────────────── */
 
 @media (max-width: 820px) {
-  .game { flex-wrap: wrap; }
-  /* The bar lives inside this box now, so the minimum has to cover the board
-     and the bar rather than the board alone. */
-  .board-area { order: 1; flex: 1 0 100%; min-height: 52vh; }
+  /*
+   * Stacked, with the reserves on top, and the whole thing scrolls as one.
+   *
+   * The board and the two reserves each asked for a share of the height — 52vh
+   * and up to 34vh — inside a shell that scrolls nowhere, so on a short window
+   * the sum overflowed and the reserves were simply cut off at the bottom
+   * edge: the pieces you play with, unreachable, with no way to scroll to
+   * them. Above the board they are the first thing in view instead of the
+   * first thing lost, which is also where the players' names now live.
+   *
+   * A grid says the rest in one declaration where wrapping could not say it at
+   * all: the reserves take the height their pieces need, the board takes
+   * everything left over but never less than 300px, and when the two together
+   * do not fit, this box scrolls rather than cutting either one off. Wrapping
+   * had no way to hand the leftover height to one row and not the other.
+   *
+   * One scroll covers everything, so the reserves carry no scrollbar of their
+   * own — a small box that scrolls inside a page that also scrolls is how the
+   * pieces came to be hidden in the first place.
+   */
+  .game {
+    display: grid; overflow-y: auto;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto minmax(300px, 1fr);
+    grid-template-areas: "reserve0 reserve1" "board board";
+  }
+  /* Without a height of its own this box takes the board drawing's proportions,
+     which on a short wide window came out taller than the screen. The grid row
+     gives it one, so the board scales to fit. */
+  .board-area { grid-area: board; min-width: 0; }
+  .rail[data-rail="0"] { grid-area: reserve0; }
+  .rail[data-rail="1"] { grid-area: reserve1; }
   .rail {
-    order: 2; flex: 1 1 50%; width: auto; max-height: 34vh;
+    width: auto; max-height: none; overflow: visible; min-width: 0;
     flex-direction: row; flex-wrap: wrap; align-content: flex-start;
-    border-top: 1px solid var(--line); border-left: 0; border-right: 0;
+    border-bottom: 1px solid var(--line);
+    border-top: 0; border-left: 0; border-right: 0;
   }
   .rail.is-turn { border-color: var(--accent); }
   .rail-who { flex: 0 0 100%; }
