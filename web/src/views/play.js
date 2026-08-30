@@ -1645,15 +1645,13 @@ export function mountPlay(outlet, params) {
   function goToPly(index, animate) {
     const last = timeline.length - 1;
     const target = Math.max(0, Math.min(last, index));
-    const wasLive = review === null;
     review = target >= last ? null : target;
-    /* Stepping back into a game is asking to read it, and reading it is the
-       moves and the curve as much as the board. Opened on the way in rather
-       than left for everybody to find — once, so closing it during a review
-       is respected. */
-    if (wasLive && review !== null && !(drawerOpen && drawerTab === 'moves')) {
-      setDrawer(true, 'moves');
-    }
+    /* Moving through the game says nothing about the panel. This used to open
+       it on the way into a review, which made a look at the previous move cost
+       you half the board — and once shut, the next arrow press pushed it open
+       again. The two are separate things: the arrows work the same whether the
+       panel is up or down. Entering a review deliberately still opens it, from
+       the places that mean it — the archive on mount, and "review the game". */
     selected = null;
     chain = null;
     picker = null;
@@ -2433,7 +2431,10 @@ export function mountPlay(outlet, params) {
     else if (action === 'resign') resign();
     else if (action === 'draw') offerDraw();
     else if (action === 'draw-decline') declineDraw();
-    else if (action === 'review-game') { resultSeen = true; goToPly(0); }
+    /* Asking to review the game is asking for the whole review, moves and
+       curve included — the one place a local game opens the panel by itself,
+       now that stepping back no longer does. */
+    else if (action === 'review-game') { resultSeen = true; goToPly(0); setDrawer(true, 'moves'); }
     else if (action === 'rematch') askRematch();
     else if (action === 'rev-first') { stopAutoplay(); goToPly(0); }
     else if (action === 'rev-prev') { stopAutoplay(); stepReview(-1); }
