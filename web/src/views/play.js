@@ -1549,7 +1549,20 @@ export function mountPlay(outlet, params) {
    * game back may want to try the position against the engine, or to set it up
    * for two people at a table, or simply to watch it played out.
    */
+  /*
+   * Picking up a position takes two steps, not one.
+   *
+   * It used to start the moment the mode was chosen, on whatever level the
+   * settings happened to hold and playing whichever colour was to move. If that
+   * was not the arrangement you wanted there was nothing to be done about it:
+   * changing the level mid-game is changing the game, and this position exists
+   * to be tried under a particular arrangement. So the second step asks, and
+   * "two players here" — which has nothing to arrange — skips it.
+   */
+  let resumeSetup = null;   // null, or the mode being configured
+
   function openResumeSheet() {
+    resumeSetup = null;
     const options = [
       ['ai', t('review.resumeVsAi')],
       ['local', t('review.resumeTwo')],
@@ -1562,7 +1575,58 @@ export function mountPlay(outlet, params) {
     resumeEl.hidden = false;
   }
 
-  const closeResumeSheet = () => { resumeEl.hidden = true; resumeEl.innerHTML = ''; };
+  /** Step two: the arrangement, before a move is played under it. */
+  function openResumeSetup(mode) {
+    resumeSetup = mode;
+    const turn = shownState() ? shownState().turn : BLACK;
+    const rows = mode === MODE_AI
+      ? `
+        <label class="resume-row"><span>${t('review.resumeSide')}</span>
+          <select class="btn" data-setup="side">
+            <option value="0"${turn === BLACK ? ' selected' : ''}>${t('common.black')}</option>
+            <option value="1"${turn === WHITE ? ' selected' : ''}>${t('common.white')}</option>
+          </select></label>
+        <label class="resume-row"><span>${t('review.resumeLevel')}</span>
+          <select class="btn" data-setup="level">${levelOptions()}</select></label>`
+      : `
+        <label class="resume-row"><span>${t('game.levelOf', { colour: t('common.black') })}</span>
+          <select class="btn" data-setup="levelBlack">${levelOptions()}</select></label>
+        <label class="resume-row"><span>${t('game.levelOf', { colour: t('common.white') })}</span>
+          <select class="btn" data-setup="levelWhite">${levelOptions()}</select></label>`;
+
+    resumeEl.innerHTML = `<p class="resume-title">${t('review.resumeTitle', { n: reviewPly() })}</p>`
+      + rows
+      + `<button class="btn btn--primary resume-choice" data-resume="go">${t('review.resumeStart')}</button>`
+      + `<button class="btn btn--link" data-resume="back">${t('nav.back')}</button>`;
+    resumeEl.hidden = false;
+
+    // The levels start where this view's own do, so the sheet opens on the
+    // arrangement already in hand rather than on the first entry in the list.
+    const set = (name, value) => {
+      const field = resumeEl.querySelector(`[data-setup="${name}"]`);
+      if (field) field.value = String(value);
+    };
+    if (mode === MODE_AI) set('level', level);
+    else { set('levelBlack', duelLevels[0]); set('levelWhite', duelLevels[1]); }
+  }
+
+  /** What the setup step is currently showing. */
+  function readResumeSetup(mode) {
+    const read = (name, fallback) => {
+      const field = resumeEl.querySelector(`[data-setup="${name}"]`);
+      return field ? Number(field.value) : fallback;
+    };
+    if (mode === MODE_AI) {
+      return { side: read('side', shownState().turn), levels: [read('level', level), read('level', level)] };
+    }
+    return { side: null, levels: [read('levelBlack', duelLevels[0]), read('levelWhite', duelLevels[1])] };
+  }
+
+  const closeResumeSheet = () => {
+    resumeSetup = null;
+    resumeEl.hidden = true;
+    resumeEl.innerHTML = '';
+  };
 
   const reviewPly = () => (review === null ? timeline.length - 1 : review);
 
@@ -1573,23 +1637,25 @@ export function mountPlay(outlet, params) {
    * untouched by construction rather than by care — there is no code path from
    * here that could reach it.
    */
-  function resumeFrom(mode) {
+  function resumeFrom(mode, setup) {
     const position = shownState();
     if (!position) return;
     offerPosition({
       position: cloneState(position),
       mode,
-      // Carry on as the colour whose turn it is: the interesting question is
-      // almost always "what should have been played here".
-      side: position.turn,
+      /* Carrying on as the colour whose turn it is remains the default — the
+         interesting question is almost always "what should have been played
+         here" — but the setup step may have said otherwise. */
+      side: setup && setup.side !== null && setup.side !== undefined
+        ? setup.side : position.turn,
+      levels: setup ? setup.levels : null,
       from: archive
         ? `${(archive.black && archive.black.pseudo) || t('profile.guest')} – `
           + `${(archive.white && archive.white.pseudo) || t('profile.guest')}`
         : null,
       ply: reviewPly(),
     });
-    closeResumeSheet();
-    playSound('ui');
+    closeResumeSheet();          // the click that got here has already sounded
     navigate('play', { resumed: '1' });
   }
 
@@ -2418,8 +2484,14 @@ export function mountPlay(outlet, params) {
     const choice = event.target.closest('[data-resume]');
     if (!choice) return;
     const which = choice.getAttribute('data-resume');
-    if (which === 'cancel') { playSound('ui'); closeResumeSheet(); return; }
-    resumeFrom(which);
+    playSound('ui');
+    if (which === 'cancel') { closeResumeSheet(); return; }
+    if (which === 'back') { openResumeSheet(); return; }
+    if (which === 'go') { resumeFrom(resumeSetup, readResumeSetup(resumeSetup)); return; }
+    /* Two players on this device have nothing to arrange, so that one starts
+       where the others stop to ask. */
+    if (which === MODE_LOCAL) { resumeFrom(which, null); return; }
+    openResumeSetup(which);
   });
 
   pickerEl.addEventListener('click', (event) => {
@@ -2511,7 +2583,13 @@ export function mountPlay(outlet, params) {
     // Never steal a keystroke meant for the chat box.
     if (event.target && event.target.closest && event.target.closest('input, textarea')) {
       if (event.key === 'Escape') event.target.blur();
-      return;
+      /* Up and down still belong to the panel, even from inside the box.
+         Opening the chat puts the cursor there, so once the chat became what an
+         online game opens on, the two keys stopped answering at all — and in a
+         one-line field they were only ever going to jump the caret to one end
+         of what you had typed, which nobody presses them for. Left and right
+         stay with the box: those really are how you move through a word. */
+      if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
     }
     if (event.key === 'Escape') {
       if (review !== null) { goToPly(timeline.length - 1); return; }
@@ -2583,6 +2661,17 @@ export function mountPlay(outlet, params) {
     mode = resumed.mode;
     if (resumed.mode === MODE_AI) humanSide = resumed.side;
     aiRunning = resumed.mode === MODE_AI_AI;
+    /* The arrangement chosen on the way out, rather than whatever the settings
+       happened to hold — the position was handed over to be tried under this
+       one. buildTools below puts the selects where these say. */
+    if (resumed.levels) {
+      duelLevels = [resumed.levels[0], resumed.levels[1]];
+      level = resumed.mode === MODE_AI ? resumed.levels[0] : level;
+    }
+    /* The controls were built before any of this was known, so they still show
+       what the settings held. Left alone, the engine played at the level that
+       was chosen while the menu above it named another one. */
+    buildTools();
   }
 
   newGame(resumed ? resumed.position : null);

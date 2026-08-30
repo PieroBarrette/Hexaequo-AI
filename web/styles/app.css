@@ -1185,6 +1185,13 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
   margin: 0 0 4px; font-weight: 600; font-size: 15px; text-align: center;
 }
 .resume-choice { min-height: var(--tap); font-size: 15px; }
+/* One arrangement per line, label left and control right, so the sheet reads
+   as a short list of questions rather than a form. */
+.resume-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; font-size: 14px; color: var(--muted);
+}
+.resume-row select { flex: none; min-width: 9.5em; }
 .review-resume {
   font-size: 12px; font-weight: 600; white-space: nowrap;
   color: var(--accent); border-color: var(--accent);
