@@ -128,13 +128,27 @@ export function mountPlay(outlet, params) {
   let countdownTimer = 0;
   let clockTimer = 0;
 
-  const isAI = (player) =>
-    !net && (mode === MODE_AI_AI || (mode === MODE_AI && player !== humanSide));
+  /* Nobody is the computer inside an exploration: both colours answer to the
+     same hand, which is the whole of what makes it exploring. Left as it was,
+     the engine replied to every move — the branch grew twice as fast as it was
+     being played, and half of it was somebody else's idea. */
+  const isAI = (player) => !exploring
+    && !net && (mode === MODE_AI_AI || (mode === MODE_AI && player !== humanSide));
+
+  /*
+   * Exploring: a position taken off the board and pushed around by hand.
+   *
+   * Holds everything the game it came from needs to be put back exactly as it
+   * was — the line, the notation, the result, the position. Nothing about an
+   * exploration is written anywhere; it exists between entering it and leaving
+   * it, and leaving it restores this and throws the branch away.
+   */
+  let exploring = null;
 
   /** Whether the local player may act at all right now. */
-  const canAct = () => !archiveId && (review === null) && (net
+  const canAct = () => (exploring ? review === null : !archiveId && (review === null) && (net
     ? net.ready && !net.pending && state.turn === net.colour
-    : !isAI(state.turn));
+    : !isAI(state.turn)));
 
   /** Whether the player may line a move up while the other side thinks. */
   const canPremove = () => Boolean(
@@ -194,6 +208,7 @@ export function mountPlay(outlet, params) {
             <option value="2">2×</option>
             <option value="4">4×</option>
           </select>
+          <button class="btn review-explore" data-action="explore">${t('review.explore')}</button>
           <button class="btn review-resume" data-action="resume">${t('review.resume')}</button>
           <button class="btn review-live" data-action="rev-live">${t('review.backToLive')}</button>
           </div>
@@ -344,7 +359,8 @@ export function mountPlay(outlet, params) {
     chatForm.querySelector('button').textContent = t('chat.send');
     outlet.querySelector('[data-action="end-jump"]').title = t('game.endJump');
     outlet.querySelector('[data-action="cancel-jump"]').title = t('game.cancel');
-    outlet.querySelector('[data-action="rev-live"]').textContent = t('review.backToLive');
+    outlet.querySelector('[data-action="explore"]').textContent = t('review.explore');
+    // rev-live carries two meanings and renderReviewBar picks the right one.
     outlet.querySelector('[data-control="rev-speed"]').title = t('review.speed');
     for (const [action, key] of [['rev-first', 'first'], ['rev-prev', 'previous'],
       ['rev-next', 'next'], ['rev-last', 'last']]) {
@@ -1637,6 +1653,69 @@ export function mountPlay(outlet, params) {
    * untouched by construction rather than by care — there is no code path from
    * here that could reach it.
    */
+  /**
+   * Push the pieces around from here, without losing the game it came from.
+   *
+   * The line up to this ply is kept and everything after it is set aside — not
+   * discarded: the whole of it is held so that leaving puts the game back move
+   * for move. Both colours answer to the same hand, which is what makes it
+   * exploring rather than playing: the question is "what if this had gone
+   * differently", and nobody is on the other side of it.
+   */
+  function startExploring() {
+    const at = reviewPly();
+    if (exploring) {
+      // Branching again from inside a branch. The game underneath is already
+      // held; only the branch is being cut back, so the original stays put.
+      // `at` moves with it, or the strip would name the older starting point.
+      exploring.at = at;
+      timeline = timeline.slice(0, at + 1);
+      timelineMoves = timelineMoves.slice(0, at);
+      moveLog = moveLog.slice(0, at);
+    } else {
+      exploring = {
+        timeline, timelineMoves, moveLog, history, repetitions,
+        state, result, lastMove, review, at,
+      };
+      timeline = timeline.slice(0, at + 1);
+      timelineMoves = timelineMoves.slice(0, at);
+      moveLog = moveLog.slice(0, at);
+    }
+    state = cloneState(timeline[at]);
+    lastMove = at > 0 ? timelineMoves[at - 1] : null;
+    result = null;
+    review = null;
+    history = [];
+    /* Rebuilt from the line that survives, so the threefold rule counts the
+       positions this branch actually stands on rather than starting blind. */
+    repetitions = new Map();
+    for (const position of timeline) {
+      const signature = positionKey(position);
+      repetitions.set(signature, (repetitions.get(signature) || 0) + 1);
+    }
+    selected = null;
+    chain = null;
+    placeMode = null;
+    picker = null;
+    clearEffect();
+    closeResumeSheet();
+    refresh(true);
+  }
+
+  /** Put the game back exactly as it was and throw the branch away. */
+  function stopExploring() {
+    if (!exploring) return;
+    ({ timeline, timelineMoves, moveLog, history, repetitions,
+      state, result, lastMove, review } = exploring);
+    exploring = null;
+    selected = null;
+    chain = null;
+    placeMode = null;
+    picker = null;
+    clearEffect();
+    refresh(true);
+  }
+
   function resumeFrom(mode, setup) {
     const position = shownState();
     if (!position) return;
@@ -1797,15 +1876,25 @@ export function mountPlay(outlet, params) {
     reviewBar.querySelector('[data-action="rev-next"]').disabled = at === last;
     reviewBar.querySelector('[data-action="rev-last"]').disabled = at === last;
     reviewBar.classList.toggle('is-back', review !== null);
-    /* Carrying the position off to play it out is analysis, not reading, so
-       it waits for the game to be over like the bar and the curve do. Local
-       or online makes no difference: mid-game, stepping back is looking. */
+    /* The way out of a branch has to be reachable from the end of it, where
+       there is nothing to step back from — so it does not hang off is-back
+       the way the live button does during a game. */
+    reviewBar.classList.toggle('is-exploring', Boolean(exploring));
+    /* Carrying the position off to play it out is analysis, not reading, so it
+       waits for the game to be over like the bar and the curve do — and an
+       exploration is analysis too, so a position reached by hand can be handed
+       on to the engine from there. */
+    reviewBar.querySelector('[data-action="resume"]').hidden = !isReview();
+    reviewBar.querySelector('[data-action="explore"]').hidden = !isReview();
     /* "Back to the game" only while there is a game to be back in. In a review
        there is no present to return to — the last ply is just the last ply, and
        ⏭ already goes there in one press. Mid-game it is the one control that
        says something the arrows do not: stop reading, the board has moved on
-       without you. */
-    reviewBar.querySelector('[data-action="rev-live"]').hidden = isReview();
+       without you. Exploring brings it back with the other meaning it can
+       carry: leave the branch, put the game back. */
+    const live = reviewBar.querySelector('[data-action="rev-live"]');
+    live.hidden = isReview() && !exploring;
+    live.textContent = exploring ? t('review.leaveExploring') : t('review.backToLive');
     const playButton = reviewBar.querySelector('[data-action="rev-play"]');
     playButton.textContent = isAutoplaying() ? '⏸' : '▶';
     playButton.classList.toggle('is-on', isAutoplaying());
@@ -2001,7 +2090,8 @@ export function mountPlay(outlet, params) {
    * asking what to do about it. A stored game counts only once it has arrived,
    * or the verdict lands on the empty board it has not replaced yet.
    */
-  const isReview = () => (archiveId ? Boolean(archive) : Boolean(result));
+  const isReview = () => Boolean(exploring)
+    || (archiveId ? Boolean(archive) : Boolean(result));
 
   /**
    * Points to a share of the bar.
@@ -2119,6 +2209,15 @@ export function mountPlay(outlet, params) {
   function renderNetStatus() {
     renderGuestNote();
     const strip = outlet.querySelector('.net-strip');
+    /* Exploring says so, and says the game is still there — otherwise moving a
+       piece on a game you were reading looks like you have just written on it.
+       Ahead of the resumed note, since a branch is the more immediate truth. */
+    if (exploring) {
+      strip.className = 'net-strip is-on';
+      strip.innerHTML = `<span class="net-msg">${
+        t('review.exploringFrom', { n: exploring.at })}</span>`;
+      return;
+    }
     // A resumed game keeps the note saying where it came from.
     if (resumedNote) return;
 
@@ -2531,8 +2630,13 @@ export function mountPlay(outlet, params) {
     else if (action === 'rev-prev') { stopAutoplay(); stepReview(-1); }
     else if (action === 'rev-next') { stopAutoplay(); stepReview(1); }
     else if (action === 'rev-last') { stopAutoplay(); goToPly(timeline.length - 1); }
-    else if (action === 'rev-live') { stopAutoplay(); goToPly(timeline.length - 1); }
-    else if (action === 'resume') { stopAutoplay(); openResumeSheet(); }
+    else if (action === 'rev-live') {
+      stopAutoplay();
+      // Two meanings, one button: leave the branch, or catch up to the present.
+      if (exploring) stopExploring();
+      else goToPly(timeline.length - 1);
+    } else if (action === 'resume') { stopAutoplay(); openResumeSheet(); }
+    else if (action === 'explore') { stopAutoplay(); startExploring(); }
     else if (action === 'guest-sign-in') { openPanel('account'); }
     else if (action === 'rev-play') {
       if (isAutoplaying()) { stopAutoplay(); renderReviewBar(); } else startAutoplay();
@@ -2592,6 +2696,14 @@ export function mountPlay(outlet, params) {
       if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
     }
     if (event.key === 'Escape') {
+      /* Inside a branch, escape leaves the branch. Stepping back within one
+         is undone first, so the key walks out the way it came in rather than
+         dropping the whole exploration from halfway through reading it. */
+      if (exploring) {
+        if (review !== null) { goToPly(timeline.length - 1); return; }
+        stopExploring();
+        return;
+      }
       if (review !== null) { goToPly(timeline.length - 1); return; }
       if (premove) { clearPremove(true); return; }
       /* Through setDrawer, so the arrow on the bar turns over with it. Closing

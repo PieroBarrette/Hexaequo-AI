@@ -406,7 +406,10 @@ select.btn option {
 /* :not([hidden]) because this rule is what would otherwise overrule the
    attribute — an author `display` beats the one the browser attaches to
    `hidden`, so the button would stay on screen having been told not to. */
-.review-bar.is-back .review-live:not([hidden]) { display: inline-flex; }
+.review-bar.is-back .review-live:not([hidden]),
+/* Exploring shows it at the end of the branch too, where there is nothing to
+   step back from and it is the way out rather than the way forward. */
+.review-bar.is-exploring .review-live:not([hidden]) { display: inline-flex; }
 .game.is-reviewing .board-host { background: color-mix(in srgb, var(--accent) 7%, transparent); }
 .game.is-reviewing .board-host::after {
   content: ''; position: absolute; inset: 0; pointer-events: none;
@@ -1198,4 +1201,9 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 .review-resume::before { content: '⤺'; margin-right: 5px; font-weight: 400; }
+/* Quieter than "play from here": exploring costs nothing and undoes itself,
+   so it does not need to look like a decision. */
+.review-explore { font-size: 12px; font-weight: 600; white-space: nowrap; }
+.review-explore::before { content: '⌥'; margin-right: 5px; font-weight: 400; }
+.review-bar.is-exploring .review-explore { border-color: var(--accent); color: var(--accent); }
 .review-resume:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); }
