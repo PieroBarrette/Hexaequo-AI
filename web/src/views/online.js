@@ -66,7 +66,7 @@ export function mountOnline(outlet) {
     <div class="qr-sheet" hidden></div>`;
   const top = outlet.querySelector('.online-top');
   const qrSheet = outlet.querySelector('.qr-sheet');
-  const closeLobby = mountLobby(outlet.querySelector('.lobby-host'));
+  const lobby = mountLobby(outlet.querySelector('.lobby-host'), () => cadence);
 
   const rangeText = () => t('online.quickRange', {
     low: Math.max(0, search.elo - search.band),
@@ -290,6 +290,8 @@ export function mountOnline(outlet) {
       cadence = pick.getAttribute('data-cadence');
       playSound('ui');
       render();
+      // The list below shows a challenge button that depends on this.
+      lobby.refresh();
       return;
     }
     const button = event.target.closest('[data-action]');
@@ -353,7 +355,7 @@ export function mountOnline(outlet) {
 
   return () => {
     stopTicker();
-    closeLobby();
+    lobby.close();
     // Leaving the page leaves the queue: nobody should be paired into a game
     // they are no longer watching for. Being matched empties the queue first,
     // so this is a no-op on the way into a game.

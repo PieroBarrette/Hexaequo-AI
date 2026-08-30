@@ -384,10 +384,10 @@
     "decline": "Decline",
     "declined": "Challenge declined",
     "expired": "The challenge expired",
-    "cadenceFor": "Cadence",
     "count": "{n} online",
     "quiet": "Nothing said yet.",
-    "signInToTalk": "Sign in to write"
+    "signInToTalk": "Sign in to write",
+    "noClockNoChallenge": "Pick a time control above to challenge somebody."
   },
   "profile": {
     "title": "Profile",

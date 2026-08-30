@@ -384,10 +384,10 @@
     "decline": "Refuser",
     "declined": "Défi refusé",
     "expired": "Le défi a expiré",
-    "cadenceFor": "Cadence du défi",
     "count": "{n} en ligne",
     "quiet": "Rien n'a encore été dit.",
-    "signInToTalk": "Connectez-vous pour écrire"
+    "signInToTalk": "Connectez-vous pour écrire",
+    "noClockNoChallenge": "Choisissez une cadence plus haut pour pouvoir défier quelqu’un."
   },
   "profile": {
     "title": "Profil",

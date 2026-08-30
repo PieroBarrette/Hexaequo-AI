@@ -14,23 +14,26 @@ import { play as playSound } from '../audio.js';
 import { isSignedIn, currentUser, sessionToken, sessionReady, onAuthChange } from '../auth.js';
 import { openPanel } from '../ui/panels.js';
 
-const CADENCES = ['bullet', 'blitz', 'rapid', 'classic'];
 const cadenceLabel = (id) => t('online.cadence' + id.charAt(0).toUpperCase() + id.slice(1));
 
 const escapeText = (value) => String(value).replace(/[&<>"']/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 /**
- * Mount the lobby into `host`. Returns a teardown that leaves the room, so
- * nobody is left listed in a lobby they walked out of.
+ * Mount the lobby into `host`.
+ *
+ * The cadence is not this view's to choose: it is picked once at the top of
+ * the page, for quick match and for a challenge alike, so the page hands down
+ * a way to read it. Returns { close, refresh } — close leaves the room, so
+ * nobody is left listed in a lobby they walked out of, and refresh redraws
+ * when the page's cadence changes under it.
  */
-export function mountLobby(host) {
+export function mountLobby(host, readCadence = () => 'rapid') {
   let joined = false;
   let busy = false;
   let players = [];
   let games = [];
   let messages = [];
-  let cadence = 'rapid';
   let notice = null;        // the last thing that happened, in words
   let sentTo = null;
   const unsubscribe = [];
@@ -62,14 +65,10 @@ export function mountLobby(host) {
           <h3>${t('lobby.title')}</h3>
           <span class="lobby-count">${t('lobby.count', { n: players.length })}</span>
         </div>
-        <p class="lede" style="font-size:12px">${t('lobby.cadenceFor')}</p>
-        <div class="cadence-grid">
-          ${CADENCES.map((id) => `
-            <button class="btn cadence${id === cadence ? ' is-active' : ''}" data-cadence="${id}">
-              ${cadenceLabel(id)}
-            </button>`).join('')}
-        </div>
         <div class="lobby-list">${playerRows()}</div>
+        ${isSignedIn() && readCadence() === 'none'
+    ? `<p class="lede" style="font-size:12px;margin:10px 0 0">${t('lobby.noClockNoChallenge')}</p>`
+    : ''}
       </div>
       ${games.length ? `
       <div class="rule-block">
@@ -104,7 +103,7 @@ export function mountLobby(host) {
         : (player.playing ? t('lobby.playing') : t('lobby.available'));
       /* Amber is not a closed door: someone at a board can still say yes to a
          game played after this one. */
-      const action = isMe || !isSignedIn() ? ''
+      const action = isMe || !isSignedIn() || readCadence() === 'none' ? ''
         : `<button class="btn btn--sm" data-challenge="${escapeText(player.userId)}">`
           + `${sentTo === player.userId ? '✓' : t('lobby.challenge')}</button>`;
       const light = `<span class="pip is-${player.playing ? 'playing' : 'free'}"`
@@ -227,7 +226,7 @@ export function mountLobby(host) {
    * dead.
    */
   host.addEventListener('click', async (event) => {
-    const mine = event.target.closest('[data-cadence], [data-challenge], [data-action], [data-watch], [data-rejoin]');
+    const mine = event.target.closest('[data-challenge], [data-action], [data-watch], [data-rejoin]');
     if (mine && host.contains(mine)) event.stopPropagation();
 
     const back = event.target.closest('[data-rejoin]');
@@ -244,14 +243,11 @@ export function mountLobby(host) {
       return;
     }
 
-    const pick = event.target.closest('[data-cadence]');
-    if (pick) { cadence = pick.getAttribute('data-cadence'); playSound('ui'); render(); return; }
-
     const target = event.target.closest('[data-challenge]');
     if (target) {
       playSound('ui');
       const userId = target.getAttribute('data-challenge');
-      const response = await request('hx:challenge', { userId, timeControl: cadence })
+      const response = await request('hx:challenge', { userId, timeControl: readCadence() })
         .catch(() => ({ ok: false, error: 'OFFLINE' }));
       if (!response.ok) { notice = t('online.errors.' + response.error); render(); return; }
       sentTo = userId;
@@ -291,13 +287,16 @@ export function mountLobby(host) {
     enter(true);
   });
 
-  return () => {
-    stopWatchingAuth();
-    if (joined) request('hx:lobby:leave', {}).catch(() => {});
-    joined = false;
-    for (const off of unsubscribe) {
-      try { off(); } catch { /* already gone */ }
-    }
-    unsubscribe.length = 0;
+  return {
+    refresh: render,
+    close() {
+      stopWatchingAuth();
+      if (joined) request('hx:lobby:leave', {}).catch(() => {});
+      joined = false;
+      for (const off of unsubscribe) {
+        try { off(); } catch { /* already gone */ }
+      }
+      unsubscribe.length = 0;
+    },
   };
 }
