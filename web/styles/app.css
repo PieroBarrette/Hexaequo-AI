@@ -208,7 +208,17 @@ select.btn option {
 /* overflow:hidden matters: without it a panel parked outside this box by a
    transform stays visible and covers the reserve rail next to it. */
 .board-area { flex: 1; position: relative; min-width: 0; display: flex; overflow: hidden; }
-.board { flex: 1; width: 100%; height: 100%; display: block; touch-action: none; background: var(--board-bg); }
+/* Nothing drawn on the board is text to be selected. Dragging a piece across a
+   tile was sweeping up its coordinate and leaving it highlighted, because
+   pointer-events: none keeps an element from catching clicks but does nothing
+   about a selection dragged over it — they are separate mechanisms. On the
+   whole board rather than on the coordinates alone, since the board is a
+   dragging surface and any text it ever gains would have the same problem. */
+.board {
+  flex: 1; width: 100%; height: 100%; display: block;
+  touch-action: none; background: var(--board-bg);
+  -webkit-user-select: none; user-select: none;
+}
 .board-fx { pointer-events: none; }
 .cell { cursor: default; }
 .cell.is-clickable { cursor: pointer; }
