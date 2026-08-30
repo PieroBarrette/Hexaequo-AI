@@ -18,6 +18,7 @@ import { openPanel, relabelPanel } from './ui/panels.js';
 import { mountChallenges } from './ui/challenge.js';
 import { restoreSession, onAuthChange, currentUser, mustChoosePseudo, isSignedIn } from './auth.js';
 import { watchForUpdates } from './update.js';
+import { startSettingsSync } from './settingsSync.js';
 
 /** The header chip: your nickname and rating, or an invitation to sign in. */
 function renderAccountChip() {
@@ -55,6 +56,10 @@ async function boot() {
   defineRoute('reset', mountReset);
 
   renderChrome();
+  /* Signed in, preferences belong to the account rather than to this browser;
+     signed out they stay where they are. Wired before the session is restored
+     so the first answer about who is here is not missed. */
+  startSettingsSync(onSettingsChange);
   startRouter();
 
   /* Restore the session in the background. The app is fully usable signed out,

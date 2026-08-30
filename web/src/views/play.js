@@ -1639,7 +1639,15 @@ export function mountPlay(outlet, params) {
   function goToPly(index, animate) {
     const last = timeline.length - 1;
     const target = Math.max(0, Math.min(last, index));
+    const wasLive = review === null;
     review = target >= last ? null : target;
+    /* Stepping back into a game is asking to read it, and reading it is the
+       moves and the curve as much as the board. Opened on the way in rather
+       than left for everybody to find — once, so closing it during a review
+       is respected. */
+    if (wasLive && review !== null && !(drawerOpen && drawerTab === 'moves')) {
+      setDrawer(true, 'moves');
+    }
     selected = null;
     chain = null;
     picker = null;
@@ -2544,10 +2552,8 @@ export function mountPlay(outlet, params) {
   showDrawerTab('moves');
   if (archiveId) {
     loadArchive();
-    /* Reading a game back is reading the moves as much as the board, and the
-       curve above them is the shape of the whole thing. Open on arrival
-       rather than making it the first thing everybody has to find. */
-    setDrawer(true, 'moves');
+    setDrawer(true, 'moves');      // a stored game is nothing but a review
+
   }
   if (net) {
     joinRoom();

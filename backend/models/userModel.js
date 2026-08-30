@@ -114,8 +114,8 @@ async function update(id, updates) {
  */
 async function updateSettings(id, settings) {
     const result = await query(
-        `UPDATE users 
-         SET settings = settings || $1::jsonb
+        `UPDATE users
+         SET settings = COALESCE(settings, '{}'::jsonb) || $1::jsonb
          WHERE id = $2
          RETURNING settings`,
         [JSON.stringify(settings), id]
