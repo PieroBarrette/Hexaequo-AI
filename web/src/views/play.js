@@ -268,17 +268,15 @@ export function mountPlay(outlet, params) {
      asks for the same positions over and over — and because the curve wants
      every one of them. */
   const evalCache = new Map();
-  /* The suggested move per ply, from a deeper search than the bar's. Declared
-     alongside so the one thing that forgets analysis forgets all of it. */
-  const hintCache = new Map();
+  const JUDGE_BUDGET = { ms: 120, maxDepth: 5 };   // see verdictAt for the numbers
+  /* When the next round of judging may start. */
   let hintTimer = 0;
 
-  /* Both caches are keyed by ply, and a ply number does not mean the same
-     position from one line to the next — a branch, a new game or a game loaded
-     over this one all put something else at 12. */
+  /* The cache is keyed by ply, and a ply number does not mean the same position
+     from one line to the next — a branch, a new game or a game loaded over this
+     one all put something else at 12. */
   function forgetAnalysis() {
     evalCache.clear();
-    hintCache.clear();
   }
   const curveEl = outlet.querySelector('.eval-curve');
   let curveTimer = 0;
@@ -1826,6 +1824,12 @@ export function mountPlay(outlet, params) {
      * moves in it asks for ply 0 while already on ply 0, and the result card
      * would never appear if that did nothing at all. */
     if (target === (review === null ? last : review)) { refresh(true); return; }
+    /* Moving the board calls off whatever was queued to think about it. The
+       search already running cannot be stopped, but the next one has not begun
+       and does not have to: an arrow held down then costs one search, not one
+       per ply it swept past. */
+    clearTimeout(curveTimer);
+    clearTimeout(hintTimer);
     review = target >= last ? null : target;
     /* Moving through the game says nothing about the panel. This used to open
        it on the way into a review, which made a look at the previous move cost
@@ -2130,7 +2134,12 @@ export function mountPlay(outlet, params) {
   function renderEvalBar() {
     if (!isReview()) { evalBar.hidden = true; return; }
     const at = review === null ? timeline.length - 1 : review;
-    const verdict = verdictAt(at);
+    /* Only what is already known. Judging here would put the search inside the
+       redraw, which is inside the animation — the bar keeps its last reading
+       for the moment it takes the board to settle, rather than holding the
+       board still while it thinks. */
+    const verdict = evalCache.get(at);
+    if (!verdict) { wantAnalysis(); return; }
 
     const share = verdict.decisive
       ? (verdict.score > 0 ? 0 : 1)          // black wins: white's share is none
@@ -2152,36 +2161,24 @@ export function mountPlay(outlet, params) {
    * The move the engine would play in the position on screen.
    *
    * Searched deeper than the bar is — the bar wants a number for every ply and
-   * gets a quick one; this wants the right move for one ply and can afford it,
-   * measuring 60 to 320 ms across a whole game. Off the main thread it is not,
-   * so it is asked for after a beat rather than during the redraw: stepping
-   * quickly through a game then never pays for the plies it passed over.
-   *
-   * Kept apart from the bar's own cache because the two are different searches.
-   * Only the move is shown, never a second number, so there is nothing for a
-   * reader to notice disagreeing with the bar.
+   * gets a quick one; this wanted the right move for one ply and paid 60 to 320
+   * ms for it, on a timer that fired straight into the arrival animation. A
+   * single thread cannot animate and search at once, so the review stuttered on
+   * every step. It was also a second search for something the first one already
+   * knew: judge returns its move now, so the bar's own verdict carries it and
+   * the note costs nothing beyond what the bar was already spending.
    */
   function renderEvalHint() {
     const at = review === null ? timeline.length - 1 : review;
     // Nothing to suggest where the game is already over.
     const over = Boolean(result) && at === timeline.length - 1;
     if (!isReview() || over || !timeline[at]) {
-      clearTimeout(hintTimer);
       evalHint.hidden = true;
       return;
     }
-    if (!hintCache.has(at)) {
-      evalHint.hidden = true;
-      clearTimeout(hintTimer);
-      const wanted = at;
-      hintTimer = setTimeout(() => {
-        const verdict = judge(cloneState(timeline[wanted]), { ms: 3500, maxDepth: 7 });
-        hintCache.set(wanted, verdict.move || null);
-        renderEvalHint();
-      }, 120);
-      return;
-    }
-    const move = hintCache.get(at);
+    const known = evalCache.get(at);
+    if (!known) { evalHint.hidden = true; return; }   // waits for the bar's answer
+    const move = known.move;
     if (!move) { evalHint.hidden = true; return; }
     evalHint.hidden = false;
     evalHint.textContent = moveNotation(move, cellLabel);
@@ -2195,8 +2192,8 @@ export function mountPlay(outlet, params) {
 
   evalHint.addEventListener('click', () => {
     if (!exploring || review !== null) return;
-    const at = timeline.length - 1;
-    const suggested = hintCache.get(at);
+    const known = evalCache.get(timeline.length - 1);
+    const suggested = known && known.move;
     if (!suggested) return;
     /* Resolved against the live position rather than played as it was found:
        the search ran on a copy, and a move is only ever committed here after
@@ -2211,10 +2208,56 @@ export function mountPlay(outlet, params) {
   function verdictAt(ply) {
     let found = evalCache.get(ply);
     if (!found) {
-      found = judge(cloneState(timeline[ply]), { ms: 250, maxDepth: 6 });
+      found = judge(cloneState(timeline[ply]), JUDGE_BUDGET);
       evalCache.set(ply, found);
     }
     return found;
+  }
+
+  /*
+   * How hard each ply is thought about.
+   *
+   * A search cannot be interrupted once it has started — one thread, and it
+   * does not yield — so the only lever on how long the page can freeze is how
+   * much is asked for at once. Measured over a 42-ply game: at 250ms/depth 6
+   * the curve cost 3.3 seconds of blocked thread, single plies reaching 251ms,
+   * which is a quarter-second of nothing moving. At this budget the same game
+   * costs 857ms and the worst ply is 74 — under a blink, and it lands between
+   * frames. The shallower reading moves the bar by a hair, and is the whole
+   * difference between a review that glides and one that lurches.
+   */
+
+  /**
+   * Nothing is judged while anything is moving.
+   *
+   * A search and an animation want the same single thread, and the search wins
+   * every time — it does not yield. Asking for one during the arrival of a move
+   * is asking for the move to arrive late, which is what made stepping through
+   * a game feel like wading. So the work waits for the board to be still, and
+   * any change starts the wait again: stepping quickly never pays for the plies
+   * it went past, because their turn never came.
+   */
+  const boardIsStill = () => !effect && board.remainingEffectMs() <= 0;
+
+  function wantAnalysis() {
+    clearTimeout(hintTimer);
+    if (!isReview()) return;
+    const at = review === null ? timeline.length - 1 : review;
+    const needed = !evalCache.has(at) || curveShown();
+    if (!needed) return;
+    hintTimer = setTimeout(() => {
+      if (!boardIsStill()) { wantAnalysis(); return; }     // still moving: wait again
+      /* The ply on screen first — it is the one being looked at — and the rest
+         of the curve after it, a slice at a time. */
+      if (!evalCache.has(at)) {
+        verdictAt(at);
+        renderEvalBar();
+        renderEvalHint();
+        wantAnalysis();
+        return;
+      }
+      fillCurve();
+    }, 120);
   }
 
   /**
@@ -2235,11 +2278,15 @@ export function mountPlay(outlet, params) {
     const missing = [];
     for (let i = 0; i < timeline.length; i++) if (!evalCache.has(i)) missing.push(i);
     if (!missing.length) return;
-    /* Two at a time with a real gap between: a slice small enough that a
-       scroll or a tap lands between them rather than behind them. */
-    for (const ply of missing.slice(0, 2)) verdictAt(ply);
+    /* And not while anything is moving: the curve can afford to arrive late,
+       an animation cannot. */
+    if (!boardIsStill()) { curveTimer = setTimeout(fillCurve, 120); return; }
+    /* One at a time with a real gap after it. Two was twice the freeze for the
+       same curve, and the curve is in no hurry — what matters is that a tap or
+       an arrow lands between the slices rather than behind them. */
+    verdictAt(missing[0]);
     renderEvalCurve();
-    curveTimer = setTimeout(fillCurve, 16);
+    curveTimer = setTimeout(fillCurve, 32);
   }
 
   /**
