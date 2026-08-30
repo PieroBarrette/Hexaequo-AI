@@ -52,7 +52,7 @@ router.get('/games/:id', optionalAuth, async (req, res, next) => {
 router.get('/:id', optionalAuth, async (req, res, next) => {
     try {
         if (notAnId(res, req.params.id)) return;
-        const data = await profile.stats(req.params.id);
+        const data = await profile.stats(req.params.id, req.user ? req.user.id : null);
         if (!data) return fail(res, 404, 'No such account');
         // How the person looking has fared against them, when there is a
         // person looking and they have met.

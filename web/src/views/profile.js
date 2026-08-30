@@ -323,7 +323,11 @@ export function mountProfile(outlet, params) {
 
         <div class="rule-block">
           <h3>${t(someoneElse() ? 'profile.theirRecord' : 'profile.record')}</h3>
-          ${recordLine('profile.allGames', stats.all)}
+          <!-- On someone else's page these two lines carry identical numbers,
+               because only the rated games are counted there at all. One line
+               then, named for what it really is, rather than the same figures
+               twice under a heading claiming more than it shows. -->
+          ${stats.countsEverything === false ? '' : recordLine('profile.allGames', stats.all)}
           ${recordLine('profile.ratedGames', stats.rated)}
           ${cadences.length ? `<h3 style="margin-top:16px">${t('profile.byCadence')}</h3>` : ''}
           ${cadences.map(([id, record]) =>

@@ -95,7 +95,21 @@ async function history(userId, { page = 1, limit = PAGE_SIZE } = {}, viewerId = 
     };
 }
 
-async function stats(userId) {
+/**
+ * A player's record.
+ *
+ * A visitor is counted over the rated games only — the same line the history
+ * draws. Leaving the honest total in while withholding the games behind it
+ * told a stranger exactly how many private games there were, which is most of
+ * what was being kept back; a count is not nothing. Your own page still shows
+ * both, because both are yours.
+ *
+ * The rating curve and the peak come from elo_history, which only ever gets a
+ * row when the rating moved, so they were already rated-only and need no
+ * filtering of their own.
+ */
+async function stats(userId, viewerId = userId) {
+    const mine = viewerId === userId;
     const account = await query(
         'SELECT id, pseudo, elo, created_at FROM users WHERE id = $1', [userId]);
     if (!account.rows.length) return null;
@@ -125,6 +139,8 @@ async function stats(userId) {
     const ratedOnly = blank();
     const byCadence = {};
     for (const row of tally.rows) {
+        // A visitor never sees the unrated ones, in the totals or by cadence.
+        if (!mine && !row.rated) continue;
         const cadence = row.time_mode || 'none';
         byCadence[cadence] = byCadence[cadence] || blank();
         for (const bucket of [all, byCadence[cadence], ...(row.rated ? [ratedOnly] : [])]) {
@@ -151,6 +167,10 @@ async function stats(userId) {
         memberSince: user.created_at,
         all,
         rated: ratedOnly,
+        /* Says whether `all` really is all of them, so the page can label what
+           it is showing rather than print two identical lines under different
+           headings. */
+        countsEverything: mine,
         byCadence,
         // Oldest first, which is the direction a curve is read in.
         curve: curve.rows.reverse().map((row) => ({ elo: row.elo_after, at: row.created_at })),

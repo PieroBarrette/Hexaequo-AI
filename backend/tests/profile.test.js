@@ -271,6 +271,37 @@ async function run() {
             'the total counts the same games the list shows');
     });
 
+    await test('a visitor is not even told how many friendlies there were', async () => {
+        /* Withholding the games while leaving the honest total in place would
+           have said exactly how many were being kept back, which is most of
+           what was being kept back. */
+        const mine = await profile.stats(black.user.id, black.user.id);
+        const theirs = await profile.stats(black.user.id, white.user.id);
+
+        assert.strictEqual(mine.all.played, 2, 'my own page counts both');
+        assert.strictEqual(mine.rated.played, 1);
+        assert.strictEqual(mine.countsEverything, true);
+
+        assert.strictEqual(theirs.all.played, 1, 'a visitor counts only the rated one');
+        assert.strictEqual(theirs.rated.played, 1);
+        assert.strictEqual(theirs.countsEverything, false,
+            'and the page is told so, rather than printing the same line twice');
+
+        /* By cadence too: the friendly was played without a clock, and a
+           cadence appearing with games under it is the same leak by another
+           route. */
+        assert.ok(mine.byCadence.none, 'my own breakdown keeps the clockless game');
+        assert.ok(!theirs.byCadence.none, "a visitor's breakdown does not");
+
+        const anonymous = await profile.stats(black.user.id, null);
+        assert.strictEqual(anonymous.all.played, 1, 'signed out sees what a visitor sees');
+
+        /* The rating curve is drawn from elo_history, which only gets a row
+           when the rating moved — so it never held a friendly to begin with. */
+        assert.strictEqual(mine.curve.length, theirs.curve.length,
+            'the curve was always rated-only and is unchanged');
+    });
+
     await test('a friendly cannot be replayed by someone who was not in it', async () => {
         const friendly = (await profile.history(black.user.id, {}, black.user.id))
             .games.find((g) => !g.rated);
