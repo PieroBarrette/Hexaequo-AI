@@ -224,10 +224,22 @@ function attachLobby(io) {
             if (typeof callback === 'function') callback(payload);
         };
 
-        /** Step into the room: you are now visible and challengeable. */
+        /**
+         * Step into the room.
+         *
+         * Anyone may listen: reading who is about and what is being said is
+         * part of the site looking inhabited, and a visitor with no account
+         * can still watch a game or open a private one. Only a name goes on
+         * the list, because only a name can be challenged.
+         */
         socket.on('hx:lobby:enter', (payload, callback) => {
             const user = socket.data.user;
-            if (!user) return reply(callback, { ok: false, error: 'SIGN_IN_REQUIRED' });
+            socket.join(LOBBY_ROOM);
+            if (!user) {
+                return reply(callback, {
+                    ok: true, players: roster(), games: liveGames(), chat, you: null,
+                });
+            }
             present.set(user.userId, {
                 userId: user.userId,
                 pseudo: user.pseudo,
@@ -235,7 +247,6 @@ function attachLobby(io) {
                 socketId: socket.id,
                 since: Date.now(),
             });
-            socket.join(LOBBY_ROOM);
             socket.data.hxInLobby = true;
             announce();
             reply(callback, { ok: true, players: roster(), games: liveGames(), chat, you: user.userId });

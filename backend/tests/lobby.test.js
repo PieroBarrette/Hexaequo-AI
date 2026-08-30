@@ -80,12 +80,35 @@ async function run() {
 
     console.log('\nLobby\n');
 
-    await test('the lobby is for people with names', async () => {
-        const a = await open();
-        const response = await ask(a, 'hx:lobby:enter', {});
-        assert.strictEqual(response.ok, false);
-        assert.strictEqual(response.error, 'SIGN_IN_REQUIRED');
-        a.disconnect();
+    await test('anyone may read the lobby; only a name goes on the list', async () => {
+        /* Reading who is about and what is being said asks for nothing — it is
+           most of what makes the site look inhabited, and a visitor with no
+           account can still watch a game or open a private one. Writing, and
+           being on the list to be challenged, need a name. */
+        reset();
+        const named = await makeUser('aa');
+        const known = await open();
+        await ask(known, 'hx:identify', { token: named.token });
+        await ask(known, 'hx:lobby:enter', {});
+
+        const stranger = await open();
+        const response = await ask(stranger, 'hx:lobby:enter', {});
+        assert.strictEqual(response.ok, true, 'the door is open');
+        assert.strictEqual(response.you, null, 'but they are nobody in particular');
+        assert.strictEqual(response.players.length, 1, 'and are not on the list');
+        assert.ok(Array.isArray(response.chat), 'the conversation is readable');
+
+        const refused = await ask(stranger, 'hx:lobby:chat', { text: 'hello' });
+        assert.strictEqual(refused.ok, false, 'saying something is not');
+        assert.strictEqual(refused.error, 'SIGN_IN_REQUIRED');
+
+        /* And they hear what is said, which is the point of letting them in. */
+        const heard = waitFor(stranger, 'hx:lobby:chat');
+        await ask(known, 'hx:lobby:chat', { text: 'bonsoir' });
+        assert.strictEqual((await heard).message.text, 'bonsoir');
+
+        known.disconnect();
+        stranger.disconnect();
     });
 
     await test('entering shows you who else is here', async () => {

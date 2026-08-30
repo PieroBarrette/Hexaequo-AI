@@ -16,8 +16,8 @@
     "leaderboard": "Classement"
   },
   "home": {
-    "playLocal": "Jouer en local",
-    "playOnline": "Jouer en ligne",
+    "playLocal": "En local",
+    "playOnline": "En ligne",
     "onlineSoon": "Bientôt",
     "rules": "Règles",
     "settings": "Paramètres",
@@ -25,7 +25,8 @@
     "leaderboard": "Classement",
     "profile": "Mon profil",
     "credit": "Un jeu créé par Piero Barrette",
-    "rejoin": "Rejoindre la partie"
+    "rejoin": "Rejoindre la partie",
+    "play": "Jouer"
   },
   "common": {
     "black": "Noir",
@@ -149,7 +150,11 @@
     "shareText": "Une partie d’Hexaequo vous attend",
     "enterNow": "Entrer maintenant",
     "autoEnter": "La partie s’ouvrira d’elle-même dès que votre adversaire aura ouvert le lien.",
-    "guestNote": "Vous jouez en invité — connectez-vous avant votre premier coup pour que la partie compte au classement."
+    "guestNote": "Vous jouez en invité — connectez-vous avant votre premier coup pour que la partie compte au classement.",
+    "cadenceTitle": "Cadence",
+    "quickNeedsClock": "La partie rapide demande une pendule : choisissez une cadence.",
+    "showQr": "Afficher un code QR",
+    "qrHint": "Balayez ce code avec un autre appareil pour rejoindre la partie."
   },
   "result": {
     "wins": "{colour} gagne",
@@ -381,7 +386,8 @@
     "expired": "Le défi a expiré",
     "cadenceFor": "Cadence du défi",
     "count": "{n} en ligne",
-    "quiet": "Rien n'a encore été dit."
+    "quiet": "Rien n'a encore été dit.",
+    "signInToTalk": "Connectez-vous pour écrire"
   },
   "profile": {
     "title": "Profil",

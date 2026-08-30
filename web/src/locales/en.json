@@ -16,8 +16,8 @@
     "leaderboard": "Leaderboard"
   },
   "home": {
-    "playLocal": "Play locally",
-    "playOnline": "Play online",
+    "playLocal": "Locally",
+    "playOnline": "Online",
     "onlineSoon": "Coming soon",
     "rules": "Rules",
     "settings": "Settings",
@@ -25,7 +25,8 @@
     "leaderboard": "Leaderboard",
     "profile": "My profile",
     "credit": "A game created by Piero Barrette",
-    "rejoin": "Rejoin your game"
+    "rejoin": "Rejoin your game",
+    "play": "Play"
   },
   "common": {
     "black": "Black",
@@ -149,7 +150,11 @@
     "shareText": "A game of Hexaequo is waiting for you",
     "enterNow": "Go in now",
     "autoEnter": "The game will open on its own as soon as your opponent follows the link.",
-    "guestNote": "You are playing as a guest — sign in before your first move for this game to count."
+    "guestNote": "You are playing as a guest — sign in before your first move for this game to count.",
+    "cadenceTitle": "Time control",
+    "quickNeedsClock": "Quick match needs a clock: pick a time control.",
+    "showQr": "Show a QR code",
+    "qrHint": "Scan this with another device to join the game."
   },
   "result": {
     "wins": "{colour} wins",
@@ -381,7 +386,8 @@
     "expired": "The challenge expired",
     "cadenceFor": "Cadence",
     "count": "{n} online",
-    "quiet": "Nothing said yet."
+    "quiet": "Nothing said yet.",
+    "signInToTalk": "Sign in to write"
   },
   "profile": {
     "title": "Profile",

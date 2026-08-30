@@ -1,31 +1,37 @@
 /**
- * Online lobby.
+ * One page for playing online: how to start a game, and who is about.
  *
- * Three ways in: quick match, which finds an opponent near your rating; a
- * private room whose link you send to whoever you like; and a code, for the
- * other end of that link.
+ * Two ways in rather than three. Quick match finds an opponent near your
+ * rating and needs an account, because the pairing is done on one. A private
+ * room does not: whoever holds the link takes the free seat, and the game is
+ * rated only if both seats turn out to hold signed-in players. The six-letter
+ * code is gone — it was a second way of saying what the link already says, and
+ * a thing to mistype.
  *
- * Quick match needs an account, because the pairing is done on your rating.
- * Private rooms do not: whoever holds the link takes the free seat, and the
- * game is rated only if both seats turn out to hold signed-in players.
+ * The cadence is chosen once, at the top, for whichever of the two is used.
+ * Without a clock there is nothing to stop a rated game hanging on somebody
+ * who walked away, so quick match is closed at that setting; a private game
+ * between people who know each other is fine without one.
+ *
+ * The lobby is not a second tab. It is the rest of this page — mounted once
+ * and left alone while the block above it redraws, because it holds a
+ * conversation and its own subscriptions.
  */
 
 import { t } from '../i18n.js';
 import { navigate } from '../router.js';
-import { request, connect, listen, inviteLink, serverOrigin, identify } from '../net.js';
+import { request, connect, listen, inviteLink, identify } from '../net.js';
 import { play as playSound } from '../audio.js';
 import { isSignedIn, onAuthChange, sessionToken } from '../auth.js';
 import { openPanel } from '../ui/panels.js';
 import { mountLobby } from './lobby.js';
+import { qrSvg } from '../ui/qr.js';
 
-/** Cadences offered when opening a room; must match the server's table. */
+/** Cadences offered, which must match the server's table. */
 const CADENCES = ['none', 'bullet', 'blitz', 'rapid', 'classic'];
 
-/**
- * Quick match leaves out `none`: a rated game with no clock has no way to end
- * when someone simply walks away from it.
- */
-const QUICK_CADENCES = ['bullet', 'blitz', 'rapid', 'classic'];
+/** The one cadence quick match cannot use. */
+const NO_CLOCK = 'none';
 
 /** The server's widest band. Used only to draw how far the search has opened. */
 const MAX_BAND = 1200;
@@ -42,43 +48,25 @@ export function mountOnline(outlet) {
   let busy = false;
   let created = null;
   let error = null;
-  let cadence = 'none';
-  let quickCadence = 'rapid';
-  let tab = 'play';
+  let cadence = 'rapid';
+  let showingQr = false;
 
   /** Null when not searching; otherwise the last status the server sent. */
   let search = null;
   let ticker = null;
   const unsubscribe = [];
 
-  function tabStrip() {
-    const one = (id, label) =>
-      `<button class="page-tab${tab === id ? ' is-active' : ''}" data-page-tab="${id}">${label}</button>`;
-    return `<div class="page-tabs">${one('play', t('online.tabPlay'))}${one('lobby', t('lobby.tab'))}</div>`;
-  }
-
-  /** The lobby owns its container, so only the frame around it is redrawn. */
-  function renderLobbyTab() {
-    if (closeLobby.active) {
-      // Already mounted: just relabel the strip above it.
-      const strip = outlet.querySelector('.page-tabs');
-      if (strip) strip.outerHTML = tabStrip();
-      return;
-    }
-    outlet.innerHTML = `
-      <div class="page"><div class="page-inner">
-        <h1>${t('online.title')}</h1>
-        ${tabStrip()}
-        <div class="lobby-host"></div>
-      </div></div>`;
-    closeLobby.active = mountLobby(outlet.querySelector('.lobby-host'));
-  }
-
-  function closeLobby() {
-    if (!closeLobby.active) return;
-    try { closeLobby.active(); } catch { /* already gone */ }
-    closeLobby.active = null;
-  }
+  /* The shell is built once; only the top half is ever redrawn. */
+  outlet.innerHTML = `
+    <div class="page"><div class="page-inner">
+      <h1>${t('online.title')}</h1>
+      <div class="online-top"></div>
+      <div class="lobby-host"></div>
+    </div></div>
+    <div class="qr-sheet" hidden></div>`;
+  const top = outlet.querySelector('.online-top');
+  const qrSheet = outlet.querySelector('.qr-sheet');
+  const closeLobby = mountLobby(outlet.querySelector('.lobby-host'));
 
   const rangeText = () => t('online.quickRange', {
     low: Math.max(0, search.elo - search.band),
@@ -88,105 +76,93 @@ export function mountOnline(outlet) {
   /* Only worth saying when somebody else is in there: "1 waiting" is just you. */
   const queuedText = () => (search.queued > 1 ? ` · ${t('online.quickQueued', { n: search.queued })}` : '');
 
-  function quickBlock() {
-    if (!isSignedIn()) {
-      return `
-        <div class="rule-block">
-          <h3>${t('online.quick')}</h3>
-          <p class="lede">${t('online.quickSignIn')}</p>
-          <button class="btn btn--primary" data-action="sign-in">${t('account.signIn')}</button>
-        </div>`;
-    }
+  /* ── The blocks ───────────────────────────────────────────────────────── */
 
-    if (search) {
-      return `
-        <div class="rule-block searching">
-          <h3>${t('online.quickSearching')}</h3>
-          <div class="search-band">
-            <span class="search-range" data-field="range">${rangeText()}</span>
-            <span class="search-timer" data-field="timer">${clockText(Date.now() - search.since)}</span>
-          </div>
-          <div class="search-bar"><i data-field="fill" style="width:${bandWidth()}"></i></div>
-          <p class="lede" style="font-size:12px;margin:10px 0 12px">
-            ${cadenceLabel(search.timeControl)} · ${t('online.quickWidening')}
-            <span data-field="queued">${queuedText()}</span>
-          </p>
-          <button class="btn" data-action="unqueue">${t('online.quickCancel')}</button>
-        </div>`;
-    }
-
+  /** The cadence, once, for whichever door is used. */
+  function cadenceBlock() {
     return `
       <div class="rule-block">
-        <h3>${t('online.quick')}</h3>
-        <p class="lede">${t('online.quickLede')}</p>
+        <h3>${t('online.cadenceTitle')}</h3>
         <div class="cadence-grid">
-          ${QUICK_CADENCES.map((id) => `
-            <button class="btn cadence${id === quickCadence ? ' is-active' : ''}" data-quick-cadence="${id}">
+          ${CADENCES.map((id) => `
+            <button class="btn cadence${id === cadence ? ' is-active' : ''}" data-cadence="${id}">
               ${cadenceLabel(id)}
             </button>`).join('')}
         </div>
-        <button class="btn btn--primary" data-action="queue" ${busy ? 'disabled' : ''}
-                style="margin-top:10px">
-          ${busy ? t('online.connecting') : t('online.quickFind')}
-        </button>
+      </div>`;
+  }
+
+  /** The two ways in, side by side, neither the more important one. */
+  function doorsBlock() {
+    const noClock = cadence === NO_CLOCK;
+    const canQuick = isSignedIn() && !noClock;
+    return `
+      <div class="rule-block">
+        <div class="online-doors">
+          <button class="btn${canQuick ? ' btn--primary' : ''}" data-action="queue"
+                  ${canQuick && !busy ? '' : 'disabled'}>${t('online.quickFind')}</button>
+          <button class="btn btn--primary" data-action="create" ${busy ? 'disabled' : ''}>
+            ${t('online.create')}</button>
+        </div>
+        <p class="lede" style="font-size:12px;margin:10px 0 0">
+          ${noClock ? t('online.quickNeedsClock')
+    : (isSignedIn() ? t('online.quickLede') : t('online.quickSignIn'))}
+        </p>
+      </div>`;
+  }
+
+  /** Searching, with the band widening and a way to stop. */
+  function searchBlock() {
+    return `
+      <div class="rule-block searching">
+        <h3>${t('online.quickSearching')}</h3>
+        <div class="search-band">
+          <span class="search-range" data-field="range">${rangeText()}</span>
+          <span class="search-timer" data-field="timer">${clockText(Date.now() - search.since)}</span>
+        </div>
+        <div class="search-bar"><i data-field="fill" style="width:${bandWidth()}"></i></div>
+        <p class="lede" style="font-size:12px;margin:10px 0 12px">
+          ${cadenceLabel(search.timeControl)} · ${t('online.quickWidening')}
+          <span data-field="queued">${queuedText()}</span>
+        </p>
+        <button class="btn" data-action="unqueue">${t('online.quickCancel')}</button>
+      </div>`;
+  }
+
+  /**
+   * A room waiting for whoever gets the link.
+   *
+   * No six-letter code: the link carries it, and the QR carries the link to a
+   * phone that is not the one holding it.
+   */
+  function waitingBlock() {
+    return `
+      <div class="rule-block">
+        <h3>${t('online.waiting')}</h3>
+        <p class="lede">${t('online.autoEnter')}</p>
+        <div class="row-actions">
+          <button class="btn btn--primary" data-action="share">${t('online.share')}</button>
+          <button class="btn" data-action="qr">${t('online.showQr')}</button>
+          <button class="btn" data-action="cancel-room">${t('game.cancel')}</button>
+        </div>
       </div>`;
   }
 
   function render() {
-    // The lobby keeps its own state and its own subscriptions; re-rendering the
-    // page around it would tear it down mid-conversation.
-    if (tab === 'lobby') return renderLobbyTab();
-    closeLobby();
+    top.innerHTML = `
+      ${error ? `<p class="net-error">${error}</p>` : ''}
+      ${search || created ? '' : cadenceBlock()}
+      ${search ? searchBlock() : (created ? waitingBlock() : doorsBlock())}`;
+    renderQr();
+  }
 
-    outlet.innerHTML = `
-      <div class="page"><div class="page-inner">
-        <h1>${t('online.title')}</h1>
-        ${tabStrip()}
-        <p class="lede">${t('online.lede')}</p>
-
-        ${error ? `<p class="net-error">${error}</p>` : ''}
-
-        ${quickBlock()}
-
-        ${created ? `
-          <div class="rule-block">
-            <h3>${t('online.waiting')}</h3>
-            <p class="lede">${t('online.codeLabel')}</p>
-            <div class="room-code">${created.code}</div>
-            <div class="row-actions">
-              <button class="btn btn--primary" data-action="share">${t('online.share')}</button>
-            </div>
-            <p class="lede" style="margin-top:10px">${t('online.autoEnter')}</p>
-            <p class="lede" style="margin-top:10px;word-break:break-all">${inviteLink(created.code)}</p>
-          </div>
-        ` : `
-          <div class="rule-block">
-            <h3>${t('online.privateTitle')}</h3>
-            <p class="lede">${t('online.privateLede')}</p>
-            <div class="cadence-grid">
-              ${CADENCES.map((id) => `
-                <button class="btn cadence${id === cadence ? ' is-active' : ''}" data-cadence="${id}">
-                  ${cadenceLabel(id)}
-                </button>`).join('')}
-            </div>
-            <p class="lede" style="font-size:12px;margin:10px 0 14px">${t('online.cadenceHint')}</p>
-            <button class="btn btn--primary" data-action="create" ${busy ? 'disabled' : ''}>
-              ${busy ? t('online.connecting') : t('online.create')}
-            </button>
-          </div>
-
-          <div class="rule-block">
-            <h3>${t('online.join')}</h3>
-            <div class="row-actions">
-              <input class="btn code-input" data-input="code" maxlength="6" autocomplete="off"
-                     spellcheck="false" placeholder="${t('online.codePlaceholder')}">
-              <button class="btn btn--primary" data-action="join" ${busy ? 'disabled' : ''}>${t('online.join')}</button>
-            </div>
-          </div>
-        `}
-
-        <p class="lede" style="margin-top:22px;font-size:12px">${serverOrigin()}</p>
-      </div></div>`;
+  /** The link as something a camera can read. A tap anywhere closes it. */
+  function renderQr() {
+    const on = showingQr && Boolean(created);
+    qrSheet.hidden = !on;
+    if (!on) { qrSheet.innerHTML = ''; return; }
+    qrSheet.innerHTML = `<div class="qr-card">${qrSvg(inviteLink(created.code))}
+      <p class="lede">${t('online.qrHint')}</p></div>`;
   }
 
   function fail(code) {
@@ -203,12 +179,12 @@ export function mountOnline(outlet) {
    */
   function paintSearch() {
     if (!search) return;
-    const timer = outlet.querySelector('[data-field="timer"]');
+    const timer = top.querySelector('[data-field="timer"]');
     if (!timer) return render();          // the block was replaced; start over
     timer.textContent = clockText(Date.now() - search.since);
-    outlet.querySelector('[data-field="range"]').textContent = rangeText();
-    outlet.querySelector('[data-field="queued"]').textContent = queuedText();
-    outlet.querySelector('[data-field="fill"]').style.width = bandWidth();
+    top.querySelector('[data-field="range"]').textContent = rangeText();
+    top.querySelector('[data-field="queued"]').textContent = queuedText();
+    top.querySelector('[data-field="fill"]').style.width = bandWidth();
   }
 
   function startTicker() {
@@ -250,7 +226,7 @@ export function mountOnline(outlet) {
       await connect();
       await identify(sessionToken()).catch(() => {});
       subscribe();
-      const response = await request('hx:queue', { timeControl: quickCadence });
+      const response = await request('hx:queue', { timeControl: cadence });
       busy = false;
       if (!response.ok) return fail(response.error);
       adoptStatus(response);
@@ -302,29 +278,13 @@ export function mountOnline(outlet) {
 
   render();
 
-  /* A game under way used to send you straight back to the board from here,
-     which also meant the lobby became unreachable until it finished. The way
-     back follows you around the site instead, so this page can just be this
-     page. */
-
   // Signing in from the panel turns the sign-in prompt into the real thing.
   unsubscribe.push(onAuthChange(() => { if (!search) render(); }));
 
+  /* Anywhere on the sheet puts the code away. */
+  qrSheet.addEventListener('click', () => { showingQr = false; renderQr(); });
+
   outlet.addEventListener('click', async (event) => {
-    const pageTab = event.target.closest('[data-page-tab]');
-    if (pageTab) {
-      tab = pageTab.getAttribute('data-page-tab');
-      playSound('ui');
-      render();
-      return;
-    }
-    const quickPick = event.target.closest('[data-quick-cadence]');
-    if (quickPick) {
-      quickCadence = quickPick.getAttribute('data-quick-cadence');
-      playSound('ui');
-      render();
-      return;
-    }
     const pick = event.target.closest('[data-cadence]');
     if (pick) {
       cadence = pick.getAttribute('data-cadence');
@@ -341,6 +301,7 @@ export function mountOnline(outlet) {
     if (action === 'sign-in') { openPanel('account'); return; }
     if (action === 'queue') return enterQueue();
     if (action === 'unqueue') return leaveQueue();
+    if (action === 'qr') { showingQr = true; renderQr(); return; }
 
     if (action === 'create') {
       busy = true;
@@ -361,22 +322,14 @@ export function mountOnline(outlet) {
       return;
     }
 
-    if (action === 'join') {
-      const field = outlet.querySelector('[data-input="code"]');
-      const code = (field ? field.value : '').toUpperCase().trim();
-      if (code.length !== 6) return;
-      busy = true;
+    if (action === 'cancel-room' && created) {
+      /* A room nobody joined has no game to protect, so it goes rather than
+         standing empty for whoever follows the link afterwards. */
+      const code = created.code;
+      created = null;
+      showingQr = false;
       render();
-      try {
-        await connect();
-        const response = await request('hx:join', { code });
-        busy = false;
-        if (!response.ok) return fail(response.error);
-        navigate('play', { online: '1', code });
-      } catch {
-        busy = false;
-        fail('OFFLINE');
-      }
+      request('hx:cancel', { code }).catch(() => {});
       return;
     }
 
@@ -396,12 +349,6 @@ export function mountOnline(outlet) {
         button.textContent = t('online.copied');
       } catch { /* refused; the link is on screen anyway */ }
     }
-  });
-
-  outlet.addEventListener('input', (event) => {
-    const field = event.target.closest('[data-input="code"]');
-    if (!field) return;
-    field.value = field.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
   });
 
   return () => {

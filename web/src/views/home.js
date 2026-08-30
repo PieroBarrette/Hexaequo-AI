@@ -25,8 +25,12 @@ export function mountHome(outlet) {
       <p class="lede">${t('meta.tagline')}</p>
       <p class="home-purpose">${t('home.purpose')}</p>
       <nav class="home-menu">
-        <button class="btn btn--primary" data-go="play">${t('home.playLocal')}</button>
-        <button class="btn" data-go="online" data-online-button>${t('home.playOnline')}</button>
+        <p class="home-heading">${t('home.play')}</p>
+        <div class="home-pair">
+          <button class="btn btn--primary" data-go="play">${t('home.playLocal')}</button>
+          <button class="btn btn--primary" data-go="online"
+                  data-online-button>${t('home.playOnline')}</button>
+        </div>
         <button class="btn" data-panel="leaderboard">${t('home.leaderboard')}</button>
         <button class="btn" data-go="profile" data-needs-account
                 hidden>${t('home.profile')}</button>
@@ -51,7 +55,6 @@ export function mountHome(outlet) {
     if (!isSignedIn()) {
       liveCode = null;
       button.textContent = t('home.playOnline');
-      button.classList.remove('btn--primary');
       return;
     }
     try {
@@ -62,7 +65,6 @@ export function mountHome(outlet) {
     } catch { liveCode = null; }
     if (!outlet.isConnected) return;
     button.textContent = liveCode ? t('home.rejoin') : t('home.playOnline');
-    button.classList.toggle('btn--primary', Boolean(liveCode));
   }
 
   outlet.addEventListener('click', (event) => {

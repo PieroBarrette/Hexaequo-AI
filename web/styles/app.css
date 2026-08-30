@@ -77,6 +77,19 @@ button:disabled { opacity: .35; cursor: not-allowed; }
 .btn--primary:hover:not(:disabled) { filter: brightness(1.08); }
 
 select.btn { padding-right: 8px; }
+/*
+ * Which engine is which, without relying on text.
+ *
+ * The two were told apart by ● and ○, and a native option list is painted by
+ * the platform in its own colours — so in a dark theme both glyphs came out
+ * light and the filled one read as the white piece. The words say it now, and
+ * a band of the real piece colour says it again on the closed control, where
+ * the page's own styling does apply.
+ */
+select.btn[data-control="levelBlack"],
+select.btn[data-control="levelWhite"] { border-left-width: 5px; }
+select.btn[data-control="levelBlack"] { border-left-color: var(--piece-dark); }
+select.btn[data-control="levelWhite"] { border-left-color: var(--piece-light); }
 select.btn option {
   background: var(--surface);
   color: var(--text);
@@ -142,6 +155,40 @@ select.btn option {
 .home-credit {
   color: var(--muted); font-size: 12px; margin: 0;
 }
+/* Neither way of playing is the main one, so they sit side by side under a
+   heading that is a label rather than a third button. */
+/* The two ways into an online game, given the same weight. */
+.online-doors { display: flex; gap: 8px; flex-wrap: wrap; }
+.online-doors .btn { flex: 1 1 160px; min-width: 0; min-height: var(--tap); }
+
+/*
+ * The link as something a camera can read, over the page rather than in it —
+ * a phone is held up to another screen, so it wants the whole of one.
+ */
+.qr-sheet {
+  position: fixed; inset: 0; z-index: 70;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, .62); padding: 24px;
+}
+.qr-sheet[hidden] { display: none; }
+.qr-card {
+  background: #fff; border-radius: var(--radius); padding: 18px 18px 12px;
+  max-width: min(420px, 84vw); box-shadow: 0 24px 70px rgba(0, 0, 0, .45);
+  text-align: center;
+}
+.qr-card .qr { width: 100%; height: auto; display: block; }
+/* The card is white whatever the theme, because a scanner reads contrast and
+   not our colours; the caption has to follow it rather than the page. */
+.qr-card .lede { color: #444; margin: 10px 0 0; font-size: 12.5px; }
+
+.home-heading {
+  margin: 4px 0 2px; text-align: center;
+  font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); font-weight: 600;
+}
+.home-pair { display: flex; gap: 8px; }
+.home-pair .btn { flex: 1; min-width: 0; }
+
 .home-menu { display: flex; flex-direction: column; gap: 10px; width: min(320px, 86vw); }
 .home-menu .btn {
   min-height: var(--tap); font-size: 16px;

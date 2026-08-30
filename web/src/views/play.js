@@ -76,6 +76,10 @@ export function mountPlay(outlet, params) {
   let playTimer = 0;          // walking the game on its own
   let playSpeed = 1;
   let resultSeen = false;          // the result card has been dismissed
+  /* The winning move deserves to be watched before it is covered up. */
+  const RESULT_BEAT_MS = 700;
+  let holdingResult = false;
+  let resultTimer = 0;
 
   let mode = MODE_AI;
   let humanSide = BLACK;
@@ -361,6 +365,8 @@ export function mountPlay(outlet, params) {
    */
   function newGame(from) {
     evalCache.clear();
+    holdingResult = false;
+    clearTimeout(resultTimer);
     state = from ? cloneState(from) : createState();
     history = [];
     moveLog = [];
@@ -1438,6 +1444,34 @@ export function mountPlay(outlet, params) {
 
   function renderResult() {
     measureBelowBoard();
+    /*
+     * Hold the card back until the move that ended the game has been seen.
+     *
+     * The winning move is the one worth watching, and the card covers the
+     * board — so it used to arrive on top of its own cause. Wait for the
+     * animation to settle, then a beat longer, then say who won.
+     */
+    if (result && !resultSeen) {
+      /* `effect` is the move still waiting to be played. This runs earlier in
+         the same refresh than runEffect does, so asking the board how much
+         animation is left would always answer none — which is why the card
+         used to land on top of the move that caused it. */
+      const animating = Boolean(effect) || board.remainingEffectMs() > 0;
+      if (animating) {
+        holdingResult = true;
+        overlay.classList.remove('is-on');
+        return;                     // the effect's own callback refreshes us
+      }
+      if (holdingResult) {
+        holdingResult = false;
+        clearTimeout(resultTimer);
+        resultTimer = setTimeout(renderResult, RESULT_BEAT_MS);
+        overlay.classList.remove('is-on');
+        return;
+      }
+      /* Nothing was playing — a resignation, an agreed draw, a flag — so
+         there is nothing to watch and no reason to make anyone wait. */
+    }
     overlay.classList.toggle('is-on', !!result && !resultSeen);
     if (!result || resultSeen) return;
     overlay.querySelector('.result-title').innerHTML = result.draw
@@ -2056,8 +2090,7 @@ export function mountPlay(outlet, params) {
       + drawAnswer
       + eyes
       + `<span class="grow"></span>`
-      + stakeLabel
-      + `<code class="room-code room-code--sm">${net.code}</code>`;
+      + stakeLabel;
 
     // Keep the abandonment countdown ticking without redrawing the board.
     clearInterval(countdownTimer);
@@ -2553,6 +2586,7 @@ export function mountPlay(outlet, params) {
     document.removeEventListener('pointerdown', onAnyPointer, true);
     clearTimeout(bubbleTimer);
     clearTimeout(curveTimer);
+    clearTimeout(resultTimer);
     window.removeEventListener('resize', onResize);
     /* The bar is part of this view now, so it goes when the view goes; only
        the guard reaches outside. */

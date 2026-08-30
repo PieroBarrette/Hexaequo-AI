@@ -808,6 +808,29 @@ function attachOnlineGames(io) {
             reply(callback, { ok: true });
         });
 
+        /**
+         * Call off a room that never filled.
+         *
+         * Leaving would free the seat and leave the room standing, so whoever
+         * followed the link afterwards would sit down opposite nobody. A room
+         * that was never full has no game to protect, so it goes.
+         */
+        socket.on('hx:cancel', (payload, callback) => {
+            const code = String((payload && payload.code) || '').toUpperCase().trim();
+            const room = rooms.get(code);
+            if (!room) return reply(callback, { ok: true });
+            if (seatOf(room, socket.id) === -1) {
+                return reply(callback, { ok: false, error: 'NOT_A_PLAYER' });
+            }
+            if (room.everFull || room.result) {
+                return reply(callback, { ok: false, error: 'ALREADY_STARTED' });
+            }
+            rooms.delete(code);
+            socket.data.hxRooms.delete(code);
+            socket.leave(code);
+            reply(callback, { ok: true });
+        });
+
         /** The game this socket's account is sitting at, if any. */
         socket.on('hx:mygame', (payload, callback) => {
             const user = socket.data.user;

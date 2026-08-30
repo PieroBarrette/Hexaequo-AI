@@ -746,6 +746,34 @@ async function run() {
         b.disconnect();
     });
 
+    await test('a room nobody joined can be called off', async () => {
+        /* Leaving would free the seat and leave the room standing, so whoever
+           followed the link afterwards would sit down opposite nobody. */
+        const a = await open();
+        const b = await open();
+        const room = await ask(a, 'hx:create', {});
+        const cancelled = await ask(a, 'hx:cancel', { code: room.code });
+        assert.strictEqual(cancelled.ok, true);
+
+        const late = await ask(b, 'hx:join', { code: room.code });
+        assert.strictEqual(late.ok, false, 'the link leads nowhere now');
+        assert.strictEqual(late.error, 'NO_SUCH_ROOM');
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('a game that has started cannot be called off', async () => {
+        const a = await open();
+        const b = await open();
+        const room = await ask(a, 'hx:create', {});
+        await ask(b, 'hx:join', { code: room.code });
+        const refused = await ask(a, 'hx:cancel', { code: room.code });
+        assert.strictEqual(refused.ok, false, 'there is a game to protect now');
+        assert.strictEqual(refused.error, 'ALREADY_STARTED');
+        a.disconnect();
+        b.disconnect();
+    });
+
     await test('declining a rematch clears the offer', async () => {
         const a = await open();
         const b = await open();

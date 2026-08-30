@@ -46,15 +46,6 @@ export function mountLobby(host) {
         </div>`;
       return;
     }
-    if (!isSignedIn()) {
-      host.innerHTML = `
-        <div class="rule-block">
-          <h3>${t('lobby.title')}</h3>
-          <p class="lede">${t('lobby.signIn')}</p>
-          <button class="btn btn--primary" data-action="sign-in">${t('account.signIn')}</button>
-        </div>`;
-      return;
-    }
     if (!joined) {
       host.innerHTML = `
         <div class="rule-block">
@@ -90,11 +81,15 @@ export function mountLobby(host) {
       </div>` : ''}
       <div class="rule-block chat-block">
         <div class="chat-log lobby-chat">${chatRows()}</div>
+        ${isSignedIn() ? `
         <form class="chat-form">
           <input class="btn chat-input" maxlength="300" autocomplete="off"
                  placeholder="${t('chat.placeholder')}">
           <button class="btn btn--primary" type="submit">${t('chat.send')}</button>
-        </form>
+        </form>` : `
+        <div class="row-actions">
+          <button class="btn btn--sm" data-action="sign-in">${t('lobby.signInToTalk')}</button>
+        </div>`}
       </div>`;
     const log = host.querySelector('.lobby-chat');
     if (log) log.scrollTop = log.scrollHeight;
@@ -109,7 +104,7 @@ export function mountLobby(host) {
         : (player.playing ? t('lobby.playing') : t('lobby.available'));
       /* Amber is not a closed door: someone at a board can still say yes to a
          game played after this one. */
-      const action = isMe ? ''
+      const action = isMe || !isSignedIn() ? ''
         : `<button class="btn btn--sm" data-challenge="${escapeText(player.userId)}">`
           + `${sentTo === player.userId ? '✓' : t('lobby.challenge')}</button>`;
       const light = `<span class="pip is-${player.playing ? 'playing' : 'free'}"`
@@ -285,14 +280,15 @@ export function mountLobby(host) {
   });
 
   render();
-  if (isSignedIn()) enter();
+  enter();
 
   /* Signing in or out anywhere on the site is felt here: the roster, the chat
      and the challenge buttons all depend on having a name. */
   const stopWatchingAuth = onAuthChange(() => {
-    if (!isSignedIn() && joined) leave();
-    else if (isSignedIn() && !joined) enter();
-    else render();
+    /* Signing in turns a listener into somebody on the list, and signing out
+       does the reverse; either way the room is re-entered as whoever is here
+       now. */
+    enter(true);
   });
 
   return () => {
