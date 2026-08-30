@@ -8,12 +8,75 @@
  * the rest of the board re-renders underneath it.
  */
 
-import { keyQ, keyR, hexPath, SQRT3, centerX, centerY } from '../game/hex.js';
+import {
+  key, keyQ, keyR, hexPath, SQRT3, centerX, centerY, cellLetter, cellNumber,
+} from '../game/hex.js';
 import { BLACK, DISK, pieceOwner, pieceType } from '../game/state.js';
 
 export const SIZE = 40;
 export const cx = (k) => centerX(k, SIZE);
 export const cy = (k) => centerY(k, SIZE);
+
+/**
+ * Axial coordinates around the rim — the same ones the move list writes.
+ *
+ * Each label is drawn in the empty cell just past the end of the line it names:
+ * a row's number one step left of that row's leftmost cell, a column's letter
+ * one step up that column from its highest one. Those two slots are empty by
+ * construction — a cell sitting there would itself have been the leftmost or
+ * the highest — and because hexagons tile without overlapping, a mark centred
+ * in an empty cell cannot stray into a full one.
+ *
+ * Aiming by distance instead is what does not work, and I tried it: a letter
+ * set above its own column landed inside a cell of the neighbouring column,
+ * because the columns lean down and to the right and what sits above a column
+ * often belongs to another one. The lattice answers that; arithmetic on
+ * offsets only argues with it.
+ *
+ * Never a hit target either. A coordinate that covers a piece has cost more
+ * than it explains.
+ */
+export function coordinateSlots(cells) {
+  const rows = new Map();          // r → the cell furthest left in that row
+  const cols = new Map();          // q → the cell highest up in that column
+  for (const k of cells) {
+    const row = rows.get(keyR(k));
+    if (row === undefined || cx(k) < cx(row)) rows.set(keyR(k), k);
+    const col = cols.get(keyQ(k));
+    if (col === undefined || cy(k) < cy(col)) cols.set(keyQ(k), k);
+  }
+  /* The two rims meet at the top-left corner, where the slot left of a row is
+     also the slot above a column and both labels want the middle of it. Sharing
+     one, they overlap into an inkblot. So they are gathered by slot first: a
+     letter alone or a number alone sits centred, and where they share, the
+     letter takes the upper half and the number the lower — still one cell,
+     still clear of the board, and now legible as two marks. */
+  const slots = new Map();          // cell key → { letter, number }
+  const at = (k) => {
+    if (!slots.has(k)) slots.set(k, { letter: null, number: null });
+    return slots.get(k);
+  };
+  for (const k of rows.values()) at(key(keyQ(k) - 1, keyR(k))).number = cellNumber(k);
+  for (const k of cols.values()) at(key(keyQ(k), keyR(k) - 1)).letter = cellLetter(k);
+  return slots;
+}
+
+export function coordinateLabels(cells) {
+  const slots = coordinateSlots(cells);
+
+  const label = (x, y, text) =>
+    `<text class="coord" x="${x.toFixed(1)}" y="${y.toFixed(1)}"`
+    + ` font-size="${(SIZE * .42).toFixed(1)}" fill="var(--coord-ink)"`
+    + ` text-anchor="middle" dominant-baseline="central"`
+    + ` pointer-events="none">${text}</text>`;
+  let out = '';
+  for (const [k, { letter, number }] of slots) {
+    const shift = letter !== null && number !== null ? SIZE * .30 : 0;
+    if (letter !== null) out += label(cx(k), cy(k) - shift, letter);
+    if (number !== null) out += label(cx(k), cy(k) + shift, number);
+  }
+  return out;
+}
 
 /** One piece as SVG. `scale` shrinks it for the inline piece chooser. */
 export function pieceSvg(x, y, code, scale) {
@@ -110,8 +173,15 @@ export function createBoard(container) {
 
     /* Framing follows the tiles and the cells where the board may still grow,
        so it only shifts when a tile is laid. */
+    const outline = s.tileKeys.concat(v.spots);
+    /* Coordinates sit a whole cell beyond the rim, which is further out than
+       the padding below reaches. Framed with the board rather than trusted to
+       the margin, they cannot be cropped to a half-letter at the edge. */
+    const framed = v.showCoordinates
+      ? outline.concat([...coordinateSlots(outline).keys()])
+      : outline;
     let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
-    for (const k of s.tileKeys.concat(v.spots)) {
+    for (const k of framed) {
       const x = cx(k), y = cy(k);
       if (x < x0) x0 = x;
       if (x > x1) x1 = x;
@@ -134,6 +204,11 @@ export function createBoard(container) {
 
     const emphasise = v.placeMode === 'tile';
     let out = '';
+
+    /* First, so everything else in the game is drawn over them. They sit off
+       the edge and should never be reached anyway, but drawing order is the
+       cheaper guarantee of the two. */
+    if (v.showCoordinates) out += coordinateLabels(outline);
 
     /* Cells where a tile may be laid.
        A playable cell must always carry a paint: fill="none" leaves the interior

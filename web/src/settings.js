@@ -16,6 +16,7 @@ export const DEFAULTS = {
   volume: 0.7,
   showValidMoves: true,
   showLastMove: true,
+  showCoordinates: false,
   premove: false,
   aiLevel: 2,             // see AI_LEVELS_VERSION below
   aiLevelsVersion: 0,

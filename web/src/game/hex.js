@@ -66,9 +66,19 @@ export function hexPath(x, y, size) {
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
-/** Short label such as "I8", used in the move list. */
-export function cellLabel(k) {
+/* The label is split in two because the board can show the halves separately —
+   letters along one rim, numbers along the other, the way a chessboard does.
+   Built from these rather than beside them, so what is written on the board and
+   what is written in the move list cannot drift apart. */
+
+/** The column letter of a cell: the 'I' of "I8". */
+export function cellLetter(k) {
   const q = keyQ(k) + 8;
-  const r = keyR(k) + 8;
-  return (q >= 0 && q < 26 ? LETTERS[q] : '?') + r;
+  return q >= 0 && q < 26 ? LETTERS[q] : '?';
 }
+
+/** The row number of a cell: the 8 of "I8". */
+export const cellNumber = (k) => keyR(k) + 8;
+
+/** Short label such as "I8", used in the move list. */
+export const cellLabel = (k) => cellLetter(k) + cellNumber(k);

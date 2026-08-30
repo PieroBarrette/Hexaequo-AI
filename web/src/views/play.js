@@ -1211,6 +1211,7 @@ export function mountPlay(outlet, params) {
       newTile: showEffect ? effect.newTile : null,
       newPiece: showEffect ? effect.newPiece : null,
       showValidMoves: aid,
+      showCoordinates: getSetting('showCoordinates'),
       instant: instant || board.__firstFrame,
     });
     board.__firstFrame = false;
@@ -2560,7 +2561,8 @@ export function mountPlay(outlet, params) {
   /* Settings and language can be changed from a panel floating over this very
      game, so both have to land without a remount. */
   const stopWatchingSettings = onSettingsChange((name) => {
-    if (name === 'showValidMoves' || name === 'showLastMove') refresh();
+    if (name === 'showValidMoves' || name === 'showLastMove'
+      || name === 'showCoordinates') refresh();
     else if (name === 'aiLevel' && !net) { level = getSetting('aiLevel'); buildTools(); refresh(); }
   });
   const stopWatchingLanguage = onLanguageChange(relabel);

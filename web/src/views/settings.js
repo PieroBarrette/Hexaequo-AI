@@ -11,11 +11,26 @@ import { BLACK, WHITE, DISK, RING } from '../game/state.js';
 let installPrompt = null;
 export function setInstallPrompt(event) { installPrompt = event; }
 
-const PREVIEW = {
-  tiles: [[0, 0, BLACK], [1, 0, BLACK], [-1, 1, WHITE], [0, 1, WHITE], [1, 1, BLACK], [-1, 2, WHITE]],
-  pieces: [[1, 0, BLACK, DISK], [-1, 1, WHITE, DISK], [0, 1, BLACK, RING], [1, 1, WHITE, RING]],
-  spots: [[2, 0], [0, 2]],
-};
+/*
+ * The preview answers to the switches above it.
+ *
+ * Theme and material it always showed; the rest it did not, so three switches
+ * claimed to change how the board looks over a picture of a board that never
+ * changed. Each option that draws something now draws it here: the dashed
+ * candidate cells, the trace of the move just played, the coordinates round the
+ * rim. Turning one off takes it out of the picture, which is the shortest way
+ * to answer "what does this actually do".
+ */
+function previewSpec() {
+  return {
+    tiles: [[0, 0, BLACK], [1, 0, BLACK], [-1, 1, WHITE], [0, 1, WHITE], [1, 1, BLACK], [-1, 2, WHITE]],
+    pieces: [[1, 0, BLACK, DISK], [-1, 1, WHITE, DISK], [0, 1, BLACK, RING], [1, 1, WHITE, RING]],
+    spots: [[2, 0], [0, 2]],
+    showSpots: Boolean(getSetting('showValidMoves')),
+    lastMove: getSetting('showLastMove') ? [[1, 1]] : [],
+    coords: Boolean(getSetting('showCoordinates')),
+  };
+}
 
 function segmented(name, value, options) {
   return `<div class="segmented" role="group">`
@@ -64,11 +79,12 @@ export function mountSettings(outlet) {
           { value: 'modern', label: t('settings.styleModern') }]))}
 
         <h2>${t('settings.preview')}</h2>
-        <div class="preview-board">${miniBoardSvg(PREVIEW)}</div>
+        <div class="preview-board">${miniBoardSvg(previewSpec())}</div>
 
         <h2>${t('game.mode')}</h2>
         ${row('settings.showValidMoves', 'settings.showValidMovesHint', toggle('showValidMoves', getSetting('showValidMoves')))}
         ${row('settings.showLastMove', 'settings.showLastMoveHint', toggle('showLastMove', getSetting('showLastMove')))}
+        ${row('settings.showCoordinates', 'settings.showCoordinatesHint', toggle('showCoordinates', getSetting('showCoordinates')))}
         ${row('settings.premove', 'settings.premoveHint', toggle('premove', getSetting('premove')))}
         ${row('settings.aiLevel', 'settings.aiLevelHint', segmented('aiLevel', getSetting('aiLevel'), [
           { value: 0, label: t('game.levelBeginner') },

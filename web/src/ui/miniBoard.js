@@ -8,16 +8,24 @@
 
 import { key, hexPath } from '../game/hex.js';
 import { BLACK, DISK, makePiece } from '../game/state.js';
-import { pieceSvg, cx, cy, SIZE } from './board.js';
+import { pieceSvg, cx, cy, SIZE, coordinateLabels, coordinateSlots } from './board.js';
 
 /**
+ * `lastMove` and `coords` are opt-in, and the rules figures do not ask for
+ * them: a diagram explaining how a ring moves should show that and nothing
+ * else. The settings preview asks for both, because there its whole job is to
+ * show what the switches do.
+ *
  * @param {object} spec
- * @param {Array} [spec.tiles]   [q, r, colour]
- * @param {Array} [spec.pieces]  [q, r, player, type]
- * @param {Array} [spec.spots]   [q, r] — dashed candidate cells
- * @param {Array} [spec.bad]     [q, r] — cells marked as not allowed
- * @param {Array} [spec.dots]    [q, r, 'move' | 'capture']
- * @param {Array} [spec.path]    [[q, r], …] — a travelled route
+ * @param {Array} [spec.tiles]     [q, r, colour]
+ * @param {Array} [spec.pieces]    [q, r, player, type]
+ * @param {Array} [spec.spots]     [q, r] — dashed candidate cells
+ * @param {Array} [spec.bad]       [q, r] — cells marked as not allowed
+ * @param {Array} [spec.dots]      [q, r, 'move' | 'capture']
+ * @param {Array} [spec.path]      [[q, r], …] — a travelled route
+ * @param {Array} [spec.lastMove]  [[q, r], …] — cells traced as the move just played
+ * @param {boolean} [spec.coords]  axial coordinates around the rim
+ * @param {boolean} [spec.showSpots]  false draws no candidate cells but still frames them
  */
 export function miniBoardSvg(spec) {
   const tiles = spec.tiles || [];
@@ -26,6 +34,7 @@ export function miniBoardSvg(spec) {
   const bad = spec.bad || [];
   const dots = spec.dots || [];
   const route = spec.path || [];
+  const lastMove = spec.lastMove || [];
 
   const all = [];
   const add = (q, r) => all.push(key(q, r));
@@ -36,10 +45,25 @@ export function miniBoardSvg(spec) {
 
   let out = '';
 
-  for (const [q, r] of spots) {
-    const k = key(q, r);
-    out += `<path d="${hexPath(cx(k), cy(k), SIZE * .94)}" fill="var(--spot-fill)"`
-      + ` stroke="var(--spot-line)" stroke-width="2" stroke-dasharray="6 4"/>`;
+  /* Under everything, as on the real board — and counted into the frame below,
+     since the labels sit a whole cell beyond the rim and the padding alone does
+     not reach them. */
+  if (spec.coords) {
+    out += coordinateLabels(all);
+    for (const k of coordinateSlots(all).keys()) all.push(k);
+  }
+
+  /* Framed either way, drawn only when asked — which is what the real board
+     does with the move aid off: the cell is still there and still a hit target,
+     it just stops announcing itself. Dropping the cells instead would resize
+     the picture, and a preview that changes shape is answering a question
+     nobody asked. */
+  if (spec.showSpots !== false) {
+    for (const [q, r] of spots) {
+      const k = key(q, r);
+      out += `<path d="${hexPath(cx(k), cy(k), SIZE * .94)}" fill="var(--spot-fill)"`
+        + ` stroke="var(--spot-line)" stroke-width="2" stroke-dasharray="6 4"/>`;
+    }
   }
   for (const [q, r] of bad) {
     const k = key(q, r);
@@ -55,6 +79,12 @@ export function miniBoardSvg(spec) {
       + ` fill="${colour === BLACK ? 'var(--tile-dark)' : 'var(--tile-light)'}"`
       + ` stroke="${colour === BLACK ? 'var(--tile-dark-edge)' : 'var(--tile-light-edge)'}"`
       + ` stroke-width="1.6"/>`;
+  }
+  /* Over the tiles and under the pieces, the way the real board lays it. */
+  for (const [q, r] of lastMove) {
+    const k = key(q, r);
+    out += `<path d="${hexPath(cx(k), cy(k), SIZE * .94)}"`
+      + ` fill="var(--last-move-fill)" stroke="var(--last-move-edge)" stroke-width="3"/>`;
   }
   if (route.length > 1) {
     let d = '';

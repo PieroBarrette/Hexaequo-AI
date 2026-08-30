@@ -197,6 +197,8 @@
     "showValidMovesHint": "Highlights where the selected piece may go, and where a tile may be laid. Turn it off for a sterner game — clicking still works.",
     "showLastMove": "Show the previous move",
     "showLastMoveHint": "Marks the cells of the move just played, in a review as well. Turn it off for a bare board, the way it sits on a real table — following the game is then yours to do.",
+    "showCoordinates": "Show coordinates",
+    "showCoordinatesHint": "A letter and a number around the rim, as on a chessboard. They are the ones the move list uses: \"D I8\" can be read off the board.",
     "aiLevel": "Default AI level",
     "aiLevelHint": "Search depth and thinking time.",
     "preview": "Preview",
