@@ -1239,3 +1239,18 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
   opacity: .75; transition: opacity .15s var(--ease), border-color .15s var(--ease);
 }
 .chat-emoji .emoji:hover { opacity: 1; border-color: var(--line); }
+
+/* Names offered while an "@" is being typed. Under the box, one row, gone the
+   moment there is nothing to offer. */
+.chat-names { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.chat-names[hidden] { display: none; }
+.chat-name {
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); padding: 3px 8px;
+  font-size: 12.5px; color: var(--accent); cursor: pointer;
+}
+.chat-name:hover { background: var(--accent-soft); border-color: var(--accent); }
+/* Somebody said your name. Reads as speech rather than as an alert: it is a
+   person calling across a room, not the site demanding something. */
+.hail--mention { border-color: var(--accent); }
+.hail--mention .hail-lede b { color: var(--accent); margin-right: 4px; }

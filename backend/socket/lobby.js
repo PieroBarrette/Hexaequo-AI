@@ -131,6 +131,32 @@ async function rememberMessage(message) {
 
 let nextChallengeId = 1;
 
+/**
+ * Who a message names.
+ *
+ * Matched against who is signed in rather than parsed into a name and trusted:
+ * "@" followed by letters is a guess at a pseudonym, and the only pseudonyms
+ * worth telling are the ones belonging to somebody who can be told. Pseudonyms
+ * may contain spaces, so the longest match at each "@" wins — "@Jean Luc" finds
+ * Jean Luc before it finds Jean.
+ *
+ * Never yourself: naming yourself is a way of writing, not of calling.
+ */
+function mentioned(text, exceptUserId) {
+    const found = new Set();
+    const names = [...online.values()]
+        .filter((entry) => entry.userId !== exceptUserId)
+        .sort((a, b) => b.pseudo.length - a.pseudo.length);
+    const lower = text.toLowerCase();
+    for (let i = lower.indexOf('@'); i !== -1; i = lower.indexOf('@', i + 1)) {
+        const after = lower.slice(i + 1);
+        for (const entry of names) {
+            if (after.startsWith(entry.pseudo.toLowerCase())) { found.add(entry.userId); break; }
+        }
+    }
+    return found;
+}
+
 /*
  * Who is here, and what each of them is doing.
  *
@@ -327,6 +353,14 @@ function attachLobby(io) {
             if (chat.length > CHAT_HISTORY) chat.shift();
             rememberMessage(message);        // not awaited: saying it is what matters
             io.to(LOBBY_ROOM).emit('hx:lobby:chat', { message });
+
+            /* Anyone named goes wherever they are, which is the point of naming
+               them: the lobby is a room people are mostly not looking at. Sent
+               through toUser rather than to the lobby, so it reaches a player
+               in the middle of a local game. */
+            for (const userId of mentioned(text, user.userId)) {
+                toUser(userId, 'hx:mention', { message });
+            }
             reply(callback, { ok: true });
         });
 

@@ -454,6 +454,50 @@ async function run() {
         c.disconnect();
     });
 
+    await test('naming somebody in the chat reaches them wherever they are', async () => {
+        /* The lobby is a room most people are not looking at, so a name said in
+           it has to travel. It goes to the account, not to the room. */
+        reset();
+        const caller = await makeUser('m1');
+        const named = await makeUser('m2');
+        const a = await open();
+        const b = await open();
+        await ask(a, 'hx:identify', { token: caller.token });
+        await ask(b, 'hx:identify', { token: named.token });
+        await ask(a, 'hx:lobby:enter', {});
+        // b never enters the lobby: being signed in is enough to be called.
+
+        const heard = new Promise((resolve) => b.once('hx:mention', resolve));
+        await ask(a, 'hx:lobby:chat', { text: `@${named.user.pseudo} une partie ?` });
+        const hail = await Promise.race([heard,
+            new Promise((r) => setTimeout(() => r(null), 2000))]);
+        assert.ok(hail, 'the named player was told');
+        assert.strictEqual(hail.message.pseudo, caller.user.pseudo, 'and by whom');
+        assert.ok(hail.message.text.includes(named.user.pseudo));
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('naming yourself calls nobody', async () => {
+        reset();
+        const solo = await makeUser('m3');
+        const a = await open();
+        await ask(a, 'hx:identify', { token: solo.token });
+        await ask(a, 'hx:lobby:enter', {});
+
+        let called = false;
+        a.on('hx:mention', () => { called = true; });
+        await ask(a, 'hx:lobby:chat', { text: `@${solo.user.pseudo} note to self` });
+        await new Promise((r) => setTimeout(r, 400));
+        assert.strictEqual(called, false, 'naming yourself is writing, not calling');
+
+        /* And a name nobody holds is just text. */
+        await ask(a, 'hx:lobby:chat', { text: '@nobodyatall hello' });
+        await new Promise((r) => setTimeout(r, 400));
+        assert.strictEqual(called, false, 'an unknown name reaches nobody');
+        a.disconnect();
+    });
+
     await test('one invitation at a time, in both directions', async () => {
         reset();
         const one = await makeUser('aa');

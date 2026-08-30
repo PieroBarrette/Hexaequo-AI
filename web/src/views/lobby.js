@@ -96,6 +96,9 @@ export function mountLobby(host, readCadence = () => 'rapid') {
                  placeholder="${t('chat.placeholder')}">
           <button class="btn btn--primary" type="submit">${t('chat.send')}</button>
         </form>
+        <!-- Names offered while an "@" is being typed. Empty and hidden until
+             then, so it costs nothing to have. -->
+        <div class="chat-names" hidden></div>
         <!-- A short row rather than a picker: eight that cover most of what
              gets said over a board, on one line, costing no space when unused
              and no dependency at all. -->
@@ -245,9 +248,84 @@ export function mountLobby(host, readCadence = () => 'rapid') {
    * opened the account panel and then closed it again, and the button looked
    * dead.
    */
+  /* ── Naming somebody ──────────────────────────────────────────────────── */
+
+  /**
+   * The "@…" being typed at the caret, if one is.
+   *
+   * Only what is being written this second: an "@" earlier in the line has been
+   * settled already, and offering names for it would rewrite what was decided.
+   */
+  function partialName(field) {
+    const upto = field.value.slice(0, field.selectionStart ?? field.value.length);
+    const at = upto.lastIndexOf('@');
+    if (at === -1) return null;
+    const typed = upto.slice(at + 1);
+    // A pseudonym may hold spaces, but not a newline and not a second "@".
+    if (typed.includes('@')) return null;
+    return { at, typed };
+  }
+
+  function renderNames() {
+    const list = host.querySelector('.chat-names');
+    const field = host.querySelector('.chat-input');
+    if (!list || !field) return;
+    const partial = partialName(field);
+    const me = currentUser();
+    const matches = partial
+      ? players.filter((p) => (!me || p.userId !== me.id)
+        && p.pseudo.toLowerCase().startsWith(partial.typed.toLowerCase())).slice(0, 6)
+      : [];
+    list.hidden = matches.length === 0;
+    list.innerHTML = matches.map((p) =>
+      `<button type="button" class="chat-name" data-name="${escapeText(p.pseudo)}">${
+        escapeText(p.pseudo)}</button>`).join('');
+  }
+
+  /** Put the chosen name in place of what was being typed towards it. */
+  function completeName(pseudo) {
+    const field = host.querySelector('.chat-input');
+    if (!field) return;
+    const partial = partialName(field);
+    if (!partial) return;
+    const caret = field.selectionStart ?? field.value.length;
+    const before = field.value.slice(0, partial.at);
+    const after = field.value.slice(caret);
+    const inserted = `@${pseudo} `;
+    field.value = (before + inserted + after).slice(0, 300);
+    const cursor = Math.min((before + inserted).length, field.value.length);
+    field.focus();
+    field.setSelectionRange(cursor, cursor);
+    renderNames();
+  }
+
+  host.addEventListener('input', (event) => {
+    if (event.target.closest('.chat-input')) renderNames();
+  });
+
+  host.addEventListener('keydown', (event) => {
+    if (!event.target.closest('.chat-input')) return;
+    const list = host.querySelector('.chat-names');
+    if (!list || list.hidden) return;
+    /* Tab and Enter take the first name offered; escape puts the list away and
+       leaves what was typed, which may well have been a real word. */
+    if (event.key === 'Tab' || event.key === 'Enter') {
+      const first = list.querySelector('[data-name]');
+      if (!first) return;
+      event.preventDefault();
+      completeName(first.getAttribute('data-name'));
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      list.hidden = true;
+    }
+  });
+
   host.addEventListener('click', async (event) => {
     const mine = event.target.closest('[data-challenge], [data-action], [data-watch], [data-rejoin], [data-emoji]');
     if (mine && host.contains(mine)) event.stopPropagation();
+
+    const pick = event.target.closest('[data-name]');
+    if (pick) { completeName(pick.getAttribute('data-name')); return; }
 
     /* Into the box, not straight out as a message: an emoji is usually the end
        of a sentence rather than the whole of one, and sending on tap would make

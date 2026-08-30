@@ -404,6 +404,7 @@
     "expired": "The challenge expired",
     "count": "{n} online",
     "quiet": "Nothing has been said in the last 24 hours.",
+    "goThere": "Open the lobby",
     "signInToTalk": "Sign in to write",
     "noClockNoChallenge": "Pick a time control above to challenge somebody."
   },

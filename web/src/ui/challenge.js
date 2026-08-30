@@ -36,6 +36,20 @@ let incoming = null;      // a question waiting for an answer
 let outgoing = null;      // a question we asked, waiting on them
 let agreed = null;        // a yes that is waiting for a board to clear
 let notice = null;        // the last thing that happened, in words
+/* Somebody said your name in the lobby. Kept here rather than in the lobby
+   view, because the whole point of being named is to be reached while looking
+   at something else. */
+let mention = null;
+let mentionTimer = 0;
+/* Long enough to come back to from another room, short enough that it is not
+   still there an hour later asking to be dealt with. */
+const MENTION_MS = 45000;
+
+function clearMention() {
+  clearTimeout(mentionTimer);
+  mention = null;
+  render();
+}
 let myGame = null;        // { code } — a game of ours that is still running
 let noticeTimer = 0;
 let armed = false;
@@ -85,7 +99,7 @@ function render() {
   if (!host) return;
   const chip = agreed && !watchingTheDeal();
   const back = myGame && !inMyGame() && !pageOffersTheWayBack();
-  if (!incoming && !outgoing && !chip && !back && !notice) {
+  if (!incoming && !outgoing && !chip && !back && !notice && !mention) {
     host.hidden = true; host.innerHTML = ''; return;
   }
   host.hidden = false;
@@ -93,6 +107,7 @@ function render() {
     + (incoming ? incomingCard() : '')
     + (outgoing ? outgoingChip() : '')
     + (chip ? agreedChip() : '')
+    + (mention ? mentionChip() : '')
     + (notice ? `<div class="hail hail--note">${escapeText(notice)}</div>` : '');
 }
 
@@ -102,6 +117,25 @@ function render() {
  * Going elsewhere starts a countdown on your seat, so the site must not make
  * you hunt for the door back. It follows you instead — every page, one press.
  */
+/**
+ * What was said, and who said it.
+ *
+ * The message itself rather than "somebody mentioned you", because most of the
+ * time the message is the whole of it and going to look would be the only way
+ * to find out it did not need going to look at. It goes away on its own after a
+ * while, and sooner if you read it — a call is not a task.
+ */
+function mentionChip() {
+  return `
+    <div class="hail hail--mention">
+      <div class="hail-lede"><b>${escapeText(mention.pseudo)}</b> ${escapeText(mention.text)}</div>
+      <div class="hail-actions">
+        <button class="btn btn--sm btn--primary" data-hail="to-lobby">${t('lobby.goThere')}</button>
+        <button class="btn btn--sm" data-hail="dismiss-mention">${t('common.close')}</button>
+      </div>
+    </div>`;
+}
+
 function backChip() {
   /*
    * A room nobody has opened yet is an invitation, not a game, and saying
@@ -213,6 +247,15 @@ async function onClick(event) {
     navigate('online');
     return;
   }
+  if (action === 'to-lobby') {
+    clearMention();
+    navigate('online');
+    return;
+  }
+  if (action === 'dismiss-mention') {
+    clearMention();
+    return;
+  }
   if (action === 'watch' && agreed && agreed.watchCode) {
     /* The chip stays: the agreement is still standing, and it is what opens
        the real game when the one being watched ends. */
@@ -279,6 +322,23 @@ async function arm() {
     if (me && payload.by === me.id) { render(); return; }
     say(payload.withdrawn ? t('challenge.withdrawn') : t('lobby.declined'));
   });
+  /*
+   * Named in the lobby.
+   *
+   * Not while the lobby is what you are looking at: the message is already
+   * there in front of you, and a card repeating it over the room it came from
+   * would be the same thing said twice.
+   */
+  listen('hx:mention', (payload) => {
+    const said = payload && payload.message;
+    if (!said || pageOffersTheWayBack()) return;
+    mention = { pseudo: said.pseudo, text: said.text };
+    playSound('message');
+    render();
+    clearTimeout(mentionTimer);
+    mentionTimer = setTimeout(clearMention, MENTION_MS);
+  });
+
   listen('hx:challenge:expired', (payload) => {
     if (incoming && incoming.id === payload.id) incoming = null;
     if (outgoing && outgoing.id === payload.id) outgoing = null;
