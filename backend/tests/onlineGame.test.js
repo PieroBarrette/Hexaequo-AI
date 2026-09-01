@@ -8,6 +8,11 @@
  * clients to it. What is being checked is that a hostile client gets nowhere.
  */
 
+// Before anything else: this suite writes nothing, so it gets nothing to
+// write to. See tests/database.js.
+require('./database').none();
+
+
 const assert = require('assert');
 const http = require('http');
 const { Server } = require('socket.io');

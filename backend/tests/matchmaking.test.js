@@ -8,6 +8,11 @@
  * room, on opposite colours, with the game rated.
  */
 
+// Before anything else: a database of its own, or nothing at all.
+// See tests/database.js.
+require('./database').requireThrowaway('matchmaking.test.js');
+
+
 const assert = require('assert');
 const http = require('http');
 const jwt = require('jsonwebtoken');

@@ -9,6 +9,11 @@
  * Usage: node backend/tests/eloService.test.js
  */
 
+// Before anything else: this suite writes nothing, so it gets nothing to
+// write to. See tests/database.js.
+require('./database').none();
+
+
 const { calculateNewRatings, CONFIG, getKFactor, expectedScore } = require('../services/eloService');
 
 // Test utilities

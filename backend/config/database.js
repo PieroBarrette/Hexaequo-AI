@@ -38,12 +38,40 @@ poolConfig.max = 20;                    // Maximum connections
 poolConfig.idleTimeoutMillis = 30000;   // Close idle connections after 30s
 poolConfig.connectionTimeoutMillis = 2000; // Timeout after 2s if can't connect
 
-const pool = new Pool(poolConfig);
+/*
+ * No database at all, on purpose.
+ *
+ * The socket and engine suites need no database and say so at the top of their
+ * files — but the module they exercise records a finished game, and with a
+ * DATABASE_URL in .env pointing at the live server that is where the rows went.
+ * A test that quietly writes to production is worse than no test.
+ *
+ * DATABASE_URL=memory means there is none: no pool is built, nothing is dialled,
+ * and every query fails immediately with a name the callers can recognise.
+ * Failing is the honest answer — the callers that can do without a database
+ * already ask, and the ones that cannot were never meant to run this way.
+ */
+const NO_DATABASE = DATABASE_URL === 'memory';
+
+/** Whether anything is there to write to. */
+function hasDatabase() { return !NO_DATABASE; }
+
+class NoDatabase extends Error {
+    constructor() {
+        super('no database in this process (DATABASE_URL=memory)');
+        this.name = 'NoDatabase';
+        this.code = 'NO_DATABASE';
+    }
+}
+
+const pool = NO_DATABASE ? null : new Pool(poolConfig);
 
 // Log pool errors
-pool.on('error', (err) => {
-    console.error('Unexpected database pool error:', err);
-});
+if (pool) {
+    pool.on('error', (err) => {
+        console.error('Unexpected database pool error:', err);
+    });
+}
 
 /**
  * Execute a query
@@ -52,6 +80,7 @@ pool.on('error', (err) => {
  * @returns {Promise<Object>} Query result
  */
 async function query(text, params) {
+    if (NO_DATABASE) throw new NoDatabase();
     const start = Date.now();
     try {
         const result = await pool.query(text, params);
@@ -73,6 +102,7 @@ async function query(text, params) {
  * @returns {Promise<Client>}
  */
 async function getClient() {
+    if (NO_DATABASE) throw new NoDatabase();
     const client = await pool.connect();
     const originalQuery = client.query.bind(client);
     const originalRelease = client.release.bind(client);
@@ -130,6 +160,7 @@ async function testConnection() {
  * Close all connections
  */
 async function close() {
+    if (!pool) return;
     await pool.end();
     console.log('Database pool closed');
 }
@@ -140,5 +171,6 @@ module.exports = {
     transaction,
     testConnection,
     close,
+    hasDatabase,
     pool
 };

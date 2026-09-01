@@ -62,6 +62,29 @@ let noiseSeed = 12345;
    a loose piece. */
 let useQuiescence = true;
 
+/*
+ * Leaning on the three ways a game ends was tried here and did not survive
+ * being measured.
+ *
+ * The idea was sound on paper: six disks, three rings or an emptied board, and
+ * a count that rises as one of them comes into reach, so the engine could feel
+ * the finish before the search could see it and pay material to get there. It
+ * was built, gated so it only spoke near the end, and played against the
+ * evaluation below over five thousand games at every weight and threshold
+ * worth trying. Every version lost — the best of them by about two points a
+ * hundred, the rest by more.
+ *
+ * Why, in hindsight: it re-weights the counters the material terms already
+ * count, so it does not tell the engine anything new about the position. All
+ * it does is raise the price of a capture it was already going to take, and at
+ * shallow depth that buys captures which give more back than they took.
+ *
+ * What did work is a page down: knowing that a game already over is over, and
+ * that going round in circles is worth nothing. The first is why the review's
+ * curve told the truth about the last move of a game, and the second is worth
+ * a point and a half a hundred on its own.
+ */
+
 /** Absolute score; positive favours Black. */
 function evaluate(s) {
   let score = 100 * (s.capturedDisks[0] - s.capturedDisks[1])
@@ -136,6 +159,59 @@ let deadline = 0;
 let aborted = false;
 let table = new Map();
 
+/*
+ * Positions already reached, so that going round in circles is worth nothing.
+ *
+ * Two sources. `path` is the line the search is currently walking: coming back
+ * to a position it has already stood on means neither side has made progress,
+ * and shuffling for ever is a draw. `played` is the game itself — the
+ * positions that have actually occurred — and a position that has occurred
+ * twice already is one repetition away from being a draw by rule.
+ *
+ * Without this the engine could not tell a winning plan from a shuffle: both
+ * kept the same material, so both scored the same, and it had no reason to
+ * prefer the one that finished the game. A player who is ahead should be made
+ * to see a repetition for what it is — the win thrown away — which is exactly
+ * what scoring it nought does, since anything better than nought now beats it.
+ *
+ * A draw is nought to both sides, so a player who is behind will steer for one,
+ * which is also right: that is how a lost position is saved.
+ *
+ * The hash carries the side to move, so only every second ply can match; the
+ * loop steps by two rather than testing positions that cannot be equal.
+ */
+const MAX_PLY = 128;
+const pathH1 = new Int32Array(MAX_PLY);
+const pathH2 = new Int32Array(MAX_PLY);
+/** h1 → how many times it has occurred in the game already. */
+let played = new Map();
+
+function isRepetition(s, ply) {
+  for (let i = ply - 2; i >= 0; i -= 2) {
+    if (pathH1[i] === s.h1 && pathH2[i] === s.h2) return true;
+  }
+  const before = played.get(s.h1);
+  return before !== undefined && before.h2 === s.h2 && before.n >= 2;
+}
+
+/**
+ * Tell the search which positions the game has already been through, so that
+ * repeating one is recognised as the draw it is about to become.
+ *
+ * Takes states — the timeline the review already keeps — and reads their
+ * hashes. Anything without one is skipped rather than guessed at.
+ */
+function rememberPlayed(history) {
+  played = new Map();
+  if (!Array.isArray(history)) return;
+  for (const position of history) {
+    if (!position || typeof position.h1 !== 'number') continue;
+    const seen = played.get(position.h1);
+    if (seen && seen.h2 === position.h2) seen.n++;
+    else played.set(position.h1, { h2: position.h2, n: 1 });
+  }
+}
+
 function outOfTime() {
   if ((++nodes & 511) === 0 && Date.now() > deadline) aborted = true;
   return aborted;
@@ -167,6 +243,10 @@ function quiesce(s, alpha, beta, ply, depth) {
 function negamax(s, depth, alpha, beta, ply) {
   if (outOfTime()) return 0;
   if (checkWinner(s)) return -(MATE - ply);
+  /* Checked before the depth runs out, so that a repetition is a draw however
+     deep it is found — and after the winner, because a game that has ended has
+     ended whatever position it ended in. */
+  if (ply > 0 && isRepetition(s, ply)) return 0;
   if (depth <= 0) return useQuiescence ? quiesce(s, alpha, beta, ply, 0) : evaluateForSideToMove(s);
 
   const originalAlpha = alpha;
@@ -185,6 +265,9 @@ function negamax(s, depth, alpha, beta, ply) {
   const moves = generateMoves(s);
   if (!moves.length) return 0;                       // no legal move: a draw
   sortMoves(moves, preferred);
+
+  // On the path from here down, so anything below that comes back here knows it.
+  if (ply < MAX_PLY) { pathH1[ply] = s.h1; pathH2[ply] = s.h2; }
 
   let best = -INFINITY;
   let bestMove = 0;
@@ -244,8 +327,14 @@ function weakerChoice(scored) {
   return pool[Math.floor(Math.random() * pool.length)].move;
 }
 
-/** Choose a move for the side to move. Returns null when there is none. */
-export function chooseMove(state, level = 1) {
+/**
+ * Choose a move for the side to move. Returns null when there is none.
+ *
+ * `history` is the positions the game has already been through — the timeline
+ * a game keeps anyway. With it the engine knows which repetitions are one step
+ * from a draw, and a player who is ahead stops walking into one.
+ */
+export function chooseMove(state, level = 1, { history = null } = {}) {
   const config = LEVELS[Math.max(0, Math.min(LEVELS.length - 1, level))];
   noise = config.noise;
   useQuiescence = config.quiesce !== false;
@@ -253,11 +342,15 @@ export function chooseMove(state, level = 1) {
   nodes = 0;
   aborted = false;
   table.clear();
+  rememberPlayed(history);
   deadline = Date.now() + config.ms;
 
   const root = generateMoves(state);
   if (!root.length) return null;
   sortMoves(root, 0);
+  // The position itself is on the path, so a line that comes back to it knows.
+  pathH1[0] = state.h1;
+  pathH2[0] = state.h2;
 
   const scored = root.map((move) => ({ move, score: 0 }));
   let best = scored[0].move;
@@ -323,7 +416,29 @@ export const DECISIVE = MATE - 1000;
  *   search reached a finish rather than an estimate; move is what the side to
  *   move should play, or null where there is nothing to play.
  */
-export function judge(state, { ms = 140, maxDepth = 5 } = {}) {
+export function judge(state, { ms = 140, maxDepth = 5, history = null } = {}) {
+  /*
+   * A finished game is not a position to think about.
+   *
+   * checkWinner answers for the player who moved last, and after a winning
+   * move it is the loser's turn — so from the final position of a game the
+   * search happily carried on playing it. It generated the loser's moves,
+   * found that none of them was answered by a win *for the loser*, and
+   * reported what they could still do with the pieces they had left. On the
+   * curve of a game Black won by capture, the last point was a white spike:
+   * the search saying White had good prospects in a game that was over, which
+   * was true of the pieces and false of the game.
+   */
+  const over = checkWinner(state);
+  if (over) {
+    return {
+      score: over.winner === BLACK ? MATE : -MATE,
+      depth: 0,
+      decisive: true,
+      move: null,
+    };
+  }
+
   const heldNoise = noise;
   const heldQuiesce = useQuiescence;
   noise = 0;
@@ -331,6 +446,7 @@ export function judge(state, { ms = 140, maxDepth = 5 } = {}) {
   nodes = 0;
   aborted = false;
   table.clear();
+  rememberPlayed(history);
   deadline = Date.now() + ms;
 
   let value = evaluateForSideToMove(state);
@@ -347,6 +463,8 @@ export function judge(state, { ms = 140, maxDepth = 5 } = {}) {
     return { score: 0, depth: 0, decisive: false, move: null };
   }
   sortMoves(root, 0);
+  pathH1[0] = state.h1;
+  pathH2[0] = state.h2;
 
   for (let depth = 1; depth <= maxDepth; depth++) {
     let alpha = -INFINITY;
@@ -371,10 +489,12 @@ export function judge(state, { ms = 140, maxDepth = 5 } = {}) {
 
   noise = heldNoise;
   useQuiescence = heldQuiesce;
+  const absolute = state.turn === BLACK ? value : -value;
   return {
     // negamax answers for the side to move; the bar reads the same way round
-    // whoever that is.
-    score: state.turn === BLACK ? value : -value,
+    // whoever that is. `|| 0` because negating a drawn nought gives -0, which
+    // reads as level everywhere but compares as its own thing.
+    score: absolute || 0,
     depth: reached,
     decisive: Math.abs(value) > DECISIVE,
     move: best,

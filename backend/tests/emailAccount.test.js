@@ -8,6 +8,11 @@
  * issues, or an email account could sign in and then fail to play.
  */
 
+// Before anything else: a database of its own, or nothing at all.
+// See tests/database.js.
+require('./database').requireThrowaway('emailAccount.test.js');
+
+
 /* Set before anything reads the configuration: this suite signs in and out
    far more often than a person would, and the rate limiter is right to stop
    that anywhere else. */

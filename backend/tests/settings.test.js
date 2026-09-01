@@ -9,6 +9,11 @@
  * read or write another's.
  */
 
+// Before anything else: a database of its own, or nothing at all.
+// See tests/database.js.
+require('./database').requireThrowaway('settings.test.js');
+
+
 process.env.NODE_ENV = 'test';
 
 const assert = require('assert');

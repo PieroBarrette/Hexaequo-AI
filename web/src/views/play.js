@@ -679,7 +679,7 @@ export function mountPlay(outlet, params) {
     thinking = true;
     refresh();
     setTimeout(() => {
-      const move = chooseMove(state, levelFor(mover));
+      const move = chooseMove(state, levelFor(mover), { history: timeline });
       thinking = false;
       if (move) commit(move); else refresh();
     }, 40);
@@ -691,7 +691,7 @@ export function mountPlay(outlet, params) {
     thinking = true;
     refresh();
     setTimeout(() => {
-      const move = chooseMove(state, levelFor(mover));
+      const move = chooseMove(state, levelFor(mover), { history: timeline });
       thinking = false;
       if (move) commit(move); else refresh();
     }, 40);
@@ -2349,7 +2349,12 @@ export function mountPlay(outlet, params) {
   function verdictAt(ply) {
     let found = evalCache.get(ply);
     if (!found) {
-      found = judge(cloneState(timeline[ply]), JUDGE_BUDGET);
+      /* Only what came before the ply being judged. Handing it the whole game
+         would have the search treat positions that have not happened yet as
+         though they had, and call a line drawn on the strength of a repetition
+         still in the future. */
+      found = judge(cloneState(timeline[ply]),
+        { ...JUDGE_BUDGET, history: timeline.slice(0, ply + 1) });
       evalCache.set(ply, found);
     }
     return found;

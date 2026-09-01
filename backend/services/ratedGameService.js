@@ -10,7 +10,7 @@
  * cheap way to farm rating.
  */
 
-const { query, transaction } = require('../config/database');
+const { query, transaction, hasDatabase } = require('../config/database');
 const elo = require('./eloService');
 
 /** Winner as the schema stores it. */
@@ -22,6 +22,13 @@ const WINNER_LABEL = { 0: 'black', 1: 'white' };
  * @returns {Promise<object|null>} what changed, or null if nothing was recorded
  */
 async function recordGame(room, result) {
+    /* Nothing to write to, so nothing is written and nothing is complained
+       about. The socket suites run this way on purpose: they are about the
+       protocol, and a game they play to the end should not leave a row
+       anywhere. A real server always has a database, so this is never the
+       reason a genuine game goes unrecorded. */
+    if (!hasDatabase()) return null;
+
     const black = room.players && room.players[0];
     const white = room.players && room.players[1];
 

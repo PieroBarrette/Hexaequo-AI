@@ -3,10 +3,17 @@
  *
  * Run with: node tests/ratedGame.test.js
  *
- * These run against the real database and delete everything they create. The
- * point is that a rating can only move for a real, two-sided game, and that it
- * moves symmetrically — whatever a win is worth, the same loss costs.
+ * These write rows, so they run against a database of their own and delete
+ * everything they create — never the application's, which is the one people
+ * are playing in. The point is that a rating can only move for a real,
+ * two-sided game, and that it moves symmetrically: whatever a win is worth,
+ * the same loss costs.
  */
+
+// Before anything else: a database of its own, or nothing at all.
+// See tests/database.js.
+require('./database').requireThrowaway('ratedGame.test.js');
+
 
 const assert = require('assert');
 const { pool, query } = require('../config/database');

@@ -9,6 +9,11 @@
  * above all not about what it captured.
  */
 
+// Before anything else: this suite writes nothing, so it gets nothing to
+// write to. See tests/database.js.
+require('./database').none();
+
+
 const assert = require('assert');
 const engine = require('../game/engine');
 

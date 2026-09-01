@@ -4,6 +4,11 @@
  * Run with: node tests/lobby.test.js
  */
 
+// Before anything else: a database of its own, or nothing at all.
+// See tests/database.js.
+require('./database').requireThrowaway('lobby.test.js');
+
+
 const assert = require('assert');
 const http = require('http');
 const jwt = require('jsonwebtoken');
