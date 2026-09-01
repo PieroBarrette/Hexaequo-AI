@@ -136,13 +136,11 @@ export function createBoard(container) {
     return point.matrixTransform(matrix);
   }
 
-  function render(v) {
-    const s = v.state;
-    const aid = v.showValidMoves;
-
-    /* Framing follows the tiles and the cells where the board may still grow,
-       so it only shifts when a tile is laid. */
-    const outline = s.tileKeys.concat(v.spots);
+  /* Framing follows the tiles and the cells where the board may still grow,
+     so it only shifts when a tile is laid — or when the box it is cut to fit
+     changes shape underneath it. */
+  function frame(v, instant) {
+    const outline = v.state.tileKeys.concat(v.spots);
     let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
     for (const k of outline) {
       const x = cx(k), y = cy(k);
@@ -151,19 +149,81 @@ export function createBoard(container) {
       if (y < y0) y0 = y;
       if (y > y1) y1 = y;
     }
-    /* The padding is not decoration: it keeps every clickable cell on screen
-       *during* the re-framing glide.
-       Laying a tile can only create new placement cells one ring beyond it, so
-       at most SQRT3 * SIZE away. Padding wider than that puts tomorrow's cells
-       inside today's frame. Since the framed box never shrinks — a cell only
-       leaves `spots` by becoming a tile — every intermediate frame of the tween
-       contains the previous one, and therefore contains those cells too. Without
-       this, a click landing during the 500 ms glide could fall on a cell that
-       had not been scrolled into view yet, and silently do nothing. */
-    const pad = SIZE * 1.85;
-    const w = Math.max((x1 - x0) + 2 * pad, SIZE * SQRT3 * 5);
-    const h = Math.max((y1 - y0) + 2 * pad, SIZE * 1.5 * 5);
-    setView({ x: (x0 + x1) / 2 - w / 2, y: (y0 + y1) / 2 - h / 2, w, h }, v.instant);
+    /*
+     * Margin round the outermost cells.
+     *
+     * The outline is centres, so a cell reaches SIZE above and below its own
+     * and SQRT3/2 * SIZE to either side: anything under one SIZE clips the
+     * edge cells. 1.25 leaves a tenth of a cell of air beyond that and no
+     * more, because on a small board the margin is most of the picture — at
+     * the old 1.85 it was very nearly half the width of the frame, and every
+     * pixel of it was paid for by the pieces.
+     *
+     * It used to be set to SQRT3 * SIZE, the distance to the ring of cells
+     * that appears when a tile is laid, so that during the 500 ms re-framing
+     * glide a brand new cell was already on screen and could be clicked. What
+     * that guards against barely happens: laying a tile ends your turn, so the
+     * cells it creates are not yours to click while the board is still moving,
+     * and by the time the turn comes round the glide is long over.
+     */
+    const pad = SIZE * 1.25;
+
+    /*
+     * How far in we are willing to zoom, shaped like the box we draw into.
+     *
+     * The floor used to be five cells across and five down whatever the screen
+     * — a frame half again wider than it is tall. A phone held upright is far
+     * taller than that, so the drawing was pinned by its width and a fifth of
+     * the board area was letterboxed away above and below it: dead space that
+     * grew every time something else on the page gave up height, while the
+     * pieces themselves never got any bigger for it.
+     *
+     * The same number of cells stays in view; the frame simply takes the box's
+     * proportions, so a tall box sees fewer columns and more rows and spends
+     * that height on the board. Only ever narrowed: a frame already wider than
+     * the box is left alone, which is every desktop.
+     *
+     * The floor is a floor. Whatever is actually on the board still sets the
+     * frame the moment it outgrows this, so no cell is ever framed out — which
+     * is why it can afford to be close in. Four and a half cells rather than
+     * five: the opening is four tiles and the ring of places they allow, and
+     * showing it at arm's length to leave room for a board that does not exist
+     * yet only makes the pieces small at the one moment there is nothing else
+     * to look at. They give that size back a little at a time as the board
+     * grows, which is the right way round.
+     */
+    let floorW = SIZE * SQRT3 * 4.5;
+    let floorH = SIZE * 1.5 * 4.5;
+    const box = svg.getBoundingClientRect();
+    if (box.width > 0 && box.height > 0 && box.width / box.height < floorW / floorH) {
+      const cells = floorW * floorH;
+      floorW = Math.sqrt(cells * (box.width / box.height));
+      floorH = cells / floorW;
+    }
+    let w = Math.max((x1 - x0) + 2 * pad, floorW);
+    let h = Math.max((y1 - y0) + 2 * pad, floorH);
+    /* Then out to the shape of the box. A frame that does not match its box is
+       drawn in the middle of it with a band of nothing along two edges, and on
+       a phone that band was the better part of a hundred pixels. Growing the
+       short side is free — the other one is what sets the scale — and it only
+       ever grows, so nothing on the board can fall outside it. */
+    if (box.width > 0 && box.height > 0) {
+      const boxShape = box.width / box.height;
+      if (w / h < boxShape) w = h * boxShape;
+      else h = w / boxShape;
+    }
+    setView({ x: (x0 + x1) / 2 - w / 2, y: (y0 + y1) / 2 - h / 2, w, h }, instant);
+  }
+
+  /* The last position drawn, so the frame can be recut without redrawing it. */
+  let framed = null;
+
+  function render(v) {
+    const s = v.state;
+    const aid = v.showValidMoves;
+
+    framed = v;
+    frame(v, v.instant);
 
     const emphasise = v.placeMode === 'tile';
     let out = '';
@@ -385,6 +445,18 @@ export function createBoard(container) {
   return {
     svg,
     render,
+    /*
+     * Cut the frame again against the box as it stands now.
+     *
+     * The frame is measured against the box, and the board is not the last
+     * thing drawn into the page: the bar under it gains a row when a game ends
+     * and the review controls arrive, the network strip appears, the result
+     * card is put up. Each of those changes how much room the board has, after
+     * the board has already decided what to do with it. Called once everything
+     * else has been laid out, this is the second look. Nothing is redrawn —
+     * only the window onto the drawing moves.
+     */
+    reframe: (instant) => { if (framed) frame(framed, Boolean(instant)); },
     setView,
     toUserSpace,
     toScreenSpace,

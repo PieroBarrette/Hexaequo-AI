@@ -251,9 +251,11 @@ select.btn option {
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
 .pulse { animation: pulse 1.4s ease-in-out infinite; }
 
-/* Reserves on either side of the board, shown as real pieces. */
+/* Reserves on either side of the board, shown as real pieces. Wide enough for
+   three of them abreast: the rail's height comes from how many rows the pieces
+   make, so any width between three across and four is spent on nothing. */
 .rail {
-  width: 164px; flex: none; overflow-y: auto;
+  width: 178px; flex: none; overflow-y: auto;
   background: var(--surface);
   border-left: 1px solid transparent; border-right: 1px solid transparent;
   display: flex; flex-direction: column; align-items: center; gap: 8px;
@@ -270,7 +272,7 @@ select.btn option {
 .rail.is-thinking .rail-who .player-dot { animation: pulse 1s ease-in-out infinite; }
 .stack { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; width: 100%; }
 .token {
-  width: 36px; height: 36px; display: block; padding: 2px; border-radius: var(--radius-sm);
+  width: 40px; height: 40px; display: block; padding: 2px; border-radius: var(--radius-sm);
   background: var(--accent-soft); background: rgba(128, 128, 128, .1);
   transition: transform .14s var(--ease), background .14s var(--ease);
 }
@@ -332,9 +334,14 @@ select.btn option {
   background: color-mix(in srgb, var(--bg) 78%, transparent);
 }
 .result-overlay.is-on { display: flex; }
+/* Never taller than the space it has. The card is only bounded on a big
+   screen, where nothing tests it; on a phone the board area it lives in can be
+   shorter than the card, and the ends were simply cut off — the title above
+   and the way out of the game below both gone, with no way to reach either. */
 .result-card {
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg);
   padding: 24px 30px; text-align: center; box-shadow: var(--shadow-lg); max-width: 340px;
+  max-height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch;
 }
 .result-title {
   display: flex; align-items: center; justify-content: center; gap: 11px;
@@ -370,6 +377,9 @@ select.btn option {
   display: flex; align-items: center; gap: 6px;
   flex: 0 4 auto; min-width: 0; overflow-x: auto; scrollbar-width: thin;
 }
+/* The way to the controls when they are folded away, which is only ever on a
+   phone: everywhere else they are on the bar where they can be read at once. */
+.bar-menu { display: none; flex: none; }
 .bar-gap { flex: 1; min-width: 4px; }
 .bar-right { display: flex; align-items: center; gap: 6px; flex: none; }
 
@@ -935,8 +945,36 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
     border-top: 0; border-left: 0; border-right: 0;
   }
   .rail.is-turn { border-color: var(--accent); }
-  .rail-who { flex: 0 0 100%; }
-  .stack { width: auto; }
+  .rail-who { flex: 0 0 100%; padding-bottom: 3px; }
+  .stack { width: auto; gap: 3px; }
+  /*
+   * The reserves, cut down to what they are for.
+   *
+   * A phone gave a third of the game to two piles of pieces you only count and
+   * tap, and the board — the thing being played — got less than half. At
+   * thirty-six pixels a piece the pile also wrapped a row earlier than it
+   * needed to, so every piece spent was paid for twice, in size and in rows.
+   *
+   * Smaller pieces are still perfectly countable, and the tap target does not
+   * shrink with them: it is thrown back out to a comfortable size below, off
+   * the layout, where widening it costs no height.
+   */
+  .rail { gap: 5px; padding: 7px 7px 8px; }
+  .token { width: 28px; height: 28px; padding: 1px; position: relative; }
+  /* A finger's worth of target around a piece small enough to fit. Absolute,
+     so the pile is laid out by the pieces and not by the room to hit them. */
+  .token.is-usable::before {
+    content: ''; position: absolute; inset: -6px; border-radius: var(--radius-sm);
+  }
+  /* At its full size the clock was the largest thing in the reserve and cost a
+     row of pieces to sit there. Still the first thing you read, and no longer
+     the loudest. */
+  .clock { font-size: 15px; padding: 3px 6px; min-width: 3.6em; }
+  .rail-sep { margin: 5px 0 3px; }
+  /* The card gives the board back what it does not need. */
+  .result-overlay { padding: 10px; }
+  .result-card { padding: 18px 20px; }
+  .result-title { font-size: 17px; }
   .site-header { padding: 6px 8px; gap: 6px; }
   .site-header .logo-word { display: none; }
   #brand { padding: 6px 8px; }
@@ -945,6 +983,78 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
      arrow toggled a shadow and nothing else. Harmless when the drawer hid
      itself with a transform; a bug the moment its height did the hiding. */
   .drawer.is-on { height: min(200px, 34vh); }
+}
+
+/* ── Phones ──────────────────────────────────────────────────────────────── */
+
+@media (max-width: 560px) {
+  /*
+   * The reserve counted rather than laid out.
+   *
+   * Nine tiles side by side is two rows of a screen that has none to spare,
+   * and past the third or fourth piece nobody is looking at the pieces any
+   * more — they are reading the number. So the pile keeps its first piece,
+   * which says what it is and is still the thing you tap, and says how many it
+   * has in the one place a count belongs. Every piece is still in the markup;
+   * only this rule decides how much of it to show, so turning the phone
+   * sideways settles the question again on its own.
+   *
+   * The three piles come to one row where they took four, and the reserve
+   * stops being the largest thing on a screen whose largest thing should be
+   * the board.
+   */
+  .stack { gap: 4px; }
+  .stack .token ~ .token { display: none; }
+  .stack::after {
+    content: '×' attr(data-count);
+    align-self: center;
+    font: 600 13px/1 var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+  }
+  /* One of something is not a count, it is the thing itself. */
+  .stack[data-count="1"]::after { content: none; }
+
+  /*
+   * The controls folded behind one button.
+   *
+   * They are a full line of the bar, and the bar is subtracted from the board.
+   * Above it rather than in it, they cost nothing until asked for — and when
+   * they are asked for they get room to be full-width controls instead of a
+   * strip squeezed edge to edge. It rises from the button, over the board,
+   * which is the empty part of the screen at the moment it is up.
+   */
+  .bar-menu { display: block; }
+  .board-bar { position: relative; }
+  .bar-tools {
+    position: absolute; bottom: calc(100% + 6px); left: 6px; right: 6px;
+    z-index: 7; display: none; flex: none;
+    flex-wrap: wrap; gap: 6px; overflow: visible;
+    padding: 8px; border: 1px solid var(--line); border-radius: var(--radius-md);
+    background: var(--surface); box-shadow: var(--shadow-md);
+    animation: overlay-fade .14s var(--ease);
+  }
+  .board-bar.is-tools-open .bar-tools { display: flex; }
+  /* Selects take a line each and the buttons share one: a level and a colour
+     are read, a ⟳ is recognised. */
+  .bar-tools select.btn { flex: 1 1 100%; min-height: var(--tap); font-size: 15px; }
+  .bar-tools .btn--icon { flex: 1 1 0; min-height: var(--tap); width: auto; }
+  /*
+   * The way through the game, in the bar rather than in a box of its own.
+   *
+   * As one item it either fitted beside the two buttons at the ends of the bar
+   * or it did not, and when it did not it took a whole line and left them a
+   * line to themselves — two rows to hold one row of controls and a pair of
+   * icons. Letting its buttons be the bar's own means they fill each line
+   * before starting another, so a review that needs three controls more than
+   * fit gets one extra row instead of two.
+   *
+   * On .is-on rather than on the element, because the base rule is what hides
+   * the whole thing until there is a game to look back through.
+   */
+  .review-bar.is-on { display: contents; }
+  .review-bar .btn--icon { width: 32px; min-width: 32px; }
+  .review-ply { min-width: 3.8em; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -193,6 +193,8 @@ export function mountPlay(outlet, params) {
           </div>
         </div>
         <div class="board-bar">
+          <button class="btn btn--icon bar-menu" data-action="tools"
+                  title="${t('game.tools')}">⋯</button>
           <div class="bar-tools"></div>
           <div class="review-bar">
           <button class="btn btn--icon" data-action="rev-first" title="${t('review.first')}">⏮</button>
@@ -301,7 +303,27 @@ export function mountPlay(outlet, params) {
    */
   const tools = outlet.querySelector('.bar-tools');
   const toolsRight = outlet.querySelector('.bar-right');
+  const barEl = outlet.querySelector('.board-bar');
   buildTools();
+
+  /*
+   * The controls, folded away on a phone.
+   *
+   * Laid out in a row they are a row: five or seven of them on a screen four
+   * hundred pixels wide take a line of the bar to themselves, and the bar is
+   * cut out of the board. Behind one button they cost nothing until they are
+   * wanted, and when they are wanted a stack of full-width controls above the
+   * thumb is easier to hit than a strip of them squeezed edge to edge.
+   *
+   * The same elements either way — moved by the stylesheet, not rebuilt — so
+   * everything that reads or writes them carries on unaware of which it is.
+   */
+  function setToolsOpen(open) {
+    barEl.classList.toggle('is-tools-open', Boolean(open));
+    const button = barEl.querySelector('.bar-menu');
+    if (button) button.classList.toggle('is-on', Boolean(open));
+  }
+  const toolsOpen = () => barEl.classList.contains('is-tools-open');
 
   function buildTools() {
     tools.innerHTML = toolsMarkup();
@@ -377,6 +399,8 @@ export function mountPlay(outlet, params) {
     outlet.querySelector('[data-action="end-jump"]').title = t('game.endJump');
     outlet.querySelector('[data-action="cancel-jump"]').title = t('game.cancel');
     outlet.querySelector('[data-action="explore"]').textContent = t('review.explore');
+    const menuButton = barEl.querySelector('.bar-menu');
+    if (menuButton) menuButton.title = t('game.tools');
     // rev-live carries two meanings and renderReviewBar picks the right one.
     outlet.querySelector('[data-control="rev-speed"]').title = t('review.speed');
     for (const [action, key] of [['rev-first', 'first'], ['rev-prev', 'previous'],
@@ -1227,6 +1251,15 @@ export function mountPlay(outlet, params) {
       else lastMoveCells.push(marked.from, marked.to);
     }
 
+    /* Before the board, because the board is framed to fit the space left over
+       and the reserves are what decide how much that is. Drawn afterwards, the
+       board measured the room the reserves had taken a moment ago: on the very
+       first paint they were empty, so it framed itself for a box a third
+       taller than the one it got, and thereafter it was always one move behind
+       — a rank of pieces spent, the reserves shrinking, and the board still
+       cut for the space before. */
+    renderRails(position, reviewing);
+
     board.render({
       state: source,
       spots,
@@ -1255,7 +1288,6 @@ export function mountPlay(outlet, params) {
     board.__firstFrame = false;
     gameEl.classList.toggle('is-reviewing', reviewing);
 
-    renderRails(position, reviewing);
     renderPicker();
     renderChainBar();
     renderResult();
@@ -1269,6 +1301,9 @@ export function mountPlay(outlet, params) {
     renderNetStatus();
     syncTools();
     tickClocks();
+    /* Last, because every one of the above can change how much room the board
+       has, and the board was framed before any of them were drawn. */
+    board.reframe(instant);
     runEffect();
   }
 
@@ -1319,10 +1354,17 @@ export function mountPlay(outlet, params) {
    * The empty slots used to be drawn as dashed outlines, which read as a
    * checklist of what was missing rather than as an inventory. A board game
    * does not show you the pieces you no longer have.
+   *
+   * Every piece is drawn, always. On a phone the stylesheet shows the first of
+   * them and writes the rest as a number — nine pieces laid out one by one is
+   * two rows of a screen that has none to spare — and it can do that because
+   * the count is on the pile for it to read. Which of the two it is stays a
+   * question of how much room there is, so it is answered in CSS and settled
+   * again the instant the phone is turned, with nothing to re-render.
    */
   function stackHtml(kind, colour, count, usable) {
     if (!count) return '';
-    let out = '<div class="stack">';
+    let out = `<div class="stack" data-count="${count}">`;
     for (let i = 0; i < count; i++) {
       const classes = ['token'];
       if (usable) classes.push('is-usable');
@@ -1926,7 +1968,22 @@ export function mountPlay(outlet, params) {
     const live = reviewBar.querySelector('[data-action="rev-live"]');
     live.hidden = isReview() && !exploring;
     live.textContent = exploring ? t('review.leaveExploring') : t('review.backToLive');
+    /*
+     * Watching the game play itself is analysis too, so it keeps the same
+     * company as the two buttons beside it.
+     *
+     * Mid-game the arrows are for glancing at the move before and coming
+     * straight back; nobody sits through a replay of a game they are in the
+     * middle of. Off the bar it takes the speed control and the rule between
+     * them with it — three controls, and on a phone the difference between one
+     * row of bar and two, which is a row of board.
+     */
+    const analysing = isReview();
     const playButton = reviewBar.querySelector('[data-action="rev-play"]');
+    if (!analysing && isAutoplaying()) stopAutoplay();
+    playButton.hidden = !analysing;
+    reviewBar.querySelector('.review-sep').hidden = !analysing;
+    reviewBar.querySelector('[data-control="rev-speed"]').hidden = !analysing;
     playButton.textContent = isAutoplaying() ? '⏸' : '▶';
     playButton.classList.toggle('is-on', isAutoplaying());
     playButton.title = isAutoplaying() ? t('review.pause') : t('review.play');
@@ -2059,6 +2116,14 @@ export function mountPlay(outlet, params) {
       thinking || !history.length || review !== null;
     const resignButton = tools.querySelector('[data-action="resign"]');
     if (resignButton) resignButton.disabled = !net || !net.ready || !!result;
+
+    /* No button for an empty menu. Reading back a stored game leaves nothing
+       in here at all — no mode to change, no game to resign — and a control
+       that opens onto nothing is worse than no control. */
+    const anyTool = [...tools.children].some((node) => node.style.display !== 'none');
+    const menuButton = barEl.querySelector('.bar-menu');
+    if (menuButton) menuButton.hidden = !anyTool;
+    if (!anyTool && toolsOpen()) setToolsOpen(false);
   }
 
   /**
@@ -2755,7 +2820,12 @@ export function mountPlay(outlet, params) {
     if (!button) return;
     const action = button.getAttribute('data-action');
     playSound('ui');
-    if (action === 'undo') undoLast();
+    /* Anything else chosen out of the folded menu is the end of the errand it
+       was opened for, so it closes behind them. The selects do not: changing
+       the level and then the colour is one errand. */
+    if (action !== 'tools' && tools.contains(button)) setToolsOpen(false);
+    if (action === 'tools') setToolsOpen(!toolsOpen());
+    else if (action === 'undo') undoLast();
     else if (action === 'new') { if (net) { navigate('online'); return; } aiRunning = false; newGame(); }
     else if (action === 'new-online') navigate('online');
     else if (action === 'menu') navigate('home');
@@ -2815,6 +2885,14 @@ export function mountPlay(outlet, params) {
   }
 
   function onAnyPointer(event) {
+    /* A touch anywhere but the menu itself puts it away — including one on the
+       board, which is the usual way of deciding you did not want it. The
+       button is excluded because its own handler does the toggling, and
+       closing it here first would leave the press re-opening it. */
+    if (toolsOpen() && !tools.contains(event.target)
+      && !(event.target.closest && event.target.closest('.bar-menu'))) {
+      setToolsOpen(false);
+    }
     if (bubbleEl.hidden) return;
     if (bubbleEl.contains(event.target)) {
       playSound('ui');
@@ -2837,6 +2915,8 @@ export function mountPlay(outlet, params) {
       if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
     }
     if (event.key === 'Escape') {
+      // The folded menu is the shallowest thing open, so it closes first.
+      if (toolsOpen()) { setToolsOpen(false); return; }
       /* Inside a branch, escape leaves the branch. Stepping back within one
          is undone first, so the key walks out the way it came in rather than
          dropping the whole exploration from halfway through reading it. */
