@@ -607,13 +607,21 @@ select.btn option {
 .drawer-body { flex: 1; overflow-y: auto; min-height: 0; padding: 10px 12px; }
 .move-list {
   font: 12px/1.7 var(--font-mono);
-  columns: 240px; column-gap: 22px;   /* a wide, short panel: use the width */
+  columns: 290px; column-gap: 22px;   /* a wide, short panel: use the width */
   flex: none;                          /* the drawer body scrolls, not the list */
 }
 .move-list > div { break-inside: avoid; }
 .move-list div { display: flex; gap: 8px; white-space: nowrap; }
 .move-list .n { color: var(--muted); width: 26px; flex: none; text-align: right; }
-.move-list .black { width: 104px; flex: none; }
+.move-list .black { width: 132px; flex: none; }
+/* What the move cost the player who made it, in the margin of the move rather
+   than in a column of its own: a column would double the width of the list to
+   carry a number most people only glance at. Quiet enough to read past, and it
+   stays quiet on the move being looked at, where everything else goes bold. */
+.move-list .ply-time {
+  font-style: normal; font-size: 10px; color: var(--muted);
+  margin-left: 5px; font-weight: 400;
+}
 .move-list .took { color: var(--danger); }
 /* Every half-move is a way into the review. */
 .move-list .ply { cursor: pointer; border-radius: 3px; padding: 0 3px; margin: 0 -3px; }

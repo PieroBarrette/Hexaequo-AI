@@ -184,6 +184,7 @@ function publicView(room) {
         state: room.state,
         moves: room.moves,
         notations: room.notations,
+        times: room.times,
         result: room.result,
         seats: [Boolean(room.seats[0]), Boolean(room.seats[1])],
         settled: room.settled.slice(),
@@ -282,8 +283,17 @@ function armFlag(io, room) {
     if (clock.timer.unref) clock.timer.unref();
 }
 
-/** Both seats are filled for the first time: the game is on. */
+/**
+ * Both seats are filled for the first time: the game is on.
+ *
+ * `turnAt` is the moment the player to move started thinking, kept whether or
+ * not there is a clock — a casual game has no clock and its moves still took
+ * as long as they took. The clock keeps its own copy because it spends it
+ * differently: an increment is added to what is left, and what is left is not
+ * what the move cost.
+ */
 function startClock(io, room) {
+    room.turnAt = Date.now();
     if (!room.clock || room.clock.running) return;
     room.clock.running = true;
     room.clock.turnStartedAt = Date.now();
@@ -323,6 +333,11 @@ async function createRoom({ timeControl = 'none', reserved = null } = {}) {
         state,
         moves: [],
         notations: [],
+        /* How long each move took, in milliseconds, one for one with `moves`.
+           Null where it cannot be known — the move that was already played
+           when the room was rebuilt, and nothing else so far. */
+        times: [],
+        turnAt: 0,
         seats: [null, null],
         players: [null, null],
         names: [null, null],
@@ -699,6 +714,14 @@ function attachOnlineGames(io) {
             room.state = outcome.state;
             room.moves.push(outcome.move);
             room.notations.push(outcome.notation);
+            /* What the move cost its player, measured here rather than taken
+               from the clock: the clock hands back an increment, and a game
+               without one has no clock to ask. Measured from the server's own
+               timestamps, so it is the same number for both players and for
+               anyone watching, and nobody can shorten their own. */
+            const spent = room.turnAt ? now - room.turnAt : null;
+            room.times.push(spent);
+            room.turnAt = now;
             touch(room);
 
             let result = outcome.result;
@@ -730,6 +753,7 @@ function attachOnlineGames(io) {
                 captures: outcome.captures,
                 by: seat,
                 ply: room.moves.length,
+                ms: spent,
                 clock: clockView(room),
                 result: result || null,
             };

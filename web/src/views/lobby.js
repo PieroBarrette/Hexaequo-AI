@@ -13,13 +13,9 @@ import { request, connect, listen, identify } from '../net.js';
 import { play as playSound } from '../audio.js';
 import { isSignedIn, currentUser, sessionToken, sessionReady, onAuthChange } from '../auth.js';
 import { openPanel } from '../ui/panels.js';
+import { emojiRowHtml } from '../ui/emoji.js';
 
 const cadenceLabel = (id) => t('online.cadence' + id.charAt(0).toUpperCase() + id.slice(1));
-
-/* Eight, and no more: greeting, good game, well played, thinking, and the two
-   or three things people actually say over a board. A picker would be a panel
-   to open and a list to scroll for something that is meant to take one tap. */
-const EMOJI = ['👋', '🙂', '😅', '🤔', '👏', '🔥', '😮', '🙃'];
 
 /* The same day the server keeps, so the two never disagree about what is
    still here. */
@@ -101,9 +97,9 @@ export function mountLobby(host, readCadence = () => 'rapid') {
         <div class="chat-names" hidden></div>
         <!-- A short row rather than a picker: eight that cover most of what
              gets said over a board, on one line, costing no space when unused
-             and no dependency at all. -->
-        <div class="chat-emoji">${EMOJI.map((e) =>
-    `<button type="button" class="emoji" data-emoji="${e}">${e}</button>`).join('')}</div>` : `
+             and no dependency at all. The same row hangs under the chat beside
+             the board. -->
+        ${emojiRowHtml()}` : `
         <div class="row-actions">
           <button class="btn btn--sm" data-action="sign-in">${t('lobby.signInToTalk')}</button>
         </div>`}

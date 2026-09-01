@@ -28,6 +28,7 @@ import { request, listen, connect, identify } from '../net.js';
 import { sessionToken, api, isSignedIn, onAuthChange, ratingChanged } from '../auth.js';
 import { offerPosition, takePosition } from '../handoff.js';
 import { openPanel } from '../ui/panels.js';
+import { emojiRowHtml } from '../ui/emoji.js';
 
 const MODE_LOCAL = 'local';
 const MODE_AI = 'ai';
@@ -232,6 +233,10 @@ export function mountPlay(outlet, params) {
                        placeholder="${t('chat.placeholder')}">
                 <button class="btn btn--primary" type="submit">${t('chat.send')}</button>
               </form>
+              <!-- The lobby's row, unchanged. Most of what is said across a
+                   board is one of these, and typing it on a phone while a clock
+                   runs is the reason it goes unsaid. -->
+              ${emojiRowHtml()}
             </div>
           </div>
         </div>
@@ -412,6 +417,26 @@ export function mountPlay(outlet, params) {
 
   /* ── Game lifecycle ───────────────────────────────────────────────────── */
 
+  /*
+   * How long the move being thought about has been thought about.
+   *
+   * Local games are not on the server and have no clock, so the time each move
+   * took is measured here, from when the position appeared to when it was
+   * played. Online it comes from the server instead: both players and everyone
+   * watching should read the same number, and no client should be able to
+   * shorten its own.
+   *
+   * Zero means the count has not started — the opening position before anyone
+   * has moved — and a move timed from there is recorded as unknown rather than
+   * as having taken however long the page had been open.
+   */
+  let turnAt = 0;
+  function spent() {
+    const at = turnAt;
+    turnAt = Date.now();
+    return at ? Date.now() - at : null;
+  }
+
   /**
    * Start a game, from the opening or from a position handed over.
    *
@@ -444,6 +469,7 @@ export function mountPlay(outlet, params) {
     board.setView({ x: 0, y: 0, w: 1, h: 1 }, true);
     board.__firstFrame = true;
     recordPosition();
+    turnAt = Date.now();
     refresh(true);
     afterEffect(scheduleAI);
   }
@@ -570,7 +596,7 @@ export function mountPlay(outlet, params) {
 
     applyMove(state, move);
     lastMove = move;
-    moveLog.push({ player, text: notation, captured: allCaptures.length > 0 });
+    moveLog.push({ player, text: notation, captured: allCaptures.length > 0, ms: spent() });
     recordPly(move);
 
     const won = checkWinner(state);
@@ -627,7 +653,9 @@ export function mountPlay(outlet, params) {
       resultSeen = false;
     } while (history.length && stopAt !== null && state.turn !== stopAt);
     // The undone plies never happened, and neither did what was thought of
-    // them: the same index now holds a different position.
+    // them: the same index now holds a different position. The count starts
+    // again too: the position in front of you is a new one to think about.
+    turnAt = Date.now();
     forgetAnalysis();
     timeline.length = history.length + 1;
     timelineMoves.length = history.length;
@@ -790,7 +818,11 @@ export function mountPlay(outlet, params) {
     };
     if (mine) net.noFly = false;
 
-    moveLog.push({ player: payload.by, text: payload.notation, captured: captured.length > 0 });
+    moveLog.push({
+      player: payload.by, text: payload.notation, captured: captured.length > 0,
+      // The server's measurement, not ours: ours would include the trip here.
+      ms: typeof payload.ms === 'number' ? payload.ms : null,
+    });
     recordPly(payload.move);
     selected = null;
     chain = null;
@@ -858,6 +890,7 @@ export function mountPlay(outlet, params) {
     state = deserializeState(view.state);
     moveLog = (view.notations || []).map((text, i) => ({
       player: i % 2, text, captured: /×/.test(text),
+      ms: (view.times || [])[i] ?? null,
     }));
     timelineMoves = (view.moves || []).slice();
     timeline = replayTimeline(timelineMoves);
@@ -1158,6 +1191,7 @@ export function mountPlay(outlet, params) {
     }
     moveLog = (archive.notations || []).map((text, i) => ({
       player: i % 2, text, captured: /×/.test(text),
+      ms: (archive.times || [])[i] ?? null,
     }));
     state = timeline[timeline.length - 1];
     result = archive.winner
@@ -1728,6 +1762,8 @@ export function mountPlay(outlet, params) {
    * differently", and nobody is on the other side of it.
    */
   function startExploring() {
+    // Whatever was on the clock belonged to the game, not to the branch.
+    turnAt = Date.now();
     const at = reviewPly();
     if (exploring) {
       // Branching again from inside a branch. The game underneath is already
@@ -1771,6 +1807,7 @@ export function mountPlay(outlet, params) {
   /** Put the game back exactly as it was and throw the branch away. */
   function stopExploring() {
     if (!exploring) return;
+    turnAt = Date.now();
     ({ timeline, timelineMoves, moveLog, history, repetitions,
       state, result, lastMove, review } = exploring);
     exploring = null;
@@ -1993,6 +2030,27 @@ export function mountPlay(outlet, params) {
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   /** Each half-move is a link into the review: click it and the board goes there. */
+  /**
+   * How long a move took, short enough to sit beside it.
+   *
+   * Three shapes, because a game holds all three: a blitz reply is tenths of a
+   * second and rounding it to "0s" throws away the only interesting thing
+   * about it; a normal move is a handful of seconds; a hard one is minutes,
+   * and minutes want a colon.
+   *
+   * Null for a move whose time nobody recorded — every game played before this
+   * existed, and there is no getting it back. Nothing is written in that case:
+   * a blank says "not known" where a 0s would say "played instantly".
+   */
+  function clockText(ms) {
+    if (typeof ms !== 'number' || !isFinite(ms) || ms < 0) return '';
+    const seconds = ms / 1000;
+    if (seconds < 10) return `${seconds.toFixed(1)}s`;
+    if (seconds < 60) return `${Math.round(seconds)}s`;
+    const total = Math.round(seconds);
+    return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+  }
+
   function renderMoveList() {
     if (!drawerOpen || drawerTab !== 'moves') return;
     const at = review === null ? timeline.length - 1 : review;
@@ -2000,7 +2058,9 @@ export function mountPlay(outlet, params) {
       if (!entry) return '<span></span>';
       const classes = [extra, entry.captured ? 'took' : '', ply === at ? 'is-at' : '']
         .filter(Boolean).join(' ');
-      return `<span class="ply ${classes}" data-ply="${ply}">${entry.text}</span>`;
+      const took = clockText(entry.ms);
+      return `<span class="ply ${classes}" data-ply="${ply}">${entry.text}`
+        + (took ? `<i class="ply-time">${took}</i>` : '') + '</span>';
     };
     let out = '';
     for (let i = 0; i < moveLog.length; i += 2) {
@@ -2052,6 +2112,17 @@ export function mountPlay(outlet, params) {
   function setDrawer(open, tab) {
     drawerOpen = open;
     drawer.classList.toggle('is-on', drawerOpen);
+    /*
+     * A shut panel holds nothing, the cursor included.
+     *
+     * Left and right belong to the chat box while you are typing in it — they
+     * are how you move through a word — so the board only gets them when the
+     * box does not have the cursor. Putting the panel away left the cursor
+     * inside it, in a box nobody could see, and the two keys went on editing
+     * text instead of walking through the game. Whichever tab it was on: the
+     * chat box keeps the cursor even while the move list is the one showing.
+     */
+    if (!drawerOpen && drawer.contains(document.activeElement)) document.activeElement.blur();
     buildDrawerButton();
     showDrawerTab(tab || drawerTab);
     measureBelowBoard();
@@ -2816,6 +2887,18 @@ export function mountPlay(outlet, params) {
   /* ── Controls ─────────────────────────────────────────────────────────── */
 
   function onToolClick(event) {
+    /* Into the box rather than straight out as a message, the way the lobby
+       does it: an emoji is usually the end of a sentence rather than the whole
+       of one, and sending on tap would make the row a way to say exactly one
+       thing by accident. */
+    const emoji = event.target.closest('[data-emoji]');
+    if (emoji) {
+      playSound('ui');
+      chatInput.value = (chatInput.value + emoji.getAttribute('data-emoji')).slice(0, 300);
+      chatInput.focus();
+      return;
+    }
+
     const button = event.target.closest('[data-action]');
     if (!button) return;
     const action = button.getAttribute('data-action');
@@ -2884,6 +2967,23 @@ export function mountPlay(outlet, params) {
     goToPly(Math.round(share * (timeline.length - 1)));
   }
 
+  /**
+   * Did this press land on something, or beside it?
+   *
+   * What closes a panel is a press on nothing in particular — the ground
+   * around the board, the empty half of the bar, the space beside the pieces
+   * in a reserve. A press on something is that thing's press and nothing
+   * else's: a cell you are moving to, a piece you are picking up, a button.
+   *
+   * The distinction matters most where it is easiest to get wrong. On a phone
+   * the panel covers half the screen and the rest of it is board, so "tap
+   * beside it" has to mean the board — and a tap that both dismissed the panel
+   * and played a move would be the worst of both.
+   */
+  const pressedSomething = (target) => Boolean(target && target.closest
+    && target.closest('button, select, input, textarea, a, [data-cell], [data-arm],'
+      + ' [data-action], [data-control], [data-ply], [data-emoji], [data-choose]'));
+
   function onAnyPointer(event) {
     /* A touch anywhere but the menu itself puts it away — including one on the
        board, which is the usual way of deciding you did not want it. The
@@ -2892,6 +2992,13 @@ export function mountPlay(outlet, params) {
     if (toolsOpen() && !tools.contains(event.target)
       && !(event.target.closest && event.target.closest('.bar-menu'))) {
       setToolsOpen(false);
+    }
+    /* And the same for the panel below, which on a phone is the larger claim
+       on the screen of the two. Not while a piece is in hand: the press that
+       began the drag is not a press beside anything. */
+    if (drawerOpen && !drawer.contains(event.target) && !pressedSomething(event.target)
+      && !(drag && drag.active)) {
+      setDrawer(false, drawerTab);
     }
     if (bubbleEl.hidden) return;
     if (bubbleEl.contains(event.target)) {

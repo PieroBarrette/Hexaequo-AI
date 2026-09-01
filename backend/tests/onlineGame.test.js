@@ -124,6 +124,21 @@ async function run() {
         assert.strictEqual(event.by, 0);
         assert.strictEqual(event.state.turn, 1, 'the turn passes to White');
         assert.deepStrictEqual(event.state, response.state, 'broadcast matches the acknowledgement');
+        /* What the move cost, measured by the server so that both players and
+           anyone watching read the same number. A plausible reading rather
+           than an exact one: the point is that it is measured at all, and that
+           it is the time since the position appeared rather than since the
+           room did. */
+        assert.strictEqual(typeof event.ms, 'number', 'the broadcast carries how long the move took');
+        assert.ok(event.ms >= 0 && event.ms < 60000, 'a plausible thinking time, got ' + event.ms);
+    });
+
+    await test('the times are part of the game, for anyone who joins later', async () => {
+        const view = await ask(black, 'hx:sync', { code });
+        assert.ok(Array.isArray(view.times), 'the room carries a time per move');
+        assert.strictEqual(view.times.length, view.moves.length, 'one for one with the moves');
+        assert.ok(view.times.every((ms) => ms === null || typeof ms === 'number'),
+            'each is a number of milliseconds, or null where it was never known');
     });
 
     await test('playing out of turn is refused', async () => {

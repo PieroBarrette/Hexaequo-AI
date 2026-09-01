@@ -90,8 +90,8 @@ async function storeMoves(gameId, room) {
             const move = room.moves[i];
             await client.query(
                 `INSERT INTO moves (game_id, move_number, player, move_type, to_q, to_r,
-                                    intent, notation, state_snapshot)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+                                    intent, notation, state_snapshot, move_time)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
                 [
                     gameId,
                     i + 1,
@@ -104,6 +104,12 @@ async function storeMoves(gameId, room) {
                     JSON.stringify(move),
                     (room.notations && room.notations[i]) || null,
                     i === room.moves.length - 1 ? JSON.stringify(room.state) : null,
+                    /* Milliseconds, and null where the room never knew — a
+                       column that has been in the schema unused since the
+                       beginning. Nothing reads a missing one as zero: the
+                       review leaves the space blank instead of claiming the
+                       move was instant. */
+                    (room.times && room.times[i] != null) ? room.times[i] : null,
                 ]
             );
         }

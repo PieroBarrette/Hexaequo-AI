@@ -203,7 +203,7 @@ async function replay(gameId, viewerId) {
     if (!rated && !played) return null;
 
     const moves = await query(
-        `SELECT intent, notation FROM moves
+        `SELECT intent, notation, move_time FROM moves
          WHERE game_id = $1 ORDER BY move_number ASC`,
         [gameId]
     );
@@ -221,6 +221,12 @@ async function replay(gameId, viewerId) {
         replayable: complete,
         moves: complete ? moves.rows.map((row) => row.intent) : [],
         notations: complete ? moves.rows.map((row) => row.notation || '') : [],
+        /* How long each move took. Null for every game played before this was
+           recorded, and there is no recovering it: the moves of a finished
+           game are all written in one transaction, so their timestamps say
+           when the game ended and nothing about the thinking. The review shows
+           nothing where there is nothing rather than a zero. */
+        times: complete ? moves.rows.map((row) => row.move_time ?? null) : [],
         finalState: game.final_state,
     };
 }
