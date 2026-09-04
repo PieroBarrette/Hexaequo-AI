@@ -53,8 +53,12 @@ export function miniBoardSvg(spec) {
   if (spec.showSpots !== false) {
     for (const [q, r] of spots) {
       const k = key(q, r);
-      out += `<path d="${hexPath(cx(k), cy(k), SIZE * .94)}" fill="var(--spot-fill)"`
-        + ` stroke="var(--spot-line)" stroke-width="2" stroke-dasharray="6 4"/>`;
+      /* The same small dashed hexagon the board draws, at the same size: a
+         picture of the board that marks its cells differently is a picture of
+         a different board. */
+      out += `<path d="${hexPath(cx(k), cy(k), SIZE * .42)}" fill="none"`
+        + ` stroke="var(--spot-line)" stroke-width="1.8" stroke-dasharray="5 4"`
+        + ` stroke-opacity=".8"/>`;
     }
   }
   for (const [q, r] of bad) {
@@ -76,7 +80,7 @@ export function miniBoardSvg(spec) {
   for (const [q, r] of lastMove) {
     const k = key(q, r);
     out += `<path d="${hexPath(cx(k), cy(k), SIZE * .94)}"`
-      + ` fill="var(--last-move-fill)" stroke="var(--last-move-edge)" stroke-width="3"/>`;
+      + ` fill="var(--last-move-fill)" stroke="var(--last-move-edge)" stroke-width="2"/>`;
   }
   if (route.length > 1) {
     let d = '';
@@ -110,8 +114,11 @@ export function miniBoardSvg(spec) {
       const dark = piece && !piece.ring ? piece.player === BLACK : darkTile.has(k);
       return dark ? 'var(--coord-on-dark)' : 'var(--coord-on-light)';
     };
-    const named = tiles.map(([q, r]) => key(q, r))
-      .concat(spec.showSpots === false ? [] : spots.map(([q, r]) => key(q, r)));
+    /* Including the cells with no tile on them, whether or not the move aid is
+       marking them: on the board their names do not depend on that switch, and
+       a preview that tied the two together would be answering for a board
+       nobody has. */
+    const named = tiles.map(([q, r]) => key(q, r)).concat(spots.map(([q, r]) => key(q, r)));
     out += coordinateLabels(named, ink);
   }
   for (const [q, r, kind] of dots) {
@@ -119,7 +126,8 @@ export function miniBoardSvg(spec) {
     const x = cx(k), y = cy(k);
     out += kind === 'capture'
       ? `<circle cx="${x}" cy="${y}" r="${SIZE * .55}" fill="none" stroke="var(--danger)" stroke-width="4"/>`
-      : `<circle cx="${x}" cy="${y}" r="${SIZE * .19}" fill="var(--accent)" fill-opacity=".7"/>`;
+      : `<circle cx="${x}" cy="${y}" r="${SIZE * .38}" fill="none" stroke="var(--accent)"`
+        + ` stroke-width="1.8" stroke-opacity=".6"/>`;
   }
 
   let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;

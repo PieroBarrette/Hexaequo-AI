@@ -280,7 +280,10 @@ export function createBoard(container) {
      * and only the mark itself would be clickable, which on a phone is a
      * target the size of a pea.
      *
-     * The mark is a ring rather than a disc so a coordinate can sit inside it.
+     * A hexagon, because a tile is a hexagon and this is where one may go —
+     * but the size of the marks for a piece rather than the size of a tile,
+     * which is what made a dozen of them shout. Outlined and not filled, so a
+     * coordinate can sit inside it.
      */
     for (const k of v.spots) {
       const x = cx(k), y = cy(k);
@@ -291,7 +294,7 @@ export function createBoard(container) {
       if (!lit) continue;
       // Holding a tile is the one moment these are the question on the board,
       // so then they are drawn solid and a shade wider.
-      out += `<circle cx="${x}" cy="${y}" r="${SIZE * .42}" fill="none"`
+      out += `<path d="${hexPath(x, y, SIZE * .42)}" fill="none"`
         + ` stroke="var(--spot-line)" stroke-width="${emphasise ? 2.4 : 1.8}"`
         + `${emphasise ? '' : ' stroke-dasharray="5 4"'}`
         + ` stroke-opacity="${emphasise ? 1 : .8}" pointer-events="none"/>`;

@@ -190,6 +190,22 @@ export function mountPlay(outlet, params) {
     return hypothetical;
   }
 
+  /**
+   * Whether the cells are named right now.
+   *
+   * On and off are answers; auto is a question about what the board is for at
+   * this moment. Reading a game back, the names are how a move in the list
+   * ties to a cell on the board and are worth having. Playing, they are one
+   * more thing printed on a board you are trying to see through — and nobody
+   * needs to name the cell they are about to touch.
+   */
+  function coordinatesWanted() {
+    const choice = getSetting('showCoordinates');
+    if (choice === 'always' || choice === true) return true;
+    if (choice === 'never' || choice === false) return false;
+    return isReview();
+  }
+
   /** The position on screen: the game itself, or the ply being reviewed. */
   const shownState = () => (review === null ? state : timeline[review]) || state;
   const atLivePosition = () => review === null || review >= timeline.length - 1;
@@ -1381,7 +1397,7 @@ export function mountPlay(outlet, params) {
       newTile: showEffect ? effect.newTile : null,
       newPiece: showEffect ? effect.newPiece : null,
       showValidMoves: aid,
-      showCoordinates: getSetting('showCoordinates'),
+      showCoordinates: coordinatesWanted(),
       instant: instant || board.__firstFrame,
     });
     board.__firstFrame = false;
@@ -2012,6 +2028,11 @@ export function mountPlay(outlet, params) {
   }
 
   function startExploring() {
+    /* Only from a game there is nothing left to play. The button is hidden
+       otherwise, but hidden is a fact about the screen and this is a fact
+       about the game: branching off a game still in progress would put its
+       real position behind a sandbox nobody asked for. */
+    if (!isReview()) return;
     // Whatever was on the clock belonged to the game, not to the branch.
     turnAt = Date.now();
     const at = reviewPly();

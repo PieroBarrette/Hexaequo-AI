@@ -17,7 +17,10 @@ export const DEFAULTS = {
   volume: 0.7,
   showValidMoves: true,
   showLastMove: true,
-  showCoordinates: false,
+  /* 'auto' | 'always' | 'never'. Auto writes them on the board while a game is
+     being read back and leaves it bare while one is being played, which is
+     when they are wanted and when they are in the way. */
+  showCoordinates: 'auto',
   /* Two kinds of motion, two switches: what happens on the board (a piece
      travelling to its cell, a capture fading, a placement settling) and what
      crosses from a reserve to the board. Either can be had without the
@@ -64,6 +67,13 @@ export function loadSettings() {
     current.aiLevel = Math.min(3, Number(current.aiLevel || 0) + 1);
     current.aiLevelsVersion = AI_LEVELS_VERSION;
     persist();
+  }
+  /* It used to be a switch. A stored true or false still means what it said,
+     and anything else — including nothing at all — takes the new default. */
+  if (current.showCoordinates === true) current.showCoordinates = 'always';
+  else if (current.showCoordinates === false) current.showCoordinates = 'never';
+  else if (!['auto', 'always', 'never'].includes(current.showCoordinates)) {
+    current.showCoordinates = 'auto';
   }
   if (!current.language) {
     current.language = (navigator.language || 'en').toLowerCase().startsWith('fr') ? 'fr' : 'en';

@@ -22,13 +22,26 @@ export function setInstallPrompt(event) { installPrompt = event; }
  * to answer "what does this actually do".
  */
 function previewSpec() {
+  const aid = Boolean(getSetting('showValidMoves'));
   return {
     tiles: [[0, 0, BLACK], [1, 0, BLACK], [-1, 1, WHITE], [0, 1, WHITE], [1, 1, BLACK], [-1, 2, WHITE]],
     pieces: [[1, 0, BLACK, DISK], [-1, 1, WHITE, DISK], [0, 1, BLACK, RING], [1, 1, WHITE, RING]],
+    /* Cells touching two tiles: where a tile may go, which is half of what the
+       move aid marks. The other half is where a piece may go, so the preview
+       shows one of each rather than claiming the switch does less than it
+       does. */
     spots: [[2, 0], [0, 2]],
-    showSpots: Boolean(getSetting('showValidMoves')),
+    showSpots: aid,
+    /* On an empty tile next to a piece of the same colour, because that is
+       where a destination can actually be: marking a cell with no tile on it
+       would be showing something the board never shows. */
+    dots: aid ? [[0, 0, 'move']] : [],
     lastMove: getSetting('showLastMove') ? [[1, 1]] : [],
-    coords: Boolean(getSetting('showCoordinates')),
+    /* The cells are named in the picture whenever naming them is something you
+       have asked for at all — under `auto` that is in a review, and a still
+       picture of a board is the closest this panel gets to one. */
+    coords: getSetting('showCoordinates') !== 'never'
+      && getSetting('showCoordinates') !== false,
   };
 }
 
@@ -64,8 +77,6 @@ export function mountSettings(outlet) {
     outlet.innerHTML = `
       <div class="page"><div class="page-inner">
         <h1>${t('settings.title')}</h1>
-        <p class="lede">${t('settings.lede')}</p>
-
         <h2>${t('settings.appearance')}</h2>
         ${row('settings.language', 'settings.languageHint', segmented('language', getSetting('language'), [
           { value: 'fr', label: 'Français' }, { value: 'en', label: 'English' }]))}
@@ -85,7 +96,11 @@ export function mountSettings(outlet) {
         <h2>${t('settings.boardSection')}</h2>
         ${row('settings.showValidMoves', 'settings.showValidMovesHint', toggle('showValidMoves', getSetting('showValidMoves')))}
         ${row('settings.showLastMove', 'settings.showLastMoveHint', toggle('showLastMove', getSetting('showLastMove')))}
-        ${row('settings.showCoordinates', 'settings.showCoordinatesHint', toggle('showCoordinates', getSetting('showCoordinates')))}
+        ${row('settings.showCoordinates', 'settings.showCoordinatesHint',
+          segmented('showCoordinates', getSetting('showCoordinates'), [
+            { value: 'auto', label: t('settings.coordsAuto') },
+            { value: 'always', label: t('settings.coordsAlways') },
+            { value: 'never', label: t('settings.coordsNever') }]))}
 
         <h2>${t('settings.animations')}</h2>
         ${row('settings.animateMoves', 'settings.animateMovesHint', toggle('animateMoves', getSetting('animateMoves')))}
