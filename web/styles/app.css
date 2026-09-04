@@ -1359,10 +1359,23 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
  * The choice of opponent is asked for rather than assumed, so the sheet sits
  * over the board where the eye already is, not in a corner.
  */
+/*
+ * What to do with the game being reviewed.
+ *
+ * Fixed to the viewport rather than placed inside the board, which is a box
+ * with the history panel along the bottom of it and its own overflow hidden:
+ * centred in there, the last line of the sheet — the way out of it — could end
+ * up underneath the panel or clipped off entirely, and a way out that is
+ * sometimes not there is not a way out. Here it answers to the window, so
+ * nothing on the page can be over it or cut it short, and it scrolls inside
+ * itself on a screen too short to hold it.
+ */
 .resume-sheet {
-  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  z-index: 8; display: flex; flex-direction: column; gap: 8px;
-  min-width: min(300px, 84vw); padding: 18px;
+  position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  z-index: 40; display: flex; flex-direction: column; gap: 8px;
+  min-width: min(320px, 86vw); max-width: min(420px, 92vw);
+  max-height: min(560px, 86vh); overflow-y: auto;
+  padding: 18px;
   background: var(--surface); border: 1px solid var(--accent);
   border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
 }

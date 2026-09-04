@@ -146,7 +146,7 @@ export function mountPlay(outlet, params) {
     if (exploring) {
       if (exploring.play === 'aiai') return true;
       if (exploring.play === 'ai') return player !== exploring.side;
-      return false;
+      return false;                      // watching, or both colours by hand
     }
     return !net && (mode === MODE_AI_AI || (mode === MODE_AI && player !== humanSide));
   };
@@ -172,7 +172,10 @@ export function mountPlay(outlet, params) {
    * stored game is not played at all.
    */
   const canAct = () => (exploring
-    ? !isAI(state.turn)
+    /* Watching is watching: the game as it was played, not to be written on.
+       It is where a review opens, and the other three modes are the ways of
+       asking what would have happened instead. */
+    ? exploring.play !== 'view' && !isAI(state.turn)
     : !archiveId && (review === null) && (net
       ? net.ready && !net.pending && state.turn === net.colour
       : !isAI(state.turn)));
@@ -1909,17 +1912,16 @@ export function mountPlay(outlet, params) {
   function openResumeSheet() {
     resumeSetup = null;
     const options = [
-      ['hand', t('review.playHand')],
-      ['ai', t('review.resumeVsAi')],
+      ['view', t('review.playView')],
       ['local', t('review.resumeTwo')],
+      ['ai', t('review.resumeVsAi')],
       ['aiai', t('review.resumeWatch')],
     ];
-    const now = exploring ? exploring.play : 'hand';
+    const now = exploring ? exploring.play : 'view';
     resumeEl.innerHTML = `<p class="resume-title">${t('review.playTitle')}</p>`
       + options.map(([id, label]) =>
-        `<button class="btn resume-choice${
-          (id === now || (id === 'local' && now === 'hand')) && id !== 'local' ? ' is-on' : ''
-        }" data-resume="${id}">${label}</button>`).join('')
+        `<button class="btn resume-choice${id === now ? ' is-on' : ''}"`
+        + ` data-resume="${id}">${label}</button>`).join('')
       + `<button class="btn btn--link" data-resume="cancel">${t('game.cancel')}</button>`;
     resumeEl.hidden = false;
   }
@@ -2052,8 +2054,8 @@ export function mountPlay(outlet, params) {
     exploring = {
       timeline, timelineMoves, moveLog, history, repetitions,
       state, result, lastMove, review, resultSeen, at,
-      /* Nobody is playing it but you, until you say otherwise. */
-      play: 'hand',
+      /* Watching, until you say otherwise. */
+      play: 'view',
       side: (timeline[at] || state).turn,
     };
     /* The same moves, the same log, a fresh count of repetitions, and no
@@ -2076,9 +2078,19 @@ export function mountPlay(outlet, params) {
     placeMode = null;
     picker = null;
     clearEffect();
-    review = Math.max(0, Math.min(timeline.length - 1, at));
-    state = cloneState(timeline[review]);
-    lastMove = review > 0 ? timelineMoves[review - 1] : null;
+    /*
+     * `state` is where the line has got to; `review` is where you are standing
+     * in it, and null means standing at the end. Two different things, and
+     * setting `state` to the ply the review opened on collapsed them: the
+     * review opened at the start, so `state` became the opening position, and
+     * pressing ⏭ — which means "stop looking back", not "go to ply n" — showed
+     * `state` and drew a four-move game as an empty board.
+     */
+    const last = timeline.length - 1;
+    const standing = Math.max(0, Math.min(last, at));
+    review = standing >= last ? null : standing;
+    state = cloneState(timeline[last]);
+    lastMove = timelineMoves[timelineMoves.length - 1] || null;
     refresh();
   }
 
@@ -2119,10 +2131,47 @@ export function mountPlay(outlet, params) {
   function playBranch(kind, setup) {
     if (!exploring) return;
     closeResumeSheet();          // the click that got here has already sounded
-    if (kind === 'hand' || kind === MODE_LOCAL) {
-      exploring.play = 'hand';
-      aiRunning = false;
-      thinking = false;
+    aiRunning = false;
+    thinking = false;
+
+    /*
+     * Watching puts the game back.
+     *
+     * It is not a way of playing, it is the absence of one — the game as it
+     * was actually played, from the first move, with nothing to be written on
+     * it. So choosing it undoes whatever the other three left behind: the line
+     * is the game's line again, and you are at the start of it. Coming back to
+     * watching is coming back to the thing you are analysing.
+     */
+    if (kind === 'view') {
+      exploring.play = 'view';
+      timeline = exploring.timeline.slice();
+      timelineMoves = exploring.timelineMoves.slice();
+      moveLog = exploring.moveLog.slice();
+      history = [];
+      result = null;
+      resultSeen = false;
+      forgetAnalysis();
+      repetitions = new Map();
+      for (const position of timeline) {
+        const signature = positionKey(position);
+        repetitions.set(signature, (repetitions.get(signature) || 0) + 1);
+      }
+      selected = null;
+      chain = null;
+      placeMode = null;
+      picker = null;
+      clearEffect();
+      state = cloneState(timeline[timeline.length - 1]);
+      lastMove = timelineMoves[timelineMoves.length - 1] || null;
+      review = timeline.length > 1 ? 0 : null;
+      refresh();
+      return;
+    }
+
+    // Both colours in your hands: nobody else is playing, but you may.
+    if (kind === MODE_LOCAL) {
+      exploring.play = 'local';
       refresh();
       return;
     }
@@ -2504,7 +2553,7 @@ export function mountPlay(outlet, params) {
        just as much as they do to a game set up the same way. */
     const isDuel = exploring ? exploring.play === 'aiai' : mode === MODE_AI_AI;
     const engineHere = exploring
-      ? exploring.play !== 'hand'
+      ? (exploring.play === 'ai' || exploring.play === 'aiai')
       : (!net && !archiveId && mode !== MODE_LOCAL);
     const show = (selector, visible) => {
       const node = tools.querySelector(selector);
@@ -2521,7 +2570,8 @@ export function mountPlay(outlet, params) {
     show('[data-control="levelWhite"]', engineHere && isDuel);
     show('[data-action="run"]', engineHere && isDuel);
     show('[data-action="step"]', engineHere && isDuel);
-    show('[data-action="undo"]', local || Boolean(exploring));
+    show('[data-action="undo"]', local
+      || Boolean(exploring && exploring.play !== 'view'));
     show('[data-action="new"]', local);
     const seated = Boolean(net) && !net.watching;
     show('[data-action="resign"]', seated);
@@ -3224,10 +3274,9 @@ export function mountPlay(outlet, params) {
     if (which === 'cancel') { closeResumeSheet(); return; }
     if (which === 'back') { openResumeSheet(); return; }
     if (which === 'go') { playBranch(resumeSetup, readResumeSetup(resumeSetup)); return; }
-    /* Nobody to arrange for: by hand, and two players on this device, are the
-       same thing here — you move both sides — so they start where the others
-       stop to ask. */
-    if (which === 'hand' || which === MODE_LOCAL) { playBranch(which, null); return; }
+    /* Nothing to arrange: watching has nobody to arrange for, and two players
+       on this device are both already here. */
+    if (which === 'view' || which === MODE_LOCAL) { playBranch(which, null); return; }
     openResumeSetup(which);
   });
 
