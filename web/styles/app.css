@@ -1386,9 +1386,6 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
 .review-resume::before { content: '⤺'; margin-right: 5px; font-weight: 400; }
 /* Quieter than "play from here": exploring costs nothing and undoes itself,
    so it does not need to look like a decision. */
-.review-explore { font-size: 12px; font-weight: 600; white-space: nowrap; }
-.review-explore::before { content: '⌥'; margin-right: 5px; font-weight: 400; }
-.review-bar.is-exploring .review-explore { border-color: var(--accent); color: var(--accent); }
 .review-resume:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); }
 
 /* One tap each, on one line under the box. Deliberately not a picker: a panel

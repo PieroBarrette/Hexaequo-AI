@@ -253,7 +253,6 @@ export function mountPlay(outlet, params) {
             <option value="2">2×</option>
             <option value="4">4×</option>
           </select>
-          <button class="btn review-explore" data-action="explore">${t('review.explore')}</button>
           <button class="btn review-resume" data-action="resume"></button>
           <button class="btn review-live" data-action="rev-live">${t('review.backToLive')}</button>
           </div>
@@ -451,7 +450,6 @@ export function mountPlay(outlet, params) {
     chatForm.querySelector('button').textContent = t('chat.send');
     outlet.querySelector('[data-action="end-jump"]').title = t('game.endJump');
     outlet.querySelector('[data-action="cancel-jump"]').title = t('game.cancel');
-    outlet.querySelector('[data-action="explore"]').textContent = t('review.explore');
     const menuButton = barEl.querySelector('.bar-menu');
     if (menuButton) menuButton.title = t('game.tools');
     // rev-live carries two meanings and renderReviewBar picks the right one.
@@ -1280,10 +1278,13 @@ export function mountPlay(outlet, params) {
         reason: archive.reason,
       })
       : null;
-    // Straight to the start: the point of opening a finished game is to walk
-    // through it, not to look at the end of it.
+    /* A stored game is not a game in progress: it is a review, and there is
+       nothing else it could be. Straight to the start, because the point of
+       opening a finished game is to walk through it — and open as a review, so
+       that walking through it and trying something in the middle are the same
+       screen rather than two. */
     resultSeen = true;
-    goToPly(0);
+    startExploring(0);
   }
 
   function showArchiveError(message) {
@@ -2027,38 +2028,58 @@ export function mountPlay(outlet, params) {
     clearEffect();
   }
 
-  function startExploring() {
-    /* Only from a game there is nothing left to play. The button is hidden
-       otherwise, but hidden is a fact about the screen and this is a fact
-       about the game: branching off a game still in progress would put its
-       real position behind a sandbox nobody asked for. */
-    if (!isReview()) return;
-    // Whatever was on the clock belonged to the game, not to the branch.
+  /**
+   * Open the review of a finished game.
+   *
+   * There are two things this screen can be: a game, or the review of one.
+   * The review is the whole game, walkable end to end, with a move playable at
+   * any point of it and a say in who plays the rest — and the game itself held
+   * underneath, untouched, for the button that puts it back.
+   *
+   * Nothing is cut on the way in. The review used to begin by throwing away
+   * everything after the ply you were standing on, which made sense when it
+   * was a branch you had asked for from a particular move and made no sense at
+   * all as the way to look at a game: opening it at the start left you with a
+   * review of an empty board. The line is cut when a move is played into the
+   * middle of it, by the move, and not before.
+   */
+  function startExploring(at = reviewPly()) {
+    /* Only a game there is nothing left to play. This is a fact about the
+       game rather than about which buttons are on screen. */
+    if (!isReview() || exploring) return;
+    // Whatever was on the clock belonged to the game, not to the review.
     turnAt = Date.now();
-    const at = reviewPly();
-    const fresh = !exploring;
-    if (exploring) {
-      // Branching again from inside a branch. The game underneath is already
-      // held; only the branch is being cut back, so the original stays put.
-      // `at` moves with it, or the strip would name the older starting point.
-      exploring.at = at;
-    } else {
-      exploring = {
-        timeline, timelineMoves, moveLog, history, repetitions,
-        state, result, lastMove, review, resultSeen, at,
-        /* Nobody is playing it but you, until you say otherwise. */
-        play: 'hand',
-        side: (timeline[at] || state).turn,
-      };
+    exploring = {
+      timeline, timelineMoves, moveLog, history, repetitions,
+      state, result, lastMove, review, resultSeen, at,
+      /* Nobody is playing it but you, until you say otherwise. */
+      play: 'hand',
+      side: (timeline[at] || state).turn,
+    };
+    /* The same moves, the same log, a fresh count of repetitions, and no
+       result: the game's ending belongs to the game, and this is a board to
+       try things on. Standing wherever the review was asked to open. */
+    timeline = timeline.slice();
+    timelineMoves = timelineMoves.slice();
+    moveLog = moveLog.slice();
+    history = [];
+    result = null;
+    resultSeen = false;
+    forgetAnalysis();
+    repetitions = new Map();
+    for (const position of timeline) {
+      const signature = positionKey(position);
+      repetitions.set(signature, (repetitions.get(signature) || 0) + 1);
     }
-    cutBackTo(at);
+    selected = null;
+    chain = null;
+    placeMode = null;
+    picker = null;
+    clearEffect();
+    review = Math.max(0, Math.min(timeline.length - 1, at));
+    state = cloneState(timeline[review]);
+    lastMove = review > 0 ? timelineMoves[review - 1] : null;
     refresh();
-    /* And ask who is playing it, straight away. Branching is the question
-       "what if", and the first thing that decides is who answers it — so it is
-       asked at the door rather than left behind a button somebody has to
-       notice. Only on the way in: re-branching from inside a branch keeps the
-       arrangement it already has. */
-    if (fresh) openResumeSheet();
   }
 
   /**
@@ -2302,7 +2323,6 @@ export function mountPlay(outlet, params) {
     const finished = Boolean(checkWinner(shownState()));
     players.hidden = !exploring || finished;
     if (exploring) players.textContent = t('review.playedBy.' + exploring.play);
-    reviewBar.querySelector('[data-action="explore"]').hidden = !isReview();
     /* "Back to the game" only while there is a game to be back in. In a review
        there is no present to return to — the last ply is just the last ply, and
        ⏭ already goes there in one press. Mid-game it is the one control that
@@ -2834,8 +2854,7 @@ export function mountPlay(outlet, params) {
        about what is on the board. */
     if (exploring) {
       strip.className = 'net-strip is-on';
-      strip.innerHTML = `<span class="net-msg">${
-        t('review.exploringFrom', { n: exploring.at })}</span>`;
+      strip.innerHTML = `<span class="net-msg">${t('review.reviewing')}</span>`;
       return;
     }
 
@@ -3257,10 +3276,11 @@ export function mountPlay(outlet, params) {
     else if (action === 'resign') resign();
     else if (action === 'draw') offerDraw();
     else if (action === 'draw-decline') declineDraw();
-    /* Asking to review the game is asking for the whole review, moves and
-       curve included — the one place a local game opens the panel by itself,
-       now that stepping back no longer does. */
-    else if (action === 'review-game') { resultSeen = true; goToPly(0); setDrawer(true, 'moves'); }
+    /* Asking to see the game is asking for the review of it — the whole thing
+       from the first move, with the panel open on the moves and the curve, and
+       with the freedom to play from anywhere in it. There is no second door:
+       this is the one. */
+    else if (action === 'review-game') { startExploring(0); setDrawer(true, 'moves'); }
     else if (action === 'rematch') askRematch();
     else if (action === 'rev-first') { stopAutoplay(); goToPly(0); }
     else if (action === 'rev-prev') { stopAutoplay(); stepReview(-1); }
@@ -3272,7 +3292,6 @@ export function mountPlay(outlet, params) {
       if (exploring) stopExploring();
       else goToPly(timeline.length - 1);
     } else if (action === 'resume') { stopAutoplay(); openResumeSheet(); }
-    else if (action === 'explore') { stopAutoplay(); startExploring(); }
     else if (action === 'guest-sign-in') { openPanel('account'); }
     else if (action === 'rev-play') {
       if (isAutoplaying()) { stopAutoplay(); renderReviewBar(); } else startAutoplay();
