@@ -504,6 +504,58 @@ select.btn option {
 }
 @media (prefers-reduced-motion: reduce) { .eval-fill { transition: none; } }
 
+/*
+ * The accuracy report, above the curve it sharpens.
+ *
+ * One strip with three faces: an offer, a bar filling, and the table. Inside
+ * the drawer rather than on the board bar because it belongs with the move
+ * list it marks up — and because on a phone the bar has no row to spare, which
+ * is a row of board.
+ */
+.report {
+  flex: none; margin: 10px 12px 0; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface);
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.report[hidden] { display: none; }
+.report.is-done { display: block; }
+.report-go { padding: 5px 11px; font-size: 12.5px; }
+.report-note { color: var(--muted); font-size: 11.5px; }
+.report-bar {
+  flex: 1; min-width: 90px; height: 5px; border-radius: 3px;
+  background: var(--surface-2); overflow: hidden;
+}
+.report-bar i { display: block; height: 100%; background: var(--accent); transition: width .25s var(--ease); }
+@media (prefers-reduced-motion: reduce) { .report-bar i { transition: none; } }
+
+.report-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.report-table th, .report-table td { padding: 3px 4px; }
+.report-table thead th { color: var(--muted); font-weight: 500; font-size: 11px; }
+.report-table tbody th {
+  text-align: left; font-weight: 500; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; max-width: 11ch;
+}
+.report-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.report-table .strong { font-weight: 700; font-size: 13px; }
+/* The dot is sized in the rail by being a flex item; in a table cell it is an
+   inline span, and width on one of those is ignored. */
+.report-table .player-dot {
+  display: inline-block; width: 10px; height: 10px; border-width: 1.5px;
+  margin-right: 5px; vertical-align: 0;
+}
+.report.is-done .report-note { display: block; margin-top: 4px; }
+
+/* Three marks and one honour, in the colours the rest of the app already uses
+   for the same feelings. Nothing here is invented: a mistake is the danger
+   colour at half strength, a blunder is the danger colour. */
+.band-inaccuracy { color: var(--muted); }
+.band-mistake { color: color-mix(in srgb, var(--danger) 72%, var(--muted)); }
+.band-blunder { color: var(--danger); font-weight: 600; }
+.band-sacrifice { color: var(--accent); font-weight: 600; }
+.report-table .is-none { color: var(--muted); opacity: .45; }
+.move-list .ply-mark { font-style: normal; margin-left: 2px; font-weight: 700; }
+
 /* The same picture laid on its side: the whole game rather than one position.
    Above the move list, which is where you already are when reading a game
    back, and clickable across its width the way the moves under it are. */

@@ -24,6 +24,7 @@ import {
   findLegalMove,
 } from '../game/moves.js';
 import { chooseMove, judge, DISK_POINTS } from '../game/ai.js';
+import { weigh, summarise, BAND_MARK } from '../game/accuracy.js';
 import { request, listen, connect } from '../net.js';
 import { api, isSignedIn, onAuthChange, ratingChanged } from '../auth.js';
 import { openPanel } from '../ui/panels.js';
@@ -283,6 +284,7 @@ export function mountPlay(outlet, params) {
             <button class="drawer-tab is-active" data-tab="moves">${t('game.moveList')}</button>
             <button class="drawer-tab" data-tab="chat">${t('chat.tab')}<i class="tab-dot"></i></button>
           </div>
+          <div class="report" hidden></div>
           <div class="eval-curve" hidden></div>
           <div class="drawer-body">
             <div class="move-list"></div>
@@ -350,7 +352,29 @@ export function mountPlay(outlet, params) {
      one all put something else at 12. */
   function forgetAnalysis() {
     evalCache.clear();
+    stopReport();
   }
+
+  /*
+   * The accuracy report: the whole game weighed, at a depth the review cannot
+   * afford on its own thread.
+   *
+   * Asked for rather than offered, because it costs about fifty seconds of a
+   * machine's attention and most visits to a review are for looking at one
+   * move. Null until somebody presses the button; while it runs it holds what
+   * has come back so far, so the curve sharpens as the report fills.
+   */
+  const REPORT_DEPTH = 7;
+  let report = null;             // { token, plies, seen, done, failed, black, white, marks }
+  let reporter = null;           // the worker, while one is running
+  let reportTimer = 0;           // the redraw waiting for the next few verdicts
+
+  /* A game the site is keeping, as opposed to one played on this machine and
+     gone when the tab closes. Both sides of a stored game can open the same
+     report and read the same numbers, which is most of what makes it worth
+     printing; a local game has nobody to compare with. */
+  const analysable = () => Boolean(archiveId) || Boolean(net);
+  const reportEl = outlet.querySelector('.report');
   const curveEl = outlet.querySelector('.eval-curve');
   let curveTimer = 0;
   const bubbleEl = outlet.querySelector('.chat-bubble');
@@ -1696,6 +1720,23 @@ export function mountPlay(outlet, params) {
    * one to the other. Here the name sits over the inventory it owns, which is
    * also the plainest way to see which colour you are playing.
    */
+  /** Who is playing this colour, as plain text. The rail's name without its
+      markup, for the places that want to put it in a cell of a table. */
+  function playerName(player) {
+    if (archive) {
+      const who = archive[player === BLACK ? 'black' : 'white'];
+      if (who && who.pseudo) return who.pseudo;
+      return t('profile.guest');
+    }
+    if (net) {
+      const who = net.people ? net.people[player] : null;
+      if (who && who.pseudo) return who.pseudo;
+      return t('profile.guest');
+    }
+    if (isAI(player)) return t('game.computer');
+    return colourName(player);
+  }
+
   function railWho(player) {
     let who = null;                       // { pseudo, elo, userId }
     let label = colourName(player);
@@ -2471,6 +2512,7 @@ export function mountPlay(outlet, params) {
   }
 
   function renderMoveList() {
+    renderReport();
     if (!drawerOpen || drawerTab !== 'moves') return;
     const at = review === null ? timeline.length - 1 : review;
     const cell = (entry, ply, extra) => {
@@ -2478,7 +2520,17 @@ export function mountPlay(outlet, params) {
       const classes = [extra, entry.captured ? 'took' : '', ply === at ? 'is-at' : '']
         .filter(Boolean).join(' ');
       const took = clockText(entry.ms);
-      return `<span class="ply ${classes}" data-ply="${ply}">${entry.text}`
+      /* The report's verdict on this move, in the notation chess has used for
+         a century and a half: nothing to learn, and no icon to load. Only the
+         moves worth stopping at get one — half of a good player's moves are
+         excellent, and a mark on half a list marks nothing. */
+      const judged = report && report.marks ? report.marks.get(ply) : null;
+      const mark = judged
+        ? `<i class="ply-mark band-${judged.sacrifice ? 'sacrifice' : judged.band}"` +
+          ` title="${t('report.bands.' + (judged.sacrifice ? 'sacrifice' : judged.band))}"` +
+          `>${judged.mark}</i>`
+        : '';
+      return `<span class="ply ${classes}" data-ply="${ply}">${entry.text}${mark}`
         + (took ? `<i class="ply-time">${took}</i>` : '') + '</span>';
     };
     let out = '';
@@ -2865,12 +2917,221 @@ export function mountPlay(outlet, params) {
    * which is also a plainer thing to watch than a spinner.
    */
   /** Whether the curve is on screen, and so worth the work behind it. */
+  /* ── The accuracy report ──────────────────────────────────────────────── */
+
+  /**
+   * Weigh every move against what the engine would have played.
+   *
+   * The worker does the searching and nothing else; the arithmetic is here,
+   * where the whole timeline is in hand. That division is not tidiness: a
+   * sacrifice cannot be seen from the move that makes it, only from the reply
+   * that accepts it, so it needs two plies of hindsight the worker would have
+   * had to be handed anyway.
+   */
+  function weighReport() {
+    const weighed = [[], []];
+    const marks = new Map();
+    for (let ply = 0; ply + 1 < timeline.length; ply++) {
+      const before = evalCache.get(ply);
+      const after = evalCache.get(ply + 1);
+      if (!before || !after) continue;
+      const mover = timeline[ply].turn;
+      /* What the opponent took off me, less what I took off them, across my
+         move and the answer to it. A piece given up on my own move is a piece
+         they capture on theirs, so one ply of hindsight sees nothing. */
+      const reply = timeline[ply + 2] || timeline[ply + 1];
+      const mine = timeline[ply];
+      const taken = (reply.capturedDisks[1 - mover] + reply.capturedRings[1 - mover])
+        - (mine.capturedDisks[1 - mover] + mine.capturedRings[1 - mover]);
+      const got = (reply.capturedDisks[mover] + reply.capturedRings[mover])
+        - (mine.capturedDisks[mover] + mine.capturedRings[mover]);
+      const verdict = weigh({
+        before: before.score,
+        after: after.score,
+        mover,
+        played: timelineMoves[ply] ? moveIntent(timelineMoves[ply]) : null,
+        engineMove: before.move ? moveIntent(before.move) : null,
+        material: (got - taken) * DISK_POINTS,
+      });
+      weighed[mover].push(verdict);
+      const mark = verdict.sacrifice ? '!!' : BAND_MARK[verdict.band];
+      if (mark) marks.set(ply + 1, { mark, band: verdict.band, sacrifice: verdict.sacrifice });
+    }
+    return {
+      marks,
+      black: summarise(weighed[0]),
+      white: summarise(weighed[1]),
+    };
+  }
+
+  /** Hand the line to the worker and let the verdicts come back one by one. */
+  function startReport() {
+    if (!analysable() || timeline.length < 2) return;
+    stopReport();
+    let worker;
+    try {
+      worker = new Worker(new URL('../game/analysisWorker.js', import.meta.url), { type: 'module' });
+    } catch {
+      /* No worker means the search would run on this thread, and at this depth
+         that is a minute of a page that does not answer. Say so rather than
+         deliver the freeze or, worse, quietly analyse less deeply and print a
+         number that does not mean what the same number means elsewhere. */
+      report = { failed: 'unsupported', done: true, seen: 0, plies: 0 };
+      renderReport();
+      return;
+    }
+    const token = Date.now();
+    reporter = worker;
+    report = { token, plies: timeline.length, seen: 0, done: false, failed: null };
+    /* Everything already judged was judged shallower; the report replaces it,
+       and the curve is redrawn from the better numbers as they land. */
+    evalCache.clear();
+    worker.addEventListener('message', (event) => onReportMessage(event.data, token));
+    worker.addEventListener('error', () => {
+      if (!report || report.token !== token) return;
+      report.failed = 'error';
+      report.done = true;
+      renderReport();
+    });
+    worker.postMessage({
+      type: 'analyse', token, depth: REPORT_DEPTH,
+      moves: timelineMoves.map(moveIntent),
+    });
+    renderReport();
+  }
+
+  function onReportMessage(message, token) {
+    if (!message || !report || report.token !== token) return;   // a run we abandoned
+    if (message.type === 'started') report.plies = message.plies;
+    else if (message.type === 'verdict') {
+      evalCache.set(message.ply, {
+        score: message.score, depth: message.depth,
+        decisive: message.decisive, move: message.move,
+      });
+      report.seen++;
+      /* Redrawn on a timer rather than on every verdict: at half a second a
+         position the numbers arrive slowly enough that each one is worth
+         showing, but the whole panel is rebuilt to show it. */
+      if (!reportTimer) reportTimer = setTimeout(() => { reportTimer = 0; refreshReport(); }, 200);
+    } else if (message.type === 'done') {
+      report.done = true;
+      Object.assign(report, weighReport());
+      refreshReport();
+      stopReport(true);              // the numbers stay; the thread does not
+    } else if (message.type === 'failed') {
+      report.failed = message.reason || 'error';
+      report.done = true;
+      refreshReport();
+      stopReport(true);
+    }
+  }
+
+  function refreshReport() {
+    clearTimeout(reportTimer);
+    reportTimer = 0;
+    if (report && !report.failed) Object.assign(report, weighReport());
+    renderReport();
+    renderEvalCurve();
+    renderEvalBar();
+    renderMoveList();
+  }
+
+  /**
+   * The panel above the curve: an offer, a progress bar, or the report.
+   *
+   * One element with three states rather than three elements, and inside the
+   * drawer rather than on the board bar — it belongs with the move list it
+   * marks up and the curve it sharpens, and the bar has no row to spare on a
+   * phone.
+   */
+  function renderReport() {
+    if (!reportEl) return;
+    /* The button is offered for a game the site is keeping. A report that
+       exists is shown whatever it is about, so that the panel does not vanish
+       from under a reader the moment the line it describes changes hands. */
+    const room = isReview() && timeline.length > 1 && drawerOpen && drawerTab === 'moves';
+    const showing = room && (report || analysable());
+    reportEl.hidden = !showing;
+    if (!showing) return;
+
+    if (!report) {
+      reportEl.className = 'report';
+      reportEl.innerHTML = `<button class="btn report-go" data-action="analyse">`
+        + `${t('report.run')}</button>`
+        + `<span class="report-note">${t('report.cost')}</span>`;
+      return;
+    }
+
+    if (report.failed) {
+      reportEl.className = 'report is-failed';
+      reportEl.innerHTML = `<span class="report-note">${t('report.failed')}</span>`
+        + `<button class="btn report-go" data-action="analyse">${t('report.retry')}</button>`;
+      return;
+    }
+
+    if (!report.done) {
+      const share = report.plies ? Math.round((100 * report.seen) / report.plies) : 0;
+      reportEl.className = 'report is-running';
+      reportEl.innerHTML = `
+        <div class="report-bar"><i style="width:${share}%"></i></div>
+        <span class="report-note">${t('report.running', { n: share })}</span>
+        <button class="btn report-go" data-action="analyse-stop">${t('report.stop')}</button>`;
+      return;
+    }
+
+    /* The colour is the alarm, so a count of none does not get one: a column of
+       red zeros points at the thing that did not happen. */
+    const tally = (band, n) =>
+      `<td class="num${n ? ' band-' + band : ' is-none'}">${n}</td>`;
+    const side = (name, who, colour) => `
+      <tr>
+        <th scope="row"><span class="player-dot${colour}"></span>${escapeText(name)}</th>
+        <td class="num strong">${who.accuracy === null ? '—' : who.accuracy + '%'}</td>
+        <td class="num">${who.engineMoves === null ? '—' : who.engineMoves + '%'}</td>
+        ${tally('inaccuracy', who.counts.inaccuracy)}
+        ${tally('mistake', who.counts.mistake)}
+        ${tally('blunder', who.counts.blunder)}
+        ${tally('sacrifice', who.sacrifices)}
+      </tr>`;
+
+    reportEl.className = 'report is-done';
+    reportEl.innerHTML = `
+      <table class="report-table">
+        <thead><tr>
+          <th></th>
+          <th class="num" title="${t('report.accuracyHint')}">${t('report.accuracy')}</th>
+          <th class="num" title="${t('report.engineHint')}">${t('report.engine')}</th>
+          <th class="num" title="${t('report.bands.inaccuracy')}">?!</th>
+          <th class="num" title="${t('report.bands.mistake')}">?</th>
+          <th class="num" title="${t('report.bands.blunder')}">??</th>
+          <th class="num" title="${t('report.bands.sacrifice')}">!!</th>
+        </tr></thead>
+        <tbody>
+          ${side(playerName(BLACK), report.black, '')}
+          ${side(playerName(WHITE), report.white, ' is-white')}
+        </tbody>
+      </table>
+      <span class="report-note">${t('report.depth', { d: REPORT_DEPTH })}</span>`;
+  }
+
+  /** Put the thread down. `keep` leaves the numbers it produced on screen. */
+  function stopReport(keep) {
+    clearTimeout(reportTimer);
+    reportTimer = 0;
+    if (reporter) { reporter.terminate(); reporter = null; }
+    if (!keep) report = null;
+  }
+
   const curveShown = () =>
     isReview() && timeline.length > 1 && drawerOpen && drawerTab === 'moves';
 
   function fillCurve() {
     clearTimeout(curveTimer);
     if (!curveShown()) return;
+    /* The report is filling the same cache from a worker, deeper and for every
+       ply. Judging alongside it would put shallow numbers into the gaps it is
+       about to reach, and spend this thread doing it. */
+    if (report && !report.done) return;
     const missing = [];
     for (let i = 0; i < timeline.length; i++) if (!evalCache.has(i)) missing.push(i);
     if (!missing.length) return;
@@ -3385,6 +3646,8 @@ export function mountPlay(outlet, params) {
       else goToPly(timeline.length - 1);
     } else if (action === 'resume') { stopAutoplay(); openResumeSheet(); }
     else if (action === 'guest-sign-in') { openPanel('account'); }
+    else if (action === 'analyse') startReport();
+    else if (action === 'analyse-stop') { stopReport(); renderReport(); }
     else if (action === 'rev-play') {
       if (isAutoplaying()) { stopAutoplay(); renderReviewBar(); } else startAutoplay();
     }
@@ -3591,7 +3854,8 @@ export function mountPlay(outlet, params) {
     get review() { return review; },
     get timeline() { return timeline; },
     get shown() { return shownState(); },
-    onCell, newGame, commit, refresh, board, goToPly,
+    get report() { return report; },
+    onCell, newGame, commit, refresh, board, goToPly, startReport, stopReport,
     setMode: (m) => { mode = m; aiRunning = false; newGame(); },
   };
 
@@ -3614,6 +3878,8 @@ export function mountPlay(outlet, params) {
     document.removeEventListener('pointerdown', onAnyPointer, true);
     clearTimeout(bubbleTimer);
     clearTimeout(curveTimer);
+    stopReport();               // a worker outlives the page that started it
+
     clearTimeout(resultTimer);
     clearTimeout(drawerSettle);
     cancelAnimationFrame(drawerFollow);

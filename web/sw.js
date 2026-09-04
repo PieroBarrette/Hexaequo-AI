@@ -26,7 +26,6 @@ const SHELL = [
   './src/net.js',
   './src/audio.js',
   './src/update.js',
-  './src/handoff.js',
   './src/locales/en.json',
   './src/locales/fr.json',
   './src/game/hex.js',
@@ -52,6 +51,19 @@ const SHELL = [
   './assets/icons/icon-maskable-512.png',
   './assets/icons/apple-touch-icon.png',
   './apple-touch-icon.png',
+  /* The analysis worker and the arithmetic it feeds. The worker pulls in the
+     game modules above, which are already here. */
+  './src/game/accuracy.js',
+  './src/game/analysisWorker.js',
+  './src/presence.js',
+  './src/settingsSync.js',
+  './src/ui/challenge.js',
+  './src/ui/emoji.js',
+  './src/ui/qr.js',
+  './src/views/lobby.js',
+  './src/views/mailAction.js',
+  './src/views/profile.js',
+  './styles/page.css',
   // Sound is synthesised in audio.js; there is nothing left to download.
 ];
 

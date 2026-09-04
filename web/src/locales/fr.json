@@ -396,6 +396,25 @@
     },
     "playView": "Visionner la partie"
   },
+  "report": {
+    "run": "Analyser la partie",
+    "cost": "Environ une minute",
+    "running": "Analyse… {n} %",
+    "stop": "Arrêter",
+    "failed": "Analyse impossible sur ce navigateur.",
+    "retry": "Réessayer",
+    "accuracy": "Précision",
+    "accuracyHint": "100 % : aucun coup n’a coûté de chances de gain.",
+    "engine": "Moteur",
+    "engineHint": "Coups identiques à celui que le moteur aurait joué.",
+    "depth": "Profondeur {d}",
+    "bands": {
+      "inaccuracy": "Imprécision",
+      "mistake": "Erreur",
+      "blunder": "Gaffe",
+      "sacrifice": "Sacrifice : du matériel donné sans céder la partie"
+    }
+  },
   "chat": {
     "tab": "Clavardage",
     "placeholder": "Écrire un message…",

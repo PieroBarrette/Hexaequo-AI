@@ -396,6 +396,25 @@
     },
     "playView": "Watch the game"
   },
+  "report": {
+    "run": "Analyse this game",
+    "cost": "About a minute",
+    "running": "Analysing… {n}%",
+    "stop": "Stop",
+    "failed": "This browser cannot run the analysis.",
+    "retry": "Try again",
+    "accuracy": "Accuracy",
+    "accuracyHint": "100%: no move gave away any winning chances.",
+    "engine": "Engine",
+    "engineHint": "Moves matching the one the engine would have played.",
+    "depth": "Depth {d}",
+    "bands": {
+      "inaccuracy": "Inaccuracy",
+      "mistake": "Mistake",
+      "blunder": "Blunder",
+      "sacrifice": "Sacrifice: material given up without giving up the game"
+    }
+  },
   "chat": {
     "tab": "Chat",
     "placeholder": "Write a message…",
