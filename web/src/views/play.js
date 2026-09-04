@@ -180,6 +180,22 @@ export function mountPlay(outlet, params) {
       ? net.ready && !net.pending && state.turn === net.colour
       : !isAI(state.turn)));
 
+  /**
+   * Whether a move made now would actually be played.
+   *
+   * The board drew its marks from one rule and the click handler refused from
+   * another, and in a review the two disagreed: every cell the board offered
+   * was refused on the way in, because looking back at a ply — which in a
+   * review is most of the time — was taken for reading rather than analysing.
+   * One rule, asked in both places.
+   *
+   * A finished line only stops where it finished. In a game that is the whole
+   * of it; in a review, standing three moves back, the ending belongs to the
+   * end and there is a position in front of you to play from.
+   */
+  const lineIsOver = () => (exploring ? Boolean(result) && review === null : Boolean(result));
+  const boardIsLive = () => !thinking && !lineIsOver() && (canAct() || canPremove());
+
   /** Whether the player may line a move up while the other side thinks. */
   const canPremove = () => Boolean(
     net && net.ready && !net.pending && !result && review === null
@@ -708,7 +724,9 @@ export function mountPlay(outlet, params) {
     for (const c of next.captured) {
       playSound('capture', steps ? Math.max(0, flight * Math.min(1, c.step / steps) - 80) : 60);
     }
-    if (ending) {
+    /* No fanfare for a line in a review either: the sound announces a result,
+       and a result is something a game has. */
+    if (ending && !exploring) {
       const voice = endingVoice(result);
       if (voice) playSound(voice, 420);
     }
@@ -747,6 +765,12 @@ export function mountPlay(outlet, params) {
   function scheduleAI() {
     if (result || thinking || drag) return;
     if (!isAI(state.turn)) return;
+    /* An engine plays at the end of the line, never into the middle of it.
+       Stepping back in a review to look at a move is not an instruction to
+       play from there — but a move arriving while you are standing there would
+       be, because playing from the middle is what cuts the rest away. So the
+       engines wait while you look, and pick up when you come back to the end. */
+    if (exploring && review !== null) return;
     // Two engines wait to be told to start, in a game or in a branch.
     const duel = exploring ? exploring.play === 'aiai' : mode === MODE_AI_AI;
     if (duel && !aiRunning) return;
@@ -1305,7 +1329,8 @@ export function mountPlay(outlet, params) {
     const reviewing = review !== null;
     const lining = canPremove();
     const player = lining ? net.colour : position.turn;
-    const human = (!result && !thinking && canAct()) || lining;
+    // The same rule the click handler applies, so what is offered is accepted.
+    const human = boardIsLive();
     const dragging = !!(drag && drag.active);
     const idle = human && !chain && !picker && selected === null && !placeMode && !dragging;
     const aid = getSetting('showValidMoves');
@@ -1818,7 +1843,7 @@ export function mountPlay(outlet, params) {
      * board — so it used to arrive on top of its own cause. Wait for the
      * animation to settle, then a beat longer, then say who won.
      */
-    if (result && !resultSeen) {
+    if (result && !resultSeen && !exploring) {
       /* `effect` is the move still waiting to be played. This runs earlier in
          the same refresh than runEffect does, so asking the board how much
          animation is left would always answer none — which is why the card
@@ -1839,7 +1864,17 @@ export function mountPlay(outlet, params) {
       /* Nothing was playing — a resignation, an agreed draw, a flag — so
          there is nothing to watch and no reason to make anyone wait. */
     }
-    overlay.classList.toggle('is-on', !!result && !resultSeen);
+    /*
+     * A review has one ending, and it is the game's.
+     *
+     * Playing a line out to a win inside a review used to put a card over the
+     * board announcing it, which claims a game finished when what finished was
+     * a thought. The line stops — no legal move is offered past a win, and the
+     * engines stop with it — and that is the whole of what has happened. The
+     * only card is the game's own, and the only way back to it is the button
+     * that says so.
+     */
+    overlay.classList.toggle('is-on', !!result && !resultSeen && !exploring);
     if (!result || resultSeen) return;
     overlay.querySelector('.result-title').innerHTML = result.draw
       ? `<span style="color:var(--muted)">${t('result.draw')}</span>`
@@ -2291,6 +2326,8 @@ export function mountPlay(outlet, params) {
        at all on the plies where a tile was laid, so most presses cost nothing
        either way. `animate` is about the move being replayed, not the camera. */
     refresh();
+    // Back at the end of a line an engine was playing: it may carry on.
+    if (exploring && review === null) afterEffect(scheduleAI);
   }
 
   function stepReview(delta) {
@@ -3071,13 +3108,14 @@ export function mountPlay(outlet, params) {
   }
 
   function onCell(cell, pieceChoice) {
-    // Reading back through the game is a view, never a move.
-    if (review !== null || result || thinking || isAI(state.turn)) return;
-    if (!canAct() && !canPremove()) return;
+    if (!boardIsLive()) return;
     /* While lining a move up, the board is read as though it were our turn —
-       the position it will be played into is close enough to choose against. */
-    const player = canPremove() ? net.colour : state.turn;
-    const board = canPremove() ? premoveBoard() : state;
+       the position it will be played into is close enough to choose against.
+       Otherwise it is read against the position on screen, which in a review
+       is the ply being looked at rather than the end of the line — the move is
+       chosen there, and commit cuts the line back to there before playing it. */
+    const board = canPremove() ? premoveBoard() : shownState();
+    const player = canPremove() ? net.colour : board.turn;
     const isMine = (k) => board.pieceAt[k] >= 0 && pieceOwner(board.pieceAt[k]) === player;
     const isFreeOwnTile = (k) => board.tileAt[k] === player && board.pieceAt[k] < 0;
 
@@ -3132,7 +3170,7 @@ export function mountPlay(outlet, params) {
 
   /** Attempt to move the piece on `from` to `to`. Returns true if a move began. */
   function tryMove(from, to, byDrag) {
-    const board = canPremove() ? premoveBoard() : state;
+    const board = canPremove() ? premoveBoard() : shownState();
     const player = board.turn;
     const code = board.pieceAt[from];
     if (pieceType(code) === DISK) {
@@ -3211,10 +3249,9 @@ export function mountPlay(outlet, params) {
   });
 
   function beginDrag() {
-    if (review !== null || result || thinking || isAI(state.turn)) return false;
-    if (!canAct() && !canPremove()) return false;
+    if (!boardIsLive()) return false;
     const cell = drag.cell;
-    const position = canPremove() ? premoveBoard() : state;
+    const position = canPremove() ? premoveBoard() : shownState();
     const player = position.turn;
     let code;
     if (chain) {
