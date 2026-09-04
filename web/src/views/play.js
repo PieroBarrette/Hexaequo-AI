@@ -24,7 +24,7 @@ import {
   findLegalMove,
 } from '../game/moves.js';
 import { chooseMove, judge, DISK_POINTS } from '../game/ai.js';
-import { weigh, summarise, BAND_MARK } from '../game/accuracy.js';
+import { weigh, summarise, markOf } from '../game/accuracy.js';
 import { request, listen, connect } from '../net.js';
 import { api, isSignedIn, onAuthChange, ratingChanged } from '../auth.js';
 import { openPanel } from '../ui/panels.js';
@@ -2486,12 +2486,12 @@ export function mountPlay(outlet, params) {
     const el = reviewBar.querySelector('[data-field="ply"]');
     const entry = at > 0 ? moveLog[at - 1] : null;
     const judged = report && report.marks ? report.marks.get(at) : null;
-    const mark = judged
-      ? ` <i class="ply-mark band-${judged.why ? 'brilliant' : judged.band}">${judged.mark}</i>`
-      : '';
+    const mark = judged && judged.mark
+      ? ` <i class="ply-mark tone-${judged.tone}">${judged.mark}</i>` : '';
     const took = entry ? clockText(entry.ms) : '';
     el.innerHTML = `<b class="ply-at">${at}<i class="ply-of">/${last}</i></b>`
-      + (entry ? `<span class="ply-said">${escapeText(entry.text)}${mark}</span>` : '')
+      + (entry ? `<span class="ply-said${judged && judged.tone ? ' tone-' + judged.tone : ''}">`
+        + `${escapeText(entry.text)}${mark}</span>` : '')
       + (took ? `<i class="ply-time">${took}</i>` : '');
     el.title = entry ? `${t('game.moveList')} — ${entry.text}` : t('game.moveList');
   }
@@ -2594,7 +2594,7 @@ export function mountPlay(outlet, params) {
     const at = review === null ? timeline.length - 1 : review;
     const cell = (entry, ply, extra) => {
       if (!entry) return '<span></span>';
-      const classes = [extra, entry.captured ? 'took' : '', ply === at ? 'is-at' : '']
+      const classes = [extra, ply === at ? 'is-at' : '']
         .filter(Boolean).join(' ');
       const took = clockText(entry.ms);
       /* The report's verdict on this move, in the notation chess has used for
@@ -2602,12 +2602,12 @@ export function mountPlay(outlet, params) {
          moves worth stopping at get one — half of a good player's moves are
          excellent, and a mark on half a list marks nothing. */
       const judged = report && report.marks ? report.marks.get(ply) : null;
-      const mark = judged
-        ? `<i class="ply-mark band-${judged.why ? 'brilliant' : judged.band}"` +
-          ` title="${t('report.why.' + (judged.why || judged.band))}"` +
-          `>${judged.mark}</i>`
-        : '';
-      return `<span class="ply ${classes}" data-ply="${ply}">${entry.text}${mark}`
+      const mark = judged && judged.mark
+        ? `<i class="ply-mark">${judged.mark}</i>` : '';
+      const tone = judged && judged.tone ? ' tone-' + judged.tone : '';
+      const why = judged && judged.tone
+        ? ` title="${t('report.why.' + (judged.why || judged.tone))}"` : '';
+      return `<span class="ply ${classes}${tone}" data-ply="${ply}"${why}>${entry.text}${mark}`
         + (took ? `<i class="ply-time">${took}</i>` : '') + '</span>';
     };
     let out = '';
@@ -3055,8 +3055,10 @@ export function mountPlay(outlet, params) {
         material: (got - taken) * DISK_POINTS,
       });
       weighed[mover].push(verdict);
-      const mark = verdict.brilliant ? '!!' : BAND_MARK[verdict.band];
-      if (mark) marks.set(ply + 1, { mark, band: verdict.band, why: verdict.why });
+      const { mark, tone } = markOf(verdict);
+      /* Recorded whenever there is anything to say — a symbol, a colour, or
+         both. A move with neither is simply absent, and reads as ordinary. */
+      if (mark || tone) marks.set(ply + 1, { mark, tone, why: verdict.why });
     }
     return {
       marks,
@@ -3185,14 +3187,16 @@ export function mountPlay(outlet, params) {
      * not mentioned: the marks are already beside the moves that earned them,
      * which is where they say something.
      */
+    /* Best first: what you did well, then what you did not. */
     const marks = (who) => [
+      ['brilliant', '!!', who.brilliancies],
+      ['found', '!', who.found],
       ['inaccuracy', '?!', who.counts.inaccuracy],
       ['mistake', '?', who.counts.mistake],
       ['blunder', '??', who.counts.blunder],
-      ['brilliant', '!!', who.brilliancies],
-    ].filter((band) => band[2] > 0)
-      .map(([band, glyph, n]) =>
-        `<i class="band-${band}" title="${t('report.bands.' + band)}">${glyph}${n}</i>`)
+    ].filter((tone) => tone[2] > 0)
+      .map(([tone, glyph, n]) =>
+        `<i class="tone-${tone}" title="${t('report.why.' + tone)}">${glyph}${n}</i>`)
       .join('');
 
     const pct = (v) => (v === null ? '—' : v + '%');

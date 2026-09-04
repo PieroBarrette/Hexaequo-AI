@@ -63,10 +63,27 @@
   --bg-lift: color-mix(in srgb, var(--bg) 97%, #fff);
   --board-lift: color-mix(in srgb, var(--board-bg) 96%, #fff);
   --board-sink: color-mix(in srgb, var(--board-bg) 97%, #000);
+
+  /*
+   * The five things a review can say about a move.
+   *
+   * Written into each palette rather than derived, because these have to carry
+   * meaning at a glance and a derived hue drifts with the ground it sits on.
+   * Grey for an inaccuracy, orange for a mistake, red for a blunder — the
+   * danger colour, which is the one the app already uses for going wrong — and
+   * on the good side a pale blue for a move worth calling brilliant and a
+   * green for one that took finding. A move with nothing to say about it is
+   * written in --text, which is the whole point of leaving it unmarked.
+   */
+  --mark-inaccuracy: var(--muted);
+  --mark-blunder: var(--danger);
 }
 
 /* ── Modern · dark — brushed metal on graphite ───────────────────────────── */
 :root[data-theme="dark"][data-board-style="modern"] {
+  --mark-mistake: #e8934a;
+  --mark-brilliant: #7fc4e8;
+  --mark-found: #6dc48a;
   --last-move-fill: color-mix(in srgb, var(--accent) 9%, transparent);
   --last-move-edge: color-mix(in srgb, var(--accent) 62%, transparent);
   --line-strong: #404859;
@@ -99,6 +116,9 @@
 
 /* ── Modern · light — pale stone ─────────────────────────────────────────── */
 :root[data-theme="light"][data-board-style="modern"] {
+  --mark-mistake: #9c4e06;
+  --mark-brilliant: #1a6289;
+  --mark-found: #1b6d3d;
   --last-move-fill: color-mix(in srgb, var(--accent) 12%, transparent);
   --last-move-edge: color-mix(in srgb, var(--accent) 78%, transparent);
   --line-strong: #9aa3b4;
@@ -131,6 +151,9 @@
 
 /* ── Classic · dark — walnut and oak by lamplight ────────────────────────── */
 :root[data-theme="dark"][data-board-style="classic"] {
+  --mark-mistake: #e0954e;
+  --mark-brilliant: #79bcd8;
+  --mark-found: #7cbf8a;
   --last-move-fill: color-mix(in srgb, var(--accent) 9%, transparent);
   --last-move-edge: color-mix(in srgb, var(--accent) 62%, transparent);
   --line-strong: #5c452c;
@@ -163,6 +186,9 @@
 
 /* ── Classic · light — maple table in daylight ───────────────────────────── */
 :root[data-theme="light"][data-board-style="classic"] {
+  --mark-mistake: #9c4e06;
+  --mark-brilliant: #1a6289;
+  --mark-found: #1b6d3d;
   --last-move-fill: color-mix(in srgb, var(--accent) 13%, transparent);
   --last-move-edge: color-mix(in srgb, var(--accent) 78%, transparent);
   --line-strong: #a68a5c;

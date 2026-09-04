@@ -75,9 +75,10 @@ export const BANDS = [
 ];
 
 /* The marks a reader already knows. Chess has written `?!`, `?` and `??` for a
-   century and a half; borrowing them costs no icons, no colour and no legend.
-   The two good bands are left unmarked on purpose — half of a strong player's
-   moves are in them, and a mark on half the list is not a mark. */
+   century and a half; borrowing them costs no icons and no legend. The two
+   good bands are left unmarked on purpose — half of a strong player's moves
+   are in them, and a mark on half the list is not a mark. What earns a mark on
+   the good side is not the band but the work: see `found` below. */
 export const BAND_MARK = {
   best: '', good: '', inaccuracy: '?!', mistake: '?', blunder: '??',
 };
@@ -162,17 +163,40 @@ export function weigh({ before, after, mover, played, engineMove, material, sett
   const sacrifice = Boolean(calculated && material !== undefined && material <= -SACRIFICE_POINTS);
   const haul = Boolean(calculated && material !== undefined && material >= BIG_GAIN);
   const brilliant = sacrifice || haul;
+  /* The same depth gate without the drama. These are the moves left over when
+     the material test was added — the ones that took real calculation and then
+     quietly worked, which is worth saying even though nothing visible
+     happened. About four a game against one for a `!!`, and they separate the
+     levels the same way: a beginner earns one in sixty moves, a strong player
+     one in seven. Marking every move the engine agreed with would have marked
+     thirty-eight a game, and eighty-five per cent of a strong player's. */
+  const found = Boolean(calculated && !brilliant);
 
   return {
     loss,
     band,
     matched,
     brilliant,
+    found,
     /* Which of the three it was. The same mark means a different thing each
        time, and a player learns more from being told which. */
     why: sacrifice ? 'sacrifice' : (haul ? 'haul' : null),
     accuracy: moveAccuracy(loss),
   };
+}
+
+/**
+ * The mark a weighed move carries, and the name of the tone it is written in.
+ *
+ * One decision in one place, because two things read it now: the tally above
+ * the list, and every move in the list — which is coloured by what it was
+ * worth rather than by whether it captured, since the ×1 already says that.
+ */
+export function markOf(move) {
+  if (move.brilliant) return { mark: '!!', tone: 'brilliant' };
+  if (move.found) return { mark: '!', tone: 'found' };
+  const mark = BAND_MARK[move.band];
+  return { mark, tone: mark ? move.band : null };
 }
 
 /** Every move one player made, as the line a review prints above the list. */
@@ -181,17 +205,20 @@ export function summarise(weighed) {
   let accuracy = 0;
   let matched = 0;
   let brilliancies = 0;
+  let found = 0;
   for (const move of weighed) {
     counts[move.band]++;
     accuracy += move.accuracy;
     if (move.matched) matched++;
     if (move.brilliant) brilliancies++;
+    if (move.found) found++;
   }
   const n = weighed.length;
   return {
     moves: n,
     counts,
     brilliancies,
+    found,
     accuracy: n ? Math.round(accuracy / n) : null,
     /* Against roughly eighteen legal moves at every point of the game, picking
        the engine's own by accident is a one-in-eighteen event -- so this is a

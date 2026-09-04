@@ -683,14 +683,20 @@ select.btn option {
   .report-ctl .report-go { padding: 3px 7px; font-size: 11px; }
 }
 
-/* Three marks and one honour, in the colours the rest of the app already uses
-   for the same feelings: a mistake is the danger colour pulled halfway back
-   towards the quiet one, a blunder is the danger colour itself, and the one
-   good mark takes the accent. Used in the tally and beside the moves alike. */
-.band-inaccuracy { color: var(--muted); }
-.band-mistake { color: color-mix(in srgb, var(--danger) 72%, var(--muted)); }
-.band-blunder { color: var(--danger); font-weight: 600; }
-.band-brilliant { color: var(--accent); font-weight: 600; }
+/*
+ * What a move was worth, in colour.
+ *
+ * The tones are palette tokens so each theme gets its own reading of them; see
+ * tokens.css. Used three times over — on the symbol, on the tally above the
+ * list, and on the move itself — because a colour that means one thing in one
+ * place and nothing in another is a colour nobody learns.
+ */
+.tone-inaccuracy { color: var(--mark-inaccuracy); }
+.tone-mistake { color: var(--mark-mistake); }
+.tone-blunder { color: var(--mark-blunder); }
+.tone-found { color: var(--mark-found); }
+.tone-brilliant { color: var(--mark-brilliant); }
+.tone-blunder, .tone-brilliant, .tone-found { font-weight: 600; }
 .move-list .ply-mark { font-style: normal; margin-left: 2px; font-weight: 700; }
 
 /* The same picture laid on its side: the whole game rather than one position.
@@ -811,11 +817,20 @@ select.btn option {
   font-style: normal; font-size: 10px; color: var(--muted);
   margin-left: 5px; font-weight: 400;
 }
-.move-list .took { color: var(--danger); }
+/* A move with nothing said about it is written in the reading colour, which is
+   what leaving it unmarked is for. Captures used to be red; the ×1 says it
+   already, and the red is wanted for something that is actually a warning.
+
+   On the list rather than on each move, so the moves inherit it: an inherited
+   value loses to any rule that matches the element itself, which is how a
+   single `.tone-*` class beats it without having to be written out again for
+   every place a tone is used. Set on `.ply` directly it outweighed them --
+   two classes against one -- and every move came out the same colour. */
+.move-list { color: var(--text); }
 /* Every half-move is a way into the review. */
 .move-list .ply { cursor: pointer; border-radius: 3px; padding: 0 3px; margin: 0 -3px; }
 .move-list .ply:hover { background: var(--surface-2); }
-.move-list .ply.is-at { background: var(--accent-soft); color: var(--text); font-weight: 600; }
+.move-list .ply.is-at { background: var(--accent-soft); font-weight: 600; }
 
 /* Chat lives in the same drawer, one tab over. */
 .drawer-tab { position: relative; }
