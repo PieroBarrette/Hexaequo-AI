@@ -2036,6 +2036,7 @@ export function mountPlay(outlet, params) {
     // Whatever was on the clock belonged to the game, not to the branch.
     turnAt = Date.now();
     const at = reviewPly();
+    const fresh = !exploring;
     if (exploring) {
       // Branching again from inside a branch. The game underneath is already
       // held; only the branch is being cut back, so the original stays put.
@@ -2052,6 +2053,12 @@ export function mountPlay(outlet, params) {
     }
     cutBackTo(at);
     refresh();
+    /* And ask who is playing it, straight away. Branching is the question
+       "what if", and the first thing that decides is who answers it — so it is
+       asked at the door rather than left behind a button somebody has to
+       notice. Only on the way in: re-branching from inside a branch keeps the
+       arrangement it already has. */
+    if (fresh) openResumeSheet();
   }
 
   /**
@@ -3328,6 +3335,16 @@ export function mountPlay(outlet, params) {
       && !(event.target.closest && event.target.closest('.bar-menu'))) {
       setToolsOpen(false);
     }
+    /* The sheet asking who plays a branch goes the same way. Its own way out
+       is a small "cancel" in a corner, and on a narrow screen the panel can be
+       over that corner — so a press anywhere else has to work, which is what
+       anyone would try first anyway. The button that opens it is excluded, or
+       the press that opens it would close it again. */
+    if (!resumeEl.hidden && !resumeEl.contains(event.target)
+      && !(event.target.closest && event.target.closest('[data-action="resume"]'))) {
+      closeResumeSheet();
+      return;                  // one thing closes per press, the nearest first
+    }
     /* And the same for the panel below, which on a phone is the larger claim
        on the screen of the two. Not while a piece is in hand: the press that
        began the drag is not a press beside anything. */
@@ -3357,7 +3374,8 @@ export function mountPlay(outlet, params) {
       if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
     }
     if (event.key === 'Escape') {
-      // The folded menu is the shallowest thing open, so it closes first.
+      // The shallowest thing open closes first, and nothing deeper moves.
+      if (!resumeEl.hidden) { closeResumeSheet(); return; }
       if (toolsOpen()) { setToolsOpen(false); return; }
       /* Inside a branch, escape leaves the branch. Stepping back within one
          is undone first, so the key walks out the way it came in rather than

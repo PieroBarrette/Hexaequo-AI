@@ -90,26 +90,22 @@ exports.updateUser = async (userId, updates) => {
 /**
  * Get user settings
  */
+/**
+ * What this account has saved, and nothing else.
+ *
+ * It used to merge in a set of defaults invented here, in an older vocabulary
+ * than the one the app actually uses — a theme of "dark" where the app's
+ * default is "auto", a showCoordinates of true where the app's is "auto". Sent
+ * to a client that owns its own defaults, those are not defaults at all: they
+ * are somebody else's answers arriving as though the player had given them. An
+ * account that has saved nothing has saved nothing.
+ */
 exports.getUserSettings = async (userId) => {
     const user = await User.findById(userId);
     if (!user) {
         throw notFound('User');
     }
-
-    // Return default settings merged with user settings
-    const defaultSettings = {
-        theme: 'dark',
-        sounds: true,
-        animations: true,
-        autoSubmitMove: false,
-        showCoordinates: true,
-        highlightMoves: true
-    };
-
-    return {
-        ...defaultSettings,
-        ...(user.settings || {})
-    };
+    return user.settings || {};
 };
 
 /**

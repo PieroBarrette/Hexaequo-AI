@@ -15,7 +15,11 @@
 import { DEFAULTS, getSettings, set } from './settings.js';
 import { api, isSignedIn, onAuthChange, currentUser } from './auth.js';
 
-const KEYS = Object.keys(DEFAULTS);
+/* Everything the app owns, minus its own bookkeeping. aiLevelsVersion records
+   whether *this* copy has applied a one-off shift to a stored level; it is a
+   note about a migration, not a preference, and carrying it between machines
+   would let one device tell another that a migration it never ran is done. */
+const KEYS = Object.keys(DEFAULTS).filter((name) => name !== 'aiLevelsVersion');
 const WRITE_DELAY_MS = 600;
 
 /* Set while the account's own values are being applied, so writing them into
