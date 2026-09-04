@@ -217,6 +217,85 @@ async function run() {
         assert.strictEqual(outcome.error, 'GAME_OVER');
     });
 
+    /* -- The mark on the last move ------------------------------------- */
+
+    await test('every ending is marked, or deliberately not', async () => {
+        /* The rule in one place: what the board decided is written down, and
+           what the players decided between themselves is not. A resignation
+           is not a checkmate, and the move before it was an ordinary move. */
+        const marks = {
+            disks: '#', rings: '#', cleared: '#',
+            noMoves: '=', repetition: '=',
+            resigned: '', timeout: '', abandoned: '', agreed: '',
+        };
+        for (const [reason, mark] of Object.entries(marks)) {
+            assert.strictEqual(moves.endingMark({ winner: 0, reason }), mark,
+                reason + ' should end in "' + mark + '"');
+        }
+        assert.strictEqual(moves.endingMark(null), '', 'an unfinished game is unmarked');
+        assert.strictEqual(moves.endingMark({ winner: null }), '', 'and so is a result with no reason');
+    });
+
+    await test('a finished game carries its mark on the move that finished it, and nowhere else', async () => {
+        /* Played out for real rather than posed, because what is being tested
+           is that the server writes the mark at the moment it sees the ending
+           -- and that no earlier move picks one up along the way. */
+        let snapshot = await engine.createGame();
+        let turn = engine.BLACK;
+        const notations = [];
+        let result = null;
+        for (let ply = 0; ply < 400 && !result; ply++) {
+            const position = state.deserializeState(snapshot);
+            const legal = moves.generateMoves(position);
+            if (!legal.length) break;
+            const move = legal[Math.floor(Math.random() * legal.length)];
+            const outcome = await engine.applyIntent(snapshot, moves.moveIntent(move), turn);
+            assert.ok(outcome.ok, 'ply ' + ply + ': ' + outcome.error);
+            notations.push(outcome.notation);
+            snapshot = outcome.state;
+            turn = 1 - turn;
+            result = outcome.result;
+        }
+        assert.ok(result, 'a random game should reach an ending inside 400 plies');
+        const marked = notations.filter((text) => /[#=]$/.test(text));
+        assert.strictEqual(marked.length, 1, 'one mark in the game, got ' + marked.join(' '));
+        assert.strictEqual(marked[0], notations[notations.length - 1],
+            'and it belongs to the move that ended it');
+        assert.ok(marked[0].endsWith(moves.endingMark(result)),
+            result.reason + ' should end in "' + moves.endingMark(result) + '", got ' + marked[0]);
+    });
+
+    await test('a move that leaves the opponent nowhere to go ends in =', async () => {
+        /* Rare enough in play that waiting for one would not be a test, so a
+           real one is kept here: found by playing random games until a move
+           came along that left the other player with nothing legal at all.
+
+           It is the position, not the material, that ends it. Black still has
+           a piece on the board after this move -- so nobody has been cleared,
+           nobody has won, and the mark is a = rather than a #. */
+        const before = {
+            v: 1,
+            tiles: [2080, 0, 2144, 0, 2017, 1, 2081, 1, 2018, 0, 2082, 0, 2143, 1, 2016, 0,
+                1954, 1, 2145, 0, 1955, 0, 2079, 1, 2208, 1, 2142, 0, 2146, 1, 2015, 0,
+                2207, 1, 2271, 1],
+            pieces: [2080, 0, 2018, 2, 2016, 2, 1954, 3, 1955, 0, 2079, 2, 2142, 3, 2146, 2,
+                2015, 2, 2271, 2],
+            turn: engine.WHITE,
+            capturedDisks: [0, 4],
+            capturedRings: [1, 1],
+        };
+        const outcome = await engine.applyIntent(before, { type: 'disk', path: [2079, 2081] }, engine.WHITE);
+        assert.ok(outcome.ok, 'the move itself is legal: ' + outcome.error);
+        assert.ok(outcome.result, 'and it ends the game');
+        assert.strictEqual(outcome.result.reason, 'noMoves');
+        assert.strictEqual(outcome.result.winner, null, 'nobody won it');
+
+        const after = state.deserializeState(outcome.state);
+        assert.ok(after.piecesOnBoard[engine.BLACK] > 0, 'Black was blocked, not cleared');
+        assert.ok(outcome.notation.endsWith('='), 'got ' + outcome.notation);
+        assert.ok(!outcome.notation.includes('#'), 'and no # anywhere in it');
+    });
+
     console.log(`\n${passed} passed, ${failed} failed\n`);
     process.exit(failed ? 1 : 0);
 }

@@ -805,11 +805,19 @@ function attachOnlineGames(io) {
                 } catch { /* a signature failure must not void a legal move */ }
             }
 
+            /* The move that brought a position back for the third time is the
+               move that drew the game, so it is the one that carries the mark.
+               The engine could not have written it: the ledger of positions
+               belongs to the room, not to the rules. */
+            if (result && result.reason === 'repetition') {
+                room.notations[room.notations.length - 1] += '=';
+            }
+
             const broadcast = {
                 code,
                 state: room.state,
                 move: outcome.move,
-                notation: outcome.notation,
+                notation: room.notations[room.notations.length - 1],
                 captures: outcome.captures,
                 by: seat,
                 ply: room.moves.length,

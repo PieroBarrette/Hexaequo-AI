@@ -265,6 +265,60 @@ async function run() {
         b.disconnect();
     });
 
+    await test('the same position a third time is a draw, and the move is marked', async () => {
+        /* Nine plies: Black lays a tile, then the two discs walk back and
+           forth until the position after White's fourth step has stood three
+           times. The shortest such line from the opening, found by search.
+
+           The rule is counted here and nowhere else -- neither client can
+           claim a draw the server has not seen -- which is also why the mark
+           is written here: the rules module is handed one position at a time
+           and cannot know it has seen this one before. */
+        const line = [
+            { type: 'tile', cell: 2016 },
+            { type: 'disk', path: [2017, 2081] },
+            { type: 'disk', path: [2144, 2080] },
+            { type: 'disk', path: [2081, 2017] },
+            { type: 'disk', path: [2080, 2144] },
+            { type: 'disk', path: [2017, 2081] },
+            { type: 'disk', path: [2144, 2080] },
+            { type: 'disk', path: [2081, 2017] },
+            { type: 'disk', path: [2080, 2144] },
+        ];
+        const a = await open();
+        const b = await open();
+        const created = await ask(a, 'hx:create', {});
+        const room = created.code;
+        await ask(b, 'hx:join', { code: room });
+
+        const seats = [a, b];
+        let last = null;
+        for (let i = 0; i < line.length; i++) {
+            await new Promise((r) => setTimeout(r, MIN_WAIT));
+            const response = await ask(seats[i % 2], 'hx:move', { code: room, intent: line[i] });
+            assert.ok(response.ok, `ply ${i + 1}: ${response.error}`);
+            if (i < line.length - 1) {
+                assert.strictEqual(response.result, null, `ply ${i + 1} does not end it`);
+                assert.ok(!/[#=]$/.test(response.notation), `ply ${i + 1} is unmarked: ${response.notation}`);
+            }
+            last = response;
+        }
+
+        assert.ok(last.result, 'the ninth ply repeats the position for the third time');
+        assert.strictEqual(last.result.reason, 'repetition');
+        assert.strictEqual(last.result.winner, null, 'level, so nobody won');
+        assert.ok(last.notation.endsWith('='), `got ${last.notation}`);
+
+        /* And the room keeps the marked one, so a viewer joining later and a
+           game written to the database read the same move list as the players. */
+        const view = await ask(a, 'hx:sync', { code: room });
+        assert.strictEqual(view.notations[view.notations.length - 1], last.notation);
+        assert.strictEqual(view.notations.filter((text) => /[#=]$/.test(text)).length, 1,
+            'one mark in the game');
+        a.disconnect();
+        b.disconnect();
+    });
+
     await test('resigning ends the game for both sides', async () => {
         const a = await open();
         const b = await open();

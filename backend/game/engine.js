@@ -96,7 +96,7 @@ async function applyIntent(snapshot, intent, player) {
         ok: true,
         state: state.serializeState(position),
         move: moves.moveIntent(move),
-        notation: moves.moveNotation(move, hex.cellLabel),
+        notation: moves.moveNotation(move, hex.cellLabel) + moves.endingMark(result),
         captures: (move.type === 'disk' ? move.captures : (move.capture ? [move.capture] : []))
             .map((c) => ({ cell: c.cell, code: c.code })),
         result,

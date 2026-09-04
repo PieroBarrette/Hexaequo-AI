@@ -20,7 +20,7 @@ import {
   deserializeState,
 } from '../game/state.js';
 import {
-  generateMoves, generateDiskMoves, availableJumps, checkWinner, moveNotation, moveIntent,
+  generateMoves, generateDiskMoves, availableJumps, checkWinner, moveNotation, moveIntent, endingMark,
   findLegalMove,
 } from '../game/moves.js';
 import { chooseMove, judge, DISK_POINTS } from '../game/ai.js';
@@ -677,7 +677,8 @@ export function mountPlay(outlet, params) {
 
     applyMove(state, move);
     lastMove = move;
-    moveLog.push({ player, text: notation, captured: allCaptures.length > 0, ms: spent() });
+    const entry = { player, text: notation, captured: allCaptures.length > 0, ms: spent() };
+    moveLog.push(entry);
     recordPly(move);
 
     const won = checkWinner(state);
@@ -689,6 +690,11 @@ export function mountPlay(outlet, params) {
         result = { draw: true, reason: 'noMoves', colour: state.turn };
       }
     }
+    /* Written now rather than with the notation: a move only earns its mark
+       from the position it reaches, which is not known until it is played.
+       Nothing was standing before this move — a finished line refuses one —
+       so whatever `result` holds is what this move just did. */
+    entry.text += endingMark(result);
 
     selected = null;
     chain = null;

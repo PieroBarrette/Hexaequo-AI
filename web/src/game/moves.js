@@ -169,6 +169,26 @@ export function checkWinner(s) {
   return null;
 }
 
+/**
+ * The mark a move leaves when the position it reaches ends the game.
+ *
+ * Only the board's own endings get one: the three ways to win are a `#`, and
+ * the two ways to be level — nowhere left to go, or the same position for a
+ * third time — are a `=`. Resigning, running out of time, walking away and
+ * agreeing a draw end the *game* rather than the position, and the move played
+ * before any of them was an ordinary move that deserves no mark.
+ *
+ * Repetition is the one ending this file cannot see for itself: it is a fact
+ * about a history, not about a position, so it is the caller keeping that
+ * ledger who passes it in.
+ */
+export function endingMark(result) {
+  if (!result || !result.reason) return '';
+  if (result.reason === 'disks' || result.reason === 'rings' || result.reason === 'cleared') return '#';
+  if (result.reason === 'noMoves' || result.reason === 'repetition') return '=';
+  return '';
+}
+
 /* ── Move intents ───────────────────────────────────────────────────────── */
 
 /*
