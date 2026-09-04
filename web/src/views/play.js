@@ -283,9 +283,18 @@ export function mountPlay(outlet, params) {
           <div class="drawer-tabs">
             <button class="drawer-tab is-active" data-tab="moves">${t('game.moveList')}</button>
             <button class="drawer-tab" data-tab="chat">${t('chat.tab')}<i class="tab-dot"></i></button>
+            <!-- Asking for the report is a control, so it lives on the row of
+                 controls. Beside the curve it stole the width the curve needs
+                 to be a shape at all. -->
+            <div class="report-ctl"></div>
           </div>
-          <div class="report" hidden></div>
-          <div class="eval-curve" hidden></div>
+          <!-- The two summaries of a game, side by side above the moves they
+               summarise. Stacked, they left the list a single row -- which is
+               the half anyone opened the panel for. -->
+          <div class="drawer-top">
+            <div class="report" hidden></div>
+            <div class="eval-curve" hidden></div>
+          </div>
           <div class="drawer-body">
             <div class="move-list"></div>
             <div class="chat-pane">
@@ -374,6 +383,7 @@ export function mountPlay(outlet, params) {
      game against the computer costs the site nothing and is just as worth
      reading back as a rated one. */
   const reportEl = outlet.querySelector('.report');
+  const reportCtl = outlet.querySelector('.report-ctl');
   const curveEl = outlet.querySelector('.eval-curve');
   let curveTimer = 0;
   const bubbleEl = outlet.querySelector('.chat-bubble');
@@ -381,6 +391,7 @@ export function mountPlay(outlet, params) {
   const overlay = outlet.querySelector('.result-overlay');
   const drawer = outlet.querySelector('.drawer');
   const moveListEl = outlet.querySelector('.move-list');
+
   const reviewBar = outlet.querySelector('.review-bar');
   const chatPane = outlet.querySelector('.chat-pane');
   const chatLogEl = outlet.querySelector('.chat-log');
@@ -3044,66 +3055,76 @@ export function mountPlay(outlet, params) {
    * phone.
    */
   function renderReport() {
-    if (!reportEl) return;
-    const showing = isReview() && timeline.length > 1 && drawerOpen && drawerTab === 'moves';
+    if (!reportEl || !reportCtl) return;
+    const room = isReview() && timeline.length > 1 && drawerOpen && drawerTab === 'moves';
+
+    /* The control: ask for it, watch it, or nothing once it is done — the
+       table below says everything there is to say from then on. */
+    let ctl = '';
+    if (room) {
+      if (!report) {
+        ctl = `<button class="btn report-go" data-action="analyse">${t('report.run')}</button>`;
+      } else if (report.failed) {
+        ctl = `<span class="report-note">${t('report.failed')}</span>`
+          + `<button class="btn report-go" data-action="analyse">${t('report.retry')}</button>`;
+      } else if (!report.done) {
+        const share = report.plies ? Math.round((100 * report.seen) / report.plies) : 0;
+        ctl = `<span class="report-bar"><i style="width:${share}%"></i></span>`
+          + `<span class="report-note">${t('report.running', { n: share })}</span>`
+          + `<button class="btn report-go" data-action="analyse-stop">${t('report.stop')}</button>`;
+      }
+    }
+    reportCtl.innerHTML = ctl;
+    reportCtl.hidden = !ctl;
+
+    /* The panel: only ever the finished numbers, beside the curve. */
+    const showing = room && report && report.done && !report.failed;
     reportEl.hidden = !showing;
     if (!showing) return;
 
-    if (!report) {
-      reportEl.className = 'report';
-      reportEl.innerHTML = `<button class="btn report-go" data-action="analyse">`
-        + `${t('report.run')}</button>`
-        + `<span class="report-note">${t('report.cost')}</span>`;
-      return;
-    }
+    /*
+     * Three rows and a note. The first version gave every band its own column,
+     * which meant a column of zeros for anyone who played a clean game and a
+     * panel deep enough to push the move list down to a single row — in a
+     * drawer 200 pixels tall, the report was eating the thing it was written
+     * about. The bands are a tally in one cell now, and a band nobody hit is
+     * not mentioned: the marks are already beside the moves that earned them,
+     * which is where they say something.
+     */
+    const marks = (who) => [
+      ['inaccuracy', '?!', who.counts.inaccuracy],
+      ['mistake', '?', who.counts.mistake],
+      ['blunder', '??', who.counts.blunder],
+      ['sacrifice', '!!', who.sacrifices],
+    ].filter((band) => band[2] > 0)
+      .map(([band, glyph, n]) =>
+        `<i class="band-${band}" title="${t('report.bands.' + band)}">${glyph}${n}</i>`)
+      .join('');
 
-    if (report.failed) {
-      reportEl.className = 'report is-failed';
-      reportEl.innerHTML = `<span class="report-note">${t('report.failed')}</span>`
-        + `<button class="btn report-go" data-action="analyse">${t('report.retry')}</button>`;
-      return;
-    }
-
-    if (!report.done) {
-      const share = report.plies ? Math.round((100 * report.seen) / report.plies) : 0;
-      reportEl.className = 'report is-running';
-      reportEl.innerHTML = `
-        <div class="report-bar"><i style="width:${share}%"></i></div>
-        <span class="report-note">${t('report.running', { n: share })}</span>
-        <button class="btn report-go" data-action="analyse-stop">${t('report.stop')}</button>`;
-      return;
-    }
-
-    /* The colour is the alarm, so a count of none does not get one: a column of
-       red zeros points at the thing that did not happen. */
-    const tally = (band, n) =>
-      `<td class="num${n ? ' band-' + band : ' is-none'}">${n}</td>`;
-    const side = (name, who, colour) => `
+    const pct = (v) => (v === null ? '—' : v + '%');
+    const row = (name, who, white) => `
       <tr>
-        <th scope="row"><span class="player-dot${colour}"></span>${escapeText(name)}</th>
-        <td class="num strong">${who.accuracy === null ? '—' : who.accuracy + '%'}</td>
-        <td class="num">${who.engineMoves === null ? '—' : who.engineMoves + '%'}</td>
-        ${tally('inaccuracy', who.counts.inaccuracy)}
-        ${tally('mistake', who.counts.mistake)}
-        ${tally('blunder', who.counts.blunder)}
-        ${tally('sacrifice', who.sacrifices)}
+        <th scope="row"><span class="player-dot${white}"></span>${escapeText(name)}</th>
+        <td class="num strong">${pct(who.accuracy)}</td>
+        <td class="num">${pct(who.engineMoves)}</td>
+        <td class="report-marks">${marks(who)}</td>
       </tr>`;
 
-    reportEl.className = 'report is-done';
+    reportEl.className = 'report';
+    /* On the panel as well as in the note, because the note is the first thing
+       to go when a phone has no row to spare for it. */
+    reportEl.title = t('report.depth', { d: REPORT_DEPTH });
     reportEl.innerHTML = `
       <table class="report-table">
         <thead><tr>
           <th></th>
           <th class="num" title="${t('report.accuracyHint')}">${t('report.accuracy')}</th>
           <th class="num" title="${t('report.engineHint')}">${t('report.engine')}</th>
-          <th class="num" title="${t('report.bands.inaccuracy')}">?!</th>
-          <th class="num" title="${t('report.bands.mistake')}">?</th>
-          <th class="num" title="${t('report.bands.blunder')}">??</th>
-          <th class="num" title="${t('report.bands.sacrifice')}">!!</th>
+          <th></th>
         </tr></thead>
         <tbody>
-          ${side(playerName(BLACK), report.black, '')}
-          ${side(playerName(WHITE), report.white, ' is-white')}
+          ${row(playerName(BLACK), report.black, '')}
+          ${row(playerName(WHITE), report.white, ' is-white')}
         </tbody>
       </table>
       <span class="report-note">${t('report.depth', { d: REPORT_DEPTH })}</span>`;

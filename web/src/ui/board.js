@@ -328,8 +328,16 @@ export function createBoard(container) {
      * A wash inside the outline as well as the outline itself: a thin line at
      * half opacity was nearly invisible against a pale tile, and knowing what
      * the opponent just did is the one thing you always want to see.
+     *
+     * Not on a cell something is still crossing to. The trace is drawn at the
+     * full width of a tile, so on the bare board where a tile is about to land
+     * it *is* a tile as far as the eye is concerned: laying one showed a
+     * hexagon at the destination the instant the move was made, while the tile
+     * itself was still halfway there. The move has not happened at that cell
+     * until the thing making it arrives.
      */
     for (const k of v.lastMoveCells) {
+      if (arriving && k === arriving.cell) continue;
       out += `<path d="${hexPath(cx(k), cy(k), SIZE * .94)}"`
         + ` fill="var(--last-move-fill)" stroke="var(--last-move-edge)"`
         + ` stroke-width="2" pointer-events="none"/>`;

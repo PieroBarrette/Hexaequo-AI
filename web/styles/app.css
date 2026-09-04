@@ -586,47 +586,81 @@ select.btn option {
  * is a row of board.
  */
 .report {
-  flex: none; margin: 10px 12px 0; padding: 8px 10px;
+  flex: none; padding: 4px 8px; margin: 10px 0 0 12px;
   border: 1px solid var(--line); border-radius: var(--radius-sm);
-  background: var(--surface);
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: var(--surface-2);
 }
+/* Last, and on purpose: `[hidden]` and a class have the same weight, so the
+   one written later is the one that wins. Written first, a finished report
+   stayed on screen through the chat tab. */
 .report[hidden] { display: none; }
-.report.is-done { display: block; }
-.report-go { padding: 5px 11px; font-size: 12.5px; }
-.report-note { color: var(--muted); font-size: 11.5px; }
+
+/* Asking for the report, and watching it arrive: on the row of tabs, pushed to
+   the far end. */
+.report-ctl { margin-left: auto; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.report-ctl[hidden] { display: none; }
+.report-go { padding: 3px 9px; font-size: 11.5px; white-space: nowrap; }
+.report-note { color: var(--muted); font-size: 10.5px; white-space: nowrap; }
 .report-bar {
-  flex: 1; min-width: 90px; height: 5px; border-radius: 3px;
+  display: block; width: 70px; height: 5px; border-radius: 3px;
   background: var(--surface-2); overflow: hidden;
 }
 .report-bar i { display: block; height: 100%; background: var(--accent); transition: width .25s var(--ease); }
 @media (prefers-reduced-motion: reduce) { .report-bar i { transition: none; } }
 
-.report-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.report-table th, .report-table td { padding: 3px 4px; }
-.report-table thead th { color: var(--muted); font-weight: 500; font-size: 11px; }
+/*
+ * Three rows and a note: a header, then one line per player.
+ *
+ * The first version gave every band its own column, which meant a column of
+ * zeros for anyone who played a clean game and a panel deep enough to push the
+ * move list down to a single row -- in a drawer 200 pixels tall, the report was
+ * eating the thing it was written about. The bands are a tally in one cell now,
+ * and a band nobody hit is not mentioned: the marks are already beside the
+ * moves that earned them, which is where they say something.
+ */
+.report-table { border-collapse: collapse; font-size: 11.5px; line-height: 1.5; }
+.report-table th, .report-table td { padding: 1px 5px; }
+.report-table thead th { color: var(--muted); font-weight: 500; font-size: 9.5px; }
 .report-table tbody th {
-  text-align: left; font-weight: 500; white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis; max-width: 11ch;
+  text-align: left; font-weight: 600; white-space: nowrap; padding-left: 0;
+  overflow: hidden; text-overflow: ellipsis; max-width: 9ch;
 }
 .report-table .num { text-align: right; font-variant-numeric: tabular-nums; }
-.report-table .strong { font-weight: 700; font-size: 13px; }
+.report-table .strong { font-weight: 700; font-size: 12.5px; }
+.report-marks { white-space: nowrap; font-size: 11px; letter-spacing: .06em; }
+.report-marks i { font-style: normal; margin-right: 5px; }
 /* The dot is sized in the rail by being a flex item; in a table cell it is an
    inline span, and width on one of those is ignored. */
-.report-table .player-dot {
-  display: inline-block; width: 10px; height: 10px; border-width: 1.5px;
+.report .player-dot {
+  display: inline-block; width: 9px; height: 9px; border-width: 1.5px;
   margin-right: 5px; vertical-align: 0;
 }
-.report.is-done .report-note { display: block; margin-top: 4px; }
+.report .report-note { display: block; margin-top: 2px; }
 
-/* Three marks and one honour, in the colours the rest of the app already uses
-   for the same feelings. Nothing here is invented: a mistake is the danger
-   colour at half strength, a blunder is the danger colour. */
-.band-inaccuracy { color: var(--muted); }
-.band-mistake { color: color-mix(in srgb, var(--danger) 72%, var(--muted)); }
-.band-blunder { color: var(--danger); font-weight: 600; }
-.band-sacrifice { color: var(--accent); font-weight: 600; }
-.report-table .is-none { color: var(--muted); opacity: .45; }
+/*
+ * The two summaries share a row, so only the taller of them costs the list any
+ * height at all.
+ *
+ * Underneath the list is the point of the panel -- it is where you see which
+ * move earned which mark -- and the drawer is 200 pixels tall on a laptop. A
+ * report stacked above the curve left it one row. Beside it, the pair costs
+ * about what the curve cost on its own.
+ */
+.drawer-top { flex: none; display: flex; align-items: stretch; }
+/* Specificity rather than source order: the curve's own rule sets flex: none
+   for the stacked case and comes later in the sheet. */
+.drawer-top > .eval-curve { flex: 1; min-width: 80px; }
+/* Narrow enough that a phone still has a curve worth looking at beside it. */
+@media (max-width: 559px) {
+  .report { padding: 3px 6px; margin-left: 8px; }
+  .report-table th, .report-table td { padding: 1px 3px; }
+  /* The depth belongs in the panel's tooltip here: every row is a row the move
+     list does not get. */
+  .report .report-note { display: none; }
+  /* The tabs are two words; the button keeps what is left. */
+  .report-ctl .report-go { padding: 3px 7px; font-size: 11px; }
+}
+
 .move-list .ply-mark { font-style: normal; margin-left: 2px; font-weight: 700; }
 
 /* The same picture laid on its side: the whole game rather than one position.
