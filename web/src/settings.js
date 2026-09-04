@@ -12,6 +12,7 @@ export const DEFAULTS = {
   language: null,        // null = follow the browser on first visit
   theme: 'auto',         // 'auto' | 'light' | 'dark'
   boardStyle: 'modern',  // 'classic' (wood) | 'modern' (stone & metal)
+  soundVoice: 'melodic', // 'melodic' (pitched) | 'percussive' (struck)
   sound: true,
   volume: 0.7,
   showValidMoves: true,

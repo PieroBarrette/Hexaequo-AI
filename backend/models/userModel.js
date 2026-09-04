@@ -274,20 +274,20 @@ async function deleteUser(id) {
  * Get leaderboard
  */
 /**
- * Everybody, in order.
+ * The ranking, and then everybody else.
  *
- * It used to be everybody who had finished a rated game, which made the table
- * a record of play — defensible, and not what a member wants to see when they
- * open it looking for their own name on the day they sign up. A rating of a
- * thousand is a real rating, the one every account starts at, so a player who
- * has not begun sits where a player who has broken even sits.
+ * Two lists rather than one. A rating only means something once it has been
+ * played for: a member who has not started sitting at a thousand above a
+ * member who has played and stands at nine hundred says something false about
+ * both of them, and printing a thousand beside a name that has never been in a
+ * game is printing a number nobody earned. So the table ranks the players and
+ * a second list names the members — no rank, no rating, just who is here.
  *
- * Ties are broken by who got here first. Ordering by rating alone left the
- * order of equal ratings to the database, so two members on a thousand could
- * swap places between one visit and the next — and with a thousand being where
- * everyone starts, that is most of the table. Seniority is a fact, it never
- * changes, and it cannot be played for. The id settles the last hair of a tie
- * so that paging cannot show a row twice or miss one.
+ * Within the ranking, ties are broken by who got here first. Ordering by
+ * rating alone left the order of equal ratings to the database, so two members
+ * on the same score could swap places between one visit and the next.
+ * Seniority is a fact, it never changes, and it cannot be played for. The id
+ * settles the last hair of a tie so paging cannot show a row twice or miss one.
  */
 async function getLeaderboard({ page = 1, limit = 50 } = {}) {
     const offset = (page - 1) * limit;
@@ -301,28 +301,44 @@ async function getLeaderboard({ page = 1, limit = 50 } = {}) {
      * robots. Not a filter on a name or a guess at a pattern: an address in
      * that domain is one nobody can hold.
      */
-    const REAL_PEOPLE = `WHERE email NOT LIKE '%.invalid'`;
+    const REAL_PEOPLE = `email NOT LIKE '%.invalid'`;
+    const RANKED = `WHERE ${REAL_PEOPLE} AND games_played > 0`;
 
     const [countResult, dataResult] = await Promise.all([
-        query(`SELECT COUNT(*) FROM users ${REAL_PEOPLE}`),
+        query(`SELECT COUNT(*) FROM users ${RANKED}`),
         query(
             `SELECT id, pseudo, elo, games_played, wins, losses, draws,
                     CASE WHEN games_played > 0 THEN ROUND(wins::numeric / games_played * 100, 1) ELSE 0 END as win_rate
              FROM users
-             ${REAL_PEOPLE}
+             ${RANKED}
              ORDER BY elo DESC, created_at ASC, id ASC
              LIMIT $1 OFFSET $2`,
             [limit, offset]
         )
     ]);
-    
+
     const total = parseInt(countResult.rows[0].count);
     
+    /* And the members who have not played, oldest first, name only. Sent with
+       the first page and not repeated: it is a footnote to the table, not a
+       second table to page through. */
+    let waiting = [];
+    if (page === 1) {
+        const rest = await query(
+            `SELECT id, pseudo FROM users
+             WHERE ${REAL_PEOPLE} AND games_played = 0
+             ORDER BY created_at ASC, id ASC
+             LIMIT 500`
+        );
+        waiting = rest.rows;
+    }
+
     return {
         players: dataResult.rows.map((row, index) => ({
             rank: offset + index + 1,
             ...row
         })),
+        waiting,
         total,
         page,
         totalPages: Math.ceil(total / limit)

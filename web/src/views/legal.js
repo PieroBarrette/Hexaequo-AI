@@ -16,11 +16,11 @@ import { logoMarkSvg } from '../ui/logo.js';
  * The address published in both policies, in one place so it can be changed
  * without touching either translation.
  *
- * A personal mailbox is a stopgap: an address on the domain reads better and
- * survives a change of provider. Most registrars will forward info@hexaequo.com
- * to a real mailbox for free, at which point only this line changes.
+ * On the domain rather than a personal mailbox: it reads better on a legal
+ * page, it survives a change of provider, and it can be forwarded wherever
+ * the mail is actually read without anything here changing.
  */
-export const CONTACT_EMAIL = 'pierobarrette@gmail.com';
+export const CONTACT_EMAIL = 'info@hexaequo.com';
 
 function section(titleKey, bodyKey) {
   return `<h2>${t(titleKey)}</h2><p>${t(bodyKey)}</p>`;

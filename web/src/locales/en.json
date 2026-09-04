@@ -218,7 +218,11 @@
     "premove": "Premove",
     "premoveHint": "Play during your opponent’s turn. It goes the moment they move, if it is still legal.",
     "animatePlacement": "Animate pieces from the reserve",
-    "animatePlacementHint": "The tile or piece leaves your reserve and travels to its cell. Short and quiet. The disk handed back to pay for a ring makes the trip too, from one reserve to the other."
+    "animatePlacementHint": "The tile or piece leaves your reserve and travels to its cell. Short and quiet. The disk handed back to pay for a ring makes the trip too, from one reserve to the other.",
+    "soundVoice": "Timbre",
+    "soundVoiceHint": "Melodic strikes things that hold a note. Percussive takes the note away: lower, shorter, duller — the contact rather than the tone. The board's material is unchanged either way.",
+    "voiceMelodic": "Melodic",
+    "voicePercussive": "Percussive"
   },
   "rules": {
     "title": "Rules",
@@ -341,13 +345,15 @@
   "leaderboard": {
     "title": "Leaderboard",
     "loading": "Loading the ranking…",
-    "empty": "Nobody has signed up yet.",
-    "lede": "{count} members, strongest first and oldest to settle a tie.",
+    "empty": "Nobody has finished a rated game yet.",
+    "lede": "{count} ranked players, strongest first and oldest to settle a tie.",
     "player": "Player",
     "games": "Games",
     "winRate": "Win rate",
     "unplayed": "—",
-    "more": "Loading the rest…"
+    "more": "Loading the rest…",
+    "waiting": "Members",
+    "waitingHint": "Signed up, no rated game yet. A rating comes with the first one."
   },
   "review": {
     "first": "Start of the game",

@@ -260,25 +260,36 @@ export function createBoard(container) {
     const emphasise = v.placeMode === 'tile';
     let out = '';
 
-    /* Cells where a tile may be laid.
-       A playable cell must always carry a paint: fill="none" leaves the interior
-       transparent to the pointer, so only the dashed stroke would be clickable.
-       With the move aid off the cell is painted `transparent` — invisible, but
-       still a hit target. */
+    /*
+     * Cells where a tile may be laid: a ring, not a whole hexagon.
+     *
+     * A dozen dashed hexagons, each with a wash inside it, was most of the
+     * orange on the board — and with the last move outlined, a piece selected
+     * and a handful of destinations marked, the board became a page of
+     * highlights with a game somewhere underneath. A tile may go here is the
+     * same kind of statement as a piece may go here, so it is said the same
+     * way and at the same size, and the dashes are what keep the two apart.
+     *
+     * The hexagon stays, painted transparent and unstroked, because it is the
+     * hit target: fill="none" leaves the interior transparent to the pointer
+     * and only the mark itself would be clickable, which on a phone is a
+     * target the size of a pea.
+     *
+     * The mark is a ring rather than a disc so a coordinate can sit inside it.
+     */
     for (const k of v.spots) {
       const x = cx(k), y = cy(k);
       const live = v.spotsLive;
       const lit = live && aid;
-      // With the aid on, the dashed outline is the whole signal. With it off,
-      // the cell is painted `transparent` and left unmarked: invisible, but
-      // still a hit target, since fill="none" would not catch a click.
       out += `<path class="cell${live ? ' is-clickable' : ''}"${live ? ` data-cell="${k}"` : ''}`
-        + ` d="${hexPath(x, y, SIZE * .94)}"`
-        + ` fill="${lit ? (emphasise ? 'var(--spot-fill-strong)' : 'var(--spot-fill)') : 'transparent'}"`
-        + (lit
-          ? ` stroke="var(--spot-line)" stroke-width="${emphasise ? 2.6 : 2}" stroke-dasharray="6 4"`
-          : ' stroke="none"')
-        + `/>`;
+        + ` d="${hexPath(x, y, SIZE * .94)}" fill="transparent" stroke="none"/>`;
+      if (!lit) continue;
+      // Holding a tile is the one moment these are the question on the board,
+      // so then they are drawn solid and a shade wider.
+      out += `<circle cx="${x}" cy="${y}" r="${SIZE * .42}" fill="none"`
+        + ` stroke="var(--spot-line)" stroke-width="${emphasise ? 2.4 : 1.8}"`
+        + `${emphasise ? '' : ' stroke-dasharray="5 4"'}`
+        + ` stroke-opacity="${emphasise ? 1 : .8}" pointer-events="none"/>`;
     }
 
     /* Tiles. */
@@ -303,7 +314,7 @@ export function createBoard(container) {
     for (const k of v.lastMoveCells) {
       out += `<path d="${hexPath(cx(k), cy(k), SIZE * .94)}"`
         + ` fill="var(--last-move-fill)" stroke="var(--last-move-edge)"`
-        + ` stroke-width="3" pointer-events="none"/>`;
+        + ` stroke-width="2" pointer-events="none"/>`;
     }
 
 
@@ -315,10 +326,14 @@ export function createBoard(container) {
         + ` pointer-events="none"/>`;
     }
 
+    /* The piece in hand. A hexagon where everything else is a circle, so it is
+       told apart by its shape rather than by being the heaviest line on the
+       board — which it was, and with the last move outlined as well that made
+       two thick orange hexagons in a game with four pieces on it. */
     const focus = v.chainCurrent != null ? v.chainCurrent : v.selected;
     if (focus != null) {
       out += `<path d="${hexPath(cx(focus), cy(focus), SIZE * .94)}" fill="none"`
-        + ` stroke="var(--accent)" stroke-width="4" pointer-events="none"/>`;
+        + ` stroke="var(--accent)" stroke-width="2.6" pointer-events="none"/>`;
     }
 
     /* Path already travelled in a multi-jump. */
@@ -370,9 +385,12 @@ export function createBoard(container) {
 
     /* Move aids. */
     if (aid) {
+      /* Cells you could put something on if you picked something up: the
+         faintest thing on the board, because it is a possibility rather than a
+         move, and there are usually several of them at once. */
       for (const k of v.hints) {
-        out += `<circle cx="${cx(k)}" cy="${cy(k)}" r="${SIZE * .13}" fill="none"`
-          + ` stroke="var(--accent)" stroke-opacity=".45" stroke-width="2"`
+        out += `<circle cx="${cx(k)}" cy="${cy(k)}" r="${SIZE * .12}" fill="none"`
+          + ` stroke="var(--accent)" stroke-opacity=".28" stroke-width="1.6"`
           + ` stroke-dasharray="3 3" pointer-events="none"/>`;
       }
     }
@@ -386,9 +404,13 @@ export function createBoard(container) {
         out += `<circle class="cell is-clickable pulse" data-cell="${k}" cx="${x}" cy="${y}"`
           + ` r="${SIZE * .55}" fill="none" stroke="var(--danger)" stroke-width="4"/>`;
       } else {
+        /* Ringed rather than filled, for the same two reasons as the cells a
+           tile may go on: a board of solid dots is a loud board, and the
+           coordinate of the cell has to be able to sit in the middle of it. */
         out += `<circle class="cell is-clickable" data-cell="${k}" cx="${x}" cy="${y}"`
-          + ` r="${SIZE * (target.kind === 'place' ? .2 : .19)}"`
-          + ` fill="var(--accent)" fill-opacity="${target.kind === 'place' ? .75 : .55}"/>`;
+          + ` r="${SIZE * .38}" fill="transparent" stroke="var(--accent)"`
+          + ` stroke-width="${target.kind === 'place' ? 2.4 : 1.8}"`
+          + ` stroke-opacity="${target.kind === 'place' ? .85 : .6}"/>`;
       }
     }
 

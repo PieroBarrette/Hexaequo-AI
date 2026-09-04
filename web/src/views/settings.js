@@ -95,6 +95,9 @@ export function mountSettings(outlet) {
 
         <h2>${t('settings.sound')}</h2>
         ${row('settings.sound', 'settings.soundHint', toggle('sound', getSetting('sound')))}
+        ${row('settings.soundVoice', 'settings.soundVoiceHint', segmented('soundVoice', getSetting('soundVoice'), [
+          { value: 'melodic', label: t('settings.voiceMelodic') },
+          { value: 'percussive', label: t('settings.voicePercussive') }]))}
         ${row('settings.volume', 'settings.soundHint',
           `<input type="range" min="0" max="1" step="0.05" value="${getSetting('volume')}" data-range="volume">`)}
         ${row('settings.tryTheSounds', 'settings.tryTheSoundsHint',

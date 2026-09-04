@@ -1151,6 +1151,17 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
 .board-table .rank { color: var(--muted); width: 3em; }
 .board-table .elo { color: var(--accent); font-weight: 600; }
 .board-table tr.is-me { background: var(--accent-soft); }
+/* The members who have not played: names and lights, no rank and no number.
+   Two or three columns of them, because a column of single names down a wide
+   panel is mostly empty panel. */
+.member-roll {
+  list-style: none; margin: 8px 0 0; padding: 0;
+  columns: 180px; column-gap: 20px;
+}
+.member-roll li {
+  display: flex; align-items: center; gap: 7px;
+  padding: 4px 0; break-inside: avoid;
+}
 .board-table tr.is-me td { font-weight: 600; }
 .net-vs { display: flex; align-items: center; gap: 6px; color: var(--text); }
 .net-vs .net-elo { color: var(--accent); font-variant-numeric: tabular-nums; font-size: 12px; }

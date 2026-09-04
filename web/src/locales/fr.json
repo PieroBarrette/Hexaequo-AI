@@ -218,7 +218,11 @@
     "premove": "Coup à l’avance",
     "premoveHint": "Jouer pendant le tour de l’adversaire. Le coup part dès qu’il a joué, s’il est toujours légal.",
     "animatePlacement": "Animer les pièces posées",
-    "animatePlacementHint": "La tuile ou la pièce quitte votre réserve et traverse jusqu'à sa case. Bref et discret. Le disque rendu pour poser un anneau fait le trajet lui aussi, d'une réserve à l'autre."
+    "animatePlacementHint": "La tuile ou la pièce quitte votre réserve et traverse jusqu'à sa case. Bref et discret. Le disque rendu pour poser un anneau fait le trajet lui aussi, d'une réserve à l'autre.",
+    "soundVoice": "Timbre",
+    "soundVoiceHint": "Mélodique frappe des objets qui gardent une note. Percussion enlève la note : plus grave, plus court, plus sourd — le contact plutôt que le son. La matière du plateau reste la même dans les deux cas.",
+    "voiceMelodic": "Mélodique",
+    "voicePercussive": "Percussion"
   },
   "rules": {
     "title": "Règles",
@@ -341,13 +345,15 @@
   "leaderboard": {
     "title": "Classement",
     "loading": "Chargement du classement…",
-    "empty": "Personne ne s'est encore inscrit.",
-    "lede": "{count} membres, du plus fort au plus ancien.",
+    "empty": "Personne n'a encore terminé de partie classée.",
+    "lede": "{count} joueurs classés, du plus fort au plus ancien.",
     "player": "Joueur",
     "games": "Parties",
     "winRate": "Victoires",
     "unplayed": "—",
-    "more": "Chargement de la suite…"
+    "more": "Chargement de la suite…",
+    "waiting": "Membres",
+    "waitingHint": "Inscrits, pas encore de partie classée. Le classement vient avec la première."
   },
   "review": {
     "first": "Début de la partie",

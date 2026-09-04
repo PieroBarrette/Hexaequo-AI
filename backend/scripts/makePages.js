@@ -20,7 +20,7 @@ const ROOT = path.join(__dirname, '..', '..');
 const WEB = path.join(ROOT, 'web');
 const SITE = 'https://hexaequo.com';
 /* Kept beside the app's own copy in views/legal.js; both must say the same. */
-const CONTACT_EMAIL = 'pierobarrette@gmail.com';
+const CONTACT_EMAIL = 'info@hexaequo.com';
 
 const locales = {
     en: JSON.parse(fs.readFileSync(path.join(WEB, 'src/locales/en.json'), 'utf8')),

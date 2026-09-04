@@ -2126,6 +2126,19 @@ export function mountPlay(outlet, params) {
 
   const isAutoplaying = () => playTimer !== 0;
 
+  /**
+   * Did the board end the game, or did something outside it?
+   *
+   * Six disks, three rings, an empty board, the same position three times, no
+   * legal move: all of them are the position saying the game is finished, and
+   * handing that position to two engines gives a game that ends on the first
+   * move or does not start. A flag falling, a resignation, an opponent who
+   * never came back, a draw agreed: the position was still a game.
+   */
+  const POSITION_ENDED_IT = new Set(['disks', 'rings', 'cleared', 'repetition', 'noMoves']);
+  const endedInThePosition = () =>
+    Boolean(result && result.reason && POSITION_ENDED_IT.has(result.reason));
+
   function renderReviewBar() {
     // Nothing to look back on until a move has been played.
     const usable = timeline.length > 1;
@@ -2146,8 +2159,16 @@ export function mountPlay(outlet, params) {
     /* Carrying the position off to play it out is analysis, not reading, so it
        waits for the game to be over like the bar and the curve do — and an
        exploration is analysis too, so a position reached by hand can be handed
-       on to the engine from there. */
-    reviewBar.querySelector('[data-action="resume"]').hidden = !isReview();
+       on to the engine from there.
+
+       Except at the very end of a game the board itself finished. Six disks
+       are six disks: play on from there and it is over before you have moved.
+       The offer stands at the last move only when the game stopped for a
+       reason outside the position — a flag, a resignation, somebody who did
+       not come back, a draw the two players agreed to — because in every one
+       of those the position had plenty of game left in it. */
+    const resumable = !(at === last && endedInThePosition());
+    reviewBar.querySelector('[data-action="resume"]').hidden = !isReview() || !resumable;
     reviewBar.querySelector('[data-action="explore"]').hidden = !isReview();
     /* "Back to the game" only while there is a game to be back in. In a review
        there is no present to return to — the last ply is just the last ply, and
