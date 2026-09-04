@@ -505,6 +505,79 @@ select.btn option {
 @media (prefers-reduced-motion: reduce) { .eval-fill { transition: none; } }
 
 /*
+ * ── The loader ───────────────────────────────────────────────────────────
+ *
+ * The mark builds itself out of the opening position: four tiles land in the
+ * order they would be played — black, white, black, white — and each piece
+ * drops onto its tile once the tile is there. Roughly seven hundred
+ * milliseconds end to end, which is short enough that a fast load sees most of
+ * it and a very fast load sees a graceful fragment rather than a stutter.
+ *
+ * Nothing here waits for the app on purpose. A minimum display time would make
+ * every visit slower to buy a nicer animation, which is the wrong trade for a
+ * game people open again and again; the exit is a fade precisely so that being
+ * cut off partway through still looks deliberate.
+ */
+.loader {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 22px; padding: 24px;
+  background: var(--bg);
+  /* A hair of light behind the mark, the same one the board sits on. */
+  background-image: radial-gradient(60% 45% at 50% 42%, var(--bg-lift), var(--bg) 70%);
+  /* If the bundle never arrives, the page underneath is better than a mark
+     that turns forever. Long enough that a slow connection is not cut off. */
+  animation: loader-failsafe 0s linear 15s forwards;
+}
+.loader-mark {
+  width: min(38vw, 190px); height: auto; overflow: visible;
+  animation: loader-breathe 3.4s ease-in-out 900ms infinite;
+}
+.loader-word {
+  font: 600 clamp(13px, 3.4vw, 17px)/1 var(--font-sans);
+  letter-spacing: .42em; text-indent: .42em;    /* the tracking, uncentred by itself */
+  color: var(--muted);
+  animation: loader-word 700ms var(--ease) 520ms backwards;
+}
+
+/* Each cell carries its place in the order as --i, so one rule staggers all
+   four: the tile, then the piece that goes on it. */
+.ld-tile {
+  animation: loader-drop 300ms var(--ease) calc(var(--i) * 95ms) backwards;
+}
+.ld-piece {
+  animation: loader-drop 260ms var(--ease) calc(var(--i) * 95ms + 165ms) backwards;
+}
+
+@keyframes loader-drop {
+  from { opacity: 0; transform: translateY(-24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes loader-word {
+  from { opacity: 0; letter-spacing: .62em; text-indent: .62em; }
+  to { opacity: 1; }
+}
+@keyframes loader-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.022); }
+}
+@keyframes loader-failsafe { to { opacity: 0; visibility: hidden; } }
+
+/* Leaving: the mark opens outward as the app takes the screen. Kept off the
+   element that is animating in, so an exit two hundred milliseconds into the
+   build simply takes over from wherever it had got to. */
+.loader.is-gone {
+  opacity: 0; transform: scale(1.05);
+  transition: opacity 280ms var(--ease), transform 420ms var(--ease);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loader-mark, .loader-word, .ld-tile, .ld-piece { animation: none; }
+  .loader.is-gone { transition: opacity 180ms linear; transform: none; }
+}
+
+/*
  * The accuracy report, above the curve it sharpens.
  *
  * One strip with three faces: an offer, a bar filling, and the table. Inside

@@ -26,6 +26,31 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
 
+<!--
+  Theme and material before the first pixel.
+  settings.js owns these attributes, but it is a module and modules run after
+  the document is parsed — so a light-theme visitor got a dark page first and a
+  flip a moment later. Harmless on a header; unmissable behind a full-screen
+  loader. Reads the same key settings.js writes and stops there: this is not a
+  second copy of the settings, it is the two attributes that decide the colour
+  of the first frame.
+-->
+<script>
+(function () {
+  try {
+    var saved = JSON.parse(localStorage.getItem('hexaequo.settings') || '{}');
+    var theme = saved.theme;
+    if (!theme || theme === 'auto') {
+      theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+        ? 'light' : 'dark';
+    }
+    var root = document.documentElement;
+    root.setAttribute('data-theme', theme);
+    if (saved.boardStyle) root.setAttribute('data-board-style', saved.boardStyle);
+  } catch (e) { /* private mode, or nothing saved: the markup's default stands */ }
+}());
+</script>
+
 <link rel="stylesheet" href="./styles/tokens.css">
 <link rel="stylesheet" href="./styles/app.css">
 
@@ -61,6 +86,40 @@
 </script>
 </head>
 <body>
+
+<!--
+  The opening position, laying itself out.
+
+  Not a spinner: the four tiles of the mark are the four tiles a game of
+  Hexaequo starts from, and they arrive the way they are played — black, white,
+  black, white — each piece dropping onto its tile after the tile has landed.
+  It says what the site is while it waits, which is more than a rotating arc
+  can do.
+
+  It sits over the copy below rather than replacing it: that text is what a
+  crawler reads, and it has to stay in the document.
+-->
+<div id="loader" class="loader" aria-hidden="true">
+  <svg class="loader-mark" viewBox="-145.1 -166.5 705.8 573.0" xmlns="http://www.w3.org/2000/svg">
+  <g class="ld-cell" style="--i:0">
+    <path class="ld-tile" d="M138.56 -80.00 L138.56 80.00 L0.00 160.00 L-138.56 80.00 L-138.56 -80.00 L-0.00 -160.00Z" fill="var(--tile-dark)" stroke="var(--tile-dark)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="0.00" cy="0.00" r="60.80" fill="var(--piece-light)"/></g>
+  </g>
+  <g class="ld-cell" style="--i:1">
+    <path class="ld-tile" d="M415.69 -80.00 L415.69 80.00 L277.13 160.00 L138.56 80.00 L138.56 -80.00 L277.13 -160.00Z" fill="var(--tile-light)" stroke="var(--tile-dark-edge)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="277.13" cy="0.00" r="80.80" fill="none" stroke="var(--piece-dark)" stroke-width="40.00"/></g>
+  </g>
+  <g class="ld-cell" style="--i:3">
+    <path class="ld-tile" d="M277.13 160.00 L277.13 320.00 L138.56 400.00 L-0.00 320.00 L0.00 160.00 L138.56 80.00Z" fill="var(--tile-light)" stroke="var(--tile-dark-edge)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="138.56" cy="240.00" r="60.80" fill="var(--piece-dark)"/></g>
+  </g>
+  <g class="ld-cell" style="--i:2">
+    <path class="ld-tile" d="M554.26 160.00 L554.26 320.00 L415.69 400.00 L277.13 320.00 L277.13 160.00 L415.69 80.00Z" fill="var(--tile-dark)" stroke="var(--tile-dark)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="415.69" cy="240.00" r="80.80" fill="none" stroke="var(--piece-light)" stroke-width="40.00"/></g>
+  </g>
+  </svg>
+  <span class="loader-word">HEXAEQUO</span>
+</div>
 
 <header class="site-header">
   <button class="btn" id="brand" data-go="home" data-route-link="home" aria-label="Hexaequo"></button>
@@ -106,6 +165,7 @@
 </main>
 
 <noscript>
+  <style>.loader { display: none !important; }</style>
   Hexaequo needs JavaScript to play, but everything above describes the game.
 </noscript>
 <script type="module" src="./src/main.js"></script>

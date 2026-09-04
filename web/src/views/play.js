@@ -369,11 +369,10 @@ export function mountPlay(outlet, params) {
   let reporter = null;           // the worker, while one is running
   let reportTimer = 0;           // the redraw waiting for the next few verdicts
 
-  /* A game the site is keeping, as opposed to one played on this machine and
-     gone when the tab closes. Both sides of a stored game can open the same
-     report and read the same numbers, which is most of what makes it worth
-     printing; a local game has nobody to compare with. */
-  const analysable = () => Boolean(archiveId) || Boolean(net);
+  /* Any finished line, wherever it was played. The report never leaves this
+     machine — the worker searches here and the numbers are drawn here — so a
+     game against the computer costs the site nothing and is just as worth
+     reading back as a rated one. */
   const reportEl = outlet.querySelector('.report');
   const curveEl = outlet.querySelector('.eval-curve');
   let curveTimer = 0;
@@ -2966,7 +2965,7 @@ export function mountPlay(outlet, params) {
 
   /** Hand the line to the worker and let the verdicts come back one by one. */
   function startReport() {
-    if (!analysable() || timeline.length < 2) return;
+    if (timeline.length < 2) return;
     stopReport();
     let worker;
     try {
@@ -3046,11 +3045,7 @@ export function mountPlay(outlet, params) {
    */
   function renderReport() {
     if (!reportEl) return;
-    /* The button is offered for a game the site is keeping. A report that
-       exists is shown whatever it is about, so that the panel does not vanish
-       from under a reader the moment the line it describes changes hands. */
-    const room = isReview() && timeline.length > 1 && drawerOpen && drawerTab === 'moves';
-    const showing = room && (report || analysable());
+    const showing = isReview() && timeline.length > 1 && drawerOpen && drawerTab === 'moves';
     reportEl.hidden = !showing;
     if (!showing) return;
 

@@ -38,6 +38,38 @@ function renderChrome() {
   renderAccountChip();
 }
 
+/**
+ * Put the loader away, once there is something behind it.
+ *
+ * After startRouter, because that is the call that replaces the boot copy with
+ * a real view — hiding it any earlier would uncover a page mid-build. On the
+ * frame after, so the view has been laid out and the fade crosses to a
+ * finished screen rather than to an empty one.
+ *
+ * It is removed rather than left hidden: it is fixed and full-screen, and a
+ * transparent sheet over the whole app is the kind of thing that swallows a
+ * click for the rest of the session if a transition ever fails to fire.
+ */
+function dismissLoader() {
+  const loader = document.getElementById('loader');
+  if (!loader) return;
+  let leaving = false;
+  const leave = () => {
+    if (leaving) return;
+    leaving = true;
+    loader.classList.add('is-gone');
+    const drop = () => loader.remove();
+    loader.addEventListener('transitionend', drop, { once: true });
+    setTimeout(drop, 700);          // in case the transition never runs at all
+  };
+  /* Two frames, so the view behind has been laid out before the fade starts —
+     and a timer behind them, because a tab loaded in the background may be
+     handed no frames at all until somebody looks at it, and the loader must
+     not be what they find waiting. Whichever arrives first wins. */
+  requestAnimationFrame(() => requestAnimationFrame(leave));
+  setTimeout(leave, 150);
+}
+
 async function boot() {
   loadSettings();
   await initI18n();
@@ -61,6 +93,7 @@ async function boot() {
      so the first answer about who is here is not missed. */
   startSettingsSync(onSettingsChange);
   startRouter();
+  dismissLoader();
 
   /* Restore the session in the background. The app is fully usable signed out,
      so nothing waits on this; the header fills in when the answer arrives. */
