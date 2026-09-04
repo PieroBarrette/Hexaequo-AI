@@ -9,9 +9,9 @@
 
 import { t } from '../i18n.js';
 import { navigate } from '../router.js';
-import { request, connect, listen, identify } from '../net.js';
+import { request, connect, listen } from '../net.js';
 import { play as playSound } from '../audio.js';
-import { isSignedIn, currentUser, sessionToken, sessionReady, onAuthChange } from '../auth.js';
+import { isSignedIn, currentUser, sessionReady, onAuthChange } from '../auth.js';
 import { openPanel } from '../ui/panels.js';
 import { emojiRowHtml } from '../ui/emoji.js';
 
@@ -203,7 +203,6 @@ export function mountLobby(host, readCadence = () => 'rapid') {
     // A reconnection loses the seat in the room; step back in.
     unsubscribe.push(listen('connect', async () => {
       if (!joined) return;
-      await identify(sessionToken()).catch(() => {});
       enter(true).catch(() => {});
     }));
   }
@@ -212,7 +211,6 @@ export function mountLobby(host, readCadence = () => 'rapid') {
     if (!quiet) { busy = true; render(); }
     try {
       await connect();
-      await identify(sessionToken()).catch(() => {});
       subscribe();
       const response = await request('hx:lobby:enter', {});
       busy = false;

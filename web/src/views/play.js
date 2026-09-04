@@ -24,8 +24,8 @@ import {
   findLegalMove,
 } from '../game/moves.js';
 import { chooseMove, judge, DISK_POINTS } from '../game/ai.js';
-import { request, listen, connect, identify } from '../net.js';
-import { sessionToken, api, isSignedIn, onAuthChange, ratingChanged } from '../auth.js';
+import { request, listen, connect } from '../net.js';
+import { api, isSignedIn, onAuthChange, ratingChanged } from '../auth.js';
 import { offerPosition, takePosition } from '../handoff.js';
 import { openPanel } from '../ui/panels.js';
 import { emojiRowHtml } from '../ui/emoji.js';
@@ -278,6 +278,9 @@ export function mountPlay(outlet, params) {
   const JUDGE_BUDGET = { ms: 120, maxDepth: 5 };   // see verdictAt for the numbers
   /* When the next round of judging may start. */
   let hintTimer = 0;
+  /* The frame chasing the drawer while it slides, and the tidy-up after. */
+  let drawerFollow = 0;
+  let drawerSettle = 0;
 
   /* The cache is keyed by ply, and a ply number does not mean the same position
      from one line to the next — a branch, a new game or a game loaded over this
@@ -594,6 +597,9 @@ export function mountPlay(outlet, params) {
       next.captured.push({ cell: c.cell, code: c.code, step });
     }
 
+    // Read the heaps before the move empties them, fly once the board is drawn.
+    const flight = flightFor(move, player);
+
     applyMove(state, move);
     lastMove = move;
     moveLog.push({ player, text: notation, captured: allCaptures.length > 0, ms: spent() });
@@ -618,6 +624,7 @@ export function mountPlay(outlet, params) {
     effect = next;
     playMoveSounds(move, next);
     refresh();
+    launchFlight(flight);
     afterEffect(scheduleAI);
   }
 
@@ -784,10 +791,14 @@ export function mountPlay(outlet, params) {
 
   /** Adopt a position the server sent, and animate the move that produced it. */
   function applyRemote(payload) {
+    const move = payload.move;
+    /* Before the position lands, while the heaps on screen are still the ones
+       the move was played from. */
+    const handoff = flightFor(move, payload.by);
+
     state = deserializeState(payload.state);
     adoptClock(payload.clock);
 
-    const move = payload.move;
     const path = move.type === 'disk' ? move.path
       : (move.type === 'ring' ? [move.from, move.to] : null);
 
@@ -844,6 +855,7 @@ export function mountPlay(outlet, params) {
     }
 
     refresh();
+    launchFlight(handoff);
     // Whatever was lined up gets its moment now, if it is still legal.
     if (premove) afterEffect(runPremove);
   }
@@ -967,7 +979,6 @@ export function mountPlay(outlet, params) {
   async function claimSeat() {
     try {
       await connect();
-      await identify(sessionToken()).catch(() => {});
       const view = await request(net.watching ? 'hx:watch' : 'hx:join', { code: net.code });
       if (!view.ok) {
         /* Turning up to watch a game that is yours to play: the right answer
@@ -998,7 +1009,6 @@ export function mountPlay(outlet, params) {
        the seat again so it carries our name, and with it the stake. */
     net.unsubscribe.push(onAuthChange(async () => {
       if (!net || result) return;
-      await identify(sessionToken()).catch(() => {});
       await claimSeat();
     }));
     await claimSeat();
@@ -1374,6 +1384,141 @@ export function mountPlay(outlet, params) {
     effectEndsAt = Date.now() + total;
   }
 
+  /* ── Pieces crossing the room ─────────────────────────────────────────── */
+
+  /*
+   * A piece leaving the reserve goes to the board, visibly.
+   *
+   * The board's own effects begin where the piece lands — it appears, and
+   * grows into place — which says a piece arrived but not where from. On a
+   * real table you watch a hand go to the pile and come back, and that is the
+   * half a second in which you notice you are running out of rings.
+   *
+   * Drawn over the page rather than in the board: the reserves are HTML beside
+   * the board and the board is an SVG with its own coordinate system, so the
+   * only place both exist is the screen. Fixed to the viewport, above
+   * everything, and gone the moment it lands — nothing on the page depends on
+   * it, so nothing breaks if the browser refuses to animate it.
+   */
+  const RESERVE_FLIGHT_MS = 260;
+
+  function pileRect(player, pile, kind) {
+    const rail = rails[player];
+    const heap = rail && rail.querySelector(`[data-pile="${pile}-${kind}"]`);
+    if (!heap) return null;
+    /* The first of them, because on a phone it is the only one there is: the
+       heap is drawn as one piece and a count, and the rest are still in the
+       markup with no size at all. Asking for the last gave a box of nought by
+       nought and no piece ever left the reserve — on the screen where watching
+       it go is worth the most. */
+    const token = heap.querySelector('.token') || heap;
+    let box = token.getBoundingClientRect();
+    if (!box.width) box = heap.getBoundingClientRect();
+    if (!box.width) return null;
+    return { x: box.left + box.width / 2, y: box.top + box.height / 2, side: box.width };
+  }
+
+  function cellRect(cell) {
+    const middle = board.toScreenSpace(cx(cell), cy(cell));
+    const across = board.toScreenSpace(cx(cell) + SIZE, cy(cell));
+    const unit = Math.abs(across.x - middle.x);
+    if (!unit) return null;
+    return { x: middle.x, y: middle.y, side: unit * 1.7 };
+  }
+
+  /**
+   * Send `glyph` across the screen to wherever `landing` says, then forget it.
+   *
+   * The destination is asked for on every frame rather than measured once,
+   * because laying a tile can re-frame the board — the cell being flown to is
+   * itself sliding and growing while the piece is in the air. Handed a fixed
+   * point, the piece landed where the cell used to be and the board had moved
+   * on without it.
+   *
+   * Its own loop rather than the browser's animation engine for the same
+   * reason: a keyframe pair is decided up front, and this target is not known
+   * up front. Nothing on the page depends on any of it — if the loop never
+   * runs, a timer takes the piece away and the move is exactly as it was.
+   */
+  function fly(glyph, from, landing) {
+    if (!from || !document.body) return;
+    const first = landing();
+    if (!first) return;
+    const node = document.createElement('div');
+    node.className = 'fly';
+    node.innerHTML = glyph;
+    document.body.appendChild(node);
+
+    const started = performance.now();
+    const done = () => node.remove();
+    const place = (to, t) => {
+      // Smooth out, so it leaves the pile briskly and settles onto the cell.
+      const e = 1 - Math.pow(1 - t, 3);
+      const side = from.side + (to.side - from.side) * e;
+      node.style.width = `${side.toFixed(1)}px`;
+      node.style.height = `${side.toFixed(1)}px`;
+      node.style.left = `${(from.x + (to.x - from.x) * e - side / 2).toFixed(1)}px`;
+      node.style.top = `${(from.y + (to.y - from.y) * e - side / 2).toFixed(1)}px`;
+    };
+    place(first, 0);
+
+    const tick = (now) => {
+      // Clamped at both ends: a timestamp from before the start would put the
+      // piece somewhere off the screen rather than at the pile it left.
+      const t = Math.max(0, Math.min(1, (now - started) / RESERVE_FLIGHT_MS));
+      const to = landing() || first;
+      place(to, t);
+      if (t < 1) requestAnimationFrame(tick); else done();
+    };
+    requestAnimationFrame(tick);
+    // A loop that never starts must not leave a piece stuck to the screen.
+    setTimeout(done, RESERVE_FLIGHT_MS + 400);
+  }
+
+  const wantsFlight = () => getSetting('animatePlacement')
+    && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /**
+   * Note where a move's pieces are coming from, before the board is redrawn.
+   *
+   * The heaps shrink as soon as the position changes, so the starting point
+   * has to be read while it is still true. The landing point cannot be read
+   * yet — the tile is not laid — so the flight waits a frame for the board to
+   * have drawn it.
+   */
+  function flightFor(move, player) {
+    if (!wantsFlight()) return null;
+    if (move.type === 'tile') {
+      return { glyph: tokenSvg('tile', player), from: pileRect(player, 'reserve', 'tile'), cell: move.cell };
+    }
+    if (move.type !== 'piece') return null;
+    const kind = move.piece === RING ? 'ring' : 'disk';
+    const plan = {
+      glyph: tokenSvg(kind, player), from: pileRect(player, 'reserve', kind), cell: move.cell,
+    };
+    /* A ring is paid for with a captured disk, handed back to the player it
+       was taken from. That is the one move where something travels between the
+       two reserves without touching the board, and watching it go is the only
+       way the trade is ever visible. */
+    if (move.piece === RING) {
+      plan.repaid = {
+        glyph: tokenSvg('disk', 1 - player),
+        from: pileRect(player, 'taken', 'disk'),
+        to: () => pileRect(1 - player, 'reserve', 'disk'),
+      };
+    }
+    return plan;
+  }
+
+  /** Let the board draw, then send the pieces across to where they landed. */
+  function launchFlight(plan) {
+    if (!plan) return;
+    requestAnimationFrame(() => {
+      fly(plan.glyph, plan.from, () => cellRect(plan.cell));
+      if (plan.repaid) fly(plan.repaid.glyph, plan.repaid.from, plan.repaid.to);
+    });
+  }
+
   /* Reserves drawn as real pieces: solid means available, dashed means spent. */
   function tokenSvg(kind, colour) {
     if (kind === 'tile') return miniBoardSvg({ tiles: [[0, 0, colour]] });
@@ -1396,9 +1541,12 @@ export function mountPlay(outlet, params) {
    * question of how much room there is, so it is answered in CSS and settled
    * again the instant the phone is turned, with nothing to re-render.
    */
-  function stackHtml(kind, colour, count, usable) {
+  function stackHtml(kind, colour, count, usable, pile = 'reserve') {
     if (!count) return '';
-    let out = `<div class="stack" data-count="${count}">`;
+    /* Named so a piece can be animated out of the right heap. Not by whether
+       it can be tapped: a pile the computer is playing from is not tappable
+       and its pieces still have to come from somewhere. */
+    let out = `<div class="stack" data-count="${count}" data-pile="${pile}-${kind}">`;
     for (let i = 0; i < count; i++) {
       const classes = ['token'];
       if (usable) classes.push('is-usable');
@@ -1479,8 +1627,8 @@ export function mountPlay(outlet, params) {
         /* Below the line: pieces taken from the opponent, which are as real a
            part of this player's inventory as their own. */
         + (taken ? '<div class="rail-sep"></div>' : '')
-        + stackHtml('disk', opponent, position.capturedDisks[player], false)
-        + stackHtml('ring', opponent, position.capturedRings[player], false);
+        + stackHtml('disk', opponent, position.capturedDisks[player], false, 'taken')
+        + stackHtml('ring', opponent, position.capturedRings[player], false, 'taken');
       rail.classList.toggle('is-turn', isTurn && !reviewing);
       rail.classList.toggle('is-thinking', isTurn && thinking && !reviewing);
     }
@@ -1801,7 +1949,7 @@ export function mountPlay(outlet, params) {
     picker = null;
     clearEffect();
     closeResumeSheet();
-    refresh(true);
+    refresh();
   }
 
   /** Put the game back exactly as it was and throw the branch away. */
@@ -1817,7 +1965,7 @@ export function mountPlay(outlet, params) {
     placeMode = null;
     picker = null;
     clearEffect();
-    refresh(true);
+    refresh();
   }
 
   function resumeFrom(mode, setup) {
@@ -1933,7 +2081,12 @@ export function mountPlay(outlet, params) {
         playMoveSounds(timelineMoves[target - 1], shot, Boolean(result) && target === last);
       }
     }
-    refresh(!animate);
+    /* The position changes at once; the frame does not have to. Stepping back
+       through a game used to snap the board to its new framing on every press,
+       which is the same jolt the panel used to give — and the frame only moves
+       at all on the plies where a tile was laid, so most presses cost nothing
+       either way. `animate` is about the move being replayed, not the camera. */
+    refresh();
   }
 
   function stepReview(delta) {
@@ -2126,7 +2279,31 @@ export function mountPlay(outlet, params) {
     buildDrawerButton();
     showDrawerTab(tab || drawerTab);
     measureBelowBoard();
-    setTimeout(() => { measureBelowBoard(); refresh(true); }, 300);
+    followTheDrawer();
+  }
+
+  /*
+   * The board keeps up with the panel instead of catching up after it.
+   *
+   * The panel slides over about a quarter of a second and the board used to be
+   * told once, when it had finished, and told to jump: the drawer glided and
+   * the board snapped, which is the jolt. There is nothing to animate here —
+   * the box the board is cut to fit is already moving smoothly, so the frame
+   * only has to be recut against it on every frame while it does, and the
+   * smoothness comes from the thing that was smooth all along.
+   */
+  function followTheDrawer() {
+    cancelAnimationFrame(drawerFollow);
+    const until = Date.now() + 380;          // the transition, and a little after
+    const tick = () => {
+      measureBelowBoard();
+      board.reframe(true);
+      drawerFollow = Date.now() < until ? requestAnimationFrame(tick) : 0;
+    };
+    drawerFollow = requestAnimationFrame(tick);
+    // One ordinary refresh at the end, for everything that is not the frame.
+    clearTimeout(drawerSettle);
+    drawerSettle = setTimeout(() => { measureBelowBoard(); refresh(); }, 400);
   }
 
   function showDrawerTab(name) {
@@ -3175,6 +3352,8 @@ export function mountPlay(outlet, params) {
     clearTimeout(bubbleTimer);
     clearTimeout(curveTimer);
     clearTimeout(resultTimer);
+    clearTimeout(drawerSettle);
+    cancelAnimationFrame(drawerFollow);
     window.removeEventListener('resize', onResize);
     /* The bar is part of this view now, so it goes when the view goes; only
        the guard reaches outside. */

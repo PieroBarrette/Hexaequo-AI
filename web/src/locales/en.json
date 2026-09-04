@@ -203,7 +203,7 @@
     "showLastMove": "Show the previous move",
     "showLastMoveHint": "Marks the cells of the move just played, in a review as well. Turn it off for a bare board, the way it sits on a real table — following the game is then yours to do.",
     "showCoordinates": "Show coordinates",
-    "showCoordinatesHint": "Each tile's coordinate, printed small on the tile itself. They are the ones the move list uses: \"D I8\" can be read off the board. A piece on the tile covers it.",
+    "showCoordinatesHint": "Every cell's coordinate, written on it very small. These are the ones the move list uses: “D I8” can be read off the board. The empty cells a tile may still be laid on are named too.",
     "aiLevel": "Default AI level",
     "aiLevelHint": "Search depth and thinking time.",
     "preview": "Preview",
@@ -216,7 +216,9 @@
     "tryTheSoundsHint": "The sounds follow the board material: wood in Classic, stone and glass in Modern.",
     "playSample": "Play a sample",
     "premove": "Premove",
-    "premoveHint": "Play during your opponent’s turn. It goes the moment they move, if it is still legal."
+    "premoveHint": "Play during your opponent’s turn. It goes the moment they move, if it is still legal.",
+    "animatePlacement": "Animate pieces from the reserve",
+    "animatePlacementHint": "The tile or piece leaves your reserve and travels to its cell. Short and quiet. The disk handed back to pay for a ring makes the trip too, from one reserve to the other."
   },
   "rules": {
     "title": "Rules",
@@ -339,11 +341,13 @@
   "leaderboard": {
     "title": "Leaderboard",
     "loading": "Loading the ranking…",
-    "empty": "Nobody has finished a rated game yet. Be the first.",
-    "lede": "{count} ranked players.",
+    "empty": "Nobody has signed up yet.",
+    "lede": "{count} members, strongest first and oldest to settle a tie.",
     "player": "Player",
     "games": "Games",
-    "winRate": "Win rate"
+    "winRate": "Win rate",
+    "unplayed": "—",
+    "more": "Loading the rest…"
   },
   "review": {
     "first": "Start of the game",

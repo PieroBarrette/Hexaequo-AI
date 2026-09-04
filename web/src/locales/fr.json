@@ -203,7 +203,7 @@
     "showLastMove": "Afficher le coup précédent",
     "showLastMoveHint": "Marque les cases du dernier coup joué, y compris en revue. Désactivez pour un plateau nu, comme sur une vraie table — à vous de suivre la partie.",
     "showCoordinates": "Afficher les coordonnées",
-    "showCoordinatesHint": "La coordonnée de chaque tuile, écrite dessus en tout petit. Ce sont celles de l'historique : « D I8 » se lit sur le plateau. Une pièce posée la recouvre.",
+    "showCoordinatesHint": "La coordonnée de chaque case, écrite dessus en tout petit. Ce sont celles de l'historique : « D I8 » se lit sur le plateau. Les cases encore vides où une tuile peut être posée sont nommées elles aussi.",
     "aiLevel": "Niveau d'IA par défaut",
     "aiLevelHint": "Profondeur de recherche et temps de réflexion.",
     "preview": "Aperçu",
@@ -216,7 +216,9 @@
     "tryTheSoundsHint": "Les sons suivent la matière du plateau : bois en Classique, pierre et verre en Moderne.",
     "playSample": "Faire entendre",
     "premove": "Coup à l’avance",
-    "premoveHint": "Jouer pendant le tour de l’adversaire. Le coup part dès qu’il a joué, s’il est toujours légal."
+    "premoveHint": "Jouer pendant le tour de l’adversaire. Le coup part dès qu’il a joué, s’il est toujours légal.",
+    "animatePlacement": "Animer les pièces posées",
+    "animatePlacementHint": "La tuile ou la pièce quitte votre réserve et traverse jusqu'à sa case. Bref et discret. Le disque rendu pour poser un anneau fait le trajet lui aussi, d'une réserve à l'autre."
   },
   "rules": {
     "title": "Règles",
@@ -339,11 +341,13 @@
   "leaderboard": {
     "title": "Classement",
     "loading": "Chargement du classement…",
-    "empty": "Personne n'a encore terminé de partie classée. Soyez le premier.",
-    "lede": "{count} joueurs classés.",
+    "empty": "Personne ne s'est encore inscrit.",
+    "lede": "{count} membres, du plus fort au plus ancien.",
     "player": "Joueur",
     "games": "Parties",
-    "winRate": "Victoires"
+    "winRate": "Victoires",
+    "unplayed": "—",
+    "more": "Chargement de la suite…"
   },
   "review": {
     "first": "Début de la partie",

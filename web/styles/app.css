@@ -682,6 +682,21 @@ select.btn option {
   @keyframes overlay-slide { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
 }
 
+/*
+ * A piece on its way from a reserve to the board.
+ *
+ * Fixed to the viewport because the two ends of the journey are in different
+ * worlds — the reserves are HTML beside the board, the board is an SVG with a
+ * coordinate system of its own — and the screen is the only place both exist.
+ * Above everything, touchable by nothing, and gone as soon as it lands.
+ */
+.fly {
+  position: fixed; z-index: 60; pointer-events: none;
+  will-change: transform;
+}
+.fly svg { width: 100%; height: 100%; display: block; overflow: visible; }
+@media (prefers-reduced-motion: reduce) { .fly { display: none; } }
+
 /* ── Online ──────────────────────────────────────────────────────────────── */
 
 .net-strip {

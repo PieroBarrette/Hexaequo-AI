@@ -113,6 +113,33 @@ async function run() {
         third.disconnect();
     });
 
+    /*
+     * The one that had people sitting in the lobby with a green light beside
+     * their name being told to sign in.
+     *
+     * A token that verifies is a token that says who you are. Reading the
+     * profile behind it is a separate errand, and when that errand failed the
+     * server used to answer BAD_TOKEN and sign the socket out — while the
+     * lobby entry, put there by the identify that had worked, stayed exactly
+     * where it was. This process has no database at all, so the lookup cannot
+     * help but fail, which is the whole of the test.
+     */
+    await test('a good token that cannot be looked up is not a bad token', async () => {
+        const jwt = require('jsonwebtoken');
+        const { JWT_SECRET } = require('../config/env');
+        const good = jwt.sign({ userId: 'someone' }, JWT_SECRET, { expiresIn: '1h' });
+        const answer = await ask(black, 'hx:identify', { token: good });
+        assert.strictEqual(answer.ok, false);
+        assert.strictEqual(answer.error, 'LOOKUP_FAILED',
+            'ours to fix, and never a reason to sign anybody out');
+    });
+
+    await test('a token that is not a token still is a bad token', async () => {
+        const answer = await ask(black, 'hx:identify', { token: 'not-a-token' });
+        assert.strictEqual(answer.ok, false);
+        assert.strictEqual(answer.error, 'BAD_TOKEN');
+    });
+
     await test('an unknown code is refused', async () => {
         const response = await ask(white, 'hx:join', { code: 'ZZZZZZ' });
         assert.strictEqual(response.ok, false);

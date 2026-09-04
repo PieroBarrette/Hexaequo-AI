@@ -20,9 +20,9 @@
 
 import { t } from '../i18n.js';
 import { navigate } from '../router.js';
-import { request, connect, listen, inviteLink, identify } from '../net.js';
+import { request, connect, listen, inviteLink } from '../net.js';
 import { play as playSound } from '../audio.js';
-import { isSignedIn, onAuthChange, sessionToken } from '../auth.js';
+import { isSignedIn, onAuthChange } from '../auth.js';
 import { openPanel } from '../ui/panels.js';
 import { myGameCode } from '../ui/challenge.js';
 import { mountLobby } from './lobby.js';
@@ -223,7 +223,6 @@ export function mountOnline(outlet) {
     else {
       try {
         await connect();
-        await identify(sessionToken()).catch(() => {});
         const mine = await request('hx:mygame', {});
         liveCode = mine && mine.ok ? mine.code : null;
         // Only when there is nothing on screen already answering for it: a
@@ -302,7 +301,6 @@ export function mountOnline(outlet) {
     render();
     try {
       await connect();
-      await identify(sessionToken()).catch(() => {});
       subscribe();
       const response = await request('hx:queue', { timeControl: cadence });
       busy = false;
@@ -344,7 +342,6 @@ export function mountOnline(outlet) {
     // again rather than leaving the player staring at a dead timer.
     unsubscribe.push(listen('connect', async () => {
       if (!search) return;
-      await identify(sessionToken()).catch(() => {});
       try {
         const response = await request('hx:queue', { timeControl: search.timeControl });
         if (response.ok) adoptStatus(response);
@@ -394,7 +391,6 @@ export function mountOnline(outlet) {
       render();
       try {
         await connect();
-        await identify(sessionToken()).catch(() => {});
         subscribe();
         const response = await request('hx:create', { timeControl: cadence });
         if (!response.ok) { busy = false; return fail(response.error); }

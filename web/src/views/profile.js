@@ -10,12 +10,12 @@
 import { t, currentLanguage } from '../i18n.js';
 import { navigate } from '../router.js';
 import {
-  api, isSignedIn, sessionReady, onAuthChange, sessionToken, currentUser, signOut,
+  api, isSignedIn, sessionReady, onAuthChange, currentUser, signOut,
   chooseNickname,
 } from '../auth.js';
 import { play as playSound } from '../audio.js';
 import { openPanel } from '../ui/panels.js';
-import { request, connect, identify } from '../net.js';
+import { request, connect } from '../net.js';
 import { watchPresence, onPresence, presenceOf } from '../presence.js';
 
 const escapeText = (value) => String(value).replace(/[&<>"']/g, (c) =>
@@ -366,7 +366,6 @@ export function mountProfile(outlet, params) {
     render();
     try {
       await connect();
-      await identify(sessionToken()).catch(() => {});
       const response = await request('hx:challenge', { userId: who, timeControl });
       notice = !response.ok
         ? t('online.errors.' + response.error)

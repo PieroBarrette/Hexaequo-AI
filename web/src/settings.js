@@ -17,6 +17,7 @@ export const DEFAULTS = {
   showValidMoves: true,
   showLastMove: true,
   showCoordinates: false,
+  animatePlacement: true,
   premove: false,
   aiLevel: 2,             // see AI_LEVELS_VERSION below
   aiLevelsVersion: 0,

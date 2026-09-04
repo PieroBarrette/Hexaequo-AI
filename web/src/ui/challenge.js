@@ -21,9 +21,9 @@
 
 import { t } from '../i18n.js';
 import { navigate } from '../router.js';
-import { request, listen, connect, identify } from '../net.js';
+import { request, listen, connect } from '../net.js';
 import { play as playSound } from '../audio.js';
-import { isSignedIn, sessionToken, onAuthChange, currentUser } from '../auth.js';
+import { isSignedIn, onAuthChange, currentUser } from '../auth.js';
 
 const escapeText = (value) => String(value).replace(/[&<>"']/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -281,7 +281,6 @@ async function arm() {
   armed = true;
   try {
     await connect();
-    await identify(sessionToken()).catch(() => {});
   } catch { /* the listeners below reconnect with the socket */ }
 
   listen('hx:challenge:incoming', (payload) => {
@@ -348,7 +347,6 @@ async function arm() {
   /* Signing in on a live socket does not re-dial, so take the identity across
      explicitly or the server has nobody to address. */
   listen('connect', async () => {
-    await identify(sessionToken()).catch(() => {});
     catchUp();
   });
   catchUp();

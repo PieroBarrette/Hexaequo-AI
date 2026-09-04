@@ -38,6 +38,18 @@
      tile colour, so the contrast holds in all four palettes by construction. */
   --coord-on-dark: color-mix(in srgb, var(--tile-light) 70%, transparent);
   --coord-on-light: color-mix(in srgb, var(--tile-dark) 70%, transparent);
+  /* And a third, for the cells with no tile on them yet — the places the next
+     tile may go. Those are printed on the board itself rather than on a piece
+     of it, so the ink is drawn from the page's own writing colour, which is
+     the one thing every palette guarantees reads against its ground.
+
+     Sixty per cent because it has to hold on four different boards. At
+     forty-five the pale ones came out at 2.4 to 1 against their ground, under
+     the three a mark this small needs; at seventy the dark ones reached eight,
+     louder than the labels on the tiles — which would make the empty cells the
+     most legible thing on the board, and an empty cell is a suggestion. Sixty
+     lands between 3.4 and 6.1 everywhere. */
+  --coord-on-board: color-mix(in srgb, var(--text) 60%, transparent);
 
   /*
    * A hair of light in the middle of the ground, falling away to nothing.

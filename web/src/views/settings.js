@@ -85,6 +85,7 @@ export function mountSettings(outlet) {
         ${row('settings.showValidMoves', 'settings.showValidMovesHint', toggle('showValidMoves', getSetting('showValidMoves')))}
         ${row('settings.showLastMove', 'settings.showLastMoveHint', toggle('showLastMove', getSetting('showLastMove')))}
         ${row('settings.showCoordinates', 'settings.showCoordinatesHint', toggle('showCoordinates', getSetting('showCoordinates')))}
+        ${row('settings.animatePlacement', 'settings.animatePlacementHint', toggle('animatePlacement', getSetting('animatePlacement')))}
         ${row('settings.premove', 'settings.premoveHint', toggle('premove', getSetting('premove')))}
         ${row('settings.aiLevel', 'settings.aiLevelHint', segmented('aiLevel', getSetting('aiLevel'), [
           { value: 0, label: t('game.levelBeginner') },

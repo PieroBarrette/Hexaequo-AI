@@ -103,6 +103,30 @@ function seatView(seat) {
  */
 const online = new Map();
 
+/**
+ * Stop answering for this socket's account.
+ *
+ * The light and the permission have to be the same fact. They were two: the
+ * light came from `online`, the permission from socket.data.user, and a failed
+ * identify cleared one and not the other — leaving a player listed in the
+ * lobby with a green light beside their name, on a socket the server did not
+ * recognise. Every button then answered "sign in first", which was true of the
+ * socket and plainly false to the person reading their own name on the screen.
+ */
+function forgetIdentity(io, socket) {
+    const held = socket.data.user;
+    socket.data.user = null;
+    /* By socket rather than by the account it claimed, so an entry cannot
+       outlive the identity that put it there whatever order things failed in.
+       Another tab may hold the entry; only its own socket clears it. */
+    for (const [userId, entry] of online) {
+        if (entry.socketId !== socket.id) continue;
+        online.delete(userId);
+        announcePresence(io, userId);
+    }
+    return held;
+}
+
 /** Whether this account is at a board right now. */
 function isPlaying(userId) {
     for (const room of rooms.values()) {
@@ -494,16 +518,46 @@ function attachOnlineGames(io) {
         socket.on('hx:identify', async (payload, callback) => {
             const token = payload && payload.token;
             if (!token) {
-                socket.data.user = null;
+                forgetIdentity(io, socket);
                 return reply(callback, { ok: true, user: null });
             }
+
+            /*
+             * The token is what says who you are, and saying so is free: it is
+             * signed, and verifying a signature reaches nothing and can fail
+             * for exactly one reason. Only the profile behind it needs looking
+             * up, and only the first time.
+             */
+            let claims;
             try {
-                const claims = jwt.verify(String(token), JWT_SECRET);
+                claims = jwt.verify(String(token), JWT_SECRET);
+            } catch {
+                forgetIdentity(io, socket);
+                return reply(callback, { ok: false, error: 'BAD_TOKEN' });
+            }
+
+            /* Already this person. Every request identifies its connection, so
+               this is most of them, and each one used to be a round trip to the
+               database — a round trip that signed the player out when it
+               failed. Nothing to look up: they have not become someone else. */
+            const held = socket.data.user;
+            if (held && held.userId === claims.userId) {
+                online.set(held.userId, {
+                    userId: held.userId, pseudo: held.pseudo, elo: held.elo, socketId: socket.id,
+                });
+                return reply(callback, { ok: true, user: { pseudo: held.pseudo, elo: held.elo } });
+            }
+
+            try {
                 const { rows } = await query(
                     'SELECT id, pseudo, elo, games_played FROM users WHERE id = $1',
                     [claims.userId]
                 );
-                if (!rows.length) throw new Error('unknown account');
+                if (!rows.length) {
+                    // The account is gone. That is an answer, not a failure.
+                    forgetIdentity(io, socket);
+                    return reply(callback, { ok: false, error: 'BAD_TOKEN' });
+                }
                 const user = rows[0];
                 socket.data.user = {
                     userId: user.id,
@@ -533,8 +587,14 @@ function attachOnlineGames(io) {
                 announcePresence(io, user.id);
                 reply(callback, { ok: true, user: { pseudo: user.pseudo, elo: user.elo } });
             } catch (error) {
-                socket.data.user = null;
-                reply(callback, { ok: false, error: 'BAD_TOKEN' });
+                /* The token was good and we could not read the profile behind
+                   it. That is our failure, not the player's, and answering it
+                   by signing them out is how somebody came to be sitting in
+                   the lobby with a green light, being told to sign in every
+                   time they touched a button. Whatever this socket already
+                   knew, it still knows. */
+                console.error('[identify] could not read the account:', error.message);
+                reply(callback, { ok: false, error: 'LOOKUP_FAILED' });
             }
         });
 
@@ -1029,15 +1089,7 @@ function attachOnlineGames(io) {
                 watched.watchers.delete(socket.id);
                 announceWatchers(io, watched);
             }
-            const who = socket.data.user;
-            if (who) {
-                const entry = online.get(who.userId);
-                // Another tab may hold the entry; only its own socket clears it.
-                if (entry && entry.socketId === socket.id) {
-                    online.delete(who.userId);
-                    announcePresence(io, who.userId);
-                }
-            }
+            forgetIdentity(io, socket);
             for (const code of socket.data.hxRooms) {
                 const room = rooms.get(code);
                 if (!room) continue;

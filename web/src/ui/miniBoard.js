@@ -78,11 +78,6 @@ export function miniBoardSvg(spec) {
     out += `<path d="${hexPath(cx(k), cy(k), SIZE * .94)}"`
       + ` fill="var(--last-move-fill)" stroke="var(--last-move-edge)" stroke-width="3"/>`;
   }
-  // Same place in the order as the real board: on the tiles, under the pieces.
-  if (spec.coords) {
-    const dark = new Set(tiles.filter(([, , c]) => c === BLACK).map(([q, r]) => key(q, r)));
-    out += coordinateLabels(tiles.map(([q, r]) => key(q, r)), (k) => dark.has(k));
-  }
   if (route.length > 1) {
     let d = '';
     route.forEach(([q, r], i) => {
@@ -95,6 +90,29 @@ export function miniBoardSvg(spec) {
   for (const [q, r, player, type] of pieces) {
     const k = key(q, r);
     out += pieceSvg(cx(k), cy(k), makePiece(player, type === undefined ? DISK : type));
+  }
+
+  /* Over the pieces and on the open cells, the way the real board does it — a
+     preview that showed the marks somewhere else would be showing a setting
+     this board does not have. */
+  if (spec.coords) {
+    const darkTile = new Set(tiles.filter(([, , c]) => c === BLACK).map(([q, r]) => key(q, r)));
+    const onIt = new Map();
+    for (const [q, r, player, type] of pieces) {
+      onIt.set(key(q, r), { player, ring: (type === undefined ? DISK : type) !== DISK });
+    }
+    const ink = (k) => {
+      if (!darkTile.has(k) && !tiles.some(([q, r]) => key(q, r) === k)) {
+        return 'var(--coord-on-board)';       // no tile: an open cell
+      }
+      const piece = onIt.get(k);
+      // A disk covers the tile; a ring is seen through, so the tile still says.
+      const dark = piece && !piece.ring ? piece.player === BLACK : darkTile.has(k);
+      return dark ? 'var(--coord-on-dark)' : 'var(--coord-on-light)';
+    };
+    const named = tiles.map(([q, r]) => key(q, r))
+      .concat(spec.showSpots === false ? [] : spots.map(([q, r]) => key(q, r)));
+    out += coordinateLabels(named, ink);
   }
   for (const [q, r, kind] of dots) {
     const k = key(q, r);

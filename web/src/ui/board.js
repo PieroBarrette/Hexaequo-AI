@@ -16,7 +16,7 @@ export const cx = (k) => centerX(k, SIZE);
 export const cy = (k) => centerY(k, SIZE);
 
 /**
- * Each tile's own coordinate, printed on it — the label the move list writes.
+ * Each cell's own coordinate, printed on it — the label the move list writes.
  *
  * Round the rim is where these started, a letter per column and a number per
  * row, and on a board that grows a cell at a time it would not keep still: lay
@@ -32,15 +32,16 @@ export const cy = (k) => centerY(k, SIZE);
  * tiles and all but gone on the pale ones — the mark has to contrast with what
  * it is printed on, not with the page.
  *
- * @param {Array} cells       tiles to label
- * @param {Function} [isDark] k → true when the tile is a dark one
+ * @param {Array} cells    cells to label
+ * @param {Function} [ink] k → the colour to write it in; defaults to the ink
+ *                         for a pale tile, which is what the rules figures use
  */
-export function coordinateLabels(cells, isDark) {
+export function coordinateLabels(cells, ink) {
   let out = '';
   for (const k of cells) {
-    const ink = isDark && isDark(k) ? 'var(--coord-on-dark)' : 'var(--coord-on-light)';
+    const colour = typeof ink === 'function' ? ink(k) : 'var(--coord-on-light)';
     out += `<text class="coord" x="${cx(k).toFixed(1)}" y="${cy(k).toFixed(1)}"`
-      + ` font-size="${(SIZE * .26).toFixed(1)}" fill="${ink}"`
+      + ` font-size="${(SIZE * .26).toFixed(1)}" fill="${colour}"`
       + ` text-anchor="middle" dominant-baseline="central"`
       + ` pointer-events="none">${cellLabel(k)}</text>`;
   }
@@ -63,8 +64,19 @@ export function pieceSvg(x, y, code, scale) {
       + `<circle cx="${x - r * .13}" cy="${y - r * .15}" r="${r * .1}" fill="rgba(255,255,255,${gloss})"/>`
       + `</g>`;
   }
+  /*
+   * A ring is a hole, and the hole is meant to be one.
+   *
+   * The shadow used to be a filled circle the width of the whole piece, so it
+   * lay across the middle as well as under the band — and it is a translucent
+   * black, between a quarter and a half of it, so the tile seen through the
+   * ring came out tinted. Not an illusion: a wash of shadow over the thing you
+   * were looking through. Stroked to the same width as the band it falls
+   * under, it shades what casts it and nothing else.
+   */
   return `<g pointer-events="none">`
-    + `<circle cx="${x}" cy="${y + shadow}" r="${r * .44}" fill="var(--piece-shadow)"/>`
+    + `<circle cx="${x}" cy="${y + shadow}" r="${r * .44}" fill="none"`
+    + ` stroke="var(--piece-shadow)" stroke-width="${r * .26}"/>`
     + `<circle cx="${x}" cy="${y}" r="${r * .44}" fill="none" stroke="${fill}" stroke-width="${r * .26}"/>`
     + `<circle cx="${x}" cy="${y}" r="${r * .57}" fill="none" stroke="${edge}" stroke-width="${1.6 * (scale || 1)}"/>`
     + `<circle cx="${x}" cy="${y}" r="${r * .31}" fill="none" stroke="${edge}" stroke-width="${1.6 * (scale || 1)}"/>`
@@ -86,10 +98,29 @@ export function createBoard(container) {
   let from = null;
   let to = null;
   let startedAt = 0;
+  let takes = 0;
   let raf = 0;
 
+  /*
+   * How long a re-framing takes: as far as it has to go, within reason.
+   *
+   * One fixed length made a nudge of a few pixels crawl and a jump across the
+   * whole board hurry, and both read as the same wrong thing — a camera that
+   * does not move the way a hand would. Measured against the frame itself, so
+   * it means the same on a phone as on a desktop.
+   */
+  const SHORTEST = 240;
+  const LONGEST = 620;
+  function glideMs(a, b) {
+    const span = Math.max(
+      Math.abs(a.x - b.x) / a.w, Math.abs(a.y - b.y) / a.h,
+      Math.abs(a.w - b.w) / a.w, Math.abs(a.h - b.h) / a.h,
+    );
+    return Math.min(LONGEST, SHORTEST + span * 900);
+  }
+
   function step(now) {
-    const u = Math.min(1, (now - startedAt) / 500);
+    const u = Math.min(1, (now - startedAt) / takes);
     const e = u < .5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
     view = {
       x: lerp(from.x, to.x, e), y: lerp(from.y, to.y, e),
@@ -112,6 +143,7 @@ export function createBoard(container) {
       && Math.abs(target.w - reference.w) < .5 && Math.abs(target.h - reference.h) < .5) return;
     from = { ...view };
     to = { ...target };
+    takes = glideMs(view, target);
     startedAt = performance.now();
     if (!raf) raf = requestAnimationFrame(step);
   }
@@ -274,13 +306,6 @@ export function createBoard(container) {
         + ` stroke-width="3" pointer-events="none"/>`;
     }
 
-    /* After the tiles, or the tile's own fill would bury them, and after the
-       last-move wash, which would tint them. Before the pieces, so a piece
-       landing on a tile hides its coordinate rather than sitting in a muddle
-       with it. Tiles only: the candidate cells come and go every turn, and
-       markings that blink in and out are the restlessness this was meant to
-       cure. */
-    if (v.showCoordinates) out += coordinateLabels(s.tileKeys, (k) => s.tileAt[k] === BLACK);
 
     /* A move lined up for our turn: dashed, because it has not happened and
        may yet turn out to be illegal. */
@@ -313,6 +338,34 @@ export function createBoard(container) {
     }
     if (v.chainCurrent != null && v.chainCurrent !== v.hidden && v.chainCurrent !== v.held) {
       out += pieceSvg(cx(v.chainCurrent), cy(v.chainCurrent), v.chainPiece);
+    }
+
+    /*
+     * The coordinates, over everything the board has put down.
+     *
+     * They used to go under the pieces, so a tile with a piece on it lost its
+     * name — which is the tile you most often want to name, since it is the
+     * one something is happening on. Over the top now, small enough to read
+     * past and written in whatever contrasts with what it lands on.
+     *
+     * The empty cells a tile may still be laid on are named too. They are
+     * where the next move goes, so they are the squares worth saying out loud,
+     * and until now they were the only ones without a name.
+     */
+    if (v.showCoordinates) {
+      const ink = (k) => {
+        if (s.tileAt[k] < 0) return 'var(--coord-on-board)';
+        const code = s.pieceAt[k];
+        /* Through the hole of a ring you see the tile, so the tile is what the
+           mark has to stand out from. A disk covers the tile, so the disk is.
+           A piece in flight or under the pointer is not on its cell to be
+           stood on. */
+        const onADisk = code >= 0 && pieceType(code) === DISK
+          && k !== v.hidden && k !== v.held;
+        const dark = onADisk ? pieceOwner(code) === BLACK : s.tileAt[k] === BLACK;
+        return dark ? 'var(--coord-on-dark)' : 'var(--coord-on-light)';
+      };
+      out += coordinateLabels(s.tileKeys.concat(v.spots), ink);
     }
 
     /* Move aids. */
