@@ -62,8 +62,9 @@ function run({ moves, depth, token }) {
     /* Only what came before it. Handing over the whole game would let the
        search treat positions that have not happened yet as though they had,
        and call a line drawn on a repetition still in the future. */
+    const history = timeline.slice(0, ply + 1);
     const verdict = judge(cloneState(timeline[ply]),
-      { ms: Infinity, maxDepth: depth, history: timeline.slice(0, ply + 1) });
+      { ms: Infinity, maxDepth: depth, history });
     self.postMessage({
       type: 'verdict',
       token,
@@ -72,6 +73,10 @@ function run({ moves, depth, token }) {
       depth: verdict.depth,
       decisive: verdict.decisive,
       move: verdict.move,
+      /* How deep the search had to go before it stopped changing its mind --
+         which is as close as it comes to saying how hard the move was to see.
+         Computed on the way to the verdict and otherwise thrown away. */
+      settledAt: verdict.settledAt,
     });
   }
 

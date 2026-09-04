@@ -389,22 +389,44 @@ select.btn option {
 }
 .review-bar > * { flex: none; }
 .review-bar.is-on { display: flex; }
+/*
+ * The move you are standing on, in the middle of the bar.
+ *
+ * A button rather than a label: it opens the panel, which is what reading the
+ * move used to cost. Sized to shrink rather than push — the arrows either side
+ * of it are the things that must never wrap to a second row.
+ */
 .review-ply {
-  font: 600 12px/1 var(--font-mono); color: var(--muted);
-  min-width: 5.5em; text-align: center; font-variant-numeric: tabular-nums;
+  display: flex; align-items: baseline; gap: 6px;
+  min-width: 4.5em; flex: 0 1 auto; overflow: hidden;
+  padding: 4px 6px; border: 0; border-radius: var(--radius-sm);
+  background: none; color: var(--muted); cursor: pointer;
+  font: 600 12px/1.3 var(--font-mono); font-variant-numeric: tabular-nums;
 }
+.review-ply:hover { background: var(--surface-2); }
+.ply-at { flex: none; font-weight: 600; }
+.ply-of { font-style: normal; font-weight: 400; opacity: .7; }
+.ply-said {
+  color: var(--text); font-weight: 600;
+  /* A flex item will not shrink below its content unless told it may, and
+     without that the ellipsis never gets a chance to appear. */
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.review-ply .ply-mark { font-style: normal; margin-left: 1px; }
+.review-ply .ply-time { flex: none; font-style: normal; font-size: 10px; opacity: .8; }
+
+/* Two labels, one button: the stylesheet picks by how much room there is. */
+.btn-short { display: none; }
 .review-live { display: none; font-size: 12px; margin-left: 6px; }
 
 /*
  * Stepping through a game and playing it back are different jobs, and ▶ for
- * "next move" beside ▶ for "play" is the same arrow twice. A gap and a rule
- * between them, and the playback button carries the accent so the eye lands
- * on the difference rather than on the shape.
+ * "next move" beside ▶ for "play" is the same arrow twice. They no longer
+ * share a bar: a playback speed is something you set rather than something
+ * you press your way through, so the pair sits with the other settings and
+ * the bar keeps only the way through the game. The accent stays — in the menu
+ * it tells the two ▶ apart, one for the engines and one for the replay.
  */
-.review-sep {
-  flex: none; width: 1px; align-self: stretch; margin: 2px 4px;
-  background: var(--line);
-}
 .review-play { color: var(--accent); }
 .review-play.is-on {
   background: color-mix(in srgb, var(--accent) 18%, transparent);
@@ -661,6 +683,14 @@ select.btn option {
   .report-ctl .report-go { padding: 3px 7px; font-size: 11px; }
 }
 
+/* Three marks and one honour, in the colours the rest of the app already uses
+   for the same feelings: a mistake is the danger colour pulled halfway back
+   towards the quiet one, a blunder is the danger colour itself, and the one
+   good mark takes the accent. Used in the tally and beside the moves alike. */
+.band-inaccuracy { color: var(--muted); }
+.band-mistake { color: color-mix(in srgb, var(--danger) 72%, var(--muted)); }
+.band-blunder { color: var(--danger); font-weight: 600; }
+.band-brilliant { color: var(--accent); font-weight: 600; }
 .move-list .ply-mark { font-style: normal; margin-left: 2px; font-weight: 700; }
 
 /* The same picture laid on its side: the whole game rather than one position.
@@ -1236,7 +1266,38 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
    */
   .review-bar.is-on { display: contents; }
   .review-bar .btn--icon { width: 32px; min-width: 32px; }
-  .review-ply { min-width: 3.8em; }
+  /* The readout is what gives on a narrow screen, and it gives from the right:
+     the counter is the anchor, the move is the point, and the time is the
+     first thing anybody can do without. */
+  /*
+   * It takes what is left and no more.
+   *
+   * The bar wraps, and a wrapping flex container breaks the line on an item's
+   * natural width before it ever considers shrinking it — so a long notation
+   * at the end of a game pushed the bar back to two rows even though the
+   * readout was perfectly willing to give. A basis of zero means it never has
+   * a natural width to break on: the arrows lay themselves out first and it
+   * fills the gap, ellipsis and all.
+   */
+  .review-ply { flex: 1 1 0; min-width: 0; font-size: 11px; padding: 4px; gap: 4px; }
+  .review-ply .ply-time { display: none; }
+  /* Six words become a glyph, and the bar becomes one row. */
+  .btn-long { display: none; }
+  .btn-short { display: inline; font-size: 15px; }
+  .review-live { margin-left: 0; padding: 5px 9px; }
+}
+
+/*
+ * The narrowest phones: the notation wins over the total.
+ *
+ * At 412 the readout fits a full multi-jump exactly; at 375 it is twenty
+ * pixels short, and what the ellipsis eats is the end of the move — the ×1
+ * that says it captured, the # that says it finished the game. Those are worth
+ * more than knowing how many plies the game runs to, which ⏭ answers in one
+ * press and the panel prints in full.
+ */
+@media (max-width: 400px) {
+  .ply-of { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

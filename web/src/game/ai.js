@@ -414,7 +414,9 @@ export const DECISIVE = MATE - 1000;
  * @returns {{ score: number, depth: number, decisive: boolean, move: object|null }}
  *   score is absolute and positive for Black, in points; decisive says the
  *   search reached a finish rather than an estimate; move is what the side to
- *   move should play, or null where there is nothing to play.
+ *   move should play, or null where there is nothing to play; settledAt is the
+ *   depth at which it last changed its mind about that move, which is as close
+ *   as a search comes to saying how hard the move was to see.
  */
 export function judge(state, { ms = 140, maxDepth = 5, history = null } = {}) {
   /*
@@ -436,6 +438,7 @@ export function judge(state, { ms = 140, maxDepth = 5, history = null } = {}) {
       depth: 0,
       decisive: true,
       move: null,
+      settledAt: 0,
     };
   }
 
@@ -452,6 +455,19 @@ export function judge(state, { ms = 140, maxDepth = 5, history = null } = {}) {
   let value = evaluateForSideToMove(state);
   let reached = 0;
   let best = null;
+  /*
+   * The depth at which the search last changed its mind.
+   *
+   * Iterative deepening picks a best move at every depth and throws away all
+   * but the last. What it threw away is the one thing that says how hard a
+   * move was to find: a move that is best from the first ply is one anybody
+   * would play, and a move the search only comes round to at the sixth is one
+   * you had to calculate. Free — it is a comparison against the previous
+   * depth's answer, and the root list is generated once, so the same move
+   * object comes back each time and identity is enough.
+   */
+  let settledAt = 1;
+  let previousBest = null;
 
   /* The root is walked here rather than left to negamax, which reports a score
      and keeps the move to itself. Same search either way: one ply expanded by
@@ -460,7 +476,7 @@ export function judge(state, { ms = 140, maxDepth = 5, history = null } = {}) {
   if (!root.length) {
     noise = heldNoise;
     useQuiescence = heldQuiesce;
-    return { score: 0, depth: 0, decisive: false, move: null };
+    return { score: 0, depth: 0, decisive: false, move: null, settledAt: 0 };
   }
   sortMoves(root, 0);
   pathH1[0] = state.h1;
@@ -481,6 +497,8 @@ export function judge(state, { ms = 140, maxDepth = 5, history = null } = {}) {
     }
     if (!completed) break;
     value = alpha;
+    if (previousBest !== null && bestThisDepth !== previousBest) settledAt = depth;
+    previousBest = bestThisDepth;
     best = bestThisDepth;
     reached = depth;
     if (Math.abs(value) > DECISIVE) break;
@@ -498,6 +516,7 @@ export function judge(state, { ms = 140, maxDepth = 5, history = null } = {}) {
     depth: reached,
     decisive: Math.abs(value) > DECISIVE,
     move: best,
+    settledAt,
   };
 }
 

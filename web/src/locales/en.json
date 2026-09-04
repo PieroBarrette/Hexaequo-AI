@@ -412,7 +412,15 @@
       "inaccuracy": "Inaccuracy",
       "mistake": "Mistake",
       "blunder": "Blunder",
-      "sacrifice": "Sacrifice: material given up without giving up the game"
+      "brilliant": "Brilliant"
+    },
+    "why": {
+      "inaccuracy": "Inaccuracy",
+      "mistake": "Mistake",
+      "blunder": "Blunder",
+      "brilliant": "Brilliant",
+      "haul": "A haul of material you had to calculate",
+      "sacrifice": "A sacrifice you had to calculate"
     }
   },
   "chat": {

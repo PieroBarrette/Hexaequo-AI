@@ -262,18 +262,9 @@ export function mountPlay(outlet, params) {
           <div class="review-bar">
           <button class="btn btn--icon" data-action="rev-first" title="${t('review.first')}">⏮</button>
           <button class="btn btn--icon" data-action="rev-prev" title="${t('review.previous')}">◀</button>
-          <span class="review-ply" data-field="ply"></span>
+          <button class="review-ply" data-field="ply" data-action="drawer"></button>
           <button class="btn btn--icon" data-action="rev-next" title="${t('review.next')}">▶</button>
           <button class="btn btn--icon" data-action="rev-last" title="${t('review.last')}">⏭</button>
-          <span class="review-sep"></span>
-          <button class="btn btn--icon review-play" data-action="rev-play"
-                  title="${t('review.play')}">▶</button>
-          <select class="btn review-speed" data-control="rev-speed" title="${t('review.speed')}">
-            <option value="1">1×</option>
-            <option value="2">2×</option>
-            <option value="4">4×</option>
-          </select>
-          <button class="btn review-resume" data-action="resume"></button>
           <button class="btn review-live" data-action="rev-live">${t('review.backToLive')}</button>
           </div>
           <span class="bar-gap"></span>
@@ -437,6 +428,7 @@ export function mountPlay(outlet, params) {
     tools.querySelector('[data-control="levelBlack"]').value = String(duelLevels[0]);
     tools.querySelector('[data-control="levelWhite"]').value = String(duelLevels[1]);
     tools.querySelector('[data-control="mode"]').value = mode;
+    tools.querySelector('[data-control="rev-speed"]').value = String(playSpeed);
     const side = tools.querySelector('[data-control="side"]');
     if (side) side.value = String(humanSide);
   }
@@ -465,6 +457,14 @@ export function mountPlay(outlet, params) {
     </select>
     <select class="btn" data-control="levelWhite" title="${t('game.levelOf', { colour: t('common.white') })}">
       ${levelOptions(t('common.white') + ' · ')}
+    </select>
+    <button class="btn review-resume" data-action="resume"></button>
+    <button class="btn btn--icon review-play" data-action="rev-play"
+            title="${t('review.play')}">▶</button>
+    <select class="btn review-speed" data-control="rev-speed" title="${t('review.speed')}">
+      <option value="1">1×</option>
+      <option value="2">2×</option>
+      <option value="4">4×</option>
     </select>
     <button class="btn btn--icon" data-action="run" title="${t('game.run')}">▶</button>
     <button class="btn btn--icon" data-action="step" title="${t('game.stepOnce')}">⏭</button>
@@ -691,6 +691,8 @@ export function mountPlay(outlet, params) {
       newTile: move.type === 'tile' ? move.cell : null,
       newPiece: move.type === 'piece' ? move.cell : null,
       hidden: path ? path[path.length - 1] : null,
+      /* Set just below, once the flight is known. */
+      flew: false,
     };
     for (const c of captures) {
       let step = 1;
@@ -708,6 +710,7 @@ export function mountPlay(outlet, params) {
        two places at once. Set before the redraw, or the first frame would show
        it arrived. */
     arriving = flight ? { cell: move.cell, tile: move.type === 'tile' } : null;
+    next.flew = Boolean(flight);
 
     applyMove(state, move);
     lastMove = move;
@@ -960,6 +963,9 @@ export function mountPlay(outlet, params) {
       newTile: move.type === 'tile' ? move.cell : null,
       newPiece: move.type === 'piece' ? move.cell : null,
       hidden: flightPath ? flightPath[flightPath.length - 1] : null,
+      /* A placement watched crossing the screen does not also pop in when
+         it lands: one telling of one arrival. */
+      flew: Boolean(handoff),
     };
     if (mine) net.noFly = false;
 
@@ -2424,6 +2430,33 @@ export function mountPlay(outlet, params) {
 
   const isAutoplaying = () => playTimer !== 0;
 
+  /**
+   * The middle of the bar: which move you are standing on, not merely where.
+   *
+   * It used to read "13 / 44", which is an address and nothing else — and on a
+   * phone the bar is the only thing between the board and the bottom of the
+   * screen, so an address was a poor use of the one strip of space there is.
+   * The move itself goes here now, with whatever the report made of it: the
+   * whole point of the marks is seeing which move earned which, and until now
+   * that meant opening the panel and giving up half the board to read it.
+   *
+   * The counter stays, because stepping through a game needs somewhere to be.
+   * Tapping the whole thing opens the panel, which is what it replaced.
+   */
+  function renderPlyReadout(at, last) {
+    const el = reviewBar.querySelector('[data-field="ply"]');
+    const entry = at > 0 ? moveLog[at - 1] : null;
+    const judged = report && report.marks ? report.marks.get(at) : null;
+    const mark = judged
+      ? ` <i class="ply-mark band-${judged.why ? 'brilliant' : judged.band}">${judged.mark}</i>`
+      : '';
+    const took = entry ? clockText(entry.ms) : '';
+    el.innerHTML = `<b class="ply-at">${at}<i class="ply-of">/${last}</i></b>`
+      + (entry ? `<span class="ply-said">${escapeText(entry.text)}${mark}</span>` : '')
+      + (took ? `<i class="ply-time">${took}</i>` : '');
+    el.title = entry ? `${t('game.moveList')} — ${entry.text}` : t('game.moveList');
+  }
+
   function renderReviewBar() {
     // Nothing to look back on until a move has been played.
     const usable = timeline.length > 1;
@@ -2431,7 +2464,7 @@ export function mountPlay(outlet, params) {
     if (!usable) return;
     const last = timeline.length - 1;
     const at = review === null ? last : review;
-    reviewBar.querySelector('[data-field="ply"]').textContent = `${at} / ${last}`;
+    renderPlyReadout(at, last);
     reviewBar.querySelector('[data-action="rev-first"]').disabled = at === 0;
     reviewBar.querySelector('[data-action="rev-prev"]').disabled = at === 0;
     reviewBar.querySelector('[data-action="rev-next"]').disabled = at === last;
@@ -2462,10 +2495,6 @@ export function mountPlay(outlet, params) {
      * handing that to an engine gives a game that is over before it starts.
      * Stepping back one move inside the branch offers it again.
      */
-    const players = reviewBar.querySelector('[data-action="resume"]');
-    const finished = Boolean(checkWinner(shownState()));
-    players.hidden = !exploring || finished;
-    if (exploring) players.textContent = t('review.playedBy.' + exploring.play);
     /* "Back to the game" only while there is a game to be back in. In a review
        there is no present to return to — the last ply is just the last ply, and
        ⏭ already goes there in one press. Mid-game it is the one control that
@@ -2474,7 +2503,14 @@ export function mountPlay(outlet, params) {
        carry: leave the branch, put the game back. */
     const live = reviewBar.querySelector('[data-action="rev-live"]');
     live.hidden = isReview() && !exploring;
-    live.textContent = exploring ? t('review.leaveExploring') : t('review.backToLive');
+    /* Both forms, and the stylesheet picks: on a phone the bar has room for a
+       glyph and not for six words, and this is one of the two buttons that was
+       taking a second row of it. The words stay as the title, and stay visible
+       everywhere there is width for them. */
+    const away = exploring ? t('review.leaveExploring') : t('review.backToLive');
+    live.innerHTML = `<span class="btn-long">${away}</span>`
+      + `<span class="btn-short" aria-hidden="true">⇥</span>`;
+    live.title = away;
     /*
      * Watching the game play itself is analysis too, so it keeps the same
      * company as the two buttons beside it.
@@ -2485,15 +2521,7 @@ export function mountPlay(outlet, params) {
      * them with it — three controls, and on a phone the difference between one
      * row of bar and two, which is a row of board.
      */
-    const analysing = isReview();
-    const playButton = reviewBar.querySelector('[data-action="rev-play"]');
-    if (!analysing && isAutoplaying()) stopAutoplay();
-    playButton.hidden = !analysing;
-    reviewBar.querySelector('.review-sep').hidden = !analysing;
-    reviewBar.querySelector('[data-control="rev-speed"]').hidden = !analysing;
-    playButton.textContent = isAutoplaying() ? '⏸' : '▶';
-    playButton.classList.toggle('is-on', isAutoplaying());
-    playButton.title = isAutoplaying() ? t('review.pause') : t('review.play');
+    if (!isReview() && isAutoplaying()) stopAutoplay();
   }
 
   const escapeText = (value) => String(value).replace(/[&<>"']/g, (c) =>
@@ -2536,8 +2564,8 @@ export function mountPlay(outlet, params) {
          excellent, and a mark on half a list marks nothing. */
       const judged = report && report.marks ? report.marks.get(ply) : null;
       const mark = judged
-        ? `<i class="ply-mark band-${judged.sacrifice ? 'sacrifice' : judged.band}"` +
-          ` title="${t('report.bands.' + (judged.sacrifice ? 'sacrifice' : judged.band))}"` +
+        ? `<i class="ply-mark band-${judged.why ? 'brilliant' : judged.band}"` +
+          ` title="${t('report.why.' + (judged.why || judged.band))}"` +
           `>${judged.mark}</i>`
         : '';
       return `<span class="ply ${classes}" data-ply="${ply}">${entry.text}${mark}`
@@ -2673,6 +2701,27 @@ export function mountPlay(outlet, params) {
     show('[data-control="level"]', engineHere && !isDuel);
     show('[data-control="levelBlack"]', engineHere && isDuel);
     show('[data-control="levelWhite"]', engineHere && isDuel);
+    /* Reading a game back is the one situation with no game to configure, and
+       the menu emptied out and took its own button with it — leaving a review
+       on a phone with no way to reach anything that is not an arrow. The
+       playback controls belong here anyway: a speed is something you set, not
+       something you press your way through, and off the bar they are the
+       difference between one row of it and two. */
+    const analysing = isReview();
+    /* Who is playing the branch. Off the bar because it is a setting rather
+       than a way through the game — and not while the position on screen is
+       one that ends a game: six disks are six disks, and handing that to an
+       engine gives a game that is over before it starts. */
+    const resume = tools.querySelector('[data-action="resume"]');
+    const standingOnAnEnding = Boolean(checkWinner(shownState()));
+    show('[data-action="resume"]', Boolean(exploring) && !standingOnAnEnding);
+    if (exploring) resume.textContent = t('review.playedBy.' + exploring.play);
+    show('[data-action="rev-play"]', analysing);
+    show('[data-control="rev-speed"]', analysing);
+    const playButton = tools.querySelector('[data-action="rev-play"]');
+    playButton.textContent = isAutoplaying() ? '⏸' : '▶';
+    playButton.classList.toggle('is-on', isAutoplaying());
+    playButton.title = isAutoplaying() ? t('review.pause') : t('review.play');
     show('[data-action="run"]', engineHere && isDuel);
     show('[data-action="step"]', engineHere && isDuel);
     show('[data-action="undo"]', local
@@ -2958,14 +3007,17 @@ export function mountPlay(outlet, params) {
       const verdict = weigh({
         before: before.score,
         after: after.score,
+        /* Zero where a verdict predates this being recorded: nothing is called
+           hard to see on evidence that was never gathered. */
+        settledAt: before.settledAt || 0,
         mover,
         played: timelineMoves[ply] ? moveIntent(timelineMoves[ply]) : null,
         engineMove: before.move ? moveIntent(before.move) : null,
         material: (got - taken) * DISK_POINTS,
       });
       weighed[mover].push(verdict);
-      const mark = verdict.sacrifice ? '!!' : BAND_MARK[verdict.band];
-      if (mark) marks.set(ply + 1, { mark, band: verdict.band, sacrifice: verdict.sacrifice });
+      const mark = verdict.brilliant ? '!!' : BAND_MARK[verdict.band];
+      if (mark) marks.set(ply + 1, { mark, band: verdict.band, why: verdict.why });
     }
     return {
       marks,
@@ -3017,6 +3069,9 @@ export function mountPlay(outlet, params) {
       evalCache.set(message.ply, {
         score: message.score, depth: message.depth,
         decisive: message.decisive, move: message.move,
+        /* Carried on the same entry: the bar and the curve read `score` and
+           never look at this, and the report wants both together. */
+        settledAt: message.settledAt,
       });
       report.seen++;
       /* Redrawn on a timer rather than on every verdict: at half a second a
@@ -3095,7 +3150,7 @@ export function mountPlay(outlet, params) {
       ['inaccuracy', '?!', who.counts.inaccuracy],
       ['mistake', '?', who.counts.mistake],
       ['blunder', '??', who.counts.blunder],
-      ['sacrifice', '!!', who.sacrifices],
+      ['brilliant', '!!', who.brilliancies],
     ].filter((band) => band[2] > 0)
       .map(([band, glyph, n]) =>
         `<i class="band-${band}" title="${t('report.bands.' + band)}">${glyph}${n}</i>`)

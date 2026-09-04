@@ -412,7 +412,15 @@
       "inaccuracy": "Imprécision",
       "mistake": "Erreur",
       "blunder": "Gaffe",
-      "sacrifice": "Sacrifice : du matériel donné sans céder la partie"
+      "brilliant": "Brillant"
+    },
+    "why": {
+      "inaccuracy": "Imprécision",
+      "mistake": "Erreur",
+      "blunder": "Gaffe",
+      "brilliant": "Brillant",
+      "haul": "Gros gain de matériel qu’il fallait calculer",
+      "sacrifice": "Sacrifice qu’il fallait calculer"
     }
   },
   "chat": {

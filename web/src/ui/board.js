@@ -515,23 +515,37 @@ export function createBoard(container) {
       total = Math.max(total, delay + 300);
     });
 
-    if (effect.newTile != null) {
-      const node = main.querySelector('[data-fx="tile"]');
-      if (node) {
-        node.animate([{ opacity: 0, transform: 'scale(.25)' }, { opacity: 1, transform: 'scale(1)' }],
-          { duration: 340, easing: 'cubic-bezier(.2,1.5,.4,1)' });
-        total = Math.max(total, 340);
+    /*
+     * A piece appearing where it was placed — unless it was watched getting
+     * there.
+     *
+     * These two exist to say "this arrived", for a placement that otherwise
+     * simply is. When the inventory animation is on, the arrival has already
+     * been said, at length, by a piece crossing the screen — and then playing
+     * this on top meant a travelling piece that swelled at the moment it
+     * landed. Two animations of the same event, and no way to join them that
+     * did not read as a stutter. So the flight replaces them rather than
+     * introducing them: one telling of one arrival.
+     */
+    if (!effect.flew) {
+      if (effect.newTile != null) {
+        const node = main.querySelector('[data-fx="tile"]');
+        if (node) {
+          node.animate([{ opacity: 0, transform: 'scale(.25)' }, { opacity: 1, transform: 'scale(1)' }],
+            { duration: 340, easing: 'cubic-bezier(.2,1.5,.4,1)' });
+          total = Math.max(total, 340);
+        }
       }
-    }
-    if (effect.newPiece != null) {
-      const node = main.querySelector('[data-fx="drop"]');
-      if (node) {
-        node.animate([
-          { opacity: 0, transform: 'scale(2.6)' },
-          { opacity: 1, transform: 'scale(.93)' },
-          { opacity: 1, transform: 'scale(1)' },
-        ], { duration: 330, easing: 'cubic-bezier(.3,.7,.3,1)' });
-        total = Math.max(total, 330);
+      if (effect.newPiece != null) {
+        const node = main.querySelector('[data-fx="drop"]');
+        if (node) {
+          node.animate([
+            { opacity: 0, transform: 'scale(2.6)' },
+            { opacity: 1, transform: 'scale(.93)' },
+            { opacity: 1, transform: 'scale(1)' },
+          ], { duration: 330, easing: 'cubic-bezier(.3,.7,.3,1)' });
+          total = Math.max(total, 330);
+        }
       }
     }
 

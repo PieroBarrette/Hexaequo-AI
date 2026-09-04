@@ -87,8 +87,42 @@ export function bandOf(loss) {
   return 'blunder';
 }
 
-/** A disk, in the engine's points. A sacrifice has to give up at least one. */
+/** A disk, in the engine's points. */
 export const SACRIFICE_POINTS = 100;
+
+/*
+ * What makes a move worth an exclamation mark.
+ *
+ * The first version asked only for a sacrifice — material given up, ground
+ * held — and it marked the wrong moves: it missed the ones that look hardest
+ * and decorated trades that happened to come out even. The trouble is that
+ * "spectacular" is not a fact about material at all. It is a fact about how
+ * far you had to see.
+ *
+ * The first attempt at measuring that judged every position a second time at
+ * two plies and asked whether the shallow reading disliked the move. It never
+ * fired once in seven hundred moves, and the distribution said why: the
+ * shallow value of the position *before* a move already assumes a good move
+ * will be played, so the two readings track each other whatever happens. The
+ * median gap was zero; so was the ninety-fifth percentile.
+ *
+ * What does answer the question was being computed all along and thrown away.
+ * Iterative deepening picks a best move at every depth; the depth at which it
+ * last changed its mind is exactly how far down you had to look before this
+ * move won the argument. A third of best moves are best from the first ply —
+ * those are the ones anybody plays.
+ *
+ * Depth alone is not enough, though, and measuring said so too. Taken alone it
+ * marks every quiet move the search is slow to settle on, and to somebody
+ * watching the board nothing happened at all — which is half of what was wrong
+ * with the first version. A move looks spectacular when something visible
+ * happens *and* you would not have seen it coming. So both are required:
+ * material has to move decisively, and it has to have taken real calculation.
+ * Measured over a thousand moves, that is about one a game — and a sacrifice
+ * the search saw immediately, which used to be marked, no longer is.
+ */
+export const SETTLED_DEPTH = 5;             // how far down the search had to go
+export const BIG_GAIN = 2 * SACRIFICE_POINTS;
 
 /**
  * One move, weighed.
@@ -102,7 +136,7 @@ export const SACRIFICE_POINTS = 100;
  * position than from the earlier one. Those are floored at zero rather than
  * paid out as credit.
  */
-export function weigh({ before, after, mover, played, engineMove, material }) {
+export function weigh({ before, after, mover, played, engineMove, material, settledAt = 0 }) {
   const sign = mover === 0 ? 1 : -1;
   const wasWorth = winShare(sign * before);
   const isWorth = winShare(sign * after);
@@ -112,28 +146,33 @@ export function weigh({ before, after, mover, played, engineMove, material }) {
     && JSON.stringify(engineMove) === JSON.stringify(played));
 
   /*
-   * A move that hands over material and does not hand over the game.
+   * Three gates, before any of the three ways in.
    *
-   * Three conditions, and the first two were learned by getting it wrong: a
-   * first version asked only for a piece given up at no cost in win
-   * probability, and found five of them in one game. Two reasons. Late in a
-   * won game the curve is flat -- nothing costs anything when you are four
-   * disks up -- so every trade looked free; and a trade you come off worse in
-   * is attrition, not a sacrifice.
-   *
-   * So the game has to still be a game, and the engine has to agree the move
-   * was best. That second one is what makes the mark worth printing: not "you
-   * gave up a piece and got away with it" but "you gave up a piece and it was
-   * the strongest move on the board".
+   * The game has to still be a game: late in a won one the curve is flat --
+   * nothing costs anything when you are four disks up -- so every trade looked
+   * free and a single game collected five brilliancies. The engine has to
+   * agree it was the strongest move on the board, which is the whole
+   * difference between "you gave up a piece and got away with it" and "you
+   * gave up a piece and it was right". And it has to have cost nothing.
    */
   const contested = wasWorth > 0.15 && wasWorth < 0.85;
-  const sacrifice = Boolean(material !== undefined
-    && material <= -SACRIFICE_POINTS
-    && loss < BANDS[0].upTo
-    && matched
-    && contested);
+  const worthy = matched && contested && loss < BANDS[0].upTo;
 
-  return { loss, band, matched, sacrifice, accuracy: moveAccuracy(loss) };
+  const calculated = worthy && settledAt >= SETTLED_DEPTH;
+  const sacrifice = Boolean(calculated && material !== undefined && material <= -SACRIFICE_POINTS);
+  const haul = Boolean(calculated && material !== undefined && material >= BIG_GAIN);
+  const brilliant = sacrifice || haul;
+
+  return {
+    loss,
+    band,
+    matched,
+    brilliant,
+    /* Which of the three it was. The same mark means a different thing each
+       time, and a player learns more from being told which. */
+    why: sacrifice ? 'sacrifice' : (haul ? 'haul' : null),
+    accuracy: moveAccuracy(loss),
+  };
 }
 
 /** Every move one player made, as the line a review prints above the list. */
@@ -141,18 +180,18 @@ export function summarise(weighed) {
   const counts = { best: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 };
   let accuracy = 0;
   let matched = 0;
-  let sacrifices = 0;
+  let brilliancies = 0;
   for (const move of weighed) {
     counts[move.band]++;
     accuracy += move.accuracy;
     if (move.matched) matched++;
-    if (move.sacrifice) sacrifices++;
+    if (move.brilliant) brilliancies++;
   }
   const n = weighed.length;
   return {
     moves: n,
     counts,
-    sacrifices,
+    brilliancies,
     accuracy: n ? Math.round(accuracy / n) : null,
     /* Against roughly eighteen legal moves at every point of the game, picking
        the engine's own by accident is a one-in-eighteen event -- so this is a
