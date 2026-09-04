@@ -26,7 +26,6 @@ import {
 import { chooseMove, judge, DISK_POINTS } from '../game/ai.js';
 import { request, listen, connect } from '../net.js';
 import { api, isSignedIn, onAuthChange, ratingChanged } from '../auth.js';
-import { offerPosition, takePosition } from '../handoff.js';
 import { openPanel } from '../ui/panels.js';
 import { emojiRowHtml } from '../ui/emoji.js';
 
@@ -69,7 +68,6 @@ export function mountPlay(outlet, params) {
    * — never a move the player did not choose, never one that is not legal.
    */
   let premove = null;
-  let resumedNote = false;      // this game was carried on from another one
 
   let timeline = [];
   let timelineMoves = [];
@@ -89,7 +87,10 @@ export function mountPlay(outlet, params) {
      keeps a level per colour rather than one for both. */
   let duelLevels = [level, level];
 
-  const levelFor = (player) => (mode === MODE_AI_AI ? duelLevels[player] : level);
+  const levelFor = (player) => {
+    if (exploring) return exploring.play === 'aiai' ? duelLevels[player] : level;
+    return mode === MODE_AI_AI ? duelLevels[player] : level;
+  };
 
   /* Online games: the server owns the position, so this view only sends move
      intents and renders whatever comes back. `net` is null for local play. */
@@ -133,8 +134,22 @@ export function mountPlay(outlet, params) {
      same hand, which is the whole of what makes it exploring. Left as it was,
      the engine replied to every move — the branch grew twice as fast as it was
      being played, and half of it was somebody else's idea. */
-  const isAI = (player) => !exploring
-    && !net && (mode === MODE_AI_AI || (mode === MODE_AI && player !== humanSide));
+  /*
+   * Whose engine plays this colour.
+   *
+   * A branch keeps its own answer. It starts with nobody — both sides pushed
+   * around by hand, which is what exploring was — and can be handed to the
+   * computer without leaving the branch, which is what "play from here" used
+   * to be and what made it a one-way door.
+   */
+  const isAI = (player) => {
+    if (exploring) {
+      if (exploring.play === 'aiai') return true;
+      if (exploring.play === 'ai') return player !== exploring.side;
+      return false;
+    }
+    return !net && (mode === MODE_AI_AI || (mode === MODE_AI && player !== humanSide));
+  };
 
   /*
    * Exploring: a position taken off the board and pushed around by hand.
@@ -147,9 +162,20 @@ export function mountPlay(outlet, params) {
   let exploring = null;
 
   /** Whether the local player may act at all right now. */
-  const canAct = () => (exploring ? review === null : !archiveId && (review === null) && (net
-    ? net.ready && !net.pending && state.turn === net.colour
-    : !isAI(state.turn)));
+  /*
+   * Whether the player may move a piece right now.
+   *
+   * A branch is the loose case: any ply of it may be played from, and playing
+   * from the middle of one throws the rest of it away — which is what makes it
+   * feel like an analysis board rather than a recording you may append to.
+   * Everything else is stricter: a game is played from its present, and a
+   * stored game is not played at all.
+   */
+  const canAct = () => (exploring
+    ? !isAI(state.turn)
+    : !archiveId && (review === null) && (net
+      ? net.ready && !net.pending && state.turn === net.colour
+      : !isAI(state.turn)));
 
   /** Whether the player may line a move up while the other side thinks. */
   const canPremove = () => Boolean(
@@ -212,7 +238,7 @@ export function mountPlay(outlet, params) {
             <option value="4">4×</option>
           </select>
           <button class="btn review-explore" data-action="explore">${t('review.explore')}</button>
-          <button class="btn review-resume" data-action="resume">${t('review.resume')}</button>
+          <button class="btn review-resume" data-action="resume"></button>
           <button class="btn review-live" data-action="rev-live">${t('review.backToLive')}</button>
           </div>
           <span class="bar-gap"></span>
@@ -541,6 +567,11 @@ export function mountPlay(outlet, params) {
       return;
     }
     if (net) { sendIntent(move, noFly); return; }
+    /* Playing from the middle of a branch replaces the rest of it. The move
+       was chosen against the position on screen, so the line it belonged to
+       has to be cut back to that position before it is applied — otherwise it
+       would be appended to a continuation the player has just decided against. */
+    if (exploring && review !== null) cutBackTo(review);
     applyLocal(move, noFly, flyPath, captureList);
   }
 
@@ -699,7 +730,9 @@ export function mountPlay(outlet, params) {
   function scheduleAI() {
     if (result || thinking || drag) return;
     if (!isAI(state.turn)) return;
-    if (mode === MODE_AI_AI && !aiRunning) return;
+    // Two engines wait to be told to start, in a game or in a branch.
+    const duel = exploring ? exploring.play === 'aiai' : mode === MODE_AI_AI;
+    if (duel && !aiRunning) return;
     // Whose engine is about to think, and therefore at what strength.
     const mover = state.turn;
     thinking = true;
@@ -1835,18 +1868,6 @@ export function mountPlay(outlet, params) {
       + menu;
   }
 
-  /** Say where this game came from, so nobody mistakes it for a fresh one. */
-  function showResumeNote(handoff) {
-    resumedNote = true;
-    const strip = outlet.querySelector('.net-strip');
-    strip.className = 'net-strip is-on';
-    strip.innerHTML = `<span class="net-msg">${
-      handoff.from
-        ? t('review.resumedFrom', { game: escapeText(handoff.from), n: handoff.ply })
-        : t('review.resumedHere', { n: handoff.ply })
-    }</span>`;
-  }
-
   /* ── Playing on from a position ───────────────────────────────────────── */
 
   /**
@@ -1871,13 +1892,17 @@ export function mountPlay(outlet, params) {
   function openResumeSheet() {
     resumeSetup = null;
     const options = [
+      ['hand', t('review.playHand')],
       ['ai', t('review.resumeVsAi')],
       ['local', t('review.resumeTwo')],
       ['aiai', t('review.resumeWatch')],
     ];
-    resumeEl.innerHTML = `<p class="resume-title">${t('review.resumeTitle', { n: reviewPly() })}</p>`
+    const now = exploring ? exploring.play : 'hand';
+    resumeEl.innerHTML = `<p class="resume-title">${t('review.playTitle')}</p>`
       + options.map(([id, label]) =>
-        `<button class="btn resume-choice" data-resume="${id}">${label}</button>`).join('')
+        `<button class="btn resume-choice${
+          (id === now || (id === 'local' && now === 'hand')) && id !== 'local' ? ' is-on' : ''
+        }" data-resume="${id}">${label}</button>`).join('')
       + `<button class="btn btn--link" data-resume="cancel">${t('game.cancel')}</button>`;
     resumeEl.hidden = false;
   }
@@ -1953,30 +1978,22 @@ export function mountPlay(outlet, params) {
    * exploring rather than playing: the question is "what if this had gone
    * differently", and nobody is on the other side of it.
    */
-  function startExploring() {
-    // Whatever was on the clock belonged to the game, not to the branch.
-    turnAt = Date.now();
-    const at = reviewPly();
-    if (exploring) {
-      // Branching again from inside a branch. The game underneath is already
-      // held; only the branch is being cut back, so the original stays put.
-      // `at` moves with it, or the strip would name the older starting point.
-      exploring.at = at;
-      timeline = timeline.slice(0, at + 1);
-      timelineMoves = timelineMoves.slice(0, at);
-      moveLog = moveLog.slice(0, at);
-    } else {
-      exploring = {
-        timeline, timelineMoves, moveLog, history, repetitions,
-        state, result, lastMove, review, at,
-      };
-      timeline = timeline.slice(0, at + 1);
-      timelineMoves = timelineMoves.slice(0, at);
-      moveLog = moveLog.slice(0, at);
-    }
+  /**
+   * Cut the line back to `at` and stand on it.
+   *
+   * Shared by the two ways a branch is made: stepping out of the game into
+   * one, and playing a move in the middle of one you are already in. The
+   * second is the whole of what makes a branch feel like an analysis board —
+   * go back three moves, play something else, and what came after is gone.
+   */
+  function cutBackTo(at) {
+    timeline = timeline.slice(0, at + 1);
+    timelineMoves = timelineMoves.slice(0, at);
+    moveLog = moveLog.slice(0, at);
     state = cloneState(timeline[at]);
     lastMove = at > 0 ? timelineMoves[at - 1] : null;
     result = null;
+    resultSeen = false;
     review = null;
     history = [];
     forgetAnalysis();
@@ -1992,16 +2009,45 @@ export function mountPlay(outlet, params) {
     placeMode = null;
     picker = null;
     clearEffect();
-    closeResumeSheet();
+  }
+
+  function startExploring() {
+    // Whatever was on the clock belonged to the game, not to the branch.
+    turnAt = Date.now();
+    const at = reviewPly();
+    if (exploring) {
+      // Branching again from inside a branch. The game underneath is already
+      // held; only the branch is being cut back, so the original stays put.
+      // `at` moves with it, or the strip would name the older starting point.
+      exploring.at = at;
+    } else {
+      exploring = {
+        timeline, timelineMoves, moveLog, history, repetitions,
+        state, result, lastMove, review, resultSeen, at,
+        /* Nobody is playing it but you, until you say otherwise. */
+        play: 'hand',
+        side: (timeline[at] || state).turn,
+      };
+    }
+    cutBackTo(at);
     refresh();
   }
 
-  /** Put the game back exactly as it was and throw the branch away. */
+  /**
+   * Put the game back exactly as it was and throw the branch away.
+   *
+   * Including whether its ending had been seen: the way back from a branch is
+   * the way back to the end of the game, and a card that had been dismissed
+   * before the branch was opened should be there again — that is what the
+   * button is for.
+   */
   function stopExploring() {
     if (!exploring) return;
     turnAt = Date.now();
     ({ timeline, timelineMoves, moveLog, history, repetitions,
       state, result, lastMove, review } = exploring);
+    resultSeen = false;
+    aiRunning = false;
     exploring = null;
     forgetAnalysis();            // the branch's numbers were not about this game
     selected = null;
@@ -2012,26 +2058,42 @@ export function mountPlay(outlet, params) {
     refresh();
   }
 
-  function resumeFrom(mode, setup) {
-    const position = shownState();
-    if (!position) return;
-    offerPosition({
-      position: cloneState(position),
-      mode,
-      /* Carrying on as the colour whose turn it is remains the default — the
-         interesting question is almost always "what should have been played
-         here" — but the setup step may have said otherwise. */
-      side: setup && setup.side !== null && setup.side !== undefined
-        ? setup.side : position.turn,
-      levels: setup ? setup.levels : null,
-      from: archive
-        ? `${(archive.black && archive.black.pseudo) || t('profile.guest')} – `
-          + `${(archive.white && archive.white.pseudo) || t('profile.guest')}`
-        : null,
-      ply: reviewPly(),
-    });
+  /**
+   * Hand the branch to somebody — or take it back.
+   *
+   * This used to carry the position off to a brand new game, which is why
+   * there was no way back to the one it came from: the game was not carried
+   * with it. Nothing leaves now. The branch simply changes who is playing it,
+   * so the game underneath is still held and "back to the game" is always
+   * there. Changing your mind mid-branch is allowed and costs nothing.
+   */
+  function playBranch(kind, setup) {
+    if (!exploring) return;
     closeResumeSheet();          // the click that got here has already sounded
-    navigate('play', { resumed: '1' });
+    if (kind === 'hand' || kind === MODE_LOCAL) {
+      exploring.play = 'hand';
+      aiRunning = false;
+      thinking = false;
+      refresh();
+      return;
+    }
+    exploring.play = kind === MODE_AI_AI ? 'aiai' : 'ai';
+    /* Carrying on as the colour whose turn it is remains the default — the
+       interesting question is almost always "what should have been played
+       here" — but the setup step may have said otherwise. */
+    exploring.side = setup && setup.side !== null && setup.side !== undefined
+      ? setup.side : shownState().turn;
+    if (setup && setup.levels) {
+      level = setup.levels[0];
+      duelLevels = [setup.levels[0], setup.levels[1]];
+    }
+    /* Two engines need to be told to start; one engine simply answers you. */
+    aiRunning = exploring.play === 'aiai';
+    /* Playing on means playing on from here, so the line stops at the position
+       being looked at rather than continuing one further down. */
+    if (review !== null) cutBackTo(review);
+    refresh();
+    afterEffect(scheduleAI);
   }
 
   /* ── Review ───────────────────────────────────────────────────────────── */
@@ -2170,19 +2232,6 @@ export function mountPlay(outlet, params) {
 
   const isAutoplaying = () => playTimer !== 0;
 
-  /**
-   * Did the board end the game, or did something outside it?
-   *
-   * Six disks, three rings, an empty board, the same position three times, no
-   * legal move: all of them are the position saying the game is finished, and
-   * handing that position to two engines gives a game that ends on the first
-   * move or does not start. A flag falling, a resignation, an opponent who
-   * never came back, a draw agreed: the position was still a game.
-   */
-  const POSITION_ENDED_IT = new Set(['disks', 'rings', 'cleared', 'repetition', 'noMoves']);
-  const endedInThePosition = () =>
-    Boolean(result && result.reason && POSITION_ENDED_IT.has(result.reason));
-
   function renderReviewBar() {
     // Nothing to look back on until a move has been played.
     const usable = timeline.length > 1;
@@ -2211,8 +2260,20 @@ export function mountPlay(outlet, params) {
        reason outside the position — a flag, a resignation, somebody who did
        not come back, a draw the two players agreed to — because in every one
        of those the position had plenty of game left in it. */
-    const resumable = !(at === last && endedInThePosition());
-    reviewBar.querySelector('[data-action="resume"]').hidden = !isReview() || !resumable;
+    /*
+     * Who is playing the branch — the button that used to carry the position
+     * off to a new game.
+     *
+     * Only inside a branch, because outside one the answer is "the two people
+     * whose game this is" and there is nothing to choose. And not while the
+     * position on screen is one that ends a game: six disks are six disks, and
+     * handing that to an engine gives a game that is over before it starts.
+     * Stepping back one move inside the branch offers it again.
+     */
+    const players = reviewBar.querySelector('[data-action="resume"]');
+    const finished = Boolean(checkWinner(shownState()));
+    players.hidden = !exploring || finished;
+    if (exploring) players.textContent = t('review.playedBy.' + exploring.play);
     reviewBar.querySelector('[data-action="explore"]').hidden = !isReview();
     /* "Back to the game" only while there is a game to be back in. In a review
        there is no present to return to — the last ply is just the last ply, and
@@ -2390,7 +2451,13 @@ export function mountPlay(outlet, params) {
   }
 
   function syncTools() {
-    const isDuel = mode === MODE_AI_AI;
+    /* A branch has its own arrangement, and the controls that belong to one —
+       the levels, and the button that sets two engines going — belong to it
+       just as much as they do to a game set up the same way. */
+    const isDuel = exploring ? exploring.play === 'aiai' : mode === MODE_AI_AI;
+    const engineHere = exploring
+      ? exploring.play !== 'hand'
+      : (!net && !archiveId && mode !== MODE_LOCAL);
     const show = (selector, visible) => {
       const node = tools.querySelector(selector);
       if (node) node.style.display = visible ? '' : 'none';
@@ -2398,15 +2465,15 @@ export function mountPlay(outlet, params) {
     tools.querySelector('[data-control="mode"]').value = mode;
     /* Online, none of the local controls apply: no mode, no AI, no undo. In a
        stored game none of them do either — there is nothing left to play. */
-    const local = !net && !archiveId;
+    const local = !net && !archiveId && !exploring;
     show('[data-control="mode"]', local);
     show('[data-control="side"]', local && mode === MODE_AI);
-    show('[data-control="level"]', local && mode === MODE_AI);
-    show('[data-control="levelBlack"]', local && isDuel);
-    show('[data-control="levelWhite"]', local && isDuel);
-    show('[data-action="run"]', local && isDuel);
-    show('[data-action="step"]', local && isDuel);
-    show('[data-action="undo"]', local);
+    show('[data-control="level"]', engineHere && !isDuel);
+    show('[data-control="levelBlack"]', engineHere && isDuel);
+    show('[data-control="levelWhite"]', engineHere && isDuel);
+    show('[data-action="run"]', engineHere && isDuel);
+    show('[data-action="step"]', engineHere && isDuel);
+    show('[data-action="undo"]', local || Boolean(exploring));
     show('[data-action="new"]', local);
     const seated = Boolean(net) && !net.watching;
     show('[data-action="resign"]', seated);
@@ -2733,17 +2800,16 @@ export function mountPlay(outlet, params) {
   function renderNetStatus() {
     renderGuestNote();
     const strip = outlet.querySelector('.net-strip');
-    /* Exploring says so, and says the game is still there — otherwise moving a
+    /* A branch says so, and says the game is still there — otherwise moving a
        piece on a game you were reading looks like you have just written on it.
-       Ahead of the resumed note, since a branch is the more immediate truth. */
+       Ahead of everything else, since a branch is the most immediate truth
+       about what is on the board. */
     if (exploring) {
       strip.className = 'net-strip is-on';
       strip.innerHTML = `<span class="net-msg">${
         t('review.exploringFrom', { n: exploring.at })}</span>`;
       return;
     }
-    // A resumed game keeps the note saying where it came from.
-    if (resumedNote) return;
 
     if (archiveId) {
       if (!archive) return;                 // an error is already on the strip
@@ -3110,10 +3176,11 @@ export function mountPlay(outlet, params) {
     playSound('ui');
     if (which === 'cancel') { closeResumeSheet(); return; }
     if (which === 'back') { openResumeSheet(); return; }
-    if (which === 'go') { resumeFrom(resumeSetup, readResumeSetup(resumeSetup)); return; }
-    /* Two players on this device have nothing to arrange, so that one starts
-       where the others stop to ask. */
-    if (which === MODE_LOCAL) { resumeFrom(which, null); return; }
+    if (which === 'go') { playBranch(resumeSetup, readResumeSetup(resumeSetup)); return; }
+    /* Nobody to arrange for: by hand, and two players on this device, are the
+       same thing here — you move both sides — so they start where the others
+       stop to ask. */
+    if (which === 'hand' || which === MODE_LOCAL) { playBranch(which, null); return; }
     openResumeSetup(which);
   });
 
@@ -3343,26 +3410,7 @@ export function mountPlay(outlet, params) {
    * It becomes an ordinary local game — nothing here writes anywhere, so the
    * game it came from cannot be affected by whatever happens next.
    */
-  const resumed = params && params.get('resumed') === '1' ? takePosition() : null;
-  if (resumed) {
-    mode = resumed.mode;
-    if (resumed.mode === MODE_AI) humanSide = resumed.side;
-    aiRunning = resumed.mode === MODE_AI_AI;
-    /* The arrangement chosen on the way out, rather than whatever the settings
-       happened to hold — the position was handed over to be tried under this
-       one. buildTools below puts the selects where these say. */
-    if (resumed.levels) {
-      duelLevels = [resumed.levels[0], resumed.levels[1]];
-      level = resumed.mode === MODE_AI ? resumed.levels[0] : level;
-    }
-    /* The controls were built before any of this was known, so they still show
-       what the settings held. Left alone, the engine played at the level that
-       was chosen while the menu above it named another one. */
-    buildTools();
-  }
-
-  newGame(resumed ? resumed.position : null);
-  if (resumed) showResumeNote(resumed);
+  newGame();
   /* Against another person the panel opens on the chat: the move list is on
      the board in front of you, and the one thing the board cannot show is the
      person on the other end. Watching a game is the exception — a spectator is

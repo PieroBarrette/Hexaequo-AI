@@ -372,7 +372,6 @@
     "play": "Lecture",
     "pause": "Pause",
     "speed": "Vitesse de lecture",
-    "resume": "Jouer depuis ici",
     "resumeTitle": "Reprendre au coup {n}",
     "resumeVsAi": "Contre l’ordinateur",
     "resumeTwo": "À deux sur cet appareil",
@@ -385,11 +384,16 @@
     "leaveExploring": "Revenir à la partie",
     "hintTitle": "Le coup que le moteur jouerait ici",
     "hintPlay": "Le coup que le moteur jouerait ici — cliquez pour le jouer",
-    "resumedFrom": "Reprise de {game}, au coup {n} — partie locale",
-    "resumedHere": "Reprise au coup {n} — partie locale",
     "evalTitle": "Évaluation de l’ordinateur : {n} (profondeur {d})",
     "evalDecided": "L’ordinateur voit une victoire forcée pour les {colour}s",
-    "curve": "Évolution de la partie selon l’ordinateur"
+    "curve": "Évolution de la partie selon l’ordinateur",
+    "playTitle": "Qui joue cette branche ?",
+    "playHand": "À la main (les deux couleurs)",
+    "playedBy": {
+      "hand": "À la main",
+      "ai": "Contre l'ordinateur",
+      "aiai": "IA contre IA"
+    }
   },
   "chat": {
     "tab": "Clavardage",
