@@ -13,7 +13,7 @@ import { get as getSetting, set as setSetting, onSettingsChange } from '../setti
 import { play as playSound } from '../audio.js';
 import { createBoard, pieceSvg, cx, cy, SIZE } from '../ui/board.js';
 import { miniBoardSvg } from '../ui/miniBoard.js';
-import { STEP, RING_OFFSETS, inBoard, cellLabel } from '../game/hex.js';
+import { STEP, RING_OFFSETS, inBoard, cellLabel, hexPath } from '../game/hex.js';
 import {
   BLACK, WHITE, DISK, RING, createState, cloneState, positionKey, withPieceLifted,
   applyMove, undoMove, tilePlacementSpots, pieceOwner, pieceType, makePiece,
@@ -1612,7 +1612,13 @@ export function mountPlay(outlet, params) {
     const place = (to, t) => {
       // Smooth out, so it leaves the pile briskly and settles onto the cell.
       const e = 1 - Math.pow(1 - t, 3);
-      const side = from.side + (to.side - from.side) * e;
+      /* The size it will be when it lands, from the first frame — asked for
+         again every frame because laying a tile re-frames the board under it.
+         It used to grow from the pile's size to the cell's, which on a phone
+         is a piece swelling to two and a half times its size on the way
+         across: the translation and the arrival telling the same story again,
+         one dissolved into the other. */
+      const side = to.side;
       node.style.width = `${side.toFixed(1)}px`;
       node.style.height = `${side.toFixed(1)}px`;
       node.style.left = `${(from.x + (to.x - from.x) * e - side / 2).toFixed(1)}px`;
@@ -1647,12 +1653,12 @@ export function mountPlay(outlet, params) {
   function flightFor(move, player) {
     if (!wantsFlight()) return null;
     if (move.type === 'tile') {
-      return { glyph: tokenSvg('tile', player), from: pileRect(player, 'reserve', 'tile'), cell: move.cell };
+      return { glyph: flightGlyph('tile', player), from: pileRect(player, 'reserve', 'tile'), cell: move.cell };
     }
     if (move.type !== 'piece') return null;
     const kind = move.piece === RING ? 'ring' : 'disk';
     const plan = {
-      glyph: tokenSvg(kind, player), from: pileRect(player, 'reserve', kind), cell: move.cell,
+      glyph: flightGlyph(kind, player), from: pileRect(player, 'reserve', kind), cell: move.cell,
     };
     /* A ring is paid for with a captured disk, handed back to the player it
        was taken from. That is the one move where something travels between the
@@ -1660,6 +1666,9 @@ export function mountPlay(outlet, params) {
        way the trade is ever visible. */
     if (move.piece === RING) {
       plan.repaid = {
+        /* The rail's own glyph, not the board's: this one is the exception
+           that never touches the board — it crosses from one reserve to the
+           other, and it has to match the heap it lands in. */
         glyph: tokenSvg('disk', 1 - player),
         from: pileRect(player, 'taken', 'disk'),
         to: () => pileRect(1 - player, 'reserve', 'disk'),
@@ -1685,6 +1694,36 @@ export function mountPlay(outlet, params) {
       if (plan.repaid) fly(plan.repaid.glyph, plan.repaid.from, plan.repaid.to);
     });
     setTimeout(settle, RESERVE_FLIGHT_MS);
+  }
+
+  /*
+   * The piece that crosses the screen, drawn to the board's own scale.
+   *
+   * A reserve token is drawn small inside a generous box, which is right in a
+   * rail where a dozen of them sit side by side and wrong for a piece in
+   * flight: the glyph landed about a sixth smaller than the piece it turned
+   * into, and the swap at the end was a jump in size. Removing the arrival's
+   * pop left that jump on its own, which is what it had been hiding.
+   *
+   * The box spans the same 1.7 SIZE that cellRect gives the flying element in
+   * pixels, so one user unit here is one user unit on the board and the piece
+   * is, at every moment, exactly the size it will be when it lands. Nothing
+   * grows: the flight is a translation and nothing else.
+   */
+  const FLIGHT_SPAN = SIZE * 1.7;                 // must match cellRect's side
+
+  function flightGlyph(kind, colour) {
+    const box = `viewBox="${-FLIGHT_SPAN / 2} ${-FLIGHT_SPAN / 2} ${FLIGHT_SPAN} ${FLIGHT_SPAN}"`
+      + ` xmlns="http://www.w3.org/2000/svg" aria-hidden="true"`;
+    if (kind === 'tile') {
+      const dark = colour === BLACK;
+      return `<svg ${box}><path d="${hexPath(0, 0, SIZE * .94)}"`
+        + ` fill="${dark ? 'var(--tile-dark)' : 'var(--tile-light)'}"`
+        + ` stroke="${dark ? 'var(--tile-dark-edge)' : 'var(--tile-light-edge)'}"`
+        + ` stroke-width="1.6"/></svg>`;
+    }
+    const type = kind === 'ring' ? RING : DISK;
+    return `<svg ${box}>${pieceSvg(0, 0, makePiece(colour, type))}</svg>`;
   }
 
   /* Reserves drawn as real pieces: solid means available, dashed means spent. */
