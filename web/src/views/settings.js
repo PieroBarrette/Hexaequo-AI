@@ -66,6 +66,7 @@ export function mountSettings(outlet) {
         <h1>${t('settings.title')}</h1>
         <p class="lede">${t('settings.lede')}</p>
 
+        <h2>${t('settings.appearance')}</h2>
         ${row('settings.language', 'settings.languageHint', segmented('language', getSetting('language'), [
           { value: 'fr', label: 'Français' }, { value: 'en', label: 'English' }]))}
 
@@ -81,17 +82,14 @@ export function mountSettings(outlet) {
         <h2>${t('settings.preview')}</h2>
         <div class="preview-board">${miniBoardSvg(previewSpec())}</div>
 
-        <h2>${t('game.mode')}</h2>
+        <h2>${t('settings.boardSection')}</h2>
         ${row('settings.showValidMoves', 'settings.showValidMovesHint', toggle('showValidMoves', getSetting('showValidMoves')))}
         ${row('settings.showLastMove', 'settings.showLastMoveHint', toggle('showLastMove', getSetting('showLastMove')))}
         ${row('settings.showCoordinates', 'settings.showCoordinatesHint', toggle('showCoordinates', getSetting('showCoordinates')))}
+
+        <h2>${t('settings.animations')}</h2>
+        ${row('settings.animateMoves', 'settings.animateMovesHint', toggle('animateMoves', getSetting('animateMoves')))}
         ${row('settings.animatePlacement', 'settings.animatePlacementHint', toggle('animatePlacement', getSetting('animatePlacement')))}
-        ${row('settings.premove', 'settings.premoveHint', toggle('premove', getSetting('premove')))}
-        ${row('settings.aiLevel', 'settings.aiLevelHint', segmented('aiLevel', getSetting('aiLevel'), [
-          { value: 0, label: t('game.levelBeginner') },
-          { value: 1, label: t('game.levelEasy') },
-          { value: 2, label: t('game.levelMedium') },
-          { value: 3, label: t('game.levelStrong') }]))}
 
         <h2>${t('settings.sound')}</h2>
         ${row('settings.sound', 'settings.soundHint', toggle('sound', getSetting('sound')))}
@@ -102,6 +100,14 @@ export function mountSettings(outlet) {
           `<input type="range" min="0" max="1" step="0.05" value="${getSetting('volume')}" data-range="volume">`)}
         ${row('settings.tryTheSounds', 'settings.tryTheSoundsHint',
           `<button class="btn" data-action="demo">${t('settings.playSample')}</button>`)}
+
+        <h2>${t('settings.gameSection')}</h2>
+        ${row('settings.premove', 'settings.premoveHint', toggle('premove', getSetting('premove')))}
+        ${row('settings.aiLevel', 'settings.aiLevelHint', segmented('aiLevel', getSetting('aiLevel'), [
+          { value: 0, label: t('game.levelBeginner') },
+          { value: 1, label: t('game.levelEasy') },
+          { value: 2, label: t('game.levelMedium') },
+          { value: 3, label: t('game.levelStrong') }]))}
 
         <h2>${t('update.heading')}</h2>
         ${row('update.heading', 'update.hint',

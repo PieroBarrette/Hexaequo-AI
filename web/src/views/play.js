@@ -281,6 +281,9 @@ export function mountPlay(outlet, params) {
   /* The frame chasing the drawer while it slides, and the tidy-up after. */
   let drawerFollow = 0;
   let drawerSettle = 0;
+  /* A tile or piece crossing from a reserve: { cell, tile }. While it is set,
+     the board leaves that cell alone and the move's own animation waits. */
+  let arriving = null;
 
   /* The cache is keyed by ply, and a ply number does not mean the same position
      from one line to the next — a branch, a new game or a game loaded over this
@@ -502,6 +505,10 @@ export function mountPlay(outlet, params) {
   function clearEffect() {
     effect = null;
     effectEndsAt = 0;
+    /* Nothing is on its way any more either. A cell held empty for a piece
+       that is no longer coming would stay empty, and every way of throwing a
+       move away — a new game, an undo, stepping back — comes through here. */
+    arriving = null;
     board.clearEffects();
   }
 
@@ -599,6 +606,10 @@ export function mountPlay(outlet, params) {
 
     // Read the heaps before the move empties them, fly once the board is drawn.
     const flight = flightFor(move, player);
+    /* Held back from the board until it gets there, so the piece is never in
+       two places at once. Set before the redraw, or the first frame would show
+       it arrived. */
+    arriving = flight ? { cell: move.cell, tile: move.type === 'tile' } : null;
 
     applyMove(state, move);
     lastMove = move;
@@ -622,18 +633,26 @@ export function mountPlay(outlet, params) {
     drag = null;
 
     effect = next;
-    playMoveSounds(move, next);
+    playMoveSounds(move, next, undefined, flight ? RESERVE_FLIGHT_MS : 0);
+    /* The wait for whatever comes next starts now, so a computer opponent does
+       not move while a piece of its own is still in the air. */
+    if (flight) effectEndsAt = Math.max(effectEndsAt, Date.now() + RESERVE_FLIGHT_MS);
     refresh();
-    launchFlight(flight);
+    launchFlight(flight, () => { arriving = null; refresh(); });
     afterEffect(scheduleAI);
   }
 
   /* `ending` is passed explicitly because the review replays a finished game:
      `result` is set the whole way through, and reading it here would sound the
      end of the game after every single move. */
-  function playMoveSounds(move, next, ending = Boolean(result)) {
-    if (move.type === 'tile') playSound('tilePlacement');
-    else if (move.type === 'piece') playSound('piecePlacement');
+  /**
+   * `held` delays the contact sound by the time a piece spends crossing from a
+   * reserve, so the knock happens when the piece touches the board rather than
+   * when the move was decided.
+   */
+  function playMoveSounds(move, next, ending = Boolean(result), held = 0) {
+    if (move.type === 'tile') playSound('tilePlacement', held);
+    else if (move.type === 'piece') playSound('piecePlacement', held);
     else playSound('move');
 
     const steps = next.path ? next.path.length - 1 : 0;
@@ -795,6 +814,7 @@ export function mountPlay(outlet, params) {
     /* Before the position lands, while the heaps on screen are still the ones
        the move was played from. */
     const handoff = flightFor(move, payload.by);
+    arriving = handoff ? { cell: move.cell, tile: move.type === 'tile' } : null;
 
     state = deserializeState(payload.state);
     adoptClock(payload.clock);
@@ -854,8 +874,9 @@ export function mountPlay(outlet, params) {
       if (voice) playSound(voice, 420);
     }
 
+    if (handoff) effectEndsAt = Math.max(effectEndsAt, Date.now() + RESERVE_FLIGHT_MS);
     refresh();
-    launchFlight(handoff);
+    launchFlight(handoff, () => { arriving = null; refresh(); });
     // Whatever was lined up gets its moment now, if it is still legal.
     if (premove) afterEffect(runPremove);
   }
@@ -1321,6 +1342,7 @@ export function mountPlay(outlet, params) {
       premoveCells: [...new Set(premoveCells)],
       // Only the cell: the choice itself is drawn over the board, not in it.
       picker: picker ? { cell: picker.cell } : null,
+      arriving,
       hidden: showEffect && effect.hidden != null ? effect.hidden : -1,
       held: dragging ? drag.cell : -1,
       newTile: showEffect ? effect.newTile : null,
@@ -1379,7 +1401,19 @@ export function mountPlay(outlet, params) {
        board to play on — theirs is showing another position entirely. One the
        review itself built is exactly what they asked for. */
     if (review !== null && !effect.review) { effect = null; return; }
+    /* Something is still crossing the room to this cell. Its arrival is what
+       starts this, so that the piece appears where it lands rather than before
+       it — one after the other, which is the order they happen in. */
+    if (arriving) return;
     effect.played = true;
+    /* Off means off: the position is simply there, and the move settles at
+       once so nothing downstream waits on an animation nobody asked for. */
+    if (!getSetting('animateMoves')) {
+      effect = null;
+      effectEndsAt = Date.now();
+      refresh();
+      return;
+    }
     const total = board.playEffects(effect, () => { effect = null; refresh(); });
     effectEndsAt = Date.now() + total;
   }
@@ -1510,13 +1544,23 @@ export function mountPlay(outlet, params) {
     return plan;
   }
 
-  /** Let the board draw, then send the pieces across to where they landed. */
-  function launchFlight(plan) {
-    if (!plan) return;
+  /**
+   * Let the board draw, then send the pieces across to where they landed.
+   *
+   * `landed` is called once, whatever happens: when the flight ends, and by a
+   * timer if the frames never come. Whoever is waiting on it — the board with
+   * a cell held empty, the move with its animation not yet played — has to be
+   * released even on a browser that refuses to animate anything.
+   */
+  function launchFlight(plan, landed) {
+    if (!plan) { if (landed) landed(); return; }
+    let done = false;
+    const settle = () => { if (done) return; done = true; if (landed) landed(); };
     requestAnimationFrame(() => {
       fly(plan.glyph, plan.from, () => cellRect(plan.cell));
       if (plan.repaid) fly(plan.repaid.glyph, plan.repaid.from, plan.repaid.to);
     });
+    setTimeout(settle, RESERVE_FLIGHT_MS);
   }
 
   /* Reserves drawn as real pieces: solid means available, dashed means spent. */

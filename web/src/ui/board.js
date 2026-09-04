@@ -120,7 +120,12 @@ export function createBoard(container) {
   }
 
   function step(now) {
-    const u = Math.min(1, (now - startedAt) / takes);
+    /* Clamped at both ends. An animation frame carries the time the frame
+       began, which can be a hair before the moment the glide was started later
+       in that same frame — and a negative u run through the easing curve does
+       not ease, it extrapolates: the frame comes out a couple of million units
+       wide and the browser refuses the viewBox outright. */
+    const u = Math.max(0, Math.min(1, (now - startedAt) / takes));
     const e = u < .5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
     view = {
       x: lerp(from.x, to.x, e), y: lerp(from.y, to.y, e),
@@ -292,8 +297,18 @@ export function createBoard(container) {
         + ` stroke-opacity="${emphasise ? 1 : .8}" pointer-events="none"/>`;
     }
 
-    /* Tiles. */
+    /*
+     * Tiles — minus one that has not landed yet.
+     *
+     * A tile flying in from the reserve was being drawn on its cell the moment
+     * the move was made, so the copy in the air arrived at a cell that already
+     * had a tile on it: the same object in two places, and the arrival gave
+     * away the ending before the journey was over. Whatever is on its way is
+     * left out of the drawing until it gets there.
+     */
+    const arriving = v.arriving || null;
     for (const k of s.tileKeys) {
+      if (arriving && arriving.tile && k === arriving.cell) continue;
       const colour = s.tileAt[k];
       const clickable = v.targets.has(k) || v.hints.has(k) || k === v.chainCurrent || v.movable.has(k);
       out += `<path class="cell${clickable ? ' is-clickable' : ''}" data-cell="${k}"`
@@ -348,6 +363,7 @@ export function createBoard(container) {
     for (const k of s.tileKeys) {
       const code = s.pieceAt[k];
       if (code < 0 || k === v.hidden || k === v.held) continue;
+      if (arriving && k === arriving.cell) continue;      // still in the air
       const glyph = pieceSvg(cx(k), cy(k), code);
       out += v.newPiece === k ? `<g data-fx="drop">${glyph}</g>` : glyph;
     }
@@ -380,7 +396,10 @@ export function createBoard(container) {
         const dark = onADisk ? pieceOwner(code) === BLACK : s.tileAt[k] === BLACK;
         return dark ? 'var(--coord-on-dark)' : 'var(--coord-on-light)';
       };
-      out += coordinateLabels(s.tileKeys.concat(v.spots), ink);
+      const named = s.tileKeys
+        .filter((k) => !(arriving && arriving.tile && k === arriving.cell))
+        .concat(v.spots);
+      out += coordinateLabels(named, ink);
     }
 
     /* Move aids. */

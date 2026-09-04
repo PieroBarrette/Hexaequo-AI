@@ -18,6 +18,11 @@ export const DEFAULTS = {
   showValidMoves: true,
   showLastMove: true,
   showCoordinates: false,
+  /* Two kinds of motion, two switches: what happens on the board (a piece
+     travelling to its cell, a capture fading, a placement settling) and what
+     crosses from a reserve to the board. Either can be had without the
+     other. */
+  animateMoves: true,
   animatePlacement: true,
   premove: false,
   aiLevel: 2,             // see AI_LEVELS_VERSION below
