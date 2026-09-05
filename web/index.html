@@ -26,30 +26,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
 
-<!--
-  Theme and material before the first pixel.
-  settings.js owns these attributes, but it is a module and modules run after
-  the document is parsed — so a light-theme visitor got a dark page first and a
-  flip a moment later. Harmless on a header; unmissable behind a full-screen
-  loader. Reads the same key settings.js writes and stops there: this is not a
-  second copy of the settings, it is the two attributes that decide the colour
-  of the first frame.
--->
-<script>
-(function () {
-  try {
-    var saved = JSON.parse(localStorage.getItem('hexaequo.settings') || '{}');
-    var theme = saved.theme;
-    if (!theme || theme === 'auto') {
-      theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
-        ? 'light' : 'dark';
-    }
-    var root = document.documentElement;
-    root.setAttribute('data-theme', theme);
-    if (saved.boardStyle) root.setAttribute('data-board-style', saved.boardStyle);
-  } catch (e) { /* private mode, or nothing saved: the markup's default stands */ }
-}());
-</script>
+<script src="./src/bootTheme.js"></script>
 
 <link rel="stylesheet" href="./styles/tokens.css">
 <link rel="stylesheet" href="./styles/app.css">

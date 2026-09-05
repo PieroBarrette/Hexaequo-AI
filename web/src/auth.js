@@ -62,6 +62,28 @@ function announce() {
   }
 }
 
+/**
+ * The rating to print for a user — one number per account, wherever it shows.
+ *
+ * A rating reaches the page from several directions: a seat the server filled
+ * when the game began, a lobby roster, a leaderboard row, a profile. Each of
+ * those is a snapshot of the moment it was sent, and for anybody else that is
+ * the only truth there is.
+ *
+ * For the person reading the page it is not. Their own rating changes under
+ * them the instant a rated game ends, and every copy in a payload that was
+ * already delivered goes stale at once — which is how the header came to say
+ * one number while the name beside the board said another, both of them about
+ * the same account on the same screen. Anything that prints a rating asks
+ * here, and gets the live one for the account signed in.
+ */
+export function ratingFor(userId, fallback) {
+  if (account && userId && account.id === userId && typeof account.elo === 'number') {
+    return account.elo;
+  }
+  return fallback;
+}
+
 /** The raw session token, for the socket handshake. */
 export const sessionToken = () => readToken();
 

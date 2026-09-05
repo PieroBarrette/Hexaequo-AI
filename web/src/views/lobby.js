@@ -11,7 +11,7 @@ import { t } from '../i18n.js';
 import { navigate } from '../router.js';
 import { request, connect, listen, identify } from '../net.js';
 import { play as playSound } from '../audio.js';
-import { isSignedIn, currentUser, sessionReady, onAuthChange, sessionToken } from '../auth.js';
+import { isSignedIn, currentUser, sessionReady, onAuthChange, sessionToken, ratingFor } from '../auth.js';
 import { openPanel } from '../ui/panels.js';
 import { emojiRowHtml } from '../ui/emoji.js';
 
@@ -126,7 +126,7 @@ export function mountLobby(host, readCadence = () => 'rapid') {
         + light
         + `<span class="lobby-name"><a class="player-link"`
           + ` href="#/profile?id=${escapeText(player.userId)}">${escapeText(player.pseudo)}</a></span>`
-        + `<span class="lobby-elo">${player.elo}</span>`
+        + `<span class="lobby-elo">${ratingFor(player.userId, player.elo)}</span>`
         + `<span class="lobby-status${player.playing ? ' is-busy' : ''}">${status}</span>`
         + action + '</div>';
     }).join('');
@@ -148,9 +148,10 @@ export function mountLobby(host, readCadence = () => 'rapid') {
       const yours = mine && (game.black.userId === mine || game.white.userId === mine);
       return `<div class="lobby-row">`
       + `<span class="lobby-name">${escapeText(game.black.pseudo)}`
-      + `<span class="lobby-elo">${game.black.elo}</span>`
+      + `<span class="lobby-elo">${ratingFor(game.black.userId, game.black.elo)}</span>`
       + ` <span class="net-vs">${t('profile.versus')}</span> `
-      + `${escapeText(game.white.pseudo)}<span class="lobby-elo">${game.white.elo}</span></span>`
+      + `${escapeText(game.white.pseudo)}`
+      + `<span class="lobby-elo">${ratingFor(game.white.userId, game.white.elo)}</span></span>`
       + `<span class="lobby-status">${t('profile.plies', { n: game.plies })}</span>`
       + (game.watchers ? `<span class="net-eyes">👁 ${game.watchers}</span>` : '')
       + (yours

@@ -515,6 +515,18 @@ function attachOnlineGames(io) {
          * mid-session does not require dropping the connection. Without it the
          * socket stays anonymous and its games are unrated.
          */
+        /*
+         * Are you still there?
+         *
+         * The client asks this when the page is looked at again after being
+         * away, because a socket can survive a sleeping phone in name only —
+         * the connection gone, no close event fired, and nothing to tell it
+         * apart from a quiet one. An answer proves the round trip; silence
+         * means the socket is replaced rather than trusted. Costs nothing and
+         * touches nothing.
+         */
+        socket.on('hx:ping', (payload, callback) => reply(callback, { ok: true }));
+
         socket.on('hx:identify', async (payload, callback) => {
             const token = payload && payload.token;
             if (!token) {
@@ -1045,26 +1057,57 @@ function attachOnlineGames(io) {
                 return reply(callback, { ok: true, ready: false, offered: true });
             }
 
-            // Both want it. The new room seats them the other way round.
+            /*
+             * Both want it, and the room only gets made once.
+             *
+             * Making it is awaited, and everything that guards this point is
+             * checked before the await — so a second accept arriving while the
+             * first was still in the air walked straight past all of them and
+             * made another. Two rooms, each reserved for the same pair, each
+             * emitting its own hx:rematch:ready: the two players followed
+             * different ones and sat waiting in separate rooms for somebody
+             * who had gone to the other. A double tap on Accept was enough.
+             *
+             * Whoever asks while one is being made waits for that one and is
+             * answered with it.
+             */
+            if (room.rematchMaking) {
+                const made = await room.rematchMaking;
+                return made
+                    ? reply(callback, { ok: true, code: made, ready: true })
+                    : reply(callback, { ok: false, error: 'ENGINE_UNAVAILABLE' });
+            }
+
+            // The new room seats them the other way round.
             const [black, white] = [room.players[1], room.players[0]];
-            let next;
-            try {
-                next = await createRoom({
-                    timeControl: room.timeControl,
-                    // Reserved only when both are signed in; a guest has no
-                    // identity that outlives the socket, so their rematch room
-                    // is an ordinary one and colours follow arrival.
-                    reserved: black && white && black.userId && white.userId
-                        ? [black.userId, white.userId]
-                        : null,
-                });
-            } catch (error) {
+            room.rematchMaking = (async () => {
+                try {
+                    const next = await createRoom({
+                        timeControl: room.timeControl,
+                        // Reserved only when both are signed in; a guest has no
+                        // identity that outlives the socket, so their rematch
+                        // room is an ordinary one and colours follow arrival.
+                        reserved: black && white && black.userId && white.userId
+                            ? [black.userId, white.userId]
+                            : null,
+                    });
+                    return next.code;
+                } catch {
+                    return null;
+                }
+            })();
+
+            const made = await room.rematchMaking;
+            if (!made) {
+                /* Cleared so the next press tries again rather than waiting
+                   forever on a failure that has already happened. */
+                room.rematchMaking = null;
                 return reply(callback, { ok: false, error: 'ENGINE_UNAVAILABLE' });
             }
-            room.rematchCode = next.code;
+            room.rematchCode = made;
             room.rematch = null;
-            io.to(code).emit('hx:rematch:ready', { code, next: next.code });
-            reply(callback, { ok: true, code: next.code, ready: true });
+            io.to(code).emit('hx:rematch:ready', { code, next: made });
+            reply(callback, { ok: true, code: made, ready: true });
         });
 
         /** Turn a rematch down, so the other side stops waiting on an answer. */

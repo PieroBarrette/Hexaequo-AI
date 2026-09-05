@@ -58,6 +58,7 @@ export async function connect() {
        called on our side — so whoever it was told, it has not been told yet. */
     socket.on('connect', forgetIdentity);
     socket.on('disconnect', forgetIdentity);
+    watchForWaking();
   }
   if (socket.connected) return socket;
   await new Promise((resolve, reject) => {
@@ -66,6 +67,66 @@ export async function connect() {
     socket.once('connect_error', (error) => { clearTimeout(timer); reject(error); });
   });
   return socket;
+}
+
+/*
+ * Coming back to the app.
+ *
+ * A phone that goes to sleep, or a tab left in the background, has its timers
+ * throttled and its connection closed underneath it. socket.io reconnects on a
+ * timer — and that timer is the very thing that was throttled, so returning to
+ * a game could mean standing in front of it waiting a minute for a connection
+ * while the other player's grace countdown runs down. Reloading the page made
+ * a new socket and hid the problem, which is why it looked like a page that
+ * needed refreshing.
+ *
+ * Worse, a socket can be left believing it is connected when the connection is
+ * gone: the operating system took the TCP session and no close event ever
+ * fired. Nothing arrives, nothing fails, and the game simply sits there.
+ *
+ * So the moment the page is looked at again the connection is poked. Down: dial
+ * at once rather than waiting for the next retry. Up: made to prove it, and
+ * replaced if it cannot. Three events because no single one of them fires
+ * everywhere — a tab being shown, a window being focused, a network coming
+ * back — and doing this twice costs a round trip.
+ */
+const WAKE_PROOF_MS = 3000;
+let watchingForWaking = false;
+let proving = false;
+
+function wake() {
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+  if (!socket) return;
+  if (!socket.connected) {
+    forgetIdentity();
+    socket.connect();
+    return;
+  }
+  if (proving) return;
+  proving = true;
+  let answered = false;
+  const timer = setTimeout(() => {
+    proving = false;
+    if (answered || !socket) return;
+    /* It said it was connected and could not show it. Take it down so the
+       reconnection everything already listens for actually happens. */
+    forgetIdentity();
+    socket.disconnect();
+    socket.connect();
+  }, WAKE_PROOF_MS);
+  socket.emit('hx:ping', {}, () => {
+    answered = true;
+    proving = false;
+    clearTimeout(timer);
+  });
+}
+
+function watchForWaking() {
+  if (watchingForWaking || typeof document === 'undefined') return;
+  watchingForWaking = true;
+  document.addEventListener('visibilitychange', wake);
+  window.addEventListener('focus', wake);
+  window.addEventListener('online', wake);
 }
 
 export function disconnect() {

@@ -15,7 +15,7 @@
  */
 
 import { t } from '../i18n.js';
-import { api, currentUser } from '../auth.js';
+import { api, currentUser, ratingFor } from '../auth.js';
 import { watchPresence, onPresence, presenceOf } from '../presence.js';
 
 const PAGE = 100;
@@ -46,7 +46,7 @@ export function mountLeaderboard(outlet) {
                     title="${t('presence.' + presenceOf(p.id))}"></span
               ><a class="player-link" href="#/profile?id=${escapeHtml(p.id)}"
                  >${escapeHtml(p.pseudo)}</a></td>
-          <td class="num elo">${p.elo}</td>
+          <td class="num elo">${ratingFor(p.id, p.elo)}</td>
           <td class="num">${p.games_played}</td>
           <td class="num">${p.win_rate}%</td>
         </tr>`).join('');

@@ -26,7 +26,7 @@ import {
 import { chooseMove, judge, DISK_POINTS } from '../game/ai.js';
 import { weigh, summarise, markOf } from '../game/accuracy.js';
 import { request, listen, connect } from '../net.js';
-import { api, isSignedIn, onAuthChange, ratingChanged } from '../auth.js';
+import { api, isSignedIn, onAuthChange, ratingChanged, ratingFor } from '../auth.js';
 import { openPanel } from '../ui/panels.js';
 import { emojiRowHtml } from '../ui/emoji.js';
 
@@ -1156,7 +1156,14 @@ export function mountPlay(outlet, params) {
     /* Signing in while sitting at the board should be felt at the board: take
        the seat again so it carries our name, and with it the stake. */
     net.unsubscribe.push(onAuthChange(async () => {
-      if (!net || result) return;
+      if (!net) return;
+      /* Anything about the account can have changed, the rating included, and
+         the name beside the board prints it. Redraw first and unconditionally:
+         this used to return here when the game was over, which is exactly when
+         a rating changes, so the board kept the number from before the game
+         while the header already showed the new one. */
+      refresh();
+      if (result) return;
       await claimSeat();
     }));
     await claimSeat();
@@ -1193,6 +1200,7 @@ export function mountPlay(outlet, params) {
       const mine = net.ratings && net.colour !== null ? net.ratings[net.colour] : null;
       if (mine && typeof mine.after === 'number') ratingChanged(mine.after);
       renderResult();
+      refresh();                 // and the rails, which print it too
     }));
     net.unsubscribe.push(listen('hx:chat', (payload) => {
       if (!net || payload.code !== net.code) return;
@@ -1296,15 +1304,26 @@ export function mountPlay(outlet, params) {
    */
   async function askRematch() {
     if (!net || !result) return;
+    /* One press at a time. The server makes one room however many times it is
+       asked, but a second press while the first is in the air is a request
+       nobody is waiting for and a button that looks like it did nothing. */
+    if (net.rematchAsking) return;
+    net.rematchAsking = true;
     net.rematchDeclined = false;
     let response;
     try {
       response = await request('hx:rematch', { code: net.code });
     } catch {
+      if (net) net.rematchAsking = false;
       net.error = 'OFFLINE';
       refresh();
       return;
     }
+    /* The view may have gone in the meantime: the server broadcasts the new
+       room to everyone including us, so the handler can have navigated away
+       before this acknowledgement arrived. */
+    if (!net) return;
+    net.rematchAsking = false;
     if (!response.ok) { net.error = response.error; refresh(); return; }
     if (response.ready && response.code) { goToRematch(response.code); return; }
     net.rematchAsked = true;
@@ -1829,7 +1848,8 @@ export function mountPlay(outlet, params) {
       + `<span class="player-dot${player === WHITE ? ' is-white' : ''}"`
       + ` title="${colourName(player)}"></span>`
       + linked
-      + (who && who.elo != null ? `<span class="rail-elo">${who.elo}</span>` : '')
+      + (who && who.elo != null
+        ? `<span class="rail-elo">${ratingFor(who.userId, who.elo)}</span>` : '')
       + (you ? `<span class="rail-you">${t('game.you')}</span>` : '')
       + '</div>';
   }

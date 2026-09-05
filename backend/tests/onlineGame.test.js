@@ -910,6 +910,45 @@ async function run() {
         b.disconnect();
     });
 
+    /*
+     * One rematch room, however many times Accept is pressed.
+     *
+     * Everything guarding the "both want it" branch is checked before the room
+     * is made, and making it is awaited -- so a second accept arriving while
+     * the first was still in the air used to walk past every guard and make
+     * another. Two rooms, each reserved for the same pair, each announcing
+     * itself: the players followed different announcements and sat waiting in
+     * separate rooms for somebody who had gone to the other.
+     */
+    await test('accepting a rematch twice at once still makes one room', async () => {
+        const a = await open();
+        const b = await open();
+        const created = await ask(a, 'hx:create', {});
+        const room = created.code;
+        await ask(b, 'hx:join', { code: room });
+        await ask(a, 'hx:resign', { code: room });
+
+        await ask(a, 'hx:rematch', { code: room });         // the offer
+        /* Both at once, from the seat that accepts: a double tap, or a slow
+           connection answered twice. */
+        const answers = await Promise.all([
+            ask(b, 'hx:rematch', { code: room }),
+            ask(b, 'hx:rematch', { code: room }),
+        ]);
+        for (const answer of answers) {
+            assert.ok(answer.ok, 'both are answered: ' + answer.error);
+            assert.ok(answer.ready, 'and both are told the room is ready');
+        }
+        assert.strictEqual(answers[0].code, answers[1].code,
+            'and it is the same room, or the two of them go to different ones');
+
+        /* A third press, long after, is answered with the same room too. */
+        const later = await ask(b, 'hx:rematch', { code: room });
+        assert.strictEqual(later.code, answers[0].code, 'still the same room');
+        a.disconnect();
+        b.disconnect();
+    });
+
     await test('declining a rematch clears the offer', async () => {
         const a = await open();
         const b = await open();
