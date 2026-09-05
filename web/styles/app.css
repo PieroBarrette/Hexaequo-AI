@@ -403,6 +403,17 @@ select.btn option {
 }
 .review-bar > * { flex: none; }
 .review-bar.is-on { display: flex; }
+/* The readout is always worth its width; the four arrows are only worth it
+   once you are actually going through the game rather than playing it. */
+.review-bar [data-action^="rev-first"],
+.review-bar [data-action="rev-prev"],
+.review-bar [data-action="rev-next"],
+.review-bar [data-action="rev-last"] { display: none; }
+.review-bar.is-stepping [data-action="rev-first"],
+.review-bar.is-stepping [data-action="rev-prev"],
+.review-bar.is-stepping [data-action="rev-next"],
+.review-bar.is-stepping [data-action="rev-last"] { display: inline-flex; }
+.bar-undo[hidden] { display: none; }
 /*
  * The move you are standing on, in the middle of the bar.
  *

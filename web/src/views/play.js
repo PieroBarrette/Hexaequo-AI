@@ -259,6 +259,11 @@ export function mountPlay(outlet, params) {
           <button class="btn btn--icon bar-menu" data-action="tools"
                   title="${t('game.tools')}">⋯</button>
           <div class="bar-tools"></div>
+          <!-- The one control that is wanted without a detour, so it is not
+               behind the menu. Local play only: there is no taking a move back
+               from someone else. -->
+          <button class="btn btn--icon bar-undo" data-action="undo"
+                  title="${t('game.undo')}">↶</button>
           <div class="review-bar">
           <button class="btn btn--icon" data-action="rev-first" title="${t('review.first')}">⏮</button>
           <button class="btn btn--icon" data-action="rev-prev" title="${t('review.previous')}">◀</button>
@@ -415,6 +420,9 @@ export function mountPlay(outlet, params) {
    * everything that reads or writes them carries on unaware of which it is.
    */
   function setToolsOpen(open) {
+    /* Two panels over a phone-sized board is one too many, and they rise into
+       the same space. Opening either puts the other away. */
+    if (open && drawerOpen) setDrawer(false);
     barEl.classList.toggle('is-tools-open', Boolean(open));
     const button = barEl.querySelector('.bar-menu');
     if (button) button.classList.toggle('is-on', Boolean(open));
@@ -468,7 +476,6 @@ export function mountPlay(outlet, params) {
     </select>
     <button class="btn btn--icon" data-action="run" title="${t('game.run')}">▶</button>
     <button class="btn btn--icon" data-action="step" title="${t('game.stepOnce')}">⏭</button>
-    <button class="btn btn--icon" data-action="undo" title="${t('game.undo')}">↶</button>
     <button class="btn btn--icon" data-action="new" title="${t('game.newGame')}">⟳</button>
     <button class="btn btn--icon" data-action="draw" title="${t('game.drawOffer')}">½</button>
     <button class="btn btn--icon" data-action="resign" title="${t('online.resign')}">⚑</button>`;
@@ -2498,8 +2505,19 @@ export function mountPlay(outlet, params) {
 
   function renderReviewBar() {
     // Nothing to look back on until a move has been played.
+    /*
+     * The way through a game, once there is a game to go through.
+     *
+     * Not during one. Mid-game the arrows were four buttons for something
+     * nobody does while it is their turn, and on a phone they were four
+     * buttons the bar could not spare -- the readout stays, because knowing
+     * what was just played is worth the width, and the keys still step. They
+     * come back the moment you have actually stepped back, so nobody is left
+     * looking at an old position with no visible way forward.
+     */
     const usable = timeline.length > 1;
     reviewBar.classList.toggle('is-on', usable);
+    reviewBar.classList.toggle('is-stepping', isReview() || review !== null);
     if (!usable) return;
     const last = timeline.length - 1;
     const at = review === null ? last : review;
@@ -2658,6 +2676,7 @@ export function mountPlay(outlet, params) {
    * much room is left beneath it.
    */
   function setDrawer(open, tab) {
+    if (open && toolsOpen()) setToolsOpen(false);
     drawerOpen = open;
     drawer.classList.toggle('is-on', drawerOpen);
     /*
@@ -2763,8 +2782,7 @@ export function mountPlay(outlet, params) {
     playButton.title = isAutoplaying() ? t('review.pause') : t('review.play');
     show('[data-action="run"]', engineHere && isDuel);
     show('[data-action="step"]', engineHere && isDuel);
-    show('[data-action="undo"]', local
-      || Boolean(exploring && exploring.play !== 'view'));
+
     show('[data-action="new"]', local);
     const seated = Boolean(net) && !net.watching;
     show('[data-action="resign"]', seated);
@@ -2782,9 +2800,12 @@ export function mountPlay(outlet, params) {
     run.textContent = aiRunning ? '⏸' : '▶';
     run.classList.toggle('is-on', aiRunning);
     tools.querySelector('[data-action="step"]').disabled = thinking || !!result || aiRunning;
-    // Undoing while reading back would rewrite the game under the review.
-    tools.querySelector('[data-action="undo"]').disabled =
-      thinking || !history.length || review !== null;
+    /* Local play only -- online, a move is not yours alone to take back --
+       and never while reading back, which would rewrite the game under the
+       review. A branch counts as local: it is all played here. */
+    const undo = barEl.querySelector('[data-action="undo"]');
+    undo.hidden = !(local || Boolean(exploring && exploring.play !== 'view'));
+    undo.disabled = thinking || !history.length || review !== null;
     const resignButton = tools.querySelector('[data-action="resign"]');
     if (resignButton) resignButton.disabled = !net || !net.ready || !!result;
 
