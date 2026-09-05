@@ -34,8 +34,18 @@ body {
   flex-direction: column;
   overflow: hidden;
   -webkit-text-size-adjust: 100%;
+  /*
+   * The notch and the sides, but not the chin.
+   *
+   * Reserving the bottom inset here stopped the whole app short of the screen
+   * and left a strip of the darkest colour in the palette under it — thirty-
+   * four pixels of nothing on a phone with a home indicator, which reads as
+   * the app failing to fill the screen. The bar below takes that inset into
+   * its own padding instead, so its surface runs to the very bottom and only
+   * the buttons keep clear of the indicator.
+   */
   padding: env(safe-area-inset-top) env(safe-area-inset-right)
-           env(safe-area-inset-bottom) env(safe-area-inset-left);
+           0 env(safe-area-inset-left);
 }
 
 button, select, input { font: inherit; color: inherit; }
@@ -129,6 +139,9 @@ select.btn option {
 .page {
   flex: 1; overflow-y: auto; min-height: 0;
   padding: clamp(18px, 4vw, 40px);
+  /* The shell no longer reserves the chin, so a scrolling page ends its own
+     last line above the indicator rather than under it. */
+  padding-bottom: calc(clamp(18px, 4vw, 40px) + env(safe-area-inset-bottom, 0px));
   -webkit-overflow-scrolling: touch;
 }
 .page-inner { max-width: 780px; margin: 0 auto; }
@@ -370,7 +383,8 @@ select.btn option {
  */
 .board-bar {
   flex: none; display: flex; align-items: center; gap: 6px;
-  padding: 6px 8px; border-top: 1px solid var(--line);
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--line);
   background: var(--surface);
 }
 .bar-tools {
@@ -442,7 +456,7 @@ select.btn option {
    * than where it started. The second row costs about forty pixels of board
    * and leaves nothing out of reach.
    */
-  .board-bar { flex-wrap: wrap; gap: 5px; padding: 5px 6px; }
+  .board-bar { flex-wrap: wrap; gap: 5px; padding: 5px 6px calc(5px + env(safe-area-inset-bottom, 0px)); }
   .bar-tools { flex: 1 1 100%; }
   .bar-gap { display: none; }
   .review-bar { flex: 1 1 100%; flex-wrap: wrap; overflow-x: visible; row-gap: 5px; }
@@ -1255,7 +1269,12 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
   .board-bar { position: relative; }
   .bar-tools {
     position: absolute; bottom: calc(100% + 6px); left: 6px; right: 6px;
-    z-index: 7; display: none; flex: none;
+    /* Above the drawer, which is 9 and sits in exactly this space. Below it,
+       opening the menu with the history panel up did nothing anyone could see:
+       the panel painted straight over it, and every control inside — undo
+       among them — was covered by `.drawer-body` and could not be pressed.
+       A menu opened over a panel belongs on top of it. */
+    z-index: 11; display: none; flex: none;
     flex-wrap: wrap; gap: 6px; overflow: visible;
     padding: 8px; border: 1px solid var(--line); border-radius: var(--radius-md);
     background: var(--surface); box-shadow: var(--shadow-md);

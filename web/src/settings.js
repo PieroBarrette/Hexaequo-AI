@@ -14,7 +14,7 @@ export const DEFAULTS = {
   boardStyle: 'modern',  // 'classic' (wood) | 'modern' (stone & metal)
   soundVoice: 'melodic', // 'melodic' (pitched) | 'percussive' (struck)
   sound: true,
-  volume: 0.7,
+  volume: 0.5,
   showValidMoves: true,
   showLastMove: true,
   /* 'auto' | 'always' | 'never'. Auto writes them on the board while a game is
@@ -28,7 +28,11 @@ export const DEFAULTS = {
   animateMoves: true,
   animatePlacement: true,
   premove: false,
-  aiLevel: 2,             // see AI_LEVELS_VERSION below
+  /* The gentlest of the four. Somebody opening the site for the first time
+     has not read the rules yet, and an opponent that beats them before they
+     have understood how a ring moves teaches nothing. The level is one tap
+     away in the bar for anyone who wants more. */
+  aiLevel: 0,             // see AI_LEVELS_VERSION below
   aiLevelsVersion: 0,
 };
 
@@ -61,8 +65,36 @@ function persist() {
   }
 }
 
+/**
+ * The language to open in, for somebody who has never chosen one.
+ *
+ * `navigator.languages` is the ordered list a browser actually offers;
+ * `navigator.language` is only the first of it. Reading just the first meant a
+ * browser set to Spanish, then French, then English was answered in English —
+ * the site does not speak Spanish, so it fell to the default rather than
+ * carrying on down the list to the language it does speak. The region is
+ * dropped: fr-CA and fr-FR are the same locale file here.
+ */
+function preferredLanguage() {
+  const offered = (navigator.languages && navigator.languages.length)
+    ? navigator.languages
+    : [navigator.language];
+  for (const tag of offered) {
+    const base = String(tag || '').toLowerCase().split('-')[0];
+    if (base === 'fr' || base === 'en') return base;
+  }
+  return 'en';
+}
+
 export function loadSettings() {
-  current = { ...DEFAULTS, ...readStored() };
+  const stored = readStored();
+  /* Nothing stored at all is a first visit, and a first visit has nothing to
+     migrate. Without this the version shift below ran on the defaults
+     themselves — so the beginner level they now start at was bumped one
+     stronger before anybody saw it. */
+  const firstVisit = !Object.keys(stored).length;
+  current = { ...DEFAULTS, ...stored };
+  if (firstVisit) current.aiLevelsVersion = AI_LEVELS_VERSION;
   if (current.aiLevelsVersion < AI_LEVELS_VERSION) {
     current.aiLevel = Math.min(3, Number(current.aiLevel || 0) + 1);
     current.aiLevelsVersion = AI_LEVELS_VERSION;
@@ -75,9 +107,7 @@ export function loadSettings() {
   else if (!['auto', 'always', 'never'].includes(current.showCoordinates)) {
     current.showCoordinates = 'auto';
   }
-  if (!current.language) {
-    current.language = (navigator.language || 'en').toLowerCase().startsWith('fr') ? 'fr' : 'en';
-  }
+  if (!current.language) current.language = preferredLanguage();
   applyToDocument();
   return current;
 }
