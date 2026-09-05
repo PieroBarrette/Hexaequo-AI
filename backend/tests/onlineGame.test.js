@@ -18,6 +18,9 @@ const http = require('http');
 const { Server } = require('socket.io');
 const { io: connect } = require('socket.io-client');
 const { attachOnlineGames, RECONNECT_GRACE_MS, TIME_CONTROLS } = require('../socket/onlineGame');
+/* The lobby too: what it answers a connection it does not recognise is
+   part of the identity contract, and reading the roster writes nothing. */
+const { attachLobby } = require('../socket/lobby');
 
 let passed = 0;
 let failed = 0;
@@ -76,6 +79,7 @@ async function run() {
     const server = http.createServer();
     const io = new Server(server, { cors: { origin: '*' } });
     attachOnlineGames(io);
+    attachLobby(io);
     await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
     const url = `http://127.0.0.1:${server.address().port}`;
 
@@ -132,6 +136,37 @@ async function run() {
         assert.strictEqual(answer.ok, false);
         assert.strictEqual(answer.error, 'LOOKUP_FAILED',
             'ours to fix, and never a reason to sign anybody out');
+    });
+
+    /*
+     * What the lobby answers a connection it does not recognise.
+     *
+     * This is the signal the client repairs itself from. A socket whose
+     * identify was refused is not in the roster -- the roster is built from
+     * the sockets the server knows -- so the person is standing in a room
+     * without their own name in the list. `you` is how the answer says so,
+     * and it used to be sent and ignored: the page showed a lobby that did not
+     * contain you, and the only way out was to reload.
+     *
+     * This process has no database, so every identify with a real token ends
+     * in LOOKUP_FAILED, which is exactly the state being pinned.
+     */
+    await test('the lobby tells an unrecognised connection that it is nobody', async () => {
+        const jwt = require('jsonwebtoken');
+        const { JWT_SECRET } = require('../config/env');
+        const stranger = await open();
+        const good = jwt.sign({ userId: 'someone' }, JWT_SECRET, { expiresIn: '1h' });
+        const said = await ask(stranger, 'hx:identify', { token: good });
+        assert.strictEqual(said.ok, false, 'the lookup cannot succeed here');
+
+        const entered = await ask(stranger, 'hx:lobby:enter', {});
+        assert.strictEqual(entered.ok, true, 'anyone may look at the lobby');
+        assert.strictEqual(entered.you, null,
+            'and it says plainly that this connection is in nobody\'s name');
+        assert.ok(Array.isArray(entered.players), 'with a roster all the same');
+        assert.ok(!entered.players.some((p) => p.userId === 'someone'),
+            'which does not list them');
+        stranger.disconnect();
     });
 
     await test('a token that is not a token still is a bad token', async () => {

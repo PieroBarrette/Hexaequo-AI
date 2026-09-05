@@ -9,9 +9,9 @@
 
 import { t } from '../i18n.js';
 import { navigate } from '../router.js';
-import { request, connect, listen } from '../net.js';
+import { request, connect, listen, identify } from '../net.js';
 import { play as playSound } from '../audio.js';
-import { isSignedIn, currentUser, sessionReady, onAuthChange } from '../auth.js';
+import { isSignedIn, currentUser, sessionReady, onAuthChange, sessionToken } from '../auth.js';
 import { openPanel } from '../ui/panels.js';
 import { emojiRowHtml } from '../ui/emoji.js';
 
@@ -207,12 +207,27 @@ export function mountLobby(host, readCadence = () => 'rapid') {
     }));
   }
 
-  async function enter(quiet) {
+  async function enter(quiet, retried) {
     if (!quiet) { busy = true; render(); }
     try {
       await connect();
       subscribe();
-      const response = await request('hx:lobby:enter', {});
+      let response = await request('hx:lobby:enter', {});
+      /*
+       * The server says who it thinks you are, and it is worth reading.
+       *
+       * `you` comes back null when the connection was never told your name —
+       * which is exactly the state where you stand in the lobby without
+       * yourself in the list, since the roster is built from the sockets the
+       * server recognises. It used to be ignored, so the page showed you a
+       * room you were not in and there was nothing to do but reload. Say the
+       * name again and walk back in; once, because if it does not take the
+       * second time the answer is not going to change by asking a third.
+       */
+      if (!retried && response.ok && !response.you && currentUser() && sessionToken()) {
+        await identify(sessionToken());
+        response = await request('hx:lobby:enter', {});
+      }
       busy = false;
       if (!response.ok) { notice = t('online.errors.' + response.error); render(); return; }
       joined = true;

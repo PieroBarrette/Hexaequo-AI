@@ -117,14 +117,39 @@ export function useSessionToken(fn) {
 /** Forget what this socket was told, so the next request says it again. */
 export function forgetIdentity() { identified = null; }
 
+/*
+ * A refusal is not a settlement.
+ *
+ * This used to await the answer and throw it away, so a socket that asked to
+ * be identified and was told no counted as identified for the rest of its
+ * life. The server refuses for one reason that will never change — the token
+ * is not signed by us, or the account behind it is gone — and for one that
+ * changes by itself: it could not read the profile just then. Treating the
+ * second like the first is how somebody came to be standing in the lobby
+ * without their own name in the list, on a connection the server had never
+ * been told about, with nothing to do about it but reload the page.
+ *
+ * So a token that was offered and not accepted for a reason that might pass
+ * leaves the socket unsettled, and the next request over it asks again. Every
+ * request is a chance to repair the connection, which is what makes clicking
+ * anywhere at all put it right.
+ *
+ * A bad token is left settled on purpose: it will not become good by being
+ * asked about on every request, and a new one arrives through identify()
+ * below, which clears this first.
+ */
 function settleIdentity(live) {
   if (identified) return identified;
   identified = (async () => {
+    const token = readSessionToken() || null;
     try {
-      await ask(live, 'hx:identify', { token: readSessionToken() || null }, 5000);
+      const answer = await ask(live, 'hx:identify', { token }, 5000);
+      const refused = !(answer && answer.ok);
+      const permanent = answer && answer.error === 'BAD_TOKEN';
+      if (token && refused && !permanent) identified = null;
     } catch {
-      /* Unreachable or refused: the socket stays anonymous, which still plays.
-         Cleared so the next request asks again rather than trusting this. */
+      /* Unreachable: the socket stays anonymous, which still plays. Cleared so
+         the next request asks again rather than trusting this. */
       identified = null;
     }
   })();
