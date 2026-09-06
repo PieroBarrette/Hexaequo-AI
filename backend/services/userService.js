@@ -136,13 +136,20 @@ exports.deleteUser = async (userId, password) => {
         throw notFound('User');
     }
 
-    // Get full user with password for verification
     const fullUser = await User.findByEmail(user.email);
-    
-    // Verify password
-    const isValidPassword = await User.verifyPassword(fullUser, password);
-    if (!isValidPassword) {
-        throw unauthorized('Incorrect password');
+    /*
+     * The password is a second proof, not the only one: being signed in is
+     * already the first. An account that signs in with Google has no password
+     * to give, and asking for one anyway locked those accounts out of ever
+     * closing themselves -- verifyPassword answers false to a hash that does
+     * not exist, so the answer was always "incorrect password" and there was
+     * no password that would have been correct.
+     */
+    if (fullUser && fullUser.password_hash) {
+        const isValidPassword = await User.verifyPassword(fullUser, password);
+        if (!isValidPassword) {
+            throw unauthorized('Incorrect password');
+        }
     }
 
     await User.deleteUser(userId);

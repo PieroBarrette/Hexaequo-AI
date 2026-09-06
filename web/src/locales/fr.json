@@ -359,7 +359,16 @@
     "newPassword": "Nouveau mot de passe",
     "savePassword": "Enregistrer",
     "nicknameSaved": "Pseudo enregistré.",
-    "passwordSaved": "Mot de passe changé."
+    "passwordSaved": "Mot de passe changé.",
+    "close": "Supprimer mon compte",
+    "closeWhat": "Votre compte, votre adresse et votre pseudo sont effacés — le pseudo redevient disponible. Vos parties classées restent, sous le nom « Compte supprimé » : les points qu'elles ont fait gagner ou perdre à vos adversaires leur appartiennent. C'est définitif.",
+    "closeType": "Tapez {word} pour confirmer.",
+    "closeWord": "SUPPRIMER",
+    "closeTypeAgain": "Le mot ne correspond pas.",
+    "closeConfirm": "Supprimer définitivement",
+    "closing": "Suppression…",
+    "closeWrongPassword": "Mot de passe incorrect.",
+    "closeFailed": "La suppression n'a pas abouti."
   },
   "leaderboard": {
     "title": "Classement",

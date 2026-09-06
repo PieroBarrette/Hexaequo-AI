@@ -17,7 +17,7 @@ import {
   currentUser, isSignedIn, mustChoosePseudo, renderGoogleButton,
   chooseNickname, nicknameAvailable, signOut, onAuthChange,
   signUpWithEmail, signInWithEmail, requestPasswordReset,
-  staySignedIn, setStaySignedIn,
+  staySignedIn, setStaySignedIn, api,
 } from '../auth.js';
 
 export function mountAccount(outlet) {
@@ -31,6 +31,10 @@ export function mountAccount(outlet) {
   /* Remembered so a Google outage is reported once rather than retried on
      every redraw. The address-and-password form is unaffected either way. */
   let googleFailed = false;
+  /* null, or the closing-the-account step: 'ask' then 'confirm'. Two steps on
+     purpose — the button that ends an account should not be one tap away from
+     the button that shows a profile. */
+  let closing = null;
 
   /*
    * The panel is a door, and a door that stays open is in the way.
@@ -211,7 +215,70 @@ export function mountAccount(outlet) {
           <button class="btn" data-action="rename">${t('account.changeNickname')}</button>
           <button class="btn" data-action="signout">${t('account.signOut')}</button>
         </div>
+        ${closeAccountHtml(user)}
       </div></div>`;
+  }
+
+  /**
+   * Closing the account, behind two steps and a typed word.
+   *
+   * What it does is worth saying plainly before it is done, because the part
+   * people expect to be reversible is not: the account goes, and the games
+   * stay under a neutral name. Saying so is not a formality here — somebody
+   * deleting an account to erase a bad run would otherwise find the games
+   * still there and feel misled.
+   *
+   * The password is asked for where there is one. An account that signs in
+   * with Google has none, and the server knows the difference; the field is
+   * simply not shown.
+   */
+  function closeAccountHtml(user) {
+    if (!closing) {
+      return `<div class="account-danger">
+          <button class="btn btn--quiet" data-action="close-open">${t('account.close')}</button>
+        </div>`;
+    }
+    const local = Boolean(user && user.hasPassword !== false);
+    return `<div class="account-danger is-open">
+        <h3>${t('account.close')}</h3>
+        <p class="lede">${t('account.closeWhat')}</p>
+        ${local ? `<input class="btn account-close-password" type="password"
+             autocomplete="current-password" placeholder="${t('account.password')}">` : ''}
+        <p class="lede">${t('account.closeType', { word: t('account.closeWord') })}</p>
+        <input class="btn account-close-word" autocomplete="off"
+               placeholder="${t('account.closeWord')}">
+        <div class="row-actions" style="margin-top:14px">
+          <button class="btn btn--danger" data-action="close-do" ${busy ? 'disabled' : ''}>
+            ${busy ? t('account.closing') : t('account.closeConfirm')}</button>
+          <button class="btn" data-action="close-cancel">${t('game.cancel')}</button>
+        </div>
+      </div>`;
+  }
+
+  async function closeAccount() {
+    const typed = (outlet.querySelector('.account-close-word') || {}).value || '';
+    if (typed.trim().toLowerCase() !== t('account.closeWord').toLowerCase()) {
+      error = t('account.closeTypeAgain');
+      render();
+      return;
+    }
+    const password = (outlet.querySelector('.account-close-password') || {}).value || '';
+    busy = true;
+    error = null;
+    render();
+    try {
+      await api('/users/me', { method: 'DELETE', body: JSON.stringify({ password }) });
+    } catch (e) {
+      busy = false;
+      error = e.status === 401 ? t('account.closeWrongPassword') : (e.message || t('account.closeFailed'));
+      render();
+      return;
+    }
+    busy = false;
+    closing = null;
+    /* Signing out is what is left to do here: the session it held is gone on
+       the server, and everything watching the account is told at once. */
+    signOut();
   }
 
   function escapeHtml(value) {
@@ -298,6 +365,9 @@ export function mountAccount(outlet) {
     const action = button.getAttribute('data-action');
     playSound('ui');
     if (action === 'signout') { signOut(); return; }
+    if (action === 'close-open') { closing = 'ask'; error = null; render(); return; }
+    if (action === 'close-cancel') { closing = null; error = null; render(); return; }
+    if (action === 'close-do') { closeAccount(); return; }
     if (action === 'save') { await save(); return; }
     if (action === 'profile') { navigate('profile'); return; }
     if (action === 'rename') {

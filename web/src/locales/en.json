@@ -359,7 +359,16 @@
     "newPassword": "New password",
     "savePassword": "Save",
     "nicknameSaved": "Nickname saved.",
-    "passwordSaved": "Password changed."
+    "passwordSaved": "Password changed.",
+    "close": "Delete my account",
+    "closeWhat": "Your account, address and nickname are erased — the nickname becomes available again. Your rated games stay, under the name \"Deleted account\": the points they won or lost your opponents are theirs. This cannot be undone.",
+    "closeType": "Type {word} to confirm.",
+    "closeWord": "DELETE",
+    "closeTypeAgain": "That word does not match.",
+    "closeConfirm": "Delete permanently",
+    "closing": "Deleting…",
+    "closeWrongPassword": "Incorrect password.",
+    "closeFailed": "The account could not be deleted."
   },
   "leaderboard": {
     "title": "Leaderboard",

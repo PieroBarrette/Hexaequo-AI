@@ -261,13 +261,42 @@ async function updateLastSeen(id) {
 /**
  * Delete user
  */
+/**
+ * Close an account: delete what belongs to it, anonymise what does not.
+ *
+ * A rated game is not one player's record. Their opponent's rating moved
+ * because of it, and the leaderboard rests on those numbers, so erasing the
+ * game would make somebody else's standing come from a game that no longer
+ * exists. The games stay, and the name on them goes.
+ *
+ * The row itself is deleted rather than blanked in place, which frees the
+ * pseudo and the address for whoever wants them next, and means there is no
+ * hollow account left sitting in the ranking. Everything hanging off it goes
+ * with it: the schema cascades what is private -- settings, sessions, saved
+ * replays -- and sets to null what is shared, which is the foreign key in the
+ * games. The pseudo is the one thing the key does not reach, because it was
+ * copied into the game when it was played so that a finished game could be
+ * read without joining back to a live account. That copy is what this
+ * rewrites.
+ *
+ * One transaction, because a game carrying a deleted person's name is worse
+ * than a deletion that failed and said so.
+ */
+const DELETED_PSEUDO = 'Compte supprimé';
+
 async function deleteUser(id) {
-    const result = await query(
-        `DELETE FROM users WHERE id = $1`,
-        [id]
-    );
-    
-    return result.rowCount > 0;
+    return transaction(async (client) => {
+        await client.query(
+            `UPDATE games SET black_pseudo = $2 WHERE black_player_id = $1`, [id, DELETED_PSEUDO]);
+        await client.query(
+            `UPDATE games SET white_pseudo = $2 WHERE white_player_id = $1`, [id, DELETED_PSEUDO]);
+        /* The lobby's own record of who hosted a room, for the same reason. */
+        await client.query(
+            `UPDATE rooms SET host_pseudo = $2 WHERE host_id = $1`, [id, DELETED_PSEUDO])
+            .catch(() => {});
+        const result = await client.query(`DELETE FROM users WHERE id = $1`, [id]);
+        return result.rowCount > 0;
+    });
 }
 
 /**

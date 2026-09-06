@@ -1368,6 +1368,27 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
 .legal-mark { height: 34px; opacity: .5; }
 .legal-mark svg { height: 100%; width: auto; }
 
+/*
+ * Closing an account: set apart, and not dressed up.
+ *
+ * Above a rule and well below the buttons that do ordinary things, because the
+ * distance is the point — nothing here should be reachable by a thumb aiming
+ * at "see my profile". Quiet until it is opened: an account is not usually
+ * closed, and a red button sitting on the panel every day is a red button
+ * nobody reads any more.
+ */
+.account-danger {
+  margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--line);
+}
+.account-danger.is-open { border-color: var(--danger); }
+.account-danger h3 { margin: 0 0 6px; font-size: 14px; color: var(--danger); }
+.account-danger .lede { margin: 0 0 10px; }
+.account-danger input { display: block; width: 100%; margin-bottom: 10px; }
+.btn--quiet { color: var(--muted); border-color: transparent; background: none; }
+.btn--quiet:hover { color: var(--danger); border-color: var(--line); }
+/* .btn--danger already exists further up and is used elsewhere; the account's
+   confirm button takes it as it is rather than redefining it under everyone. */
+
 /* ── Account ─────────────────────────────────────────────────────────────── */
 
 /*
