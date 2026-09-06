@@ -89,6 +89,22 @@ button:disabled { opacity: .35; cursor: not-allowed; }
 .site-header .logo { flex: none; }
 .site-header .spacer { flex: 1; }
 :root[data-route="home"] .site-header { display: none; }
+/*
+ * The way back to the menu: a chevron, the mark, and the word.
+ *
+ * One button rather than an arrow beside a logo, because the header has no
+ * width to spare on a phone -- and because the three say one thing together:
+ * back, to Hexaequo, to the menu. The chevron is drawn a shade quieter so the
+ * mark stays the picture and the arrow stays the hint.
+ */
+#brand {
+  display: inline-flex; align-items: center; gap: 5px; flex: none;
+  padding: 5px 12px 5px 6px; min-height: var(--tap);
+}
+#brand .ico { width: calc(20px * var(--text-scale)); height: calc(20px * var(--text-scale)); opacity: .75; margin-right: -3px; }
+#brand .logo-mark { display: block; height: calc(26px * var(--text-scale)); width: auto; }
+#brand .brand-word { font-weight: 600; font-size: calc(14px * var(--text-scale)); letter-spacing: .01em; }
+#brand:hover .ico { opacity: 1; }
 
 .btn {
   background: var(--surface-2);
@@ -1387,8 +1403,7 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
   .result-card { padding: 18px 20px; }
   .result-title { font-size: calc(17px * var(--text-scale)); }
   .site-header { padding: 6px 8px; gap: 6px; }
-  .site-header .logo-word { display: none; }
-  #brand { padding: 6px 8px; }
+  #brand { padding: 5px 10px 5px 5px; gap: 4px; }
   /* Only the open height. Setting it unconditionally beat the closed state's
      own rule further up the sheet, so below 820px the drawer never shut — the
      arrow toggled a shadow and nothing else. Harmless when the drawer hid

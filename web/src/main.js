@@ -4,7 +4,8 @@ import { loadSettings, onSettingsChange, get as getSetting } from './settings.js
 import { initI18n, t, translateDocument, onLanguageChange } from './i18n.js';
 import { defineRoute, startRouter, navigate, refreshRoute, currentRoute } from './router.js';
 import { unlockAudio, setVolume, play as playSound } from './audio.js';
-import { logoLockupHtml } from './ui/logo.js';
+import { logoMarkSvg } from './ui/logo.js';
+import { icon } from './ui/icons.js';
 import { mountHome } from './views/home.js';
 import { mountPlay } from './views/play.js';
 import { mountRules } from './views/rules.js';
@@ -31,9 +32,20 @@ function renderAccountChip() {
   chip.classList.toggle('is-signed-in', Boolean(user));
 }
 
+/**
+ * The header, in words.
+ *
+ * The button at the top left used to be the logo and nothing else -- on a
+ * phone, a small hexagon with no border and no arrow, which most people read
+ * as a picture. It is the way back to the menu from every page, so it now says
+ * so: a chevron for the direction, the mark for where it goes, and the word for
+ * anyone the first two do not reach. Its name for a screen reader comes from
+ * the markup's data-i18n-attr, which translateDocument fills in below.
+ */
 function renderChrome() {
   document.title = t('meta.title');
-  document.getElementById('brand').innerHTML = logoLockupHtml('sm');
+  document.getElementById('brand').innerHTML =
+    `${icon('prev')}${logoMarkSvg()}<span class="brand-word">${t('nav.menu')}</span>`;
   translateDocument();
   renderAccountChip();
 }

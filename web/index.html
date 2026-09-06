@@ -100,7 +100,11 @@
 </div>
 
 <header class="site-header">
-  <button class="btn" id="brand" data-go="home" data-route-link="home" aria-label="Hexaequo"></button>
+  <!-- The way back to the menu, on every page but the menu itself. A chevron,
+       the mark, and the word: the logo alone read as decoration, not as a
+       button, and nothing about it said where it went. -->
+  <button class="btn" id="brand" data-go="home" data-route-link="home"
+          data-i18n-attr="aria-label:nav.backToMenu,title:nav.backToMenu"></button>
   <span class="spacer"></span>
   <nav id="site-nav">
     <button class="btn" id="account-chip" data-go="account"></button>
