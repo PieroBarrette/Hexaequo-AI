@@ -103,12 +103,25 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const viewBoxString = (v) => `${v.x.toFixed(1)} ${v.y.toFixed(1)} ${v.w.toFixed(1)} ${v.h.toFixed(1)}`;
 
 export function createBoard(container) {
+  /*
+   * Three layers, in the order they cover each other.
+   *
+   * The board is drawn into the first and the animation into the second, and
+   * the names go last, on their own, because they have to be readable through
+   * everything: a piece flying over a tile passed across its name and took it
+   * with it, which is exactly when somebody reading a move wants to find the
+   * cell it landed on. Nothing in here is a hit target -- every label carries
+   * pointer-events none -- so the layer over the board costs the board no
+   * clicks.
+   */
   container.innerHTML =
     '<svg class="board" xmlns="http://www.w3.org/2000/svg">'
-    + '<g class="board-main"></g><g class="board-fx"></g></svg>';
+    + '<g class="board-main"></g><g class="board-fx"></g>'
+    + '<g class="board-coords"></g></svg>';
   const svg = container.querySelector('svg');
   const main = svg.querySelector('.board-main');
   const fxLayer = svg.querySelector('.board-fx');
+  const coordLayer = svg.querySelector('.board-coords');
 
   let view = null;
   let from = null;
@@ -305,8 +318,14 @@ export function createBoard(container) {
       const x = cx(k), y = cy(k);
       const live = v.spotsLive;
       const lit = live && aid;
-      out += `<path class="cell${live ? ' is-clickable' : ''}"${live ? ` data-cell="${k}"` : ''}`
-        + ` d="${hexPath(x, y, SIZE * .94)}" fill="transparent" stroke="none"/>`;
+      /* Only where a tile may actually be laid this turn. Reading a game back,
+         these cells are in the list for their names alone -- so no hit target
+         either, which would otherwise be a transparent hexagon swallowing
+         presses meant for the board underneath. */
+      if (live) {
+        out += `<path class="cell is-clickable" data-cell="${k}"`
+          + ` d="${hexPath(x, y, SIZE * .94)}" fill="transparent" stroke="none"/>`;
+      }
       if (!lit) continue;
       // Holding a tile is the one moment these are the question on the board,
       // so then they are drawn solid and a shade wider.
@@ -399,17 +418,20 @@ export function createBoard(container) {
     }
 
     /*
-     * The coordinates, over everything the board has put down.
+     * The coordinates, over everything on the board and everything above it.
      *
      * They used to go under the pieces, so a tile with a piece on it lost its
      * name — which is the tile you most often want to name, since it is the
-     * one something is happening on. Over the top now, small enough to read
-     * past and written in whatever contrasts with what it lands on.
+     * one something is happening on. They are in a layer of their own now,
+     * over the animation as well, so a piece crossing a cell does not rub its
+     * name out on the way past.
      *
-     * The empty cells a tile may still be laid on are named too. They are
-     * where the next move goes, so they are the squares worth saying out loud,
-     * and until now they were the only ones without a name.
+     * The empty cells a tile may legally be laid on are named too, whether or
+     * not it is anybody's turn to lay one: reading "T J6" in the move list and
+     * looking for J6 is exactly when an empty cell needs its name, and those
+     * cells are the only ones a placement can name.
      */
+    let names = '';
     if (v.showCoordinates) {
       const ink = (k) => {
         if (s.tileAt[k] < 0) return 'var(--coord-on-board)';
@@ -426,7 +448,7 @@ export function createBoard(container) {
       const named = s.tileKeys
         .filter((k) => !(arriving && arriving.tile && k === arriving.cell))
         .concat(v.spots);
-      out += coordinateLabels(named, ink);
+      names = coordinateLabels(named, ink);
     }
 
     /* Move aids. */
@@ -474,6 +496,7 @@ export function createBoard(container) {
     }
 
     main.innerHTML = out;
+    coordLayer.innerHTML = names;
   }
 
   /* ── Effects layer ────────────────────────────────────────────────────── */

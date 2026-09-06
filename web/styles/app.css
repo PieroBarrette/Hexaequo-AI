@@ -100,7 +100,21 @@ button:disabled { opacity: .35; cursor: not-allowed; }
 }
 .btn:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--accent); }
 .btn.is-active, .btn.is-on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
-.btn--icon { width: 38px; min-width: 38px; padding: 7px 0; text-align: center; line-height: 1.2; }
+/*
+ * A button that is only its glyph, with the glyph in the middle of it.
+ *
+ * text-align centres a line of text and nothing else, so the moment one of
+ * these was laid out as a flex box — which the review arrows are, to sit in a
+ * row — the glyph went to the start of the line and stayed there: a quarter of
+ * an inch of empty button to its right, and the same thing again vertically.
+ * Centred as a flex box itself, it comes out in the middle whatever it holds
+ * and however it is laid out.
+ */
+.btn--icon {
+  width: 38px; min-width: 38px; padding: 7px 0; line-height: 1.2;
+  display: inline-flex; align-items: center; justify-content: center;
+  text-align: center;
+}
 .btn--primary {
   background: var(--accent); color: var(--accent-ink);
   border-color: var(--accent); font-weight: 600;

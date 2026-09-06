@@ -11,7 +11,7 @@ import { t, currentLanguage } from '../i18n.js';
 import { navigate } from '../router.js';
 import {
   api, isSignedIn, sessionReady, onAuthChange, currentUser, signOut,
-  chooseNickname,
+  chooseNickname, nicknameAvailable,
 } from '../auth.js';
 import { play as playSound } from '../audio.js';
 import { openPanel } from '../ui/panels.js';
@@ -81,6 +81,11 @@ export function mountProfile(outlet, params) {
   let managing = false;
   let manageError = null;
   let manageDone = null;
+  /* What the server last said about the nickname being typed, and the wait
+     before asking it. Kept out here so a re-render — saving the password, say
+     — does not wipe the answer off the line under the field. */
+  let nickHint = null;
+  let nickTimer = 0;
   let busy = false;
   /* Whether the closing-the-account panel is open. Shut by default: an account
      is not usually closed, and a red button sitting there every day is a red
@@ -187,6 +192,9 @@ export function mountProfile(outlet, params) {
           <button class="btn btn--primary" data-action="save-pseudo" ${busy ? 'disabled' : ''}>
             ${t('account.saveNickname')}</button>
         </div>
+        <p class="lede nickname-hint${nickHint && nickHint !== t('account.nicknameFree') ? ' is-bad' : ''}"
+           style="min-height:1.4em;margin:-4px 0 0">${
+  escapeText(nickHint || t('account.nicknameRules'))}</p>
 
         ${user.hasPassword === false ? '' : `
         <h3 style="margin-top:16px">${t('account.changePassword')}</h3>
@@ -282,6 +290,7 @@ export function mountProfile(outlet, params) {
     busy = true; manageError = null; manageDone = null; render();
     try {
       await chooseNickname(pseudo);     // which also refreshes the session copy
+      nickHint = null;                   // it is this account's name now
       manageDone = t('account.nicknameSaved');
       await load();                      // the page is titled with it
     } catch (error) {
@@ -467,6 +476,39 @@ export function mountProfile(outlet, params) {
     render();
   }
 
+  /*
+   * Whether the nickname is free, while it is being typed.
+   *
+   * The same question the sign-up form asks, asked the same way and answered
+   * on the same line: a name is either taken or it is not, and finding out
+   * only when the save comes back refused is finding out too late. The server
+   * leaves the account doing the asking out of the search, so the nickname you
+   * already hold reads as free rather than as taken by you.
+   */
+  outlet.addEventListener('input', (event) => {
+    const field = event.target.closest('[data-input="pseudo"]');
+    if (!field) return;
+    clearTimeout(nickTimer);
+    const typed = field.value;
+    nickTimer = setTimeout(async () => {
+      const label = outlet.querySelector('.nickname-hint');
+      if (!label) return;
+      try {
+        const answer = await nicknameAvailable(typed);
+        /* A reason means the name is the wrong shape, and the server says so
+           in English — it has no idea who is reading. The rules line says the
+           same thing in the reader's language, so use ours and keep the
+           server's for the one thing it knows and we do not: already taken. */
+        nickHint = answer.available ? t('account.nicknameFree')
+          : (answer.reason ? t('account.nicknameRules') : t('account.nicknameTaken'));
+      } catch {
+        nickHint = t('account.nicknameRules');
+      }
+      label.textContent = nickHint;
+      label.classList.toggle('is-bad', nickHint !== t('account.nicknameFree'));
+    }, 350);
+  });
+
   outlet.addEventListener('click', (event) => {
     const send = event.target.closest('[data-send-challenge]');
     if (send) {
@@ -504,6 +546,7 @@ export function mountProfile(outlet, params) {
     if (what === 'manage-close') {
       playSound('ui');
       managing = false; manageError = null; manageDone = null; closing = false;
+      nickHint = null;
       render();
       return;
     }
@@ -521,5 +564,5 @@ export function mountProfile(outlet, params) {
 
   render();
   load();
-  return () => { stop(); stopWatching(); stopPresence(); };
+  return () => { clearTimeout(nickTimer); stop(); stopWatching(); stopPresence(); };
 }

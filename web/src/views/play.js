@@ -26,7 +26,9 @@ import {
 import { chooseMove, judge, DISK_POINTS } from '../game/ai.js';
 import { weigh, summarise, markOf } from '../game/accuracy.js';
 import { request, listen, connect } from '../net.js';
-import { api, isSignedIn, onAuthChange, ratingChanged, ratingFor } from '../auth.js';
+import {
+  api, isSignedIn, onAuthChange, ratingChanged, ratingFor, currentUser,
+} from '../auth.js';
 import { openPanel } from '../ui/panels.js';
 import { emojiRowHtml } from '../ui/emoji.js';
 
@@ -1631,7 +1633,12 @@ export function mountPlay(outlet, params) {
     /* While lining a move up, everything is chosen against the board as it
        would be on our turn — the reserves, the legal squares, all of it. */
     const acting = lining ? premoveBoard() : position;
-    const spots = reviewing ? [] : tilePlacementSpots(chain ? chain.preview : acting);
+    /* Where a tile could go in the position on screen. Computed while reading
+       back as well as while playing: the board draws them as a place to press
+       only when there is a tile in hand, but they carry their names in either
+       case, and an empty cell's name is worth most to somebody looking for the
+       square a placement in the list is talking about. */
+    const spots = tilePlacementSpots(chain ? chain.preview : acting);
     const source = chain ? chain.preview : acting;
 
     const targets = new Map();
@@ -2921,7 +2928,15 @@ export function mountPlay(outlet, params) {
   function renderLiveButton(usable) {
     const live = barEl.querySelector('.review-live');
     if (!live) return;
-    live.hidden = !usable || !exploring;
+    /*
+     * A stored game is read through a branch and always has one open: it is
+     * opened at the first move so that walking through it and trying something
+     * in the middle are one screen. So there is nothing behind it to leave for
+     * — until a move is actually played into it, and then this is how that
+     * move is taken back.
+     */
+    const branch = Boolean(exploring) && (!archiveId || history.length > 0);
+    live.hidden = !usable || !branch;
   }
 
   function renderReviewBar() {
@@ -4212,9 +4227,22 @@ export function mountPlay(outlet, params) {
     else if (action === 'rev-last') { stopAutoplay(); goToPly(timeline.length - 1); }
     else if (action === 'rev-live') {
       stopAutoplay();
-      // Two meanings, one button: leave the branch, or catch up to the present.
-      if (exploring) stopExploring();
-      else goToPly(timeline.length - 1);
+      if (!exploring) goToPly(timeline.length - 1);
+      else {
+        /*
+         * Leaving a branch of a stored game leaves it into another one.
+         *
+         * A game of your own has a card at the end of it and the branch was
+         * opened from that card, so putting the game back means the card comes
+         * back with it. A stored game never had one: the review is itself the
+         * branch. Dropping it there would leave a board that cannot be played
+         * on at all — a finished line is over, and nothing may be tried from
+         * it — so the review is opened again, standing where you were.
+         */
+        const standing = review === null ? timeline.length - 1 : review;
+        stopExploring();
+        if (archiveId) startExploring(standing);
+      }
     } else if (action === 'resume') { stopAutoplay(); openResumeSheet(); }
     else if (action === 'guest-sign-in') { openPanel('account'); }
     /* The hold is left standing on purpose: commit clears it, and clearing it
