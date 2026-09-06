@@ -12,6 +12,29 @@
 // write to. See tests/database.js.
 require('./database').none();
 
+/*
+ * Two accounts the server can look up, and still no database.
+ *
+ * hx:identify verifies the token itself and then reads the profile behind it,
+ * and this process has nothing to read from -- which is right for every test
+ * of what an anonymous socket may do, and no use for the ones about what two
+ * signed-in players do to each other: a rematch between members, a member
+ * coming back to a game on a new connection. So the one query identify makes
+ * is answered here, for two names and nobody else. Every other query still
+ * fails by name, so nothing in this file can write a row anywhere.
+ */
+const database = require('../config/database');
+const KNOWN = new Map([
+    ['acct-amelie', { id: 'acct-amelie', pseudo: 'Amelie', elo: 1200, games_played: 4 }],
+    ['acct-bertrand', { id: 'acct-bertrand', pseudo: 'Bertrand', elo: 1180, games_played: 9 }],
+]);
+const realQuery = database.query;
+database.query = (sql, params) => {
+    if (/FROM users WHERE id = \$1/.test(sql) && KNOWN.has(params && params[0])) {
+        return Promise.resolve({ rows: [KNOWN.get(params[0])] });
+    }
+    return realQuery(sql, params);
+};
 
 const assert = require('assert');
 const http = require('http');
@@ -1069,6 +1092,160 @@ async function run() {
         /* A third press, long after, is answered with the same room too. */
         const later = await ask(b, 'hx:rematch', { code: room });
         assert.strictEqual(later.code, answers[0].code, 'still the same room');
+        a.disconnect();
+        b.disconnect();
+    });
+
+    /*
+     * The rematch as two members actually play it.
+     *
+     * The room that replaces a finished one used to be reserved by account and
+     * otherwise empty, and each player was expected to arrive and ask for a
+     * seat -- so whether they got one depended on their socket still knowing
+     * who they were at that moment. It did not always: a connection that had
+     * lost its name between the end of one game and the start of the next was
+     * turned away from a room made for it, as a third player, with "this game
+     * is already full" in red. Both players are seated the moment the rematch
+     * is agreed, by the connection that agreed, and nothing they say afterwards
+     * can lose them the seat.
+     */
+    const signIn = (socket, id) => {
+        const jwt = require('jsonwebtoken');
+        const { JWT_SECRET } = require('../config/env');
+        return ask(socket, 'hx:identify', { token: jwt.sign({ userId: id }, JWT_SECRET, { expiresIn: '1h' }) });
+    };
+    const agreeRematch = async (offerer, accepter, code) => {
+        await ask(offerer, 'hx:rematch', { code });
+        const agreed = await ask(accepter, 'hx:rematch', { code });
+        assert.ok(agreed.ok && agreed.ready, 'the rematch is agreed: ' + agreed.error);
+        return agreed.code;
+    };
+
+    await test('a rematch between members seats both, colours swapped, before either arrives', async () => {
+        const a = await open();
+        const b = await open();
+        const [idA, idB] = await Promise.all([signIn(a, 'acct-amelie'), signIn(b, 'acct-bertrand')]);
+        assert.ok(idA.ok && idB.ok, 'both are known here');
+        const created = await ask(a, 'hx:create', { timeControl: 'blitz' });
+        const joined = await ask(b, 'hx:join', { code: created.code });
+        assert.ok(joined.rated, 'two members make a rated game');
+        await ask(a, 'hx:resign', { code: created.code });
+
+        const next = await agreeRematch(a, b, created.code);
+        /* Seated already: a third connection looking in sees two full seats
+           and two names, with nobody having walked over yet. */
+        const looker = await open();
+        const seen = await ask(looker, 'hx:sync', { code: next });
+        assert.deepStrictEqual(seen.seats, [true, true], 'both seats are held before anyone joins');
+        assert.strictEqual(seen.players[0].pseudo, 'Bertrand', 'white last time is black now');
+        assert.strictEqual(seen.players[1].pseudo, 'Amelie');
+        assert.ok(seen.rated, 'and it is rated from the start');
+        looker.disconnect();
+
+        const seatB = await ask(b, 'hx:join', { code: next });
+        const seatA = await ask(a, 'hx:join', { code: next });
+        assert.ok(seatB.ok && seatA.ok, 'both are let in: ' + (seatB.error || seatA.error));
+        assert.strictEqual(seatB.colour, 0);
+        assert.strictEqual(seatA.colour, 1);
+        assert.strictEqual(seatA.timeControl, 'blitz', 'the same cadence');
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('a connection that forgot its name still has its seat in the rematch', async () => {
+        const a = await open();
+        const b = await open();
+        await Promise.all([signIn(a, 'acct-amelie'), signIn(b, 'acct-bertrand')]);
+        const created = await ask(a, 'hx:create', {});
+        await ask(b, 'hx:join', { code: created.code });
+        await ask(a, 'hx:resign', { code: created.code });
+        const next = await agreeRematch(a, b, created.code);
+
+        /* Between agreeing and arriving, the socket is told it is nobody --
+           which is what a lost lookup or an expired token looks like. */
+        await ask(b, 'hx:identify', { token: null });
+        const seatB = await ask(b, 'hx:join', { code: next });
+        assert.ok(seatB.ok, 'not turned away from a room made for them: ' + seatB.error);
+        assert.strictEqual(seatB.colour, 0, 'the seat that was already theirs');
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('the rematch of a rematch swaps the colours back', async () => {
+        const a = await open();
+        const b = await open();
+        await Promise.all([signIn(a, 'acct-amelie'), signIn(b, 'acct-bertrand')]);
+        const first = (await ask(a, 'hx:create', {})).code;
+        await ask(b, 'hx:join', { code: first });
+        await ask(a, 'hx:resign', { code: first });
+        const second = await agreeRematch(a, b, first);
+        await ask(a, 'hx:join', { code: second });
+        await ask(b, 'hx:join', { code: second });
+        await ask(b, 'hx:resign', { code: second });        // black resigns this time
+        const third = await agreeRematch(b, a, second);
+        const seatA = await ask(a, 'hx:join', { code: third });
+        const seatB = await ask(b, 'hx:join', { code: third });
+        assert.strictEqual(seatA.colour, 0, 'black again, as in the first game');
+        assert.strictEqual(seatB.colour, 1);
+        a.disconnect();
+        b.disconnect();
+    });
+
+    /*
+     * Coming back on a new connection while the old one is still in the seat.
+     *
+     * A phone that sleeps loses its connection without a word; the server
+     * learns of it at the next missed heartbeat, twenty seconds on. The player
+     * is back before that, on a new socket, and the seat still looks taken --
+     * so they were turned away from their own game as a third player.
+     */
+    await test('a member who reconnects takes their seat back from the socket that died in it', async () => {
+        const a = await open();
+        const b = await open();
+        await signIn(a, 'acct-amelie');
+        const created = await ask(a, 'hx:create', {});
+        await ask(b, 'hx:join', { code: created.code });
+
+        const again = await open();                  // the same person, a new socket
+        await signIn(again, 'acct-amelie');
+        const back = await ask(again, 'hx:join', { code: created.code });
+        assert.ok(back.ok, 'let back in: ' + back.error);
+        assert.strictEqual(back.colour, 0, 'to the seat that was theirs');
+        const stale = await ask(a, 'hx:sync', { code: created.code });
+        assert.strictEqual(stale.colour, -1, 'and the old connection no longer holds it');
+        a.disconnect();
+        b.disconnect();
+        again.disconnect();
+    });
+
+    await test('a guest who reconnects is known by the key their tab was given', async () => {
+        const a = await open();
+        const b = await open();
+        const created = await ask(a, 'hx:create', { name: 'Anon', key: 'tab-of-anon' });
+        await ask(b, 'hx:join', { code: created.code, key: 'tab-of-b' });
+
+        const again = await open();
+        const back = await ask(again, 'hx:join', { code: created.code, key: 'tab-of-anon' });
+        assert.ok(back.ok, 'let back in: ' + back.error);
+        assert.strictEqual(back.colour, 0);
+        const stranger = await open();
+        const refused = await ask(stranger, 'hx:join', { code: created.code, key: 'somebody-else' });
+        assert.strictEqual(refused.error, 'ROOM_FULL', 'a key nobody sat down with opens nothing');
+        a.disconnect();
+        b.disconnect();
+        again.disconnect();
+        stranger.disconnect();
+    });
+
+    await test('finished games do not use up the rooms a connection may open', async () => {
+        const a = await open();
+        const b = await open();
+        for (let i = 0; i < 6; i++) {
+            const created = await ask(a, 'hx:create', {});
+            assert.ok(created.ok, `game ${i + 1} can be opened: ` + created.error);
+            await ask(b, 'hx:join', { code: created.code });
+            await ask(a, 'hx:resign', { code: created.code });
+        }
         a.disconnect();
         b.disconnect();
     });

@@ -20,7 +20,7 @@
 
 import { t } from '../i18n.js';
 import { navigate } from '../router.js';
-import { request, connect, listen, inviteLink } from '../net.js';
+import { request, connect, listen, inviteLink, rejoinKey } from '../net.js';
 import { play as playSound } from '../audio.js';
 import { isSignedIn, onAuthChange } from '../auth.js';
 import { openPanel } from '../ui/panels.js';
@@ -392,7 +392,7 @@ export function mountOnline(outlet) {
       try {
         await connect();
         subscribe();
-        const response = await request('hx:create', { timeControl: cadence });
+        const response = await request('hx:create', { timeControl: cadence, key: rejoinKey() });
         if (!response.ok) { busy = false; return fail(response.error); }
         created = response;
         busy = false;

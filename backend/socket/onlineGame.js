@@ -372,6 +372,9 @@ async function createRoom({ timeControl = 'none', reserved = null } = {}) {
         seats: [null, null],
         players: [null, null],
         names: [null, null],
+        /* The key each seat was taken with: what a tab is known by when its
+           connection is not the one that sat down. See seatByClaim. */
+        keys: [null, null],
         chat: [],
         rematch: null,          // { seat } while one side has offered
         /*
@@ -431,6 +434,80 @@ function seatOf(room, socketId) {
     if (room.seats[0] === socketId) return 0;
     if (room.seats[1] === socketId) return 1;
     return -1;
+}
+
+/**
+ * The seat with this player's name on it, whichever socket is sitting there.
+ *
+ * A socket is how the server knows a player, and a socket does not survive a
+ * sleeping phone: the connection goes without a word, the server learns of it
+ * at the next missed heartbeat twenty seconds on, and in between the seat
+ * looks taken. The player coming back to it on a fresh connection was turned
+ * away from their own game as a third player. So a seat is recognised by who
+ * holds it as well as by which socket -- the account first, which follows a
+ * person across devices, then the key the tab was given, which is what a
+ * guest has instead of a name. A seat nobody has held has neither.
+ */
+function seatByClaim(room, socket, key) {
+    const me = socket.data.user;
+    for (let seat = 0; seat < 2; seat++) {
+        const player = room.players[seat];
+        if (me && player && player.userId === me.userId) return seat;
+        if (key && room.keys[seat] === key) return seat;
+    }
+    return -1;
+}
+
+/** The key a client sent with its request, or nothing. Never trusted further. */
+function seatKey(payload) {
+    const raw = payload && payload.key;
+    return typeof raw === 'string' && raw.length > 0 && raw.length <= 64 ? raw : null;
+}
+
+/**
+ * Only the rooms still being played count against a connection.
+ *
+ * A finished game stays in the set, since nobody sends hx:leave for a game
+ * that is over -- so five games in an evening used to be the last five, and
+ * the sixth room was refused as one too many.
+ */
+function forgetFinishedRooms(socket) {
+    for (const code of socket.data.hxRooms) {
+        const room = rooms.get(code);
+        if (!room || room.result) socket.data.hxRooms.delete(code);
+    }
+}
+
+/**
+ * Sit both players down in the room that replaces this one, before either
+ * has walked over to it.
+ *
+ * The new room used to be reserved by account and otherwise empty, and each
+ * player was expected to arrive and ask for a seat -- which made the seat
+ * depend on the socket still knowing who they were. A connection that had
+ * lost its name between the end of one game and the start of the next was
+ * turned away from a room made for it, as a third player. Seating them here,
+ * by the socket that just agreed, needs nothing the server does not already
+ * hold: the name, the key, and the connection itself, which is joined to the
+ * new room so that it hears the new room's news.
+ *
+ * Colours swap: whoever had white has black. Only a connection that is still
+ * there is seated; one that has dropped keeps its claim through the name and
+ * the key on the seat, and takes it up when it comes back.
+ */
+function seatTheRematch(io, room, next) {
+    for (let seat = 0; seat < 2; seat++) {
+        const was = 1 - seat;
+        next.players[seat] = room.players[was] ? { ...room.players[was] } : null;
+        next.names[seat] = room.names[was];
+        next.keys[seat] = room.keys[was];
+        const socketId = room.seats[was];
+        const live = socketId ? io.sockets.sockets.get(socketId) : null;
+        if (!live) continue;
+        next.seats[seat] = socketId;
+        live.join(next.code);
+        live.data.hxRooms.add(next.code);
+    }
 }
 
 function touch(room) {
@@ -689,6 +766,7 @@ function attachOnlineGames(io) {
         socket.on('hx:create', async (options, callback) => {
             if (typeof options === 'function') { callback = options; options = {}; }
             options = options || {};
+            forgetFinishedRooms(socket);
             if (socket.data.hxRooms.size >= MAX_ROOMS_PER_SOCKET) {
                 return reply(callback, { ok: false, error: 'TOO_MANY_ROOMS' });
             }
@@ -702,6 +780,7 @@ function attachOnlineGames(io) {
             room.players[0] = socket.data.user ? { ...socket.data.user } : null;
             room.names[0] = (socket.data.user && socket.data.user.pseudo)
                 || String(options.name || '').slice(0, 24) || null;
+            room.keys[0] = seatKey(options);
             socket.join(room.code);
             socket.data.hxRooms.add(room.code);
             reply(callback, { ok: true, colour: 0, ...publicView(room) });
@@ -713,8 +792,17 @@ function attachOnlineGames(io) {
             const room = rooms.get(code);
             if (!room) return reply(callback, { ok: false, error: 'NO_SUCH_ROOM' });
             touch(room);
+            const key = seatKey(payload);
 
             let seat = seatOf(room, socket.id);
+            /* Not this socket, but perhaps this player: back from a dropped
+               connection, on a socket the seat has never seen. The seat is
+               theirs again, whatever socket was left sitting in it. */
+            const claimed = seat === -1 ? seatByClaim(room, socket, key) : -1;
+            if (claimed !== -1) {
+                seat = claimed;
+                room.seats[seat] = socket.id;
+            }
             if (seat === -1) {
                 if (room.reserved) {
                     // A paired game: each player has a seat with their name on it.
@@ -739,6 +827,9 @@ function attachOnlineGames(io) {
                 room.players[seat] = { ...socket.data.user };
                 room.names[seat] = socket.data.user.pseudo;
             }
+            /* The seat carries the key of the tab that holds it now: a new
+               tab signed in to the same account is the one to come back to. */
+            if (key) room.keys[seat] = key;
             if (room.seats[0] && room.seats[1]) {
                 const firstTime = !room.everFull;
                 room.everFull = true;
@@ -1125,6 +1216,7 @@ function attachOnlineGames(io) {
             }
             room.rematchCode = made;
             room.rematch = null;
+            seatTheRematch(io, room, rooms.get(made));
             io.to(code).emit('hx:rematch:ready', { code, next: made });
             reply(callback, { ok: true, code: made, ready: true });
         });

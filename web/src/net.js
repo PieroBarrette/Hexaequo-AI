@@ -237,6 +237,33 @@ export function listen(event, handler) {
   };
 }
 
+/*
+ * A key for the seat, kept by the tab.
+ *
+ * A socket is how the server knows a player, and a socket does not survive a
+ * sleeping phone. The account does, but a guest has none -- so each tab makes
+ * itself a key, sends it with every seat it takes, and offers it again when it
+ * comes back on a new connection: the server hands the seat over to whichever
+ * connection holds the key. Never shown, never guessable, and worth nothing
+ * outside the games it was used in. Kept per tab rather than per browser so
+ * that two tabs are two players, which is what they look like to whoever is
+ * opposite.
+ */
+const SEAT_KEY = 'hexaequo.seatKey';
+let seatKey = null;
+
+export function rejoinKey() {
+  if (seatKey) return seatKey;
+  try { seatKey = sessionStorage.getItem(SEAT_KEY); } catch { /* no store */ }
+  if (!seatKey) {
+    seatKey = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2) + Date.now().toString(36);
+    try { sessionStorage.setItem(SEAT_KEY, seatKey); } catch { /* as long as the page lasts */ }
+  }
+  return seatKey;
+}
+
 /** A shareable link that drops the recipient straight into the room. */
 export function inviteLink(code) {
   const url = new URL(location.href);

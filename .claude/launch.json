@@ -12,6 +12,12 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "8765", "--directory", "web"],
       "port": 8765
+    },
+    {
+      "name": "hexaequo-backend-nodb",
+      "runtimeExecutable": "node-portable/node.exe",
+      "runtimeArgs": ["backend/scripts/devNoDatabase.js"],
+      "port": 3001
     }
   ]
 }

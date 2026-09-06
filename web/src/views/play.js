@@ -25,7 +25,7 @@ import {
 } from '../game/moves.js';
 import { chooseMove, judge, DISK_POINTS } from '../game/ai.js';
 import { weigh, summarise, markOf } from '../game/accuracy.js';
-import { request, listen, connect } from '../net.js';
+import { request, listen, connect, rejoinKey } from '../net.js';
 import {
   api, isSignedIn, onAuthChange, ratingChanged, ratingFor, currentUser,
 } from '../auth.js';
@@ -132,7 +132,7 @@ export function mountPlay(outlet, params) {
       rematchDeclined: false,
       drawOffered: false,      // they have offered
       drawAsked: false,        // we have offered
-      rematchCode: null,       // the room that replaces this one
+      leaving: false,          // on the way to the room that replaces this one
       unsubscribe: [],
     }
     : null;
@@ -1232,7 +1232,17 @@ export function mountPlay(outlet, params) {
     net.chat = (view.chat || []).slice();
     net.rematchOffered = view.rematchOfferedBy !== null && view.rematchOfferedBy !== undefined
       && view.rematchOfferedBy !== net.colour;
-    if (view.rematchCode) net.rematchCode = view.rematchCode;
+    /*
+     * The game has moved on without us.
+     *
+     * A rematch both players agreed to replaces this room, and the server
+     * says so to whoever asks for this one afterwards. That used to be noted
+     * and nothing more: a player whose connection dropped between agreeing
+     * and arriving came back to the finished game, and the button that would
+     * have taken them on was answered with a room they were already marked
+     * as having gone to. Go where the game went.
+     */
+    if (view.rematchCode && !net.watching) { goToRematch(view.rematchCode); return; }
     result = view.result ? readResult(view.result) : null;
     resultSeen = false;
     net.opponentPresent = Boolean(view.seats && view.seats[1 - net.colour]);
@@ -1290,7 +1300,10 @@ export function mountPlay(outlet, params) {
   async function claimSeat() {
     try {
       await connect();
-      const view = await request(net.watching ? 'hx:watch' : 'hx:join', { code: net.code });
+      /* The key says which tab this is, so a seat taken on a connection that
+         has since died can be taken back on this one. */
+      const view = await request(net.watching ? 'hx:watch' : 'hx:join',
+        { code: net.code, key: rejoinKey() });
       if (!view.ok) {
         /* Turning up to watch a game that is yours to play: the right answer
            is the seat, not an error message about it. */
@@ -1554,9 +1567,18 @@ export function mountPlay(outlet, params) {
     try { await request('hx:undo:decline', { code: net.code }); } catch { /* best effort */ }
   }
 
+  /**
+   * On to the room that replaces this one -- once.
+   *
+   * Told twice at least: the server announces the room to both seats and also
+   * answers the press that made it, and whichever arrives second must not
+   * navigate again. Guarded by a flag rather than by remembering the code, so
+   * that a room learned about from a view of the finished game can still be
+   * gone to.
+   */
   function goToRematch(code) {
-    if (!net || net.rematchCode === code) return;
-    net.rematchCode = code;
+    if (!net || net.leaving || net.code === code) return;
+    net.leaving = true;
     playSound('ui');
     navigate('play', { online: '1', code });
   }
