@@ -15,10 +15,26 @@
 :root[data-theme="light"] { color-scheme: light; }
 /* 'auto' never reaches the attribute: settings.js resolves it first. */
 
+/*
+ * The shell fills the screen, and the screen is not always what 100% means.
+ *
+ * A percentage resolves against the initial containing block, which on a phone
+ * is sized for a browser that has an address bar whether or not one is there.
+ * Added to the home screen there is none, and the app came up short by exactly
+ * its height — a band of the darkest colour along the bottom that looked like
+ * a piece of the phone rather than a piece of the app.
+ *
+ * `dvh` is the viewport as it actually is at this moment, chrome and all, so
+ * standalone it is the whole screen. The percentage stays underneath it for
+ * anything that does not know the unit.
+ */
 html, body {
   height: 100%;
   margin: 0;
   overscroll-behavior: none;
+}
+@supports (height: 100dvh) {
+  html, body { height: 100dvh; }
 }
 
 body {
