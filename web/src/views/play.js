@@ -2247,8 +2247,14 @@ export function mountPlay(outlet, params) {
           live && freeOwnTiles > 0 && position.capturedDisks[player] > 0, 'reserve',
           /* The one piece whose silence confuses: it is right there, it is
              your turn, and tapping it does nothing. A ring costs a captured
-             disk, and a player with none to give is told so. */
-          live && freeOwnTiles > 0 && position.capturedDisks[player] === 0 ? 'ringNeedsDisk' : null)
+             disk, and a player with none to give is told so.
+
+             A fact about the position, not about whose turn it is: tied to
+             the rail being live, the dimming lifted the moment the other side
+             began to move and came back when the move had landed, which read
+             as the rings flashing on every turn. Whether a ring can be paid
+             for does not change while somebody else is moving. */
+          position.capturedDisks[player] === 0 ? 'ringNeedsDisk' : null)
         /* Below the line: pieces taken from the opponent, which are as real a
            part of this player's inventory as their own. */
         + (taken ? '<div class="rail-sep"></div>' : '')
