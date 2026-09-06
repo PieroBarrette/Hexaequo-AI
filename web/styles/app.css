@@ -227,7 +227,13 @@ select.btn option {
   flex: 1; display: flex; flex-direction: column;
   padding: clamp(16px, 4vh, 32px) 20px; text-align: center; overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  /* It still scrolls -- wheel, touch, keys -- when the window is shorter than
+     the menu; it just does not wear a scrollbar for it. On a desktop the
+     classic bar ran the full height of the page beside a centred logo, the
+     loudest thing on a screen meant to be quiet. */
+  scrollbar-width: none;
 }
+.home::-webkit-scrollbar { display: none; }
 .home-inner {
   margin: auto; width: 100%;
   display: flex; flex-direction: column; align-items: center;
