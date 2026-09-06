@@ -82,7 +82,10 @@
     "drawAccept": "Accepter l’ExAequo",
     "drawWaiting": "ExAequo proposé…",
     "drawOfferedBy": "Votre adversaire propose ExAequo.",
-    "confirmPlay": "Jouer ce coup"
+    "confirmPlay": "Jouer ce coup",
+    "undoAsk": "Demander à reprendre son coup",
+    "undoWaiting": "Reprise demandée — en attente de l'adversaire",
+    "undoOfferedBy": "Votre adversaire demande à reprendre son coup"
   },
   "online": {
     "title": "Jouer en ligne",
@@ -129,7 +132,12 @@
       "NOT_YOURSELF": "Vous ne pouvez pas vous défier vous-même.",
       "ALREADY_ASKING": "Vous avez déjà une invitation en attente. Attendez la réponse ou annulez-la.",
       "ALREADY_ASKED": "Ce joueur a déjà une invitation en attente.",
-      "NOT_STARTED": "La partie n’a pas encore commencé."
+      "NOT_STARTED": "La partie n’a pas encore commencé.",
+      "NOT_YOUR_MOVE": "Vous ne pouvez reprendre que votre propre dernier coup.",
+      "NOTHING_TO_UNDO": "Aucun coup n'a encore été joué.",
+      "UNDO_REFUSED": "Votre adversaire a refusé. Ce coup ne peut plus être repris.",
+      "UNDO_SPENT": "Les trois reprises de la partie ont été utilisées.",
+      "UNDO_TOO_LATE": "Trop peu de temps au compteur pour reprendre un coup."
     },
     "rated": "Partie classée",
     "unratedFriendly": "Partie amicale — le classement ne bouge pas",

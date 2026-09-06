@@ -82,7 +82,10 @@
     "drawAccept": "Accept ExAequo",
     "drawWaiting": "ExAequo offered…",
     "drawOfferedBy": "Your opponent offers ExAequo.",
-    "confirmPlay": "Play this move"
+    "confirmPlay": "Play this move",
+    "undoAsk": "Ask to take your move back",
+    "undoWaiting": "Take-back asked — waiting for your opponent",
+    "undoOfferedBy": "Your opponent asks to take their move back"
   },
   "online": {
     "title": "Play online",
@@ -129,7 +132,12 @@
       "NOT_YOURSELF": "You cannot challenge yourself.",
       "ALREADY_ASKING": "You already have an invitation out. Wait for an answer, or call it off.",
       "ALREADY_ASKED": "That player already has an invitation waiting.",
-      "NOT_STARTED": "The game has not started yet."
+      "NOT_STARTED": "The game has not started yet.",
+      "NOT_YOUR_MOVE": "You may only take back your own last move.",
+      "NOTHING_TO_UNDO": "No move has been played yet.",
+      "UNDO_REFUSED": "Your opponent said no. That move cannot be taken back.",
+      "UNDO_SPENT": "All three take-backs for this game have been used.",
+      "UNDO_TOO_LATE": "Too little time on the clock to take a move back."
     },
     "rated": "Rated game",
     "unratedFriendly": "Friendly game — no rating at stake",

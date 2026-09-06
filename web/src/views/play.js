@@ -119,6 +119,12 @@ export function mountPlay(outlet, params) {
       clockAt: 0,            // when we received it, to interpolate locally
       chat: [],
       unread: 0,
+      /* Taking a move back: `undoAsked` is ours on the table, `undoOffered`
+         is theirs waiting for an answer, and `undoLeft` is what the server
+         says remains. */
+      undoAsked: false,
+      undoOffered: false,
+      undoLeft: null,
       rematchAsked: false,     // we have offered
       rematchOffered: false,   // they have offered
       rematchDeclined: false,
@@ -1258,6 +1264,31 @@ export function mountPlay(outlet, params) {
       else net.drawAsked = false;
       refresh();
     }));
+    net.unsubscribe.push(listen('hx:undo:offer', (payload) => {
+      if (!net || payload.code !== net.code) return;
+      net.undoOffered = true;
+      playSound('ui');
+      refresh();
+    }));
+    net.unsubscribe.push(listen('hx:undo:declined', (payload) => {
+      if (!net || payload.code !== net.code) return;
+      net.undoAsked = false;
+      net.error = 'UNDO_REFUSED';
+      refresh();
+    }));
+    net.unsubscribe.push(listen('hx:undo:done', (payload) => {
+      if (!net || payload.code !== net.code) return;
+      net.undoAsked = false;
+      net.undoOffered = false;
+      net.undoLeft = payload.undoLeft;
+      adoptClock(payload.clock);
+      /* Read the room back rather than unpicking our own copy of it. The
+         server rebuilt the game by replaying it one move shorter; asking for
+         the result is how the two are guaranteed to agree, and adoptRoom
+         already knows how to take a whole line. */
+      playSound('ui');
+      syncFromServer();
+    }));
     net.unsubscribe.push(listen('hx:rematch:offer', (payload) => {
       if (!net || payload.code !== net.code) return;
       net.rematchOffered = true;
@@ -1359,6 +1390,42 @@ export function mountPlay(outlet, params) {
     if (response.ready && response.code) { goToRematch(response.code); return; }
     net.rematchAsked = true;
     refresh();
+  }
+
+  /**
+   * Ask for the last move back, or agree to give it.
+   *
+   * One button and one event for both, because the server settles which it is:
+   * the first press offers, the other player's press accepts. The rules that
+   * keep it from becoming a way to play are all the server's, so this asks and
+   * reports whatever comes back rather than second-guessing.
+   */
+  async function askUndo() {
+    if (!net || result || net.undoAsking) return;
+    net.undoAsking = true;
+    net.error = null;
+    refresh();
+    let response;
+    try {
+      response = await request('hx:undo', { code: net.code });
+    } catch {
+      if (net) { net.undoAsking = false; net.error = 'OFFLINE'; refresh(); }
+      return;
+    }
+    if (!net) return;
+    net.undoAsking = false;
+    if (!response.ok) { net.error = response.error; refresh(); return; }
+    /* `asked` means it is on the table; anything else means it was taken and
+       hx:undo:done is on its way to both of us. */
+    if (response.asked) { net.undoAsked = true; net.undoOffered = false; }
+    refresh();
+  }
+
+  async function declineUndo() {
+    if (!net) return;
+    net.undoOffered = false;
+    refresh();
+    try { await request('hx:undo:decline', { code: net.code }); } catch { /* best effort */ }
   }
 
   function goToRematch(code) {
@@ -2909,9 +2976,24 @@ export function mountPlay(outlet, params) {
     /* Local play only -- online, a move is not yours alone to take back --
        and never while reading back, which would rewrite the game under the
        review. A branch counts as local: it is all played here. */
+    /*
+     * One button, two mechanisms.
+     *
+     * Locally a move is yours to take back and it simply goes. Online it is
+     * not yours alone, so the same button asks the other player — same glyph,
+     * same place, same meaning to the person pressing it. Never while reading
+     * back, which would rewrite the game under the review.
+     */
     const undo = barEl.querySelector('[data-action="undo"]');
-    undo.hidden = !(local || Boolean(exploring && exploring.play !== 'view'));
-    undo.disabled = thinking || !history.length || review !== null;
+    const seatedLive = Boolean(net) && !net.watching && !result && net.ready;
+    undo.hidden = !(local || seatedLive || Boolean(exploring && exploring.play !== 'view'));
+    undo.disabled = review !== null || (net
+      ? Boolean(net.undoAsking || net.undoAsked || net.pending || net.undoLeft === 0)
+      : thinking || !history.length);
+    undo.title = net
+      ? (net.undoAsked ? t('game.undoWaiting') : t('game.undoAsk'))
+      : t('game.undo');
+    undo.classList.toggle('is-on', Boolean(net && net.undoAsked));
     const resignButton = tools.querySelector('[data-action="resign"]');
     if (resignButton) resignButton.disabled = !net || !net.ready || !!result;
 
@@ -3486,6 +3568,11 @@ export function mountPlay(outlet, params) {
       message = t('online.waiting');
     } else if (result) {
       message = '';
+    } else if (net.undoOffered) {
+      message = t('game.undoOfferedBy');
+      tone = 'is-warn';
+    } else if (net.undoAsked) {
+      message = t('game.undoWaiting');
     } else if (net.drawOffered) {
       message = t('game.drawOfferedBy');
       tone = 'is-warn';
@@ -3513,6 +3600,14 @@ export function mountPlay(outlet, params) {
     const asWatcher = net.watching
       ? `<span class="net-stake is-watching">${t('watch.badge')}</span>` : '';
 
+    /* An answer belongs beside the question. The same shape as the draw's,
+       because it is the same kind of thing: they have asked, and the game
+       waits on you. */
+    const undoAnswer = net.undoOffered && !result
+      ? `<button class="btn btn--sm btn--primary" data-action="undo-accept">${t('lobby.accept')}</button>`
+        + `<button class="btn btn--sm" data-action="undo-decline">${t('lobby.decline')}</button>`
+      : '';
+
     const drawAnswer = net.drawOffered && !result
       ? `<button class="btn btn--sm btn--primary" data-action="draw">${t('lobby.accept')}</button>`
         + `<button class="btn btn--sm" data-action="draw-decline">${t('lobby.decline')}</button>`
@@ -3522,6 +3617,7 @@ export function mountPlay(outlet, params) {
     strip.innerHTML =
       asWatcher
       + `<span class="net-msg">${message}</span>`
+      + undoAnswer
       + drawAnswer
       + eyes
       + `<span class="grow"></span>`
@@ -3863,7 +3959,9 @@ export function mountPlay(outlet, params) {
        the level and then the colour is one errand. */
     if (action !== 'tools' && tools.contains(button)) setToolsOpen(false);
     if (action === 'tools') setToolsOpen(!toolsOpen());
-    else if (action === 'undo') undoLast();
+    /* The same button, and the server decides what it means: alone with the
+       board a move simply comes back, online it has to be asked for. */
+    else if (action === 'undo') { if (net) askUndo(); else undoLast(); }
     else if (action === 'new') { if (net) { navigate('online'); return; } aiRunning = false; newGame(); }
     else if (action === 'new-online') navigate('online');
     else if (action === 'menu') navigate('home');
@@ -3889,6 +3987,8 @@ export function mountPlay(outlet, params) {
     else if (action === 'guest-sign-in') { openPanel('account'); }
     /* The hold is left standing on purpose: commit clears it, and clearing it
        here first would make commit hold the very move being confirmed. */
+    else if (action === 'undo-accept') askUndo();
+    else if (action === 'undo-decline') declineUndo();
     else if (action === 'confirm-move') {
       if (held) commit(held.move, held.noFly, held.flyPath, held.captureList);
     } else if (action === 'cancel-move') { held = null; playSound('ui'); refresh(); }
