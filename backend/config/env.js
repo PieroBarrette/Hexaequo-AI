@@ -40,6 +40,10 @@ module.exports = {
     SMTP_USER: process.env.SMTP_USER || '',
     SMTP_PASS: process.env.SMTP_PASS || '',
     EMAIL_FROM: process.env.EMAIL_FROM || 'Hexaequo <noreply@hexaequo.com>',
+    /* Where a reply should go, when it is not where the message came from.
+       Automated mail is sent from an address nobody reads; a person who hits
+       reply should still reach somebody. Empty means "reply to the sender". */
+    EMAIL_REPLY_TO: process.env.EMAIL_REPLY_TO || '',
     
     // Rate limiting
     RATE_LIMIT_WINDOW_MS: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,

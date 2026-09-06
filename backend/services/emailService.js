@@ -8,10 +8,18 @@
  *
  * Links are hash routes. The app is served by the SPA fallback, so a path like
  * /verify-email loads the page and quietly drops the token; #/verify keeps it.
+ *
+ * Two addresses, and they do different jobs. EMAIL_FROM is the identity the
+ * message is sent under, and it has to sit on a domain the provider has been
+ * given authority over — sending is not the same errand as receiving, and no
+ * mailbox is needed behind it. EMAIL_REPLY_TO is where a person who hits reply
+ * ends up, which can perfectly well be a forwarding alias with no mailbox
+ * either. Leaving it empty means a reply goes back to the from address.
  */
 
 const {
-    RESEND_API_KEY, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, EMAIL_FROM, FRONTEND_URL,
+    RESEND_API_KEY, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, EMAIL_FROM, EMAIL_REPLY_TO,
+    FRONTEND_URL,
 } = require('../config/env');
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
@@ -35,7 +43,12 @@ async function viaResend({ to, subject, html, text }) {
             Authorization: `Bearer ${RESEND_API_KEY}`,
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ from: EMAIL_FROM, to: [to], subject, html, text }),
+        body: JSON.stringify({
+            from: EMAIL_FROM,
+            to: [to],
+            ...(EMAIL_REPLY_TO ? { reply_to: [EMAIL_REPLY_TO] } : {}),
+            subject, html, text,
+        }),
     });
     if (!response.ok) {
         const detail = await response.text().catch(() => '');
@@ -53,7 +66,11 @@ async function viaSmtp({ to, subject, html, text }) {
         secure: port === 465,
         auth: SMTP_USER ? { user: SMTP_USER, pass: SMTP_PASS } : undefined,
     });
-    await mailer.sendMail({ from: EMAIL_FROM, to, subject, html, text });
+    await mailer.sendMail({
+        from: EMAIL_FROM,
+        ...(EMAIL_REPLY_TO ? { replyTo: EMAIL_REPLY_TO } : {}),
+        to, subject, html, text,
+    });
 }
 
 /**
