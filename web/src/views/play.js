@@ -23,7 +23,7 @@ import {
   generateMoves, generateDiskMoves, availableJumps, checkWinner, moveNotation, moveIntent, endingMark,
   findLegalMove,
 } from '../game/moves.js';
-import { chooseMove, judge, DISK_POINTS } from '../game/ai.js';
+import { chooseMove, judge, DISK_POINTS, pliesToMate } from '../game/ai.js';
 import { weigh, summarise, markOf } from '../game/accuracy.js';
 import { request, listen, connect, rejoinKey } from '../net.js';
 import {
@@ -3488,16 +3488,30 @@ export function mountPlay(outlet, params) {
       ? (verdict.score > 0 ? 0 : 1)          // black wins: white's share is none
       : 1 - evalShare(verdict.score);
     const points = verdict.score / DISK_POINTS;
-    const label = verdict.decisive ? '✓' : Math.abs(points).toFixed(1);
+    /*
+     * An ending is said in moves, not in points.
+     *
+     * Once the search has seen the end of the game the number stops meaning
+     * anything -- a position five disks up and one that is lost in two are
+     * not on the same scale -- so the bar says how far off the end is, the
+     * way chess does: "4#" is four of the winner's moves away, and "#" alone
+     * is a game already over. A tick stood here before and said only that
+     * the game was decided, which is the least of what the search knew.
+     */
+    const plies = verdict.decisive ? pliesToMate(verdict.score) : null;
+    const movesToEnd = plies === null ? null : Math.ceil(plies / 2);
+    const label = plies === null ? Math.abs(points).toFixed(1)
+      : (movesToEnd === 0 ? '#' : `${movesToEnd}#`);
 
     evalBar.hidden = false;
     evalBar.classList.toggle('is-black-ahead', verdict.score > 0);
     evalBar.querySelector('.eval-fill').style.height = `${(share * 100).toFixed(1)}%`;
     const number = evalBar.querySelector('.eval-number');
     number.textContent = label;
-    evalBar.title = verdict.decisive
-      ? t('review.evalDecided', { colour: colourName(verdict.score > 0 ? BLACK : WHITE) })
-      : t('review.evalTitle', { n: label, d: verdict.depth });
+    const winner = colourName(verdict.score > 0 ? BLACK : WHITE);
+    evalBar.title = plies === null ? t('review.evalTitle', { n: label, d: verdict.depth })
+      : (movesToEnd === 0 ? t('review.evalOver', { colour: winner })
+        : t('review.evalMateIn', { colour: winner, n: movesToEnd }));
   }
 
   /*

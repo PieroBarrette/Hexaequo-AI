@@ -428,7 +428,9 @@
     "hintTitle": "The move the engine would play here",
     "hintPlay": "The move the engine would play here — click to play it",
     "evalTitle": "Engine evaluation: {n} (depth {d})",
-    "evalDecided": "The engine sees a forced win for {colour}",
+    "evalMateIn": "The engine sees a forced win for {colour} in {n} moves",
+    "evalMateInOne": "The engine sees a forced win for {colour} on the next move",
+    "evalOver": "The game is over: {colour} won",
     "curve": "How the game went, according to the engine",
     "playTitle": "What would you like to do with this game?",
     "playedBy": {

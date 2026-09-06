@@ -394,6 +394,20 @@ export const DISK_POINTS = 100;
 export const DECISIVE = MATE - 1000;
 
 /**
+ * How many half-moves from the end a decisive score is.
+ *
+ * A finish is scored MATE less the ply it was found at, so the distance is
+ * still inside the number when it comes back up: read it out rather than
+ * search again. Nought for a position that is already over, null for a score
+ * that is an estimate rather than an ending. Whose win it is, the sign says.
+ */
+export function pliesToMate(score) {
+  const size = Math.abs(score);
+  if (!(size > DECISIVE)) return null;
+  return Math.max(0, MATE - size);
+}
+
+/**
  * How the position stands, without choosing a move.
  *
  * The same search the opponent uses, run for its number instead of its move.
