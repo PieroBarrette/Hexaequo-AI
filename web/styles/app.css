@@ -284,14 +284,23 @@ select.btn option {
 .player-dot.is-white { background: var(--piece-light); border-color: var(--piece-light-edge); }
 .rail.is-thinking .rail-who .player-dot { animation: pulse 1s ease-in-out infinite; }
 .stack { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; width: 100%; }
+/*
+ * A piece in the reserve, at a size worth looking at.
+ *
+ * It used to sit on a pale square, which was there to keep a near-white piece
+ * from disappearing into a pale rail. The square did that and also made the
+ * reserve read as a grid of buttons rather than a heap of pieces. The contrast
+ * comes from the piece itself now — the same edge the board draws, thickened
+ * for this one context because here it is the only thing separating the piece
+ * from its ground rather than one of two.
+ */
 .token {
-  width: 40px; height: 40px; display: block; padding: 2px; border-radius: var(--radius-sm);
-  background: var(--accent-soft); background: rgba(128, 128, 128, .1);
-  transition: transform .14s var(--ease), background .14s var(--ease);
+  width: 50px; height: 50px; display: block; padding: 0; border-radius: var(--radius-sm);
+  transition: transform .14s var(--ease), filter .14s var(--ease);
 }
 .token svg { width: 100%; height: 100%; display: block; overflow: visible; }
 .token.is-usable { cursor: pointer; }
-.token.is-usable:hover { transform: translateY(-3px) scale(1.12); background: var(--accent-soft); }
+.token.is-usable:hover { transform: translateY(-3px) scale(1.1); filter: brightness(1.08); }
 .token.is-armed { filter: drop-shadow(0 0 4px var(--accent)) drop-shadow(0 0 2px var(--accent)); }
 /* What is yours, above; what you have taken from the other player, below.
    A dashed hairline was not enough to read as a division at a glance. */
@@ -1212,7 +1221,8 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
    * the layout, where widening it costs no height.
    */
   .rail { gap: 5px; padding: 7px 7px 8px; }
-  .token { width: 28px; height: 28px; padding: 1px; position: relative; }
+  /* One piece and a count, so it can afford to be the size of a piece. */
+  .token { width: 38px; height: 38px; padding: 0; position: relative; }
   /* A finger's worth of target around a piece small enough to fit. Absolute,
      so the pile is laid out by the pieces and not by the room to hit them. */
   .token.is-usable::before {

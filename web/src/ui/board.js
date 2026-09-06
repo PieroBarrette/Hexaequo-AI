@@ -49,18 +49,34 @@ export function coordinateLabels(cells, ink) {
 }
 
 /** One piece as SVG. `scale` shrinks it for the inline piece chooser. */
-export function pieceSvg(x, y, code, scale) {
+/*
+ * A piece, and the one place its outline is not enough on its own.
+ *
+ * On the board a piece always sits on a tile, so it has two things telling it
+ * apart from its ground: its own fill against the tile, and its edge. In the
+ * reserve there is no tile — only the panel — and measuring says the fill
+ * carries nothing there at all: a dark piece on the dark rail reads 1.1 to 1,
+ * a light piece on the light rail 1.05. All of it rests on the edge, and that
+ * edge was drawn to be quiet against a tile: 2.45 to 1 in the worst palette,
+ * under the three a shape this size needs.
+ *
+ * A pale square behind each piece used to cover for it. `rim` is what replaced
+ * it: the reserve asks for its outline in the reading colour, which every
+ * palette guarantees against its own panel, and gets it a little thicker.
+ */
+export function pieceSvg(x, y, code, scale, rim) {
   const r = SIZE * (scale || 1);
   const isDark = pieceOwner(code) === BLACK;
   const shadow = scale ? 1 : 2;
   const fill = isDark ? 'var(--piece-dark)' : 'var(--piece-light)';
-  const edge = isDark ? 'var(--piece-dark-edge)' : 'var(--piece-light-edge)';
+  const edge = rim || (isDark ? 'var(--piece-dark-edge)' : 'var(--piece-light-edge)');
+  const weight = rim ? 1.9 : 1;
   const gloss = isDark ? 'var(--piece-gloss)' : 'var(--piece-gloss-light)';
 
   if (pieceType(code) === DISK) {
     return `<g pointer-events="none">`
       + `<circle cx="${x}" cy="${y + shadow}" r="${r * .42}" fill="var(--piece-shadow)"/>`
-      + `<circle cx="${x}" cy="${y}" r="${r * .42}" fill="${fill}" stroke="${edge}" stroke-width="${2.5 * (scale || 1)}"/>`
+      + `<circle cx="${x}" cy="${y}" r="${r * .42}" fill="${fill}" stroke="${edge}" stroke-width="${2.5 * weight * (scale || 1)}"/>`
       + `<circle cx="${x - r * .13}" cy="${y - r * .15}" r="${r * .1}" fill="rgba(255,255,255,${gloss})"/>`
       + `</g>`;
   }
@@ -78,8 +94,8 @@ export function pieceSvg(x, y, code, scale) {
     + `<circle cx="${x}" cy="${y + shadow}" r="${r * .44}" fill="none"`
     + ` stroke="var(--piece-shadow)" stroke-width="${r * .26}"/>`
     + `<circle cx="${x}" cy="${y}" r="${r * .44}" fill="none" stroke="${fill}" stroke-width="${r * .26}"/>`
-    + `<circle cx="${x}" cy="${y}" r="${r * .57}" fill="none" stroke="${edge}" stroke-width="${1.6 * (scale || 1)}"/>`
-    + `<circle cx="${x}" cy="${y}" r="${r * .31}" fill="none" stroke="${edge}" stroke-width="${1.6 * (scale || 1)}"/>`
+    + `<circle cx="${x}" cy="${y}" r="${r * .57}" fill="none" stroke="${edge}" stroke-width="${1.6 * weight * (scale || 1)}"/>`
+    + `<circle cx="${x}" cy="${y}" r="${r * .31}" fill="none" stroke="${edge}" stroke-width="${1.6 * weight * (scale || 1)}"/>`
     + `</g>`;
 }
 

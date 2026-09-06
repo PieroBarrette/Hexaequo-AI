@@ -1752,12 +1752,45 @@ export function mountPlay(outlet, params) {
     return `<svg ${box}>${pieceSvg(0, 0, makePiece(colour, type))}</svg>`;
   }
 
-  /* Reserves drawn as real pieces: solid means available, dashed means spent. */
+  /*
+   * A piece as it appears in a reserve.
+   *
+   * Two things were making these small. The box was generous — the glyph sat
+   * in a square wide enough for a tile, so a disk filled two fifths of its
+   * slot and no more — and the piece inside it was drawn at four fifths scale
+   * on top of that. Each shape gets a box cut to its own size now, so a disk
+   * in the reserve is a disk rather than a disk with a margin.
+   *
+   * They are no longer to the board's scale relative to one another, and that
+   * is right for an inventory: what matters here is reading what you hold, not
+   * how a ring compares to a tile.
+   *
+   * The outline is the reading colour, softened. On the board a piece has two
+   * things telling it from its ground — its fill against the tile, and its
+   * edge. In a reserve there is no tile, and measuring says the fill carries
+   * nothing at all: 1.1 to 1 for a dark piece on the dark panel, 1.05 for a
+   * light one on the light panel. It all rests on the edge, and the edge was
+   * drawn to be quiet against a tile — 2.45 to 1 in the worst palette. A pale
+   * square used to cover for that. This replaces it: 3.9 to 1 at worst, and
+   * nothing behind the piece.
+   */
+  const RESERVE_RIM = 'color-mix(in srgb, var(--text) 62%, transparent)';
+  const PIECE_SPAN = SIZE * 1.28;          // a ring, and a little air
+  const TILE_SPAN = SIZE * 1.98;           // a hexagon is taller than it is wide
+
   function tokenSvg(kind, colour) {
-    if (kind === 'tile') return miniBoardSvg({ tiles: [[0, 0, colour]] });
+    const box = (span) => `viewBox="${-span / 2} ${-span / 2} ${span} ${span}"`
+      + ' xmlns="http://www.w3.org/2000/svg" aria-hidden="true"';
+    if (kind === 'tile') {
+      const dark = colour === BLACK;
+      return `<svg ${box(TILE_SPAN)}><path d="${hexPath(0, 0, SIZE * .94)}"`
+        + ` fill="${dark ? 'var(--tile-dark)' : 'var(--tile-light)'}"`
+        + ` stroke="${dark ? 'var(--tile-dark-edge)' : 'var(--tile-light-edge)'}"`
+        + ` stroke-width="3"/></svg>`;
+    }
     const type = kind === 'ring' ? RING : DISK;
-    return `<svg viewBox="${-SIZE * .8} ${-SIZE * .8} ${SIZE * 1.6} ${SIZE * 1.6}"`
-      + ` xmlns="http://www.w3.org/2000/svg">${pieceSvg(0, 0, makePiece(colour, type), .78)}</svg>`;
+    return `<svg ${box(PIECE_SPAN)}>`
+      + `${pieceSvg(0, 0, makePiece(colour, type), 1, RESERVE_RIM)}</svg>`;
   }
 
   /**
