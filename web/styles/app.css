@@ -333,13 +333,44 @@ select.btn option {
   opacity: .55;
 }
 
+/*
+ * The box that asks: a jump chain that can go on, or a move waiting to be
+ * played.
+ *
+ * Sized to be answered rather than noticed. It was a strip of two small icons
+ * over a board the eye is already busy with, which is a thing to hunt for at
+ * the moment you least want to; the buttons are a full touch target now and
+ * the box carries a line saying what it is asking. Over the board on purpose:
+ * the answer is about what is on the board, and the bar at the foot of the
+ * screen is where the controls that are not questions live.
+ */
 .chain-bar {
-  position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 5;
-  background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius-md);
-  padding: 5px 7px; display: none; align-items: center; gap: 6px; box-shadow: var(--shadow-md);
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 8;
+  background: var(--surface); border: 2px solid var(--accent); border-radius: var(--radius-md);
+  padding: 10px 12px; display: none; align-items: center; gap: 10px;
+  box-shadow: var(--shadow-lg);
+  max-width: calc(100% - 24px);
 }
 .chain-bar.is-on { display: flex; }
-.chain-bar .taken { display: flex; gap: 3px; padding: 0 4px; }
+.chain-bar .taken { display: flex; align-items: center; gap: 4px; padding: 0 2px; }
+.chain-bar .btn--icon {
+  width: var(--tap); min-width: var(--tap); min-height: var(--tap);
+  font-size: 18px; font-weight: 600;
+}
+/* The one that says yes carries the accent, the one that says no does not:
+   they are not the same answer and should not be the same button. */
+.chain-bar [data-action="end-jump"],
+.chain-bar [data-action="confirm-move"] {
+  color: var(--accent-ink); background: var(--accent); border-color: var(--accent);
+}
+.chain-bar-say {
+  font-size: 12.5px; font-weight: 600; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; min-width: 0;
+}
+@media (max-width: 560px) {
+  .chain-bar { padding: 8px 10px; gap: 8px; top: 10px; }
+  .chain-bar-say { font-size: 12px; }
+}
 
 /*
  * The end-of-game card covers the board, and only the board.

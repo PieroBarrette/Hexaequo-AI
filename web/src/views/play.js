@@ -645,7 +645,7 @@ export function mountPlay(outlet, params) {
    * Play a move. Locally that means applying it; online it means asking the
    * server, which will echo the position back to both players.
    */
-  function commit(move, noFly, flyPath, captureList) {
+  function commit(move, noFly, flyPath, captureList, confirmed) {
     /* Chosen out of turn: keep it rather than send it. Every selection path in
        the view ends here, so catching it in one place is enough. */
     if (canPremove()) {
@@ -666,7 +666,11 @@ export function mountPlay(outlet, params) {
      * catches all of them. Not for an engine's move, and not for a premove:
      * one was never a person's tap, and the other was deliberate already.
      */
-    if (!held && getSetting('confirmMove') && !isAI(state.turn) && !thinking) {
+    if (!confirmed && getSetting('confirmMove') && !isAI(state.turn) && !thinking) {
+      /* Any move that was not confirmed is held, including one arriving while
+         another is already held. It used to check `held` instead, so a second
+         choice made while the first was waiting fell straight past the gate
+         and was played -- the very thing the setting exists to prevent. */
       held = { move, noFly, flyPath, captureList };
       selected = null;
       chain = null;
@@ -2145,10 +2149,13 @@ export function mountPlay(outlet, params) {
       const m = held.move;
       const taken = m.type === 'disk' ? m.captures
         : (m.type === 'ring' && m.capture ? [m.capture] : []);
-      confirmBar.querySelector('.taken').innerHTML = taken.length
-        ? taken.map((c) =>
-          `<span class="token">${tokenSvg(pieceType(c.code) === RING ? 'ring' : 'disk', pieceOwner(c.code))}</span>`).join('')
-        : `<span style="color:var(--muted);padding:0 4px">${escapeText(moveNotation(m, cellLabel))}</span>`;
+      /* The move it is asking about, and what it would take. Said in words:
+         two icons over a busy board are a thing to decipher, and this is a
+         question that wants answering rather than reading. */
+      confirmBar.querySelector('.taken').innerHTML =
+        `<span class="chain-bar-say">${escapeText(moveNotation(m, cellLabel))}</span>`
+        + taken.map((c) =>
+          `<span class="token">${tokenSvg(pieceType(c.code) === RING ? 'ring' : 'disk', pieceOwner(c.code))}</span>`).join('');
     }
     chainBar.classList.toggle('is-on', !!chain);
     if (!chain) return;
@@ -4058,7 +4065,7 @@ export function mountPlay(outlet, params) {
     else if (action === 'undo-accept') askUndo();
     else if (action === 'undo-decline') declineUndo();
     else if (action === 'confirm-move') {
-      if (held) commit(held.move, held.noFly, held.flyPath, held.captureList);
+      if (held) commit(held.move, held.noFly, held.flyPath, held.captureList, true);
     } else if (action === 'cancel-move') { held = null; playSound('ui'); refresh(); }
     else if (action === 'analyse') startReport();
     else if (action === 'analyse-stop') { stopReport(); renderReport(); }
@@ -4115,6 +4122,21 @@ export function mountPlay(outlet, params) {
       + ' [data-action], [data-control], [data-ply], [data-emoji], [data-choose]'));
 
   function onAnyPointer(event) {
+    /*
+     * A press anywhere but the box puts the held move down.
+     *
+     * The same way the menu and the who-plays sheet close: deciding you did
+     * not want it is done by looking somewhere else. On the board the press is
+     * swallowed as well, because there it would otherwise pick a piece up or
+     * resolve into another move -- and a move chosen while one is already
+     * waiting is the one thing this must never play by itself.
+     */
+    if (held && !confirmBar.contains(event.target)) {
+      held = null;
+      const onBoard = event.target.closest && event.target.closest('.board-host');
+      refresh();
+      if (onBoard) { event.stopPropagation(); event.preventDefault(); return; }
+    }
     /* A touch anywhere but the menu itself puts it away — including one on the
        board, which is the usual way of deciding you did not want it. The
        button is excluded because its own handler does the toggling, and

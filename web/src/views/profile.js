@@ -82,6 +82,10 @@ export function mountProfile(outlet, params) {
   let manageError = null;
   let manageDone = null;
   let busy = false;
+  /* Whether the closing-the-account panel is open. Shut by default: an account
+     is not usually closed, and a red button sitting there every day is a red
+     button nobody reads any more. */
+  let closing = false;
 
   const stop = onAuthChange(() => load());
   /* One account watched while this page is open; the light follows them in and
@@ -199,7 +203,75 @@ export function mountProfile(outlet, params) {
           <button class="btn" data-action="manage-close">${t('common.close')}</button>
           <button class="btn" data-action="signout">${t('account.signOut')}</button>
         </div>
+        ${closeAccountHtml(user)}
       </div>`;
+  }
+
+  /**
+   * Closing the account, behind two steps and a typed word.
+   *
+   * Here rather than in the sign-in panel, because this is the section that
+   * already changes the nickname and the password: somebody looking for what
+   * can be done to their account looks here, and looked here and did not find
+   * it.
+   *
+   * What it does is worth saying plainly before it is done, because the part
+   * people expect to be reversible is not: the account goes, and the games
+   * stay under a neutral name. Somebody deleting an account to erase a bad run
+   * should learn that before, not after.
+   *
+   * The password is asked for where there is one. An account that signs in
+   * with Google has none, and the field is simply not shown -- the same test
+   * the password section above already makes.
+   */
+  function closeAccountHtml(user) {
+    if (!closing) {
+      return `<div class="account-danger">
+          <button class="btn btn--quiet" data-action="close-open">${t('account.close')}</button>
+        </div>`;
+    }
+    return `<div class="account-danger is-open">
+        <h3>${t('account.close')}</h3>
+        <p class="lede">${t('account.closeWhat')}</p>
+        ${user.hasPassword === false ? '' : `<input class="btn account-close-password"
+             type="password" autocomplete="current-password"
+             placeholder="${t('account.password')}">`}
+        <p class="lede">${t('account.closeType', { word: t('account.closeWord') })}</p>
+        <input class="btn account-close-word" autocomplete="off" spellcheck="false"
+               placeholder="${t('account.closeWord')}">
+        <div class="row-actions" style="margin-top:14px">
+          <button class="btn btn--danger" data-action="close-do" ${busy ? 'disabled' : ''}>
+            ${busy ? t('account.closing') : t('account.closeConfirm')}</button>
+          <button class="btn" data-action="close-cancel">${t('game.cancel')}</button>
+        </div>
+      </div>`;
+  }
+
+  async function closeAccount() {
+    const typed = (outlet.querySelector('.account-close-word') || {}).value || '';
+    if (typed.trim().toLowerCase() !== t('account.closeWord').toLowerCase()) {
+      manageError = t('account.closeTypeAgain');
+      render();
+      return;
+    }
+    const password = (outlet.querySelector('.account-close-password') || {}).value || '';
+    busy = true; manageError = null; manageDone = null; render();
+    try {
+      await api('/users/me', { method: 'DELETE', body: JSON.stringify({ password }) });
+    } catch (error) {
+      busy = false;
+      manageError = error.status === 401
+        ? t('account.closeWrongPassword')
+        : (error.message || t('account.closeFailed'));
+      render();
+      return;
+    }
+    busy = false;
+    closing = false;
+    /* The session it held is gone on the server; signing out is what is left
+       to do here, and everything watching the account is told at once. */
+    signOut();
+    navigate('home');
   }
 
   /** Change the nickname, using the same endpoint the first choice used. */
@@ -431,10 +503,17 @@ export function mountProfile(outlet, params) {
     if (what === 'manage') { playSound('ui'); managing = true; render(); return; }
     if (what === 'manage-close') {
       playSound('ui');
-      managing = false; manageError = null; manageDone = null;
+      managing = false; manageError = null; manageDone = null; closing = false;
       render();
       return;
     }
+    if (what === 'close-open') {
+      playSound('ui'); closing = true; manageError = null; manageDone = null; render(); return;
+    }
+    if (what === 'close-cancel') {
+      playSound('ui'); closing = false; manageError = null; render(); return;
+    }
+    if (what === 'close-do') { closeAccount(); return; }
     if (what === 'save-pseudo') { playSound('ui'); savePseudo(); return; }
     if (what === 'save-password') { playSound('ui'); savePassword(); return; }
     if (what === 'signout') { playSound('ui'); signOut(); navigate('home'); }
