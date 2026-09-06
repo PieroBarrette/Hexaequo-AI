@@ -88,7 +88,34 @@ button:disabled { opacity: .35; cursor: not-allowed; }
 }
 .site-header .logo { flex: none; }
 .site-header .spacer { flex: 1; }
-:root[data-route="home"] .site-header { display: none; }
+/*
+ * On the menu itself, the header is only the account.
+ *
+ * The bar used to be hidden here altogether, so the one page everybody lands
+ * on had no way to sign in and no name in the corner -- you had to open a page
+ * first to find out you were signed out. The chip stays, where it is on every
+ * other page and doing what it does there: sign in, or your name and rating
+ * on the way to your profile. The rest of the bar goes: the way back to the
+ * menu is not needed on the menu, and the rules and settings are two of the
+ * buttons directly below.
+ *
+ * Floated over the page rather than kept as a bar, so it costs the menu no
+ * height on a short phone; the page underneath keeps its own centring, and
+ * only the chip itself takes a press.
+ */
+:root[data-route="home"] .site-header {
+  position: absolute; top: env(safe-area-inset-top, 0px); left: 0; right: 0; z-index: 5;
+  background: none; border-bottom: 0; pointer-events: none;
+}
+:root[data-route="home"] .site-header #brand,
+:root[data-route="home"] .site-header [data-go="rules"],
+:root[data-route="home"] .site-header [data-go="settings"] { display: none; }
+:root[data-route="home"] .site-header #account-chip { pointer-events: auto; }
+/* Room for the chip above the mark. On a phone the menu fills the height and
+   the mark sits at the top padding, which put the two a few pixels apart; the
+   page starts under the chip instead, and on a tall screen the extra is
+   absorbed by the centring. */
+:root[data-route="home"] .home { padding-top: max(clamp(16px, 4vh, 32px), 54px); }
 /*
  * The way back to the menu: a chevron, the mark, and the word.
  *
