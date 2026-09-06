@@ -10,7 +10,7 @@
  * nothing here is a cross-site form target.
  */
 
-import { serverOrigin, identify, isConnected, useSessionToken } from './net.js';
+import { serverOrigin, identify, isConnected, useSessionToken, forgetIdentity } from './net.js';
 
 const TOKEN_KEY = 'hexaequo.token';
 const REFRESH_KEY = 'hexaequo.refresh';
@@ -165,6 +165,12 @@ async function refreshSession() {
       if (!fresh || !fresh.accessToken) return false;
       writeToken(fresh.accessToken);
       writeRefresh(fresh.refreshToken || null);
+      /* The socket was told the old token and may have been refused for it —
+         and a refusal for a bad token is deliberately not retried, so it would
+         have stayed anonymous with a good token sitting in the drawer. Tell it
+         the new one, or mark it as needing to ask again when it next speaks. */
+      if (isConnected()) identify(fresh.accessToken).catch(() => {});
+      else forgetIdentity();
       return true;
     } catch {
       return false;                 // offline is not a reason to sign out
@@ -176,8 +182,35 @@ async function refreshSession() {
 }
 
 /** Call the API, attaching the session token when there is one. */
+/**
+ * Is the access token past its date?
+ *
+ * Reading a JWT's expiry without verifying it is safe here, because nothing is
+ * being trusted: the server verifies, and this only decides whether to bother
+ * asking. An access token lasts a week, so once a week every signed-in visitor
+ * loaded the page, had /auth/me answer 401, spent the refresh token and tried
+ * again. That works — and it also prints a red failed request in the console
+ * of somebody who is plainly signed in, which is alarming and was reported as
+ * a bug. Asking for a new one first is the same number of requests and none of
+ * the alarm.
+ */
+function tokenExpired(token) {
+  try {
+    const payload = String(token).split('.')[1];
+    const claims = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    if (!claims || typeof claims.exp !== 'number') return false;
+    // A minute of margin, so one that dies in flight is not sent either.
+    return Date.now() >= claims.exp * 1000 - 60000;
+  } catch {
+    return false;                 // unreadable: let the server be the judge
+  }
+}
+
 export async function api(path, options = {}, allowRetry = true) {
-  const token = readToken();
+  let token = readToken();
+  if (token && allowRetry && readRefresh() && tokenExpired(token)) {
+    if (await refreshSession()) token = readToken();
+  }
   const response = await fetch(`${serverOrigin()}/api${path}`, {
     ...options,
     headers: {
