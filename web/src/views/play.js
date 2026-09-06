@@ -4515,6 +4515,14 @@ export function mountPlay(outlet, params) {
       + ' [data-action], [data-control], [data-ply], [data-emoji], [data-choose]'));
 
   function onAnyPointer(event) {
+    /* A line said over the board goes with the next press anywhere, the way
+       the chat bubble does: it has been read, or it is in the way. Not the
+       press on the pile that asked for it -- that is the press that shows
+       it, and clearing here first would only make it flash. */
+    if (note && !(event.target.closest && event.target.closest('[data-why]'))) {
+      clearNote();
+      renderNote();
+    }
     /*
      * A press anywhere but the box puts the held move down.
      *
