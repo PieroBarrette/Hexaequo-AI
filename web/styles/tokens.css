@@ -25,6 +25,18 @@
   --tap: 44px;                 /* minimum comfortable touch target */
   --ease: cubic-bezier(.4, 0, .2, 1);
 
+  /*
+   * How large the game's writing is, as one number.
+   *
+   * The smallest text in the app — the word under a bar button, the count
+   * beside a pile of pieces, a move in the list, the clock — is written as
+   * calc(Npx * var(--text-scale)) so that a reader who wants it larger gets
+   * all of it larger at once, in step, without any one label outgrowing the
+   * box it sits in. Set by the "text size" setting through data-text-size on
+   * the root; the symbols on the buttons scale with it.
+   */
+  --text-scale: 1;
+
   /* Derived from --accent, so every palette gets matching move highlights. */
   --spot-fill: color-mix(in srgb, var(--accent) 6%, transparent);
   --spot-fill-strong: color-mix(in srgb, var(--accent) 15%, transparent);
@@ -78,6 +90,8 @@
   --mark-inaccuracy: var(--muted);
   --mark-blunder: var(--danger);
 }
+
+:root[data-text-size="large"] { --text-scale: 1.2; }
 
 /* ── Modern · dark — brushed metal on graphite ───────────────────────────── */
 :root[data-theme="dark"][data-board-style="modern"] {

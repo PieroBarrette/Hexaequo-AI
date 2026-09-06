@@ -31,6 +31,7 @@ import {
 } from '../auth.js';
 import { openPanel } from '../ui/panels.js';
 import { emojiRowHtml } from '../ui/emoji.js';
+import { icon } from '../ui/icons.js';
 
 const MODE_LOCAL = 'local';
 const MODE_AI = 'ai';
@@ -50,6 +51,21 @@ export function mountPlay(outlet, params) {
   let effectEndsAt = 0;
   let drawerOpen = false;
   let drawerTab = 'moves';
+
+  /*
+   * The other side's piece, being looked at.
+   *
+   * A local game only, and only with the move aid on: a beginner practising
+   * against the computer taps one of its pieces and sees where it could go,
+   * the way they see their own. Nothing about it is a move — the cell it
+   * names is drawn in a different hand from a selection, and the first press
+   * anywhere else puts it away. Null when nothing is being looked at.
+   */
+  let peek = null;
+  /* A line over the board that says something for a moment: { text, kind }.
+     The ring that cannot be placed says why here. */
+  let note = null;
+  let noteTimer = 0;
 
   /**
    * Review: every position the game has been through, and where the player is
@@ -121,12 +137,12 @@ export function mountPlay(outlet, params) {
       clockAt: 0,            // when we received it, to interpolate locally
       chat: [],
       unread: 0,
-      /* Taking a move back: `undoAsked` is ours on the table, `undoOffered`
-         is theirs waiting for an answer, and `undoLeft` is what the server
-         says remains. */
+      /* Taking a move back: `undoAsked` is ours on the table and `undoOffered`
+         is theirs waiting for an answer. There is no count of how many are
+         left -- each one is the other player's to grant, and that is the whole
+         of the limit. */
       undoAsked: false,
       undoOffered: false,
-      undoLeft: null,
       rematchAsked: false,     // we have offered
       rematchOffered: false,   // they have offered
       rematchDeclined: false,
@@ -263,6 +279,7 @@ export function mountPlay(outlet, params) {
           <button class="btn btn--icon" data-action="cancel-jump" title="${t('game.cancel')}">✕</button>
         </div>
         <div class="chat-bubble" hidden></div>
+        <div class="board-note" hidden></div>
         <div class="result-overlay">
           <div class="result-card">
             <div class="result-title"></div>
@@ -278,7 +295,7 @@ export function mountPlay(outlet, params) {
                mark at all. It carries the same one the drawer's arrow used to,
                so the stylesheet already knows how to draw it. -->
           <button class="btn btn--icon bar-menu" data-action="tools"
-                  title="${t('game.tools')}">⋯<i class="tab-dot"></i></button>
+                  title="${t('game.tools')}">${icon('menu')}<i class="tab-dot"></i></button>
           <div class="bar-tools"></div>
           <!--
             Everything that can stand in the bar, in the order it gives way.
@@ -289,31 +306,39 @@ export function mountPlay(outlet, params) {
             width — the lowest number stands longest. Online the row is full at
             375, so the order is a decision rather than a formality: the flag
             and the ½ stay out where they can be seen, and the one that gives
-            is the undo. It is the rarest of them, three to a game and only
-            with the other player's agreement, and it is the only one of the
-            three that has somewhere else to be — every other way of ending a
-            game is on this row and nowhere else.
+            is the undo. It needs the other player's agreement every time, and
+            it is the only one of the three that has somewhere else to be —
+            every other way of ending a game is on this row and nowhere else.
 
             data-seat is the other half of it: where a button goes when it
             comes back out. Standing them in the order they gave way would let
             the row rearrange itself every time the width changed, so they are
             put back in the order they are written here.
+
+            The symbols are drawn (ui/icons.js), not typed: a character is
+            whatever the phone's font makes of it, and it is sized like a word.
           -->
           <button class="btn bar-btn bar-undo" data-action="undo" data-give="50" data-seat="1">
-            <i>↶</i><span>${t('game.undoShort')}</span></button>
-          <button class="btn bar-btn bar-draw" data-action="draw" data-give="30" data-seat="2">
-            <i>½</i><span>${t('game.drawShort')}</span></button>
-          <button class="btn bar-btn bar-resign" data-action="resign" data-give="20" data-seat="3">
-            <i>⚑</i><span>${t('game.resignShort')}</span></button>
+            <i>${icon('undo')}</i><span>${t('game.undoShort')}</span></button>
+          <!-- A new game, on the bar in a local game. It lived behind the
+               menu as a bare glyph, which is where a beginner looked for it
+               last; here it stands with the other things that act on the
+               game, and says what it is. -->
+          <button class="btn bar-btn bar-new" data-action="new" data-give="45" data-seat="2">
+            <i>${icon('restart')}</i><span>${t('game.newShort')}</span></button>
+          <button class="btn bar-btn bar-draw" data-action="draw" data-give="30" data-seat="3">
+            <i>${icon('draw')}</i><span>${t('game.drawShort')}</span></button>
+          <button class="btn bar-btn bar-resign" data-action="resign" data-give="20" data-seat="4">
+            <i>${icon('flag')}</i><span>${t('game.resignShort')}</span></button>
           <div class="review-bar">
-          <button class="btn btn--icon" data-action="rev-first" title="${t('review.first')}">⏮</button>
-          <button class="btn btn--icon" data-action="rev-prev" title="${t('review.previous')}">◀</button>
+          <button class="btn btn--icon" data-action="rev-first" title="${t('review.first')}">${icon('first')}</button>
+          <button class="btn btn--icon" data-action="rev-prev" title="${t('review.previous')}">${icon('prev')}</button>
           <button class="review-ply" data-field="ply" data-action="drawer"></button>
-          <button class="btn btn--icon" data-action="rev-next" title="${t('review.next')}">▶</button>
-          <button class="btn btn--icon" data-action="rev-last" title="${t('review.last')}">⏭</button>
+          <button class="btn btn--icon" data-action="rev-next" title="${t('review.next')}">${icon('next')}</button>
+          <button class="btn btn--icon" data-action="rev-last" title="${t('review.last')}">${icon('last')}</button>
           <button class="btn bar-btn review-live" data-action="rev-live" data-give="40"
-                  data-seat="4" data-home="review" title="${t('review.leaveExploring')}">
-            <i>⇥</i><span>${t('review.backShort')}</span></button>
+                  data-seat="5" data-home="review" title="${t('review.leaveExploring')}">
+            <i>${icon('exit')}</i><span>${t('review.backShort')}</span></button>
           </div>
           <span class="bar-gap"></span>
           <div class="bar-right"></div>
@@ -430,6 +455,7 @@ export function mountPlay(outlet, params) {
   let curveTimer = 0;
   const bubbleEl = outlet.querySelector('.chat-bubble');
   let bubbleTimer = 0;
+  const noteEl = outlet.querySelector('.board-note');
   const overlay = outlet.querySelector('.result-overlay');
   const drawer = outlet.querySelector('.drawer');
   const moveListEl = outlet.querySelector('.move-list');
@@ -514,15 +540,14 @@ export function mountPlay(outlet, params) {
     </select>
     <button class="btn review-resume" data-action="resume"></button>
     <button class="btn btn--icon review-play" data-action="rev-play"
-            title="${t('review.play')}">▶</button>
+            title="${t('review.play')}">${icon('play')}</button>
     <select class="btn review-speed" data-control="rev-speed" title="${t('review.speed')}">
       <option value="1">1×</option>
       <option value="2">2×</option>
       <option value="4">4×</option>
     </select>
-    <button class="btn btn--icon" data-action="run" title="${t('game.run')}">▶</button>
-    <button class="btn btn--icon" data-action="step" title="${t('game.stepOnce')}">⏭</button>
-    <button class="btn btn--icon" data-action="new" title="${t('game.newGame')}">⟳</button>
+    <button class="btn btn--icon" data-action="run" title="${t('game.run')}">${icon('play')}</button>
+    <button class="btn btn--icon" data-action="step" title="${t('game.stepOnce')}">${icon('step')}</button>
 `;
   }
 
@@ -549,9 +574,9 @@ export function mountPlay(outlet, params) {
     /* Nobody to talk to in a game against the computer or across one table. */
     const chatButton = net
       ? `<button class="btn bar-btn${showingChat ? ' is-on' : ''}${unread ? ' has-unread' : ''}"`
-        + ` data-action="drawer-chat" data-give="35" data-seat="6" data-home="right"`
+        + ` data-action="drawer-chat" data-give="35" data-seat="7" data-home="right"`
         + ` title="${unread ? t('chat.unread', { n: net.unread }) : t('chat.tab')}">`
-        + `<i>💬</i><span>${t('game.chatShort')}</span><i class="tab-dot"></i></button>`
+        + `<i>${icon('chat')}</i><span>${t('game.chatShort')}</span><i class="tab-dot"></i></button>`
       : '';
     /* Written fresh each time, so any copy the folding moved into the menu
        has to go first: otherwise the bar grows a second Details every time it
@@ -559,9 +584,9 @@ export function mountPlay(outlet, params) {
     for (const stale of tools.querySelectorAll('[data-action^="drawer-"]')) stale.remove();
     toolsRight.innerHTML =
       `<button class="btn bar-btn${showingMoves ? ' is-on' : ''}"`
-      + ` data-action="drawer-moves" data-give="10" data-seat="5" data-home="right"`
+      + ` data-action="drawer-moves" data-give="10" data-seat="6" data-home="right"`
       + ` title="${t('game.moveList')}">`
-      + `<i>${showingMoves ? '⌄' : '☰'}</i><span>${t('game.detailsShort')}</span></button>`
+      + `<i>${icon(showingMoves ? 'chevronDown' : 'list')}</i><span>${t('game.detailsShort')}</span></button>`
       + chatButton;
     /* Two buttons back in the row, which may be two more than it has width
        for: this is called on its own when a message arrives or a tab changes,
@@ -586,6 +611,13 @@ export function mountPlay(outlet, params) {
     outlet.querySelector('[data-action="cancel-jump"]').title = t('game.cancel');
     const menuButton = barEl.querySelector('.bar-menu');
     if (menuButton) menuButton.title = t('game.tools');
+    /* The words under the bar's buttons, wherever the folding has put them. */
+    for (const [selector, key] of [['.bar-undo', 'game.undoShort'], ['.bar-new', 'game.newShort'],
+      ['.bar-draw', 'game.drawShort'], ['.bar-resign', 'game.resignShort'],
+      ['.review-live', 'review.backShort']]) {
+      const label = barEl.querySelector(`${selector} > span`);
+      if (label) label.textContent = t(key);
+    }
     // rev-live carries two meanings and renderReviewBar picks the right one.
     outlet.querySelector('[data-control="rev-speed"]').title = t('review.speed');
     for (const [action, key] of [['rev-first', 'first'], ['rev-prev', 'previous'],
@@ -641,6 +673,8 @@ export function mountPlay(outlet, params) {
     picker = null;
     thinking = false;
     drag = null;
+    peek = null;
+    clearNote();
     timeline = [cloneState(state)];
     timelineMoves = [];
     review = null;
@@ -770,6 +804,8 @@ export function mountPlay(outlet, params) {
   }
 
   function applyLocal(move, noFly, flyPath, captureList) {
+    /* Whatever was being looked at, the board it was on is about to change. */
+    peek = null;
     history.push({
       snapshot: cloneState(state),
       log: moveLog.slice(),
@@ -905,6 +941,7 @@ export function mountPlay(outlet, params) {
     placeMode = null;
     picker = null;
     drag = null;
+    peek = null;
     clearEffect();
     refresh();
   }
@@ -1419,7 +1456,6 @@ export function mountPlay(outlet, params) {
       if (!net || payload.code !== net.code) return;
       net.undoAsked = false;
       net.undoOffered = false;
-      net.undoLeft = payload.undoLeft;
       adoptClock(payload.clock);
       /* Read the room back rather than unpicking our own copy of it. The
          server rebuilt the game by replaying it one move shorter; asking for
@@ -1694,6 +1730,30 @@ export function mountPlay(outlet, params) {
         if (code >= 0 && pieceOwner(code) === player) movable.add(k);
       }
     }
+    /* The other side's pieces, which answer to a look in a local game, and
+       the one being looked at with the cells it could reach. Read against the
+       same position as everything else; a piece that is no longer there, or
+       no longer theirs, ends the look on its own. */
+    const peekable = new Set();
+    let peekView = null;
+    if (canPeek() && human && !placeMode && !chain && !picker) {
+      for (const k of source.tileKeys) {
+        const code = source.pieceAt[k];
+        if (code >= 0 && pieceOwner(code) !== player) peekable.add(k);
+      }
+      if (peek !== null) {
+        const code = source.pieceAt[peek];
+        if (code >= 0 && pieceOwner(code) !== player) {
+          const theirs = new Map();
+          collectDestinations(peek, theirs, source, pieceOwner(code));
+          peekView = { cell: peek, targets: theirs };
+        } else {
+          peek = null;
+        }
+      }
+    } else if (peek !== null) {
+      peek = null;
+    }
 
     /* The move that produced what is on screen: the game's last move while
        watching, and the reviewed ply's own move while reading back. */
@@ -1749,6 +1809,8 @@ export function mountPlay(outlet, params) {
       chainPiece: makePiece(player, DISK),
       lastMoveCells: [...new Set(lastMoveCells)],
       premoveCells: [...new Set(premoveCells)],
+      peek: peekView,
+      peekable,
       // Only the cell: the choice itself is drawn over the board, not in it.
       picker: picker ? { cell: picker.cell } : null,
       arriving,
@@ -1764,6 +1826,7 @@ export function mountPlay(outlet, params) {
     gameEl.classList.toggle('is-reviewing', reviewing);
 
     renderPicker();
+    renderNote();
     renderChainBar();
     renderResult();
     renderMoveList();
@@ -1786,22 +1849,29 @@ export function mountPlay(outlet, params) {
     runEffect();
   }
 
-  function collectDestinations(cell, targets) {
-    const player = state.turn;
-    const code = state.pieceAt[cell];
+  /**
+   * Where the piece on `cell` could go, as the board would offer it.
+   *
+   * By default the piece is the mover's and the board is the game's; both can
+   * be given, which is how the other side's piece is read in a local game --
+   * the same rule, asked about the other colour, so what it shows is exactly
+   * what that player would be shown on their turn.
+   */
+  function collectDestinations(cell, targets, board = state, player = board.turn) {
+    const code = board.pieceAt[cell];
     if (pieceType(code) === DISK) {
       for (let i = 0; i < 6; i++) {
         const n = cell + STEP[i];
-        if (inBoard(n) && state.tileAt[n] >= 0 && state.pieceAt[n] < 0) targets.set(n, { kind: 'move' });
+        if (inBoard(n) && board.tileAt[n] >= 0 && board.pieceAt[n] < 0) targets.set(n, { kind: 'move' });
       }
-      for (const jump of availableJumps(withPieceLifted(state, cell), cell, player, [cell], 0)) {
+      for (const jump of availableJumps(withPieceLifted(board, cell), cell, player, [cell], 0)) {
         targets.set(jump.land, { kind: jump.capture ? 'capture' : 'move' });
       }
     } else {
       for (let i = 0; i < 12; i++) {
         const to = cell + RING_OFFSETS[i];
-        if (!inBoard(to) || state.tileAt[to] < 0) continue;
-        const occupant = state.pieceAt[to];
+        if (!inBoard(to) || board.tileAt[to] < 0) continue;
+        const occupant = board.pieceAt[to];
         if (occupant >= 0 && pieceOwner(occupant) === player) continue;
         targets.set(to, { kind: occupant >= 0 ? 'capture' : 'move' });
       }
@@ -2070,7 +2140,7 @@ export function mountPlay(outlet, params) {
    * question of how much room there is, so it is answered in CSS and settled
    * again the instant the phone is turned, with nothing to re-render.
    */
-  function stackHtml(kind, colour, count, usable, pile = 'reserve') {
+  function stackHtml(kind, colour, count, usable, pile = 'reserve', why = null) {
     if (!count) return '';
     /* Named so a piece can be animated out of the right heap. Not by whether
        it can be tapped: a pile the computer is playing from is not tappable
@@ -2080,7 +2150,11 @@ export function mountPlay(outlet, params) {
       const classes = ['token'];
       if (usable) classes.push('is-usable');
       if (usable && placeMode === kind) classes.push('is-armed');
-      out += `<span class="${classes.join(' ')}"${usable ? ` data-arm="${kind}"` : ''}>`
+      /* A pile that cannot be played from right now, but can say why: it
+         answers a tap with the reason instead of with silence. */
+      if (!usable && why) classes.push('is-why');
+      const hook = usable ? ` data-arm="${kind}"` : (why ? ` data-why="${why}"` : '');
+      out += `<span class="${classes.join(' ')}"${hook}>`
         + tokenSvg(kind, colour) + '</span>';
     }
     return out + '</div>';
@@ -2170,7 +2244,11 @@ export function mountPlay(outlet, params) {
           live && tilePlacementSpots(position).length > 0)
         + stackHtml('disk', player, position.diskReserve[player], live && freeOwnTiles > 0)
         + stackHtml('ring', player, position.ringReserve[player],
-          live && freeOwnTiles > 0 && position.capturedDisks[player] > 0)
+          live && freeOwnTiles > 0 && position.capturedDisks[player] > 0, 'reserve',
+          /* The one piece whose silence confuses: it is right there, it is
+             your turn, and tapping it does nothing. A ring costs a captured
+             disk, and a player with none to give is told so. */
+          live && freeOwnTiles > 0 && position.capturedDisks[player] === 0 ? 'ringNeedsDisk' : null)
         /* Below the line: pieces taken from the opponent, which are as real a
            part of this player's inventory as their own. */
         + (taken ? '<div class="rail-sep"></div>' : '')
@@ -3216,18 +3294,20 @@ export function mountPlay(outlet, params) {
     show('[data-action="rev-play"]', analysing);
     show('[data-control="rev-speed"]', analysing);
     const playButton = tools.querySelector('[data-action="rev-play"]');
-    playButton.textContent = isAutoplaying() ? '⏸' : '▶';
+    playButton.innerHTML = icon(isAutoplaying() ? 'pause' : 'play');
     playButton.classList.toggle('is-on', isAutoplaying());
     playButton.title = isAutoplaying() ? t('review.pause') : t('review.play');
     show('[data-action="run"]', engineHere && isDuel);
     show('[data-action="step"]', engineHere && isDuel);
 
-    show('[data-action="new"]', local);
     const seated = Boolean(net) && !net.watching;
     const barShow = (selector, visible) => {
       const node = barEl.querySelector(selector) || tools.querySelector(selector);
       if (node) node.hidden = !visible;
     };
+    /* A new game is a local game's to start. Online the room decides, and a
+       stored game or a branch has its own way out. */
+    barShow('.bar-new', local);
     barShow('.bar-resign', seated);
     barShow('.bar-draw', seated && !result);
     const draw = barEl.querySelector('.bar-draw') || tools.querySelector('.bar-draw');
@@ -3240,7 +3320,7 @@ export function mountPlay(outlet, params) {
     }
 
     const run = tools.querySelector('[data-action="run"]');
-    run.textContent = aiRunning ? '⏸' : '▶';
+    run.innerHTML = icon(aiRunning ? 'pause' : 'play');
     run.classList.toggle('is-on', aiRunning);
     tools.querySelector('[data-action="step"]').disabled = thinking || !!result || aiRunning;
     /* Local play only -- online, a move is not yours alone to take back --
@@ -3262,7 +3342,7 @@ export function mountPlay(outlet, params) {
     undo.hidden = !((local && !result) || seatedLive
       || Boolean(exploring && exploring.play !== 'view'));
     undo.disabled = review !== null || (net
-      ? Boolean(net.undoAsking || net.undoAsked || net.pending || net.undoLeft === 0)
+      ? Boolean(net.undoAsking || net.undoAsked || net.pending)
       : thinking || !history.length);
     undo.title = net
       ? (net.undoAsked ? t('game.undoWaiting') : t('game.undoAsk'))
@@ -3284,6 +3364,50 @@ export function mountPlay(outlet, params) {
    * reply. Dismissing it is not reading it: the mark on the arrow stays until
    * the message has actually been seen in the panel.
    */
+  /**
+   * Whether the other side's pieces answer to a look.
+   *
+   * A local game only -- against the computer or across one table -- and only
+   * with the move aid on, since what it draws are the aid's marks in another
+   * ink. Not online, where the game does not show one player the other's
+   * options; not in a stored game or a branch, which have the review for that.
+   */
+  const canPeek = () => !net && !archiveId && !exploring && !result
+    && mode !== MODE_AI_AI && Boolean(getSetting('showValidMoves'));
+
+  /** Say something over the board, for long enough to be read. */
+  function showNote(text, kind = '') {
+    clearTimeout(noteTimer);
+    note = { text, kind };
+    noteTimer = setTimeout(() => { note = null; renderNote(); }, 4000);
+    renderNote();
+  }
+
+  function clearNote() {
+    clearTimeout(noteTimer);
+    note = null;
+  }
+
+  /*
+   * The line over the board: what is being looked at, or what was just asked.
+   *
+   * A look at the other side's piece holds the line for as long as the look
+   * lasts and says whose moves the marks are. On their own they are the aid's
+   * marks in another ink, and a beginner should not have to know the ink.
+   */
+  function renderNote() {
+    if (peek !== null) {
+      noteEl.textContent = t(mode === MODE_AI ? 'game.peekComputer' : 'game.peekOpponent');
+      noteEl.className = 'board-note is-peek';
+      noteEl.hidden = false;
+      return;
+    }
+    if (!note) { noteEl.hidden = true; noteEl.textContent = ''; return; }
+    noteEl.textContent = note.text;
+    noteEl.className = `board-note${note.kind ? ' ' + note.kind : ''}`;
+    noteEl.hidden = false;
+  }
+
   function showBubble(message) {
     clearTimeout(bubbleTimer);
     const text = message.text.length > 140 ? message.text.slice(0, 139) + '…' : message.text;
@@ -3991,6 +4115,17 @@ export function mountPlay(outlet, params) {
     const player = canPremove() ? net.colour : board.turn;
     const isMine = (k) => board.pieceAt[k] >= 0 && pieceOwner(board.pieceAt[k]) === player;
     const isFreeOwnTile = (k) => board.tileAt[k] === player && board.pieceAt[k] < 0;
+    const isTheirs = (k) => board.pieceAt[k] >= 0 && pieceOwner(board.pieceAt[k]) !== player;
+
+    /* Looking at the other side's piece ends with the next press anywhere --
+       including on one of the cells it could reach, which is a tile like any
+       other and goes on to mean what it means on its own. Pressing the same
+       piece again is simply the other way of looking away. */
+    if (peek !== null) {
+      const was = peek;
+      peek = null;
+      if (cell === was) { refresh(); return; }
+    }
 
     if (picker) {
       if (pieceChoice) {
@@ -4027,11 +4162,20 @@ export function mountPlay(outlet, params) {
     if (selected !== null) {
       if (tryMove(selected, cell, false)) return;
       selected = isMine(cell) && cell !== selected ? cell : null;
+      /* Putting your own piece down on to one of theirs is a look at theirs. */
+      if (selected === null && isTheirs(cell) && canPeek()) peek = cell;
       refresh();
       return;
     }
 
     if (isMine(cell)) { selected = cell; refresh(); return; }
+    /* Theirs. Nothing to play, but in a local game with the aid on it is
+       something to look at: where that piece could go, drawn in the other
+       ink so it cannot be mistaken for a move of yours. */
+    if (isTheirs(cell)) {
+      if (canPeek()) { peek = cell; playSound('ui'); refresh(); }
+      return;
+    }
     if (board.tileAt[cell] < 0) {
       if (board.tileReserve[player] > 0 && tilePlacementSpots(board).includes(cell)) {
         commit({ type: 'tile', cell });
@@ -4076,8 +4220,8 @@ export function mountPlay(outlet, params) {
     if (event.button !== 0) return;
     const target = event.target.closest('[data-cell]');
     if (!target) {
-      if (picker || selected !== null || placeMode) {
-        picker = null; selected = null; placeMode = null; refresh();
+      if (picker || selected !== null || placeMode || peek !== null) {
+        picker = null; selected = null; placeMode = null; peek = null; refresh();
       } else if (premove) {
         clearPremove(true);
       }
@@ -4166,12 +4310,23 @@ export function mountPlay(outlet, params) {
     const ply = event.target.closest('[data-ply]');
     if (ply) { stopAutoplay(); goToPly(Number(ply.getAttribute('data-ply'))); return; }
 
+    /* A pile that cannot be played from, asked why. */
+    const why = event.target.closest('[data-why]');
+    if (why) {
+      playSound('ui');
+      peek = null;
+      showNote(t('game.why.' + why.getAttribute('data-why')));
+      refresh();
+      return;
+    }
+
     const token = event.target.closest('[data-arm]');
     if (!token) return;
     const kind = token.getAttribute('data-arm');
     placeMode = placeMode === kind ? null : kind;
     selected = null;
     picker = null;
+    peek = null;
     playSound('ui');
     refresh();
   });
@@ -4231,7 +4386,15 @@ export function mountPlay(outlet, params) {
     /* The same button, and the server decides what it means: alone with the
        board a move simply comes back, online it has to be asked for. */
     else if (action === 'undo') { if (net) askUndo(); else undoLast(); }
-    else if (action === 'new') { if (net) { navigate('online'); return; } aiRunning = false; newGame(); }
+    else if (action === 'new') {
+      if (net) { navigate('online'); return; }
+      /* On the bar now, where a thumb finds it -- and can find it by accident.
+         A game with moves in it and no result yet is asked about first; one
+         that is over, or has not begun, simply starts over. */
+      if (history.length && !result && !window.confirm(t('game.confirmRestart'))) return;
+      aiRunning = false;
+      newGame();
+    }
     else if (action === 'new-online') navigate('online');
     else if (action === 'menu') navigate('home');
     else if (action === 'resign') resign();
@@ -4334,7 +4497,7 @@ export function mountPlay(outlet, params) {
    * and played a move would be the worst of both.
    */
   const pressedSomething = (target) => Boolean(target && target.closest
-    && target.closest('button, select, input, textarea, a, [data-cell], [data-arm],'
+    && target.closest('button, select, input, textarea, a, [data-cell], [data-arm], [data-why],'
       + ' [data-action], [data-control], [data-ply], [data-emoji], [data-choose]'));
 
   function onAnyPointer(event) {
@@ -4412,6 +4575,7 @@ export function mountPlay(outlet, params) {
         return;
       }
       if (review !== null) { goToPly(timeline.length - 1); return; }
+      if (peek !== null) { peek = null; refresh(); return; }
       if (premove) { clearPremove(true); return; }
       /* Through setDrawer, so the arrow on the bar turns over with it. Closing
          it by hand left the button still pointing up, offering to open a
@@ -4464,7 +4628,11 @@ export function mountPlay(outlet, params) {
      game, so both have to land without a remount. */
   const stopWatchingSettings = onSettingsChange((name) => {
     if (name === 'showValidMoves' || name === 'showLastMove'
-      || name === 'showCoordinates') refresh();
+      || name === 'showCoordinates') {
+      /* The look at the other side's piece is the aid's; off goes with it. */
+      if (name === 'showValidMoves' && !getSetting('showValidMoves')) peek = null;
+      refresh();
+    }
     else if (name === 'aiLevel' && !net) { level = getSetting('aiLevel'); buildTools(); refresh(); }
   });
   const stopWatchingLanguage = onLanguageChange(relabel);
@@ -4499,6 +4667,7 @@ export function mountPlay(outlet, params) {
     get picker() { return picker; },
     get placeMode() { return placeMode; },
     get selected() { return selected; },
+    get peek() { return peek; },
     get history() { return history; },
     get moveLog() { return moveLog; },
     get effect() { return effect; },
@@ -4529,6 +4698,7 @@ export function mountPlay(outlet, params) {
     document.removeEventListener('keydown', onKey);
     document.removeEventListener('pointerdown', onAnyPointer, true);
     clearTimeout(bubbleTimer);
+    clearTimeout(noteTimer);
     clearTimeout(curveTimer);
     stopReport();               // a worker outlives the page that started it
 

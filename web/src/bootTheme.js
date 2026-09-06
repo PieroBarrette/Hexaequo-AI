@@ -28,5 +28,8 @@
     var root = document.documentElement;
     root.setAttribute('data-theme', theme);
     if (saved.boardStyle) root.setAttribute('data-board-style', saved.boardStyle);
+    /* The text scale too, for the same reason: a reader who asked for larger
+       writing should not watch it grow after the first frame. */
+    if (saved.textSize === 'large') root.setAttribute('data-text-size', 'large');
   } catch (e) { /* private mode, or nothing saved: the markup's default stands */ }
 }());

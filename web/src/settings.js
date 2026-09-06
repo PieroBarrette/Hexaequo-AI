@@ -32,6 +32,11 @@ export const DEFAULTS = {
      most people the tap is the decision, and a second one on every move is a
      tax. On, it is the difference between a slip and a lost game. */
   confirmMove: false,
+  /* 'normal' | 'large'. The game's smallest writing — the word under a bar
+     button, the count beside a pile, a move in the list — is sized for a
+     screen at arm's length, and not every pair of eyes reads it there. One
+     switch scales all of it together; see --text-scale in tokens.css. */
+  textSize: 'normal',
   /* The gentlest of the four. Somebody opening the site for the first time
      has not read the rules yet, and an opponent that beats them before they
      have understood how a ring moves teaches nothing. The level is one tap
@@ -112,6 +117,7 @@ export function loadSettings() {
     current.showCoordinates = 'auto';
   }
   if (!current.language) current.language = preferredLanguage();
+  if (current.textSize !== 'large') current.textSize = 'normal';
   applyToDocument();
   return current;
 }
@@ -144,6 +150,7 @@ export function applyToDocument() {
   const root = document.documentElement;
   root.setAttribute('data-theme', resolvedTheme());
   root.setAttribute('data-board-style', current.boardStyle);
+  root.setAttribute('data-text-size', current.textSize === 'large' ? 'large' : 'normal');
   root.setAttribute('lang', current.language || 'en');
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) {

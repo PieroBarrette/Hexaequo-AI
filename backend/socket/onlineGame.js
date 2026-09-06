@@ -103,11 +103,13 @@ function seatView(seat) {
  */
 const online = new Map();
 
-/* Three taken back in a game, so it stays a remedy rather than a way to play,
-   and nothing offered while a clock is inside its last ten seconds -- which is
-   exactly when an offer stops being about the move and starts being about the
-   time. */
-const UNDO_PER_GAME = 3;
+/* As many taken back as the other player will agree to -- the agreement is the
+   limit, and a fixed count of three turned a courtesy into a resource to be
+   spent. What stays is everything that keeps asking from becoming a way to
+   play: one offer on the table at a time, a refusal that settles the move for
+   good, and nothing offered while a clock is inside its last ten seconds --
+   which is exactly when an offer stops being about the move and starts being
+   about the time. */
 const UNDO_CLOCK_FLOOR_MS = 10000;
 
 /**
@@ -382,9 +384,10 @@ async function createRoom({ timeControl = 'none', reserved = null } = {}) {
          *
          * `undo` is the request on the table: { seat, ply, at }. `ply` is the
          * move being asked about, so an offer cannot outlive the position it
-         * was made in. `undoUsed` counts the ones granted, and `undoRefused`
-         * remembers which plies were turned down -- a refusal is an answer, and
-         * asking again about the same move is pestering.
+         * was made in. `undoUsed` counts the ones granted -- for the record,
+         * not as a quota -- and `undoRefused` remembers which plies were turned
+         * down: a refusal is an answer, and asking again about the same move
+         * is pestering.
          */
         undo: null,
         undoUsed: 0,
@@ -1234,7 +1237,9 @@ function attachOnlineGames(io) {
          *   - once per move. A refusal is an answer, and the ply is remembered
          *     so asking again about it is refused outright. Counting plies
          *     rather than seconds means waiting does not reset it;
-         *   - three granted in a game, so it stays a remedy;
+         *   - no ceiling on how many are granted: every one needs the other
+         *     player's agreement, and that agreement is the whole of the
+         *     limit;
          *   - not while either clock is inside its last ten seconds, which is
          *     when an offer would be a way of taking time rather than giving a
          *     move back;
@@ -1265,9 +1270,6 @@ function attachOnlineGames(io) {
                 if (seat !== lastMover) return reply(callback, { ok: false, error: 'NOT_YOUR_MOVE' });
                 if (room.undoRefused.includes(ply)) {
                     return reply(callback, { ok: false, error: 'UNDO_REFUSED' });
-                }
-                if (room.undoUsed >= UNDO_PER_GAME) {
-                    return reply(callback, { ok: false, error: 'UNDO_SPENT' });
                 }
                 const left = liveRemaining(room);
                 if (left && Math.min(left[0], left[1]) < UNDO_CLOCK_FLOOR_MS) {
@@ -1323,7 +1325,6 @@ function attachOnlineGames(io) {
                 state: room.state,
                 ply: kept.length,
                 undoUsed: room.undoUsed,
-                undoLeft: Math.max(0, UNDO_PER_GAME - room.undoUsed),
                 clock: clockView(room),
             };
             io.to(code).emit('hx:undo:done', done);

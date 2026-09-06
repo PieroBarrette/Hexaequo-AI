@@ -90,6 +90,10 @@ export function mountSettings(outlet) {
           { value: 'classic', label: t('settings.styleClassic') },
           { value: 'modern', label: t('settings.styleModern') }]))}
 
+        ${row('settings.textSize', 'settings.textSizeHint', segmented('textSize', getSetting('textSize'), [
+          { value: 'normal', label: t('settings.textNormal') },
+          { value: 'large', label: t('settings.textLarge') }]))}
+
         <h2>${t('settings.preview')}</h2>
         <div class="preview-board">${miniBoardSvg(previewSpec())}</div>
 

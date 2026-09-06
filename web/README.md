@@ -42,6 +42,7 @@ web/
       ai.js               negamax + alpha-beta + quiescence
     ui/
       board.js            SVG board, animations, framing
+      icons.js            the symbols on the game's controls, as inline SVG
       logo.js             the mark, themed
       miniBoard.js        static diagrams for the rules
     views/                home, play, rules, settings

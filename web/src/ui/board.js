@@ -348,7 +348,8 @@ export function createBoard(container) {
     for (const k of s.tileKeys) {
       if (arriving && arriving.tile && k === arriving.cell) continue;
       const colour = s.tileAt[k];
-      const clickable = v.targets.has(k) || v.hints.has(k) || k === v.chainCurrent || v.movable.has(k);
+      const clickable = v.targets.has(k) || v.hints.has(k) || k === v.chainCurrent || v.movable.has(k)
+        || Boolean(v.peekable && v.peekable.has(k));
       out += `<path class="cell${clickable ? ' is-clickable' : ''}" data-cell="${k}"`
         + `${v.newTile === k ? ' data-fx="tile"' : ''}`
         + ` d="${hexPath(cx(k), cy(k), SIZE * .94)}"`
@@ -395,6 +396,38 @@ export function createBoard(container) {
     if (focus != null) {
       out += `<path d="${hexPath(cx(focus), cy(focus), SIZE * .94)}" fill="none"`
         + ` stroke="var(--accent)" stroke-width="2.6" pointer-events="none"/>`;
+    }
+
+    /*
+     * The other side's piece, being looked at.
+     *
+     * Everything about it is drawn in a different hand from a piece of your
+     * own: the hexagon round it is dashed and in the muted ink, not the
+     * accent, and so are the marks where it could go. The accent means "this
+     * is yours and you may press it"; nothing here is either. Captures keep
+     * the danger colour — a threat is a threat whoever makes it — but dashed
+     * and still, where your own pulse.
+     *
+     * No hit targets of their own: a press on any of these cells lands on the
+     * tile beneath, which the view reads as "stop looking", and then as
+     * whatever that tile means on its own.
+     */
+    if (v.peek && v.peek.cell != null) {
+      out += `<path d="${hexPath(cx(v.peek.cell), cy(v.peek.cell), SIZE * .94)}" fill="none"`
+        + ` stroke="var(--muted)" stroke-width="2.4" stroke-dasharray="6 5"`
+        + ` pointer-events="none"/>`;
+      for (const [k, target] of v.peek.targets) {
+        const x = cx(k), y = cy(k);
+        if (target.kind === 'capture') {
+          out += `<circle cx="${x}" cy="${y}" r="${SIZE * .55}" fill="none"`
+            + ` stroke="var(--danger)" stroke-width="3" stroke-opacity=".7"`
+            + ` stroke-dasharray="6 5" pointer-events="none"/>`;
+        } else {
+          out += `<circle cx="${x}" cy="${y}" r="${SIZE * .38}" fill="none"`
+            + ` stroke="var(--muted)" stroke-width="2" stroke-opacity=".85"`
+            + ` stroke-dasharray="5 4" pointer-events="none"/>`;
+        }
+      }
     }
 
     /* Path already travelled in a multi-jump. */

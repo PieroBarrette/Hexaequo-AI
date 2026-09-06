@@ -45,7 +45,7 @@ body {
   background-image:
     radial-gradient(140% 100% at 50% 0%, var(--bg-lift) 0%, var(--bg) 62%);
   color: var(--text);
-  font: 15px/1.5 var(--font-sans);
+  font: calc(15px * var(--text-scale))/1.5 var(--font-sans);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -115,6 +115,16 @@ button:disabled { opacity: .35; cursor: not-allowed; }
   display: inline-flex; align-items: center; justify-content: center;
   text-align: center;
 }
+/*
+ * A drawn symbol, wherever one stands.
+ *
+ * Sized here and nowhere else, in pixels scaled by the reader's text setting:
+ * the symbols used to be characters sized by a font-size chosen for words,
+ * which is how the ellipsis on the menu came out as three specks. An icon
+ * does not shrink to fit -- the button grows round it if it has to.
+ */
+.ico { display: block; flex: none; }
+.btn--icon .ico { width: calc(20px * var(--text-scale)); height: calc(20px * var(--text-scale)); }
 .btn--primary {
   background: var(--accent); color: var(--accent-ink);
   border-color: var(--accent); font-weight: 600;
@@ -330,6 +340,9 @@ select.btn option {
 }
 .token svg { width: 100%; height: 100%; display: block; overflow: visible; }
 .token.is-usable { cursor: pointer; }
+/* A piece that cannot be played right now but can say why: dimmed, the way an
+   unavailable thing is, and still answering a tap with the reason. */
+.token.is-why { cursor: help; opacity: .55; }
 .token.is-usable:hover { transform: translateY(-3px) scale(1.1); filter: brightness(1.08); }
 .token.is-armed { filter: drop-shadow(0 0 4px var(--accent)) drop-shadow(0 0 2px var(--accent)); }
 /* What is yours, above; what you have taken from the other player, below.
@@ -343,15 +356,15 @@ select.btn option {
 }
 .rail-who .player-dot { flex: none; }
 .rail-name {
-  font-size: 13px; font-weight: 600; min-width: 0;
+  font-size: calc(13px * var(--text-scale)); font-weight: 600; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .rail-elo {
-  font: 600 11px/1 var(--font-mono); color: var(--accent);
+  font: 600 calc(11px * var(--text-scale))/1 var(--font-mono); color: var(--accent);
   font-variant-numeric: tabular-nums; flex: none;
 }
 .rail-you {
-  font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+  font-size: calc(10px * var(--text-scale)); letter-spacing: .08em; text-transform: uppercase;
   color: var(--muted); border: 1px solid var(--line);
   border-radius: 3px; padding: 1px 4px; flex: none; margin-left: auto;
 }
@@ -394,13 +407,45 @@ select.btn option {
   color: var(--accent-ink); background: var(--accent); border-color: var(--accent);
 }
 .chain-bar-say {
-  font-size: 12.5px; font-weight: 600; white-space: nowrap;
+  font-size: calc(12.5px * var(--text-scale)); font-weight: 600; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis; min-width: 0;
 }
 @media (max-width: 560px) {
   .chain-bar { padding: 8px 10px; gap: 8px; top: 10px; }
-  .chain-bar-say { font-size: 12px; }
+  .chain-bar-say { font-size: calc(12px * var(--text-scale)); }
 }
+
+/*
+ * A line about the board, over it.
+ *
+ * Two things say something here. A tap on a piece in the reserve that cannot
+ * be played says why -- a ring with no captured disk to pay for it -- for a
+ * few seconds and then goes. And while an opponent's piece is being looked at,
+ * the line stays up and names what the marks on the board are: the other
+ * side's possible moves, not yours. Both answer the two questions a beginner
+ * has most: why can this not be played, and what am I looking at.
+ *
+ * Under the chain bar, which asks a question and must win the space when both
+ * are up; over the board, because that is what the line is about.
+ */
+.board-note {
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 7;
+  max-width: calc(100% - 24px);
+  padding: 7px 12px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--text);
+  box-shadow: var(--shadow-md);
+  font-size: calc(13px * var(--text-scale)); line-height: 1.35; text-align: center;
+  pointer-events: none;
+  animation: picker-in .14s var(--ease);
+}
+.board-note[hidden] { display: none; }
+/* Looking at the other side's moves is a different colour of thing from
+   playing your own, and the line that names it says so in the same ink the
+   marks are drawn in. */
+.board-note.is-peek {
+  color: var(--muted); border-style: dashed; border-color: var(--line-strong, var(--muted));
+}
+.chain-bar.is-on ~ .board-note { display: none; }
 
 /*
  * The end-of-game card covers the board, and only the board.
@@ -428,10 +473,10 @@ select.btn option {
 }
 .result-title {
   display: flex; align-items: center; justify-content: center; gap: 11px;
-  font-size: 19px; font-weight: 600;
+  font-size: calc(19px * var(--text-scale)); font-weight: 600;
 }
-.result-why { color: var(--muted); font-size: 13px; margin: 7px 0 16px; }
-.result-note { color: var(--accent); font-size: 13px; margin: -8px 0 14px; min-height: 0; }
+.result-why { color: var(--muted); font-size: calc(13px * var(--text-scale)); margin: 7px 0 16px; }
+.result-note { color: var(--accent); font-size: calc(13px * var(--text-scale)); margin: -8px 0 14px; min-height: 0; }
 .result-note:empty { display: none; }
 .result-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
 
@@ -478,9 +523,18 @@ select.btn option {
   min-width: var(--tap); min-height: var(--tap); padding: 4px 8px;
   line-height: 1.1; position: relative;
 }
-.bar-btn > i { font-style: normal; font-size: 15px; }
+/* The symbol is drawn, and drawn at a size the eye finds without looking for
+   it: twenty-two pixels where the characters that stood here were fifteen,
+   and they were characters, which is how a flag came out as a smudge. */
+.bar-btn > i {
+  font-style: normal; display: flex; align-items: center; justify-content: center;
+  line-height: 0;
+}
+.bar-btn > i .ico { width: calc(22px * var(--text-scale)); height: calc(22px * var(--text-scale)); }
+/* The word under it. Eleven pixels rather than ten -- on a phone ten was the
+   smallest writing on the screen, under the buttons most often pressed. */
 .bar-btn > span {
-  font-size: 10px; letter-spacing: .02em; white-space: nowrap;
+  font-size: calc(11px * var(--text-scale)); letter-spacing: .02em; white-space: nowrap;
   color: var(--muted);
 }
 .bar-btn.is-on > span, .bar-btn:hover > span { color: inherit; }
@@ -494,11 +548,14 @@ select.btn option {
 .bar-tools .bar-btn {
   flex: 1 1 auto; flex-direction: row; gap: 7px; min-height: var(--tap);
 }
-.bar-tools .bar-btn > span { font-size: 13px; color: inherit; }
+.bar-tools .bar-btn > span { font-size: calc(13px * var(--text-scale)); color: inherit; }
 
 /* The way to the controls when they are folded away, which is only ever on a
    phone: everywhere else they are on the bar where they can be read at once. */
 .bar-menu { display: none; flex: none; }
+/* The three dots, the size of the other symbols on the bar rather than the
+   size of an ellipsis in running text. */
+.bar-menu .ico { width: calc(26px * var(--text-scale)); height: calc(26px * var(--text-scale)); }
 /* Beats the media query below, which turns the menu on for phones and
    would otherwise show it on a bar that folded nothing away. */
 .bar-menu[hidden] { display: none; }
@@ -535,12 +592,12 @@ select.btn option {
   min-width: 4.5em; flex: none; overflow: hidden;
   padding: 4px 6px; border: 0; border-radius: var(--radius-sm);
   background: none; color: var(--muted); cursor: pointer;
-  font: 600 12px/1.3 var(--font-mono); font-variant-numeric: tabular-nums;
+  font: 600 calc(12px * var(--text-scale))/1.3 var(--font-mono); font-variant-numeric: tabular-nums;
 }
 .review-ply:hover { background: var(--surface-2); }
 .ply-at { flex: none; font-weight: 600; color: var(--text); }
 .ply-of { font-style: normal; font-weight: 400; opacity: .7; color: var(--muted); }
-.review-ply .ply-time { flex: none; font-style: normal; font-size: 10px; opacity: .8; }
+.review-ply .ply-time { flex: none; font-style: normal; font-size: calc(10px * var(--text-scale)); opacity: .8; }
 
 /* Shown by the view, which knows whether there is a game to go back to --
    and knows it wherever the button has been folded to. */
@@ -575,12 +632,15 @@ select.btn option {
   .review-bar { flex: 1 1 100%; flex-wrap: wrap; overflow-x: visible; row-gap: 5px; }
   .bar-right { margin-left: auto; }
   .review-ply { min-width: 4.2em; }
-  .board-bar select.btn { font-size: 13px; padding: 5px 6px; min-height: 34px; }
+  .board-bar select.btn { font-size: calc(13px * var(--text-scale)); padding: 5px 6px; min-height: 34px; }
   /* Narrow, because an arrow is an arrow and the row is short of width -- but
      as tall as everything else on the row: a thumb misses a 34-pixel target,
      and a row of controls at two different heights reads as two rows of
      something. The height is free, the bar is already this tall. */
   .board-bar .btn--icon { width: 34px; min-width: 34px; min-height: var(--tap); }
+  /* Except the menu, whose symbol is the largest on the bar and needs the
+     room -- and which is the one button here that is always alone. */
+  .board-bar .bar-menu { width: var(--tap); min-width: var(--tap); }
 }
 .game.is-reviewing .board-host { background: color-mix(in srgb, var(--accent) 7%, transparent); }
 .game.is-reviewing .board-host::after {
@@ -867,8 +927,8 @@ select.btn option {
   font-size: 11px; font-weight: 600; letter-spacing: .06em;
   text-transform: uppercase; color: var(--accent);
 }
-.bubble-text { font-size: 13.5px; line-height: 1.35; overflow-wrap: anywhere; }
-.bubble-more { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.bubble-text { font-size: calc(13.5px * var(--text-scale)); line-height: 1.35; overflow-wrap: anywhere; }
+.bubble-more { font-size: calc(11px * var(--text-scale)); color: var(--muted); margin-top: 2px; }
 @keyframes bubble-in {
   from { opacity: 0; transform: translateY(8px) scale(.96); }
   to { opacity: 1; transform: none; }
@@ -878,7 +938,7 @@ select.btn option {
 /* One quiet line, on the way to the board rather than over it. */
 .guest-note {
   flex: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  padding: 7px 10px; font-size: 12.5px; color: var(--muted);
+  padding: 7px 10px; font-size: calc(12.5px * var(--text-scale)); color: var(--muted);
   background: color-mix(in srgb, var(--accent) 8%, var(--surface));
   border-bottom: 1px solid var(--line);
 }
@@ -919,12 +979,12 @@ select.btn option {
 .drawer-tab {
   background: none; border: 0; border-bottom: 2px solid transparent;
   padding: 5px 4px; color: var(--muted);
-  font-size: 12px; letter-spacing: .1em; text-transform: uppercase; font-weight: 600;
+  font-size: calc(12px * var(--text-scale)); letter-spacing: .1em; text-transform: uppercase; font-weight: 600;
 }
 .drawer-tab.is-active { color: var(--text); border-bottom-color: var(--accent); }
 .drawer-body { flex: 1; overflow-y: auto; min-height: 0; padding: 10px 12px; }
 .move-list {
-  font: 12px/1.7 var(--font-mono);
+  font: calc(12px * var(--text-scale))/1.7 var(--font-mono);
   columns: 290px; column-gap: 22px;   /* a wide, short panel: use the width */
   flex: none;                          /* the drawer body scrolls, not the list */
 }
@@ -937,7 +997,7 @@ select.btn option {
    carry a number most people only glance at. Quiet enough to read past, and it
    stays quiet on the move being looked at, where everything else goes bold. */
 .move-list .ply-time {
-  font-style: normal; font-size: 10px; color: var(--muted);
+  font-style: normal; font-size: calc(10px * var(--text-scale)); color: var(--muted);
   margin-left: 5px; font-weight: 400;
 }
 /* A move with nothing said about it is written in the reading colour, which is
@@ -964,7 +1024,7 @@ select.btn option {
 .drawer-body { display: flex; flex-direction: column; }
 .chat-pane { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 8px; }
 .chat-log { flex: 1; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 5px; }
-.chat-line { display: flex; gap: 8px; font-size: 13.5px; line-height: 1.45; }
+.chat-line { display: flex; gap: 8px; font-size: calc(13.5px * var(--text-scale)); line-height: 1.45; }
 .chat-who { color: var(--muted); flex: none; max-width: 9em; overflow: hidden; text-overflow: ellipsis; }
 .chat-line.is-mine .chat-who { color: var(--accent); }
 .chat-text { word-break: break-word; }
@@ -1029,7 +1089,7 @@ select.btn option {
 .net-strip {
   display: none; align-items: center; gap: 10px; flex: none;
   padding: 7px 12px; background: var(--surface); border-bottom: 1px solid var(--line);
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale));
 }
 .net-strip.is-on { display: flex; }
 .net-strip.is-warn { border-bottom-color: var(--danger); color: var(--danger); }
@@ -1039,7 +1099,7 @@ select.btn option {
 .board-area > .board-host { flex: 1; min-height: 0; }
 
 .clock {
-  font: 600 19px/1 var(--font-mono); letter-spacing: .04em;
+  font: 600 calc(19px * var(--text-scale))/1 var(--font-mono); letter-spacing: .04em;
   padding: 6px 8px; border-radius: var(--radius-sm);
   background: var(--surface-2); border: 1px solid var(--line); color: var(--muted);
   font-variant-numeric: tabular-nums; min-width: 4.2em; text-align: center;
@@ -1078,7 +1138,7 @@ select.btn option {
 .lobby-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .lobby-head h3 { margin: 0; }
 .lobby-count { color: var(--muted); font-size: 12px; flex: 1; }
-.btn--sm { padding: 4px 10px; font-size: 12px; min-height: 0; }
+.btn--sm { padding: 4px 10px; font-size: calc(12px * var(--text-scale)); min-height: 0; }
 .lobby-list { margin-top: 10px; display: flex; flex-direction: column; }
 .lobby-row {
   display: flex; align-items: center; gap: 10px;
@@ -1223,7 +1283,7 @@ h1 > .pip { width: 11px; height: 11px; margin-right: 10px; }
 .setting:last-child { border-bottom: 0; }
 .setting-label { flex: 1; min-width: 170px; }
 .setting-label b { display: block; font-weight: 600; }
-.setting-label small { color: var(--muted); font-size: 12.5px; }
+.setting-label small { color: var(--muted); font-size: calc(12.5px * var(--text-scale)); }
 .segmented { display: flex; gap: 0; border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden; }
 .segmented button {
   background: var(--surface-2); border: 0; padding: 9px 13px; min-height: var(--tap);
@@ -1320,12 +1380,12 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
   /* At its full size the clock was the largest thing in the reserve and cost a
      row of pieces to sit there. Still the first thing you read, and no longer
      the loudest. */
-  .clock { font-size: 15px; padding: 3px 6px; min-width: 3.6em; }
+  .clock { font-size: calc(15px * var(--text-scale)); padding: 3px 6px; min-width: 3.6em; }
   .rail-sep { margin: 5px 0 3px; }
   /* The card gives the board back what it does not need. */
   .result-overlay { padding: 10px; }
   .result-card { padding: 18px 20px; }
-  .result-title { font-size: 17px; }
+  .result-title { font-size: calc(17px * var(--text-scale)); }
   .site-header { padding: 6px 8px; gap: 6px; }
   .site-header .logo-word { display: none; }
   #brand { padding: 6px 8px; }
@@ -1356,12 +1416,16 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
    */
   .stack { gap: 4px; }
   .stack .token ~ .token { display: none; }
+  /* The count is the whole of what the pile says on a phone, so it is written
+     to be read: sixteen pixels, bold, in the reading colour. At thirteen and
+     muted it was the smallest thing on the screen, and it was the number the
+     game turns on. It scales with the text setting like every other label. */
   .stack::after {
     content: '×' attr(data-count);
     align-self: center;
-    font: 600 13px/1 var(--font-mono);
+    font: 700 calc(16px * var(--text-scale))/1 var(--font-mono);
     font-variant-numeric: tabular-nums;
-    color: var(--muted);
+    color: var(--text);
   }
   /* One of something is not a count, it is the thing itself. */
   .stack[data-count="1"]::after { content: none; }
@@ -1393,7 +1457,7 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
   .board-bar.is-tools-open .bar-tools { display: flex; }
   /* Selects take a line each and the buttons share one: a level and a colour
      are read, a ⟳ is recognised. */
-  .bar-tools select.btn { flex: 1 1 100%; min-height: var(--tap); font-size: 15px; }
+  .bar-tools select.btn { flex: 1 1 100%; min-height: var(--tap); font-size: calc(15px * var(--text-scale)); }
   .bar-tools .btn--icon { flex: 1 1 0; min-height: var(--tap); width: auto; }
   /*
    * The way through the game, in the bar rather than in a box of its own.
@@ -1413,7 +1477,7 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
   /* Two numbers and a slash: there is nothing left in here to shrink, and a
      readout that shrank was how the row used to pretend it still fitted. The
      time is the first thing anybody can do without. */
-  .review-ply { font-size: 11px; padding: 4px; gap: 4px; }
+  .review-ply { font-size: calc(11px * var(--text-scale)); padding: 4px; gap: 4px; }
   .review-ply .ply-time { display: none; }
 }
 
@@ -1659,7 +1723,7 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
   min-width: 72px; min-height: 72px; padding: 8px 10px;
   background: var(--surface-2); border: 1px solid var(--line);
   border-radius: var(--radius-sm); color: var(--text);
-  font-size: 12px; font-weight: 600;
+  font-size: calc(12px * var(--text-scale)); font-weight: 600;
   transition: background .13s var(--ease), border-color .13s var(--ease);
 }
 .piece-choice:hover, .piece-choice:active {
@@ -1674,7 +1738,7 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
   .piece-choice-art { width: 48px; height: 48px; }
 }
 
-.review-speed { padding: 3px 6px; min-height: 30px; font-size: 12px; }
+.review-speed { padding: 3px 6px; min-height: 30px; font-size: calc(12px * var(--text-scale)); }
 
 /*
  * The update offer.

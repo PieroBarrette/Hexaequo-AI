@@ -57,6 +57,8 @@
     "levelStrong": "Fort",
     "undo": "Annuler",
     "newGame": "Nouvelle partie",
+    "newShort": "Nouvelle",
+    "confirmRestart": "Recommencer la partie ? La progression sera perdue.",
     "tools": "Réglages de la partie",
     "moveList": "Historique",
     "run": "Lancer",
@@ -91,7 +93,12 @@
     "drawShort": "Nulle",
     "resignShort": "Abandon",
     "detailsShort": "Détails",
-    "chatShort": "Chat"
+    "chatShort": "Chat",
+    "peekComputer": "Aperçu : les coups possibles de l'ordinateur",
+    "peekOpponent": "Aperçu : les coups possibles de l'adversaire",
+    "why": {
+      "ringNeedsDisk": "Placer un anneau coûte un disque capturé à rendre — vous n'en avez aucun."
+    }
   },
   "online": {
     "title": "Jouer en ligne",
@@ -142,7 +149,6 @@
       "NOT_YOUR_MOVE": "Vous ne pouvez reprendre que votre propre dernier coup.",
       "NOTHING_TO_UNDO": "Aucun coup n'a encore été joué.",
       "UNDO_REFUSED": "Votre adversaire a refusé. Ce coup ne peut plus être repris.",
-      "UNDO_SPENT": "Les trois reprises de la partie ont été utilisées.",
       "UNDO_TOO_LATE": "Trop peu de temps au compteur pour reprendre un coup."
     },
     "rated": "Partie classée",
@@ -221,7 +227,7 @@
     "soundHint": "Pose, déplacement, capture et interface.",
     "volume": "Volume",
     "showValidMoves": "Afficher les coups valides",
-    "showValidMovesHint": "Où la pièce choisie peut aller, et où une tuile peut être posée.",
+    "showValidMovesHint": "Où la pièce choisie peut aller, et où une tuile peut être posée. En local, touchez une pièce adverse pour voir ses coups.",
     "showLastMove": "Afficher le coup précédent",
     "showLastMoveHint": "Marque les cases du dernier coup.",
     "showCoordinates": "Afficher les coordonnées",
@@ -255,7 +261,11 @@
     "appearance": "Apparence",
     "coordsAuto": "Auto",
     "coordsAlways": "Toujours",
-    "coordsNever": "Jamais"
+    "coordsNever": "Jamais",
+    "textSize": "Taille du texte",
+    "textSizeHint": "Plus grand pour les étiquettes, les compteurs et l'historique.",
+    "textNormal": "Normale",
+    "textLarge": "Grande"
   },
   "rules": {
     "title": "Règles",

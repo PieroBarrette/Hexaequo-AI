@@ -57,6 +57,8 @@
     "levelStrong": "Strong",
     "undo": "Undo",
     "newGame": "New game",
+    "newShort": "New",
+    "confirmRestart": "Start a new game? The progress will be lost.",
     "tools": "Game controls",
     "moveList": "Move list",
     "run": "Run",
@@ -91,7 +93,12 @@
     "drawShort": "Draw",
     "resignShort": "Resign",
     "detailsShort": "Details",
-    "chatShort": "Chat"
+    "chatShort": "Chat",
+    "peekComputer": "Preview: the computer's possible moves",
+    "peekOpponent": "Preview: your opponent's possible moves",
+    "why": {
+      "ringNeedsDisk": "Placing a ring costs a captured disk to hand back — you have none to give."
+    }
   },
   "online": {
     "title": "Play online",
@@ -142,7 +149,6 @@
       "NOT_YOUR_MOVE": "You may only take back your own last move.",
       "NOTHING_TO_UNDO": "No move has been played yet.",
       "UNDO_REFUSED": "Your opponent said no. That move cannot be taken back.",
-      "UNDO_SPENT": "All three take-backs for this game have been used.",
       "UNDO_TOO_LATE": "Too little time on the clock to take a move back."
     },
     "rated": "Rated game",
@@ -221,7 +227,7 @@
     "soundHint": "Placement, movement, capture and interface.",
     "volume": "Volume",
     "showValidMoves": "Show legal moves",
-    "showValidMovesHint": "Where the chosen piece can go, and where a tile can be laid.",
+    "showValidMovesHint": "Where the chosen piece can go, and where a tile can be laid. In a local game, tap an opponent's piece to see its moves.",
     "showLastMove": "Show the previous move",
     "showLastMoveHint": "Marks the cells of the last move.",
     "showCoordinates": "Show coordinates",
@@ -255,7 +261,11 @@
     "appearance": "Appearance",
     "coordsAuto": "Auto",
     "coordsAlways": "Always",
-    "coordsNever": "Never"
+    "coordsNever": "Never",
+    "textSize": "Text size",
+    "textSizeHint": "Larger labels, counts and move list.",
+    "textNormal": "Normal",
+    "textLarge": "Large"
   },
   "rules": {
     "title": "Rules",

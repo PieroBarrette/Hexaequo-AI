@@ -416,7 +416,8 @@ async function run() {
         const done = await ask(theirs, 'hx:undo', { code });
         assert.ok(done.ok, done.error);
         assert.strictEqual(done.ply, 2, 'one move shorter');
-        assert.strictEqual(done.undoLeft, 2, 'two of the three left');
+        assert.strictEqual(done.undoUsed, 1, 'and counted');
+        assert.strictEqual(done.undoLeft, undefined, 'with no quota to count down');
         assert.notDeepStrictEqual(done.state, before, 'and the position moved back');
 
         const after = await ask(a, 'hx:sync', { code });
@@ -454,19 +455,23 @@ async function run() {
         b.disconnect();
     });
 
-    await test('three in a game, and no more', async () => {
+    await test('as many in a game as the other player agrees to', async () => {
         const { a, b, code } = await playedGame(3);
         const seats = [a, b];
-        /* Take three back, replaying a move between each so there is always a
-           last move belonging to whoever asks. */
-        for (let i = 0; i < 3; i++) {
+        /* Four, which is one more than the old ceiling: each replays a move
+           between takes so there is always a last move belonging to whoever
+           asks. Every one still needs the other seat to say yes -- that, and
+           not a count, is what keeps this from being a way to play. */
+        const rounds = 4;
+        for (let i = 0; i < rounds; i++) {
             const view = await ask(a, 'hx:sync', { code });
             const mover = (view.moves.length - 1) % 2;
             const asked = await ask(seats[mover], 'hx:undo', { code });
             assert.ok(asked.ok, `ask ${i}: ${asked.error}`);
+            assert.strictEqual(asked.asked, true, `ask ${i} only asks`);
             const done = await ask(seats[1 - mover], 'hx:undo', { code });
             assert.ok(done.ok, `accept ${i}: ${done.error}`);
-            assert.strictEqual(done.undoLeft, 2 - i);
+            assert.strictEqual(done.undoUsed, i + 1, 'each one is counted');
             /* Play one so there is something to ask about next time. */
             const now = await ask(a, 'hx:sync', { code });
             const intent = await legalIntent(now.state, i);
@@ -475,9 +480,9 @@ async function run() {
         }
         const view = await ask(a, 'hx:sync', { code });
         const mover = (view.moves.length - 1) % 2;
-        const spent = await ask(seats[mover], 'hx:undo', { code });
-        assert.strictEqual(spent.ok, false, 'the fourth is refused');
-        assert.strictEqual(spent.error, 'UNDO_SPENT');
+        const more = await ask(seats[mover], 'hx:undo', { code });
+        assert.ok(more.ok, `the ${rounds + 1}th is still only a question: ${more.error}`);
+        assert.strictEqual(more.asked, true);
         a.disconnect();
         b.disconnect();
     });

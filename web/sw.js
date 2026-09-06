@@ -34,6 +34,7 @@ const SHELL = [
   './src/game/moves.js',
   './src/game/ai.js',
   './src/ui/board.js',
+  './src/ui/icons.js',
   './src/ui/logo.js',
   './src/ui/miniBoard.js',
   './src/views/home.js',
