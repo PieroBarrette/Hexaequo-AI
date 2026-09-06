@@ -447,9 +447,47 @@ select.btn option {
   display: flex; align-items: center; gap: 6px;
   flex: 0 4 auto; min-width: 0; overflow-x: auto; scrollbar-width: thin;
 }
+/*
+ * A bar button: what it looks like, and under it what it does.
+ *
+ * The icon alone was a thing to learn, and the bar is the first place anybody
+ * looks — the chevron on to the panel was the worst of them, since nobody knew
+ * it was there at all. A word costs about fifteen pixels of width and settles
+ * the question for good.
+ *
+ * Sized to be hit: 44 is the smallest target a thumb finds reliably, and these
+ * are pressed mid-game with the other hand holding the phone.
+ */
+.bar-btn {
+  flex: none; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 1px;
+  min-width: var(--tap); min-height: var(--tap); padding: 4px 8px;
+  line-height: 1.1; position: relative;
+}
+.bar-btn > i { font-style: normal; font-size: 15px; }
+.bar-btn > span {
+  font-size: 10px; letter-spacing: .02em; white-space: nowrap;
+  color: var(--muted);
+}
+.bar-btn.is-on > span, .bar-btn:hover > span { color: inherit; }
+.bar-btn[hidden] { display: none; }
+/* The unread mark rides on Chat, which is the tab it is about. */
+.bar-btn .tab-dot { display: none; }
+.bar-btn.has-unread .tab-dot {
+  display: block; position: absolute; top: 4px; right: 6px;
+}
+/* Folded into the menu, they lie down and fill the width like the rest of it. */
+.bar-tools .bar-btn {
+  flex: 1 1 auto; flex-direction: row; gap: 7px; min-height: var(--tap);
+}
+.bar-tools .bar-btn > span { font-size: 13px; color: inherit; }
+
 /* The way to the controls when they are folded away, which is only ever on a
    phone: everywhere else they are on the bar where they can be read at once. */
 .bar-menu { display: none; flex: none; }
+/* Beats the media query below, which turns the menu on for phones and
+   would otherwise show it on a bar that folded nothing away. */
+.bar-menu[hidden] { display: none; }
 .bar-gap { flex: 1; min-width: 4px; }
 .bar-right { display: flex; align-items: center; gap: 6px; flex: none; }
 
@@ -496,9 +534,9 @@ select.btn option {
 .review-ply .ply-mark { font-style: normal; margin-left: 1px; }
 .review-ply .ply-time { flex: none; font-style: normal; font-size: 10px; opacity: .8; }
 
-/* Two labels, one button: the stylesheet picks by how much room there is. */
-.btn-short { display: none; }
-.review-live { display: none; font-size: 12px; margin-left: 6px; }
+/* Shown by the view, which knows whether there is a game to go back to --
+   and knows it wherever the button has been folded to. */
+.review-live[hidden] { display: none; }
 
 /*
  * Stepping through a game and playing it back are different jobs, and ▶ for
@@ -528,18 +566,14 @@ select.btn option {
   .bar-gap { display: none; }
   .review-bar { flex: 1 1 100%; flex-wrap: wrap; overflow-x: visible; row-gap: 5px; }
   .bar-right { margin-left: auto; }
-  .review-live { margin-left: 0; padding: 5px 9px; min-height: 32px; }
   .review-ply { min-width: 4.2em; }
   .board-bar select.btn { font-size: 13px; padding: 5px 6px; min-height: 34px; }
-  .board-bar .btn--icon { width: 34px; min-width: 34px; min-height: 34px; }
+  /* Narrow, because an arrow is an arrow and the row is short of width -- but
+     as tall as everything else on the row: a thumb misses a 34-pixel target,
+     and a row of controls at two different heights reads as two rows of
+     something. The height is free, the bar is already this tall. */
+  .board-bar .btn--icon { width: 34px; min-width: 34px; min-height: var(--tap); }
 }
-/* :not([hidden]) because this rule is what would otherwise overrule the
-   attribute — an author `display` beats the one the browser attaches to
-   `hidden`, so the button would stay on screen having been told not to. */
-.review-bar.is-back .review-live:not([hidden]),
-/* Exploring shows it at the end of the branch too, where there is nothing to
-   step back from and it is the way out rather than the way forward. */
-.review-bar.is-exploring .review-live:not([hidden]) { display: inline-flex; }
 .game.is-reviewing .board-host { background: color-mix(in srgb, var(--accent) 7%, transparent); }
 .game.is-reviewing .board-host::after {
   content: ''; position: absolute; inset: 0; pointer-events: none;
@@ -1383,10 +1417,6 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
    */
   .review-ply { flex: 1 1 0; min-width: 0; font-size: 11px; padding: 4px; gap: 4px; }
   .review-ply .ply-time { display: none; }
-  /* Six words become a glyph, and the bar becomes one row. */
-  .btn-long { display: none; }
-  .btn-short { display: inline; font-size: 15px; }
-  .review-live { margin-left: 0; padding: 5px 9px; }
 }
 
 /*

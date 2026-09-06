@@ -86,7 +86,12 @@
     "confirmPlay": "Jouer ce coup",
     "undoAsk": "Demander à reprendre son coup",
     "undoWaiting": "Reprise demandée — en attente de l'adversaire",
-    "undoOfferedBy": "Votre adversaire demande à reprendre son coup"
+    "undoOfferedBy": "Votre adversaire demande à reprendre son coup",
+    "undoShort": "Annuler",
+    "drawShort": "Nulle",
+    "resignShort": "Abandon",
+    "detailsShort": "Détails",
+    "chatShort": "Chat"
   },
   "online": {
     "title": "Jouer en ligne",
@@ -423,7 +428,9 @@
       "ai": "Contre l'ordinateur",
       "aiai": "IA contre IA"
     },
-    "playView": "Visionner la partie"
+    "playView": "Visionner la partie",
+    "backShort": "Fin",
+    "liveShort": "Direct"
   },
   "report": {
     "run": "Analyser la partie",

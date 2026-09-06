@@ -86,7 +86,12 @@
     "confirmPlay": "Play this move",
     "undoAsk": "Ask to take your move back",
     "undoWaiting": "Take-back asked — waiting for your opponent",
-    "undoOfferedBy": "Your opponent asks to take their move back"
+    "undoOfferedBy": "Your opponent asks to take their move back",
+    "undoShort": "Undo",
+    "drawShort": "Draw",
+    "resignShort": "Resign",
+    "detailsShort": "Details",
+    "chatShort": "Chat"
   },
   "online": {
     "title": "Play online",
@@ -423,7 +428,9 @@
       "ai": "Against the computer",
       "aiai": "AI vs AI"
     },
-    "playView": "Watch the game"
+    "playView": "Watch the game",
+    "backShort": "End",
+    "liveShort": "Live"
   },
   "report": {
     "run": "Analyse this game",

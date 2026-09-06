@@ -271,21 +271,47 @@ export function mountPlay(outlet, params) {
           </div>
         </div>
         <div class="board-bar">
+          <!-- The mark is here as well as on Chat: the menu is where Chat
+               goes when the row runs out, and a mark inside a shut menu is no
+               mark at all. It carries the same one the drawer's arrow used to,
+               so the stylesheet already knows how to draw it. -->
           <button class="btn btn--icon bar-menu" data-action="tools"
-                  title="${t('game.tools')}">⋯</button>
+                  title="${t('game.tools')}">⋯<i class="tab-dot"></i></button>
           <div class="bar-tools"></div>
-          <!-- The one control that is wanted without a detour, so it is not
-               behind the menu. Local play only: there is no taking a move back
-               from someone else. -->
-          <button class="btn btn--icon bar-undo" data-action="undo"
-                  title="${t('game.undo')}">↶</button>
+          <!--
+            Everything that can stand in the bar, in the order it gives way.
+            A button says what it does in a word under its shape: an icon alone
+            is a thing to learn, and the bar is the first place anybody looks.
+
+            data-give is what goes into the menu first when the row runs out of
+            width — the lowest number stands longest. Online the row is full at
+            375, so the order is a decision rather than a formality: the flag
+            and the ½ stay out where they can be seen, and the one that gives
+            is the undo. It is the rarest of them, three to a game and only
+            with the other player's agreement, and it is the only one of the
+            three that has somewhere else to be — every other way of ending a
+            game is on this row and nowhere else.
+
+            data-seat is the other half of it: where a button goes when it
+            comes back out. Standing them in the order they gave way would let
+            the row rearrange itself every time the width changed, so they are
+            put back in the order they are written here.
+          -->
+          <button class="btn bar-btn bar-undo" data-action="undo" data-give="50" data-seat="1">
+            <i>↶</i><span>${t('game.undoShort')}</span></button>
+          <button class="btn bar-btn bar-draw" data-action="draw" data-give="30" data-seat="2">
+            <i>½</i><span>${t('game.drawShort')}</span></button>
+          <button class="btn bar-btn bar-resign" data-action="resign" data-give="20" data-seat="3">
+            <i>⚑</i><span>${t('game.resignShort')}</span></button>
           <div class="review-bar">
           <button class="btn btn--icon" data-action="rev-first" title="${t('review.first')}">⏮</button>
           <button class="btn btn--icon" data-action="rev-prev" title="${t('review.previous')}">◀</button>
           <button class="review-ply" data-field="ply" data-action="drawer"></button>
           <button class="btn btn--icon" data-action="rev-next" title="${t('review.next')}">▶</button>
           <button class="btn btn--icon" data-action="rev-last" title="${t('review.last')}">⏭</button>
-          <button class="btn review-live" data-action="rev-live">${t('review.backToLive')}</button>
+          <button class="btn bar-btn review-live" data-action="rev-live" data-give="40"
+                  data-seat="4" data-home="review">
+            <i>⇥</i><span>${t('review.backShort')}</span></button>
           </div>
           <span class="bar-gap"></span>
           <div class="bar-right"></div>
@@ -495,22 +521,50 @@ export function mountPlay(outlet, params) {
     <button class="btn btn--icon" data-action="run" title="${t('game.run')}">▶</button>
     <button class="btn btn--icon" data-action="step" title="${t('game.stepOnce')}">⏭</button>
     <button class="btn btn--icon" data-action="new" title="${t('game.newGame')}">⟳</button>
-    <button class="btn btn--icon" data-action="draw" title="${t('game.drawOffer')}">½</button>
-    <button class="btn btn--icon" data-action="resign" title="${t('online.resign')}">⚑</button>`;
+`;
   }
 
   /* Grouped at the right with the other panel toggles. The chevron matches the
      motion — up to raise the panel, down to put it away — where an ≡ read as a
      hamburger menu. */
+  /**
+   * Two buttons on to one panel.
+   *
+   * The panel holds the move list, the curve, the report and the chat, and it
+   * used to be reached by a bare chevron that said none of that — so nobody
+   * knew it was there or what it was for. Two named buttons instead, each
+   * opening the tab it names: what happened in the game, and what was said.
+   *
+   * Pressing the one whose tab is already showing closes the panel, so each is
+   * its own way in and out. The unread mark rides on Chat, which is the tab it
+   * is about — on the panel's own tab it was invisible exactly when it
+   * mattered, since a message arrives while the panel is shut.
+   */
   function buildDrawerButton() {
-    /* The unread mark belongs here as well as on the tab: when a message
-       arrives the drawer is usually shut, and the tab that carries the other
-       mark is the very thing you cannot see. */
     const unread = Boolean(net && net.unread);
+    const showingChat = drawerOpen && drawerTab === 'chat';
+    const showingMoves = drawerOpen && drawerTab === 'moves';
+    /* Nobody to talk to in a game against the computer or across one table. */
+    const chatButton = net
+      ? `<button class="btn bar-btn${showingChat ? ' is-on' : ''}${unread ? ' has-unread' : ''}"`
+        + ` data-action="drawer-chat" data-give="35" data-seat="6" data-home="right"`
+        + ` title="${unread ? t('chat.unread', { n: net.unread }) : t('chat.tab')}">`
+        + `<i>💬</i><span>${t('game.chatShort')}</span><i class="tab-dot"></i></button>`
+      : '';
+    /* Written fresh each time, so any copy the folding moved into the menu
+       has to go first: otherwise the bar grows a second Details every time it
+       has once been narrow enough to fold one away. */
+    for (const stale of tools.querySelectorAll('[data-action^="drawer-"]')) stale.remove();
     toolsRight.innerHTML =
-      `<button class="btn btn--icon${drawerOpen ? ' is-on' : ''}${unread ? ' has-unread' : ''}"`
-      + ` data-action="drawer" title="${unread ? t('chat.unread', { n: net.unread }) : t('game.moveList')}">`
-      + `${drawerOpen ? '⌄' : '⌃'}<i class="tab-dot"></i></button>`;
+      `<button class="btn bar-btn${showingMoves ? ' is-on' : ''}"`
+      + ` data-action="drawer-moves" data-give="10" data-seat="5" data-home="right"`
+      + ` title="${t('game.moveList')}">`
+      + `<i>${showingMoves ? '⌄' : '☰'}</i><span>${t('game.detailsShort')}</span></button>`
+      + chatButton;
+    /* Two buttons back in the row, which may be two more than it has width
+       for: this is called on its own when a message arrives or a tab changes,
+       with no refresh behind it to measure afterwards. */
+    if (barEl) foldTheBar();
   }
 
   /**
@@ -1693,6 +1747,10 @@ export function mountPlay(outlet, params) {
     renderNetStatus();
     syncTools();
     tickClocks();
+    /* After every one of those, because it measures. syncTools in particular
+       is what decides whether there is a flag and a draw offer in the row at
+       all, and a row measured before that is a row measured wrong. */
+    foldTheBar();
     /* Last, because every one of the above can change how much room the board
        has, and the board was framed before any of them were drawn. */
     board.reframe(instant);
@@ -2751,6 +2809,125 @@ export function mountPlay(outlet, params) {
     el.title = entry ? `${t('game.moveList')} — ${entry.text}` : t('game.moveList');
   }
 
+  /**
+   * Fold into the menu only what will not fit.
+   *
+   * The rule the bar is built on: a control behind a menu is a control nobody
+   * finds, so the menu earns its place only when the row has run out. Measured
+   * rather than guessed at a breakpoint, because what is in the bar changes
+   * with the game — three buttons while playing, seven in a review — and a
+   * width that fits one does not fit the other.
+   *
+   * `data-give` orders the giving up: the panel goes last, then the way out of
+   * a branch, then the things you press once a game. The arrows and the
+   * readout are the spine and never move.
+   */
+  function foldTheBar() {
+    /* Wherever the last layout left them -- the menu is inside the bar, so
+       one query finds the folded and the standing alike. */
+    const candidates = Array.from(barEl.querySelectorAll('.bar-btn[data-give]'));
+    if (!candidates.length) return;
+    /* Put everything back where the markup seats it, then take away what does
+       not fit. Both halves matter: folding from wherever they happened to be
+       would depend on what the last layout decided, and standing them in the
+       order they gave way would rearrange the row every time it changed
+       width -- the ½ and the flag swapping ends with the undo, which is how
+       you press the wrong one. */
+    for (const button of candidates.sort((a, b) => Number(a.dataset.seat) - Number(b.dataset.seat))) {
+      if (button.dataset.home === 'right') toolsRight.appendChild(button);
+      else if (button.dataset.home === 'review') reviewBar.appendChild(button);
+      else barEl.insertBefore(button, reviewBar);
+    }
+    /*
+     * "Does it fit" is a question about rows, not about width.
+     *
+     * The bar wraps on a phone, so it never reports an overflow: it just
+     * quietly becomes two rows, and a width test comparing scrollWidth to
+     * clientWidth answers "it fits" for a bar that has doubled in height.
+     *
+     * So count the lines the items landed on -- by their middles, not their
+     * tops: the bar centres what it holds, so a 34-pixel button and an empty
+     * span on the same line start seventeen pixels apart and read as two rows.
+     * Centres are shared by everything on a line and by nothing off it.
+     *
+     * Reaching for the flex items means reaching through the review controls,
+     * which are display:contents and so are not boxes themselves, and stepping
+     * over the menu, which is lifted out of the flow above the bar.
+     */
+    const lines = () => {
+      const middles = new Set();
+      const walk = (el) => {
+        for (const child of el.children) {
+          const how = getComputedStyle(child);
+          if (how.display === 'none' || how.position === 'absolute' || how.position === 'fixed') continue;
+          if (how.display === 'contents') { walk(child); continue; }
+          const box = child.getBoundingClientRect();
+          middles.add(Math.round(box.top + box.height / 2));
+        }
+      };
+      walk(barEl);
+      return middles.size;
+    };
+    /* One row is not proof on its own. The readout is laid out from a basis of
+       zero so that it gives its width before anything wraps, which means a bar
+       with one button too many stays one row and eats the notation instead --
+       and the notation is the point of the row. Below this it has lost the end
+       of the move, so treat it as an overflow like any other. */
+    const READOUT_FLOOR = 76;
+    const readout = barEl.querySelector('.review-ply');
+    const room = () => lines() <= 1
+      && (!readout || !readout.offsetParent
+          || readout.getBoundingClientRect().width >= READOUT_FLOOR);
+    const giving = candidates.slice().sort((a, b) => Number(b.dataset.give) - Number(a.dataset.give));
+    /* Only ever on a phone. The menu that holds what is folded is shown by the
+       same media query that lets the bar wrap; on a wide screen there is room
+       for everything and nowhere for what would be taken away to go. */
+    if (getComputedStyle(barEl).flexWrap !== 'nowrap') {
+      for (const button of giving) {
+        if (room()) break;
+        if (button.hidden || button.style.display === 'none') continue;
+        tools.appendChild(button);
+      }
+    }
+    const folded = Array.from(tools.querySelectorAll('.bar-btn')).some((b) => !b.hidden);
+    /* Whatever a folded button was saying, the button that now stands for it
+       has to say too — an unread mark inside a shut menu is no mark at all. */
+    const menuMark = Array.from(tools.querySelectorAll('.bar-btn.has-unread')).some((b) => !b.hidden);
+    const anyTool = folded || [...tools.children].some(
+      (node) => !node.classList.contains('bar-btn') && node.style.display !== 'none');
+    const menuButton = barEl.querySelector('.bar-menu');
+    if (menuButton) {
+      menuButton.hidden = !anyTool;
+      menuButton.classList.toggle('has-unread', menuMark);
+    }
+    if (!anyTool && toolsOpen()) setToolsOpen(false);
+  }
+
+  /**
+   * The way back to a game that moved on, and the way out of a branch.
+   *
+   * "Back to the game" only while there is a game to be back in. In a review
+   * there is no present to return to — the last ply is just the last ply, and
+   * ⏭ already goes there in one press. Mid-game it is the one control that
+   * says something the arrows do not: stop reading, the board has moved on
+   * without you. Exploring brings it back carrying the other meaning it can
+   * have — leave the branch, put the game back — and the word under the arrow
+   * changes to say which of the two it is this time.
+   *
+   * Shown and hidden from here rather than by a class on the bar above it: the
+   * bar folds what will not fit into the menu, and a rule that read this
+   * button's ancestors would put it out of sight the moment it moved.
+   */
+  function renderLiveButton(usable) {
+    const live = barEl.querySelector('.review-live');
+    if (!live) return;
+    live.hidden = !usable || !(exploring || (review !== null && !isReview()));
+    const away = exploring ? t('review.leaveExploring') : t('review.backToLive');
+    live.innerHTML = `<i>⇥</i><span>`
+      + `${exploring ? t('review.backShort') : t('review.liveShort')}</span>`;
+    live.title = away;
+  }
+
   function renderReviewBar() {
     // Nothing to look back on until a move has been played.
     /*
@@ -2766,6 +2943,7 @@ export function mountPlay(outlet, params) {
     const usable = timeline.length > 1;
     reviewBar.classList.toggle('is-on', usable);
     reviewBar.classList.toggle('is-stepping', isReview() || review !== null);
+    renderLiveButton(usable);
     if (!usable) return;
     const last = timeline.length - 1;
     const at = review === null ? last : review;
@@ -2774,11 +2952,6 @@ export function mountPlay(outlet, params) {
     reviewBar.querySelector('[data-action="rev-prev"]').disabled = at === 0;
     reviewBar.querySelector('[data-action="rev-next"]').disabled = at === last;
     reviewBar.querySelector('[data-action="rev-last"]').disabled = at === last;
-    reviewBar.classList.toggle('is-back', review !== null);
-    /* The way out of a branch has to be reachable from the end of it, where
-       there is nothing to step back from — so it does not hang off is-back
-       the way the live button does during a game. */
-    reviewBar.classList.toggle('is-exploring', Boolean(exploring));
     /* Carrying the position off to play it out is analysis, not reading, so it
        waits for the game to be over like the bar and the curve do — and an
        exploration is analysis too, so a position reached by hand can be handed
@@ -2800,22 +2973,6 @@ export function mountPlay(outlet, params) {
      * handing that to an engine gives a game that is over before it starts.
      * Stepping back one move inside the branch offers it again.
      */
-    /* "Back to the game" only while there is a game to be back in. In a review
-       there is no present to return to — the last ply is just the last ply, and
-       ⏭ already goes there in one press. Mid-game it is the one control that
-       says something the arrows do not: stop reading, the board has moved on
-       without you. Exploring brings it back with the other meaning it can
-       carry: leave the branch, put the game back. */
-    const live = reviewBar.querySelector('[data-action="rev-live"]');
-    live.hidden = isReview() && !exploring;
-    /* Both forms, and the stylesheet picks: on a phone the bar has room for a
-       glyph and not for six words, and this is one of the two buttons that was
-       taking a second row of it. The words stay as the title, and stay visible
-       everywhere there is width for them. */
-    const away = exploring ? t('review.leaveExploring') : t('review.backToLive');
-    live.innerHTML = `<span class="btn-long">${away}</span>`
-      + `<span class="btn-short" aria-hidden="true">⇥</span>`;
-    live.title = away;
     /*
      * Watching the game play itself is analysis too, so it keeps the same
      * company as the two buttons beside it.
@@ -3033,9 +3190,13 @@ export function mountPlay(outlet, params) {
 
     show('[data-action="new"]', local);
     const seated = Boolean(net) && !net.watching;
-    show('[data-action="resign"]', seated);
-    show('[data-action="draw"]', seated && !result);
-    const draw = tools.querySelector('[data-action="draw"]');
+    const barShow = (selector, visible) => {
+      const node = barEl.querySelector(selector) || tools.querySelector(selector);
+      if (node) node.hidden = !visible;
+    };
+    barShow('.bar-resign', seated);
+    barShow('.bar-draw', seated && !result);
+    const draw = barEl.querySelector('.bar-draw') || tools.querySelector('.bar-draw');
     if (draw) {
       const taking = Boolean(net && net.drawOffered);
       draw.classList.toggle('is-on', taking || Boolean(net && net.drawAsked));
@@ -3069,16 +3230,11 @@ export function mountPlay(outlet, params) {
       ? (net.undoAsked ? t('game.undoWaiting') : t('game.undoAsk'))
       : t('game.undo');
     undo.classList.toggle('is-on', Boolean(net && net.undoAsked));
-    const resignButton = tools.querySelector('[data-action="resign"]');
+    const resignButton = barEl.querySelector('.bar-resign') || tools.querySelector('.bar-resign');
     if (resignButton) resignButton.disabled = !net || !net.ready || !!result;
 
-    /* No button for an empty menu. Reading back a stored game leaves nothing
-       in here at all — no mode to change, no game to resign — and a control
-       that opens onto nothing is worse than no control. */
-    const anyTool = [...tools.children].some((node) => node.style.display !== 'none');
-    const menuButton = barEl.querySelector('.bar-menu');
-    if (menuButton) menuButton.hidden = !anyTool;
-    if (!anyTool && toolsOpen()) setToolsOpen(false);
+    /* Whether the menu is worth a button is foldTheBar's to say, since what
+       is in there is partly what it put there; it runs straight after this. */
   }
 
   /**
@@ -4062,7 +4218,16 @@ export function mountPlay(outlet, params) {
     else if (action === 'guest-sign-in') { openPanel('account'); }
     /* The hold is left standing on purpose: commit clears it, and clearing it
        here first would make commit hold the very move being confirmed. */
-    else if (action === 'undo-accept') askUndo();
+    else if (action === 'drawer-moves') {
+      playSound('ui');
+      /* Its own tab already showing means this is the way out as well as in. */
+      if (drawerOpen && drawerTab === 'moves') setDrawer(false);
+      else setDrawer(true, 'moves');
+    } else if (action === 'drawer-chat') {
+      playSound('ui');
+      if (drawerOpen && drawerTab === 'chat') setDrawer(false);
+      else setDrawer(true, 'chat');
+    } else if (action === 'undo-accept') askUndo();
     else if (action === 'undo-decline') declineUndo();
     else if (action === 'confirm-move') {
       if (held) commit(held.move, held.noFly, held.flyPath, held.captureList, true);
