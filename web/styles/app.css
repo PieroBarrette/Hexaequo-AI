@@ -509,29 +509,23 @@ select.btn option {
 .review-bar.is-stepping [data-action="rev-last"] { display: inline-flex; }
 .bar-undo[hidden] { display: none; }
 /*
- * The move you are standing on, in the middle of the bar.
+ * Which move you are standing on, in the middle of the bar.
  *
  * A button rather than a label: it opens the panel, which is what reading the
- * move used to cost. Sized to shrink rather than push — the arrows either side
- * of it are the things that must never wrap to a second row.
+ * move used to cost. A fixed width so the row does not shift under a thumb as
+ * the count goes from 9 to 10, and tabular figures so the digits do not
+ * either.
  */
 .review-ply {
   display: flex; align-items: baseline; gap: 6px;
-  min-width: 4.5em; flex: 0 1 auto; overflow: hidden;
+  min-width: 4.5em; flex: none; overflow: hidden;
   padding: 4px 6px; border: 0; border-radius: var(--radius-sm);
   background: none; color: var(--muted); cursor: pointer;
   font: 600 12px/1.3 var(--font-mono); font-variant-numeric: tabular-nums;
 }
 .review-ply:hover { background: var(--surface-2); }
-.ply-at { flex: none; font-weight: 600; }
-.ply-of { font-style: normal; font-weight: 400; opacity: .7; }
-.ply-said {
-  color: var(--text); font-weight: 600;
-  /* A flex item will not shrink below its content unless told it may, and
-     without that the ellipsis never gets a chance to appear. */
-  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.review-ply .ply-mark { font-style: normal; margin-left: 1px; }
+.ply-at { flex: none; font-weight: 600; color: var(--text); }
+.ply-of { font-style: normal; font-weight: 400; opacity: .7; color: var(--muted); }
 .review-ply .ply-time { flex: none; font-style: normal; font-size: 10px; opacity: .8; }
 
 /* Shown by the view, which knows whether there is a game to go back to --
@@ -1402,35 +1396,13 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
    */
   .review-bar.is-on { display: contents; }
   .review-bar .btn--icon { width: 32px; min-width: 32px; }
-  /* The readout is what gives on a narrow screen, and it gives from the right:
-     the counter is the anchor, the move is the point, and the time is the
-     first thing anybody can do without. */
-  /*
-   * It takes what is left and no more.
-   *
-   * The bar wraps, and a wrapping flex container breaks the line on an item's
-   * natural width before it ever considers shrinking it — so a long notation
-   * at the end of a game pushed the bar back to two rows even though the
-   * readout was perfectly willing to give. A basis of zero means it never has
-   * a natural width to break on: the arrows lay themselves out first and it
-   * fills the gap, ellipsis and all.
-   */
-  .review-ply { flex: 1 1 0; min-width: 0; font-size: 11px; padding: 4px; gap: 4px; }
+  /* Two numbers and a slash: there is nothing left in here to shrink, and a
+     readout that shrank was how the row used to pretend it still fitted. The
+     time is the first thing anybody can do without. */
+  .review-ply { font-size: 11px; padding: 4px; gap: 4px; }
   .review-ply .ply-time { display: none; }
 }
 
-/*
- * The narrowest phones: the notation wins over the total.
- *
- * At 412 the readout fits a full multi-jump exactly; at 375 it is twenty
- * pixels short, and what the ellipsis eats is the end of the move — the ×1
- * that says it captured, the # that says it finished the game. Those are worth
- * more than knowing how many plies the game runs to, which ⏭ answers in one
- * press and the panel prints in full.
- */
-@media (max-width: 400px) {
-  .ply-of { display: none; }
-}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }

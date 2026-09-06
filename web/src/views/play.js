@@ -310,7 +310,7 @@ export function mountPlay(outlet, params) {
           <button class="btn btn--icon" data-action="rev-next" title="${t('review.next')}">▶</button>
           <button class="btn btn--icon" data-action="rev-last" title="${t('review.last')}">⏭</button>
           <button class="btn bar-btn review-live" data-action="rev-live" data-give="40"
-                  data-seat="4" data-home="review">
+                  data-seat="4" data-home="review" title="${t('review.leaveExploring')}">
             <i>⇥</i><span>${t('review.backShort')}</span></button>
           </div>
           <span class="bar-gap"></span>
@@ -2783,28 +2783,29 @@ export function mountPlay(outlet, params) {
   const isAutoplaying = () => playTimer !== 0;
 
   /**
-   * The middle of the bar: which move you are standing on, not merely where.
+   * Where in the game you are standing, and no more than that.
    *
-   * It used to read "13 / 44", which is an address and nothing else — and on a
-   * phone the bar is the only thing between the board and the bottom of the
-   * screen, so an address was a poor use of the one strip of space there is.
-   * The move itself goes here now, with whatever the report made of it: the
-   * whole point of the marks is seeing which move earned which, and until now
-   * that meant opening the panel and giving up half the board to read it.
+   * The move itself was written here for a while, marks and all, on the
+   * argument that an address is a poor use of the only strip of space a phone
+   * has. It reads well and it costs too much: a multi-jump with a capture and
+   * an ending mark runs to twenty characters, and every one of them was width
+   * the buttons wanted — the whole row was arranged around a readout that had
+   * to be allowed to shrink. The panel prints the move in full beside every
+   * other move, which is where anybody reading notation is looking anyway.
    *
-   * The counter stays, because stepping through a game needs somewhere to be.
-   * Tapping the whole thing opens the panel, which is what it replaced.
+   * What is left is the one thing the panel cannot say from across the screen:
+   * which move you are on. The move itself is still here as the title, and
+   * tapping the whole thing opens the panel.
+   *
+   * The total comes with the number only while stepping through a game:
+   * mid-game "6/6" says the same thing twice.
    */
-  function renderPlyReadout(at, last) {
+  function renderPlyReadout(at, last, stepping) {
     const el = reviewBar.querySelector('[data-field="ply"]');
     const entry = at > 0 ? moveLog[at - 1] : null;
-    const judged = report && report.marks ? report.marks.get(at) : null;
-    const mark = judged && judged.mark
-      ? ` <i class="ply-mark tone-${judged.tone}">${judged.mark}</i>` : '';
     const took = entry ? clockText(entry.ms) : '';
-    el.innerHTML = `<b class="ply-at">${at}<i class="ply-of">/${last}</i></b>`
-      + (entry ? `<span class="ply-said${judged && judged.tone ? ' tone-' + judged.tone : ''}">`
-        + `${escapeText(entry.text)}${mark}</span>` : '')
+    el.innerHTML = `<b class="ply-at">${at}`
+      + `${stepping ? `<i class="ply-of">/${last}</i>` : ''}</b>`
       + (took ? `<i class="ply-time">${took}</i>` : '');
     el.title = entry ? `${t('game.moveList')} — ${entry.text}` : t('game.moveList');
   }
@@ -2818,9 +2819,9 @@ export function mountPlay(outlet, params) {
    * with the game — three buttons while playing, seven in a review — and a
    * width that fits one does not fit the other.
    *
-   * `data-give` orders the giving up: the panel goes last, then the way out of
-   * a branch, then the things you press once a game. The arrows and the
-   * readout are the spine and never move.
+   * data-give orders the giving up and data-seat where each comes back to,
+   * both of them written on the buttons in the markup, where the reasons for
+   * the order are. The arrows and the counter are the spine and never move.
    */
   function foldTheBar() {
     /* Wherever the last layout left them -- the menu is inside the bar, so
@@ -2868,21 +2869,22 @@ export function mountPlay(outlet, params) {
       walk(barEl);
       return middles.size;
     };
-    /* One row is not proof on its own. The readout is laid out from a basis of
-       zero so that it gives its width before anything wraps, which means a bar
-       with one button too many stays one row and eats the notation instead --
-       and the notation is the point of the row. Below this it has lost the end
-       of the move, so treat it as an overflow like any other. */
-    const READOUT_FLOOR = 76;
-    const readout = barEl.querySelector('.review-ply');
-    const room = () => lines() <= 1
-      && (!readout || !readout.offsetParent
-          || readout.getBoundingClientRect().width >= READOUT_FLOOR);
+    const room = () => lines() <= 1;
     const giving = candidates.slice().sort((a, b) => Number(b.dataset.give) - Number(a.dataset.give));
-    /* Only ever on a phone. The menu that holds what is folded is shown by the
-       same media query that lets the bar wrap; on a wide screen there is room
-       for everything and nowhere for what would be taken away to go. */
-    if (getComputedStyle(barEl).flexWrap !== 'nowrap') {
+    /*
+     * Folding is only ever a phone's problem, and only while the panel is shut.
+     *
+     * The menu that holds what is folded is shown by the same media query that
+     * lets the bar wrap; on a wide screen there is room for everything and
+     * nowhere for what would be taken away to go.
+     *
+     * And with the panel up the bar takes a second row instead of a menu. The
+     * screen is already given over to reading rather than to the board there,
+     * so the forty pixels are cheap — and everything stands where it can be
+     * seen and pressed, which is one press shorter than the menu and does not
+     * have to be found first.
+     */
+    if (getComputedStyle(barEl).flexWrap !== 'nowrap' && !drawerOpen) {
       for (const button of giving) {
         if (room()) break;
         if (button.hidden || button.style.display === 'none') continue;
@@ -2904,15 +2906,13 @@ export function mountPlay(outlet, params) {
   }
 
   /**
-   * The way back to a game that moved on, and the way out of a branch.
+   * The way out of a branch.
    *
-   * "Back to the game" only while there is a game to be back in. In a review
-   * there is no present to return to — the last ply is just the last ply, and
-   * ⏭ already goes there in one press. Mid-game it is the one control that
-   * says something the arrows do not: stop reading, the board has moved on
-   * without you. Exploring brings it back carrying the other meaning it can
-   * have — leave the branch, put the game back — and the word under the arrow
-   * changes to say which of the two it is this time.
+   * Only that, now. It used to carry a second meaning mid-game — stop reading,
+   * the board has moved on without you — but ⏭ goes to the newest move in one
+   * press, so the two stood side by side doing the same thing in a row that
+   * was short of width. Leaving a branch is the one thing no arrow does: the
+   * arrows walk the line being explored, and this puts the real game back.
    *
    * Shown and hidden from here rather than by a class on the bar above it: the
    * bar folds what will not fit into the menu, and a rule that read this
@@ -2921,11 +2921,7 @@ export function mountPlay(outlet, params) {
   function renderLiveButton(usable) {
     const live = barEl.querySelector('.review-live');
     if (!live) return;
-    live.hidden = !usable || !(exploring || (review !== null && !isReview()));
-    const away = exploring ? t('review.leaveExploring') : t('review.backToLive');
-    live.innerHTML = `<i>⇥</i><span>`
-      + `${exploring ? t('review.backShort') : t('review.liveShort')}</span>`;
-    live.title = away;
+    live.hidden = !usable || !exploring;
   }
 
   function renderReviewBar() {
@@ -2941,13 +2937,14 @@ export function mountPlay(outlet, params) {
      * looking at an old position with no visible way forward.
      */
     const usable = timeline.length > 1;
+    const stepping = isReview() || review !== null;
     reviewBar.classList.toggle('is-on', usable);
-    reviewBar.classList.toggle('is-stepping', isReview() || review !== null);
+    reviewBar.classList.toggle('is-stepping', stepping);
     renderLiveButton(usable);
     if (!usable) return;
     const last = timeline.length - 1;
     const at = review === null ? last : review;
-    renderPlyReadout(at, last);
+    renderPlyReadout(at, last, stepping);
     reviewBar.querySelector('[data-action="rev-first"]').disabled = at === 0;
     reviewBar.querySelector('[data-action="rev-prev"]').disabled = at === 0;
     reviewBar.querySelector('[data-action="rev-next"]').disabled = at === last;
@@ -3222,7 +3219,11 @@ export function mountPlay(outlet, params) {
      */
     const undo = barEl.querySelector('[data-action="undo"]');
     const seatedLive = Boolean(net) && !net.watching && !result && net.ready;
-    undo.hidden = !(local || seatedLive || Boolean(exploring && exploring.play !== 'view'));
+    /* And not once the game is over: a review is for reading what happened and
+       there is no move of yours left to take back. Playing it differently is
+       what the branch is for, and inside one the button comes back. */
+    undo.hidden = !((local && !result) || seatedLive
+      || Boolean(exploring && exploring.play !== 'view'));
     undo.disabled = review !== null || (net
       ? Boolean(net.undoAsking || net.undoAsked || net.pending || net.undoLeft === 0)
       : thinking || !history.length);

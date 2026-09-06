@@ -402,7 +402,6 @@
     "previous": "Previous move",
     "next": "Next move",
     "last": "Latest position",
-    "backToLive": "Back to the game",
     "reviewing": "Review — the game is kept",
     "reviewingArchive": "Finished game — review",
     "play": "Play",
@@ -429,8 +428,7 @@
       "aiai": "AI vs AI"
     },
     "playView": "Watch the game",
-    "backShort": "End",
-    "liveShort": "Live"
+    "backShort": "End"
   },
   "report": {
     "run": "Analyse this game",

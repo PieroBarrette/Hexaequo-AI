@@ -402,7 +402,6 @@
     "previous": "Coup précédent",
     "next": "Coup suivant",
     "last": "Dernière position",
-    "backToLive": "Revenir à la partie",
     "reviewing": "Revue — la partie est conservée",
     "reviewingArchive": "Partie terminée — révision",
     "play": "Lecture",
@@ -429,8 +428,7 @@
       "aiai": "IA contre IA"
     },
     "playView": "Visionner la partie",
-    "backShort": "Fin",
-    "liveShort": "Direct"
+    "backShort": "Fin"
   },
   "report": {
     "run": "Analyser la partie",
