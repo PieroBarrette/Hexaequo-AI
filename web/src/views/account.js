@@ -15,7 +15,7 @@ import { closeOverlay } from '../ui/overlay.js';
 import { play as playSound } from '../audio.js';
 import {
   currentUser, isSignedIn, mustChoosePseudo, renderGoogleButton,
-  chooseNickname, nicknameAvailable, signOut, onAuthChange,
+  chooseNickname, nicknameAvailable, signOut, onAuthChange, sessionReady, sessionToken,
   signUpWithEmail, signInWithEmail, requestPasswordReset,
   staySignedIn, setStaySignedIn,
 } from '../auth.js';
@@ -170,6 +170,14 @@ export function mountAccount(outlet) {
   function render() {
     const user = currentUser();
 
+    /* A token in the drawer and no answer about it yet: the panel waits with
+       the header rather than offering the sign-in form to somebody who is, in
+       all likelihood, signed in. The answer redraws this through onAuthChange. */
+    if (!isSignedIn() && !sessionReady() && sessionToken()) {
+      outlet.innerHTML = `<div class="page"><div class="page-inner">
+        <p class="lede">${t('online.connecting')}</p></div></div>`;
+      return;
+    }
     if (!isSignedIn()) { renderSignedOut(); return; }
 
     if (mustChoosePseudo()) {

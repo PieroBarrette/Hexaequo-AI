@@ -17,19 +17,31 @@ import { mountSettings, setInstallPrompt } from './views/settings.js';
 import { closeOverlay, overlayName } from './ui/overlay.js';
 import { openPanel, relabelPanel } from './ui/panels.js';
 import { mountChallenges } from './ui/challenge.js';
-import { restoreSession, onAuthChange, currentUser, mustChoosePseudo, isSignedIn } from './auth.js';
+import {
+  restoreSession, onAuthChange, currentUser, mustChoosePseudo, isSignedIn,
+  sessionReady, sessionToken,
+} from './auth.js';
 import { watchForUpdates } from './update.js';
 import { startSettingsSync } from './settingsSync.js';
 
-/** The header chip: your nickname and rating, or an invitation to sign in. */
+/**
+ * The header chip: your nickname and rating, or an invitation to sign in.
+ *
+ * Or, for the moment between opening the page and the server confirming the
+ * session, neither. A token in the drawer is a session until the server says
+ * otherwise, and "sign in" over it was a lie told on every load -- for a second
+ * on a good day, for the whole visit when the first request failed.
+ */
 function renderAccountChip() {
   const chip = document.getElementById('account-chip');
   if (!chip) return;
   const user = currentUser();
+  const pending = !user && !sessionReady() && Boolean(sessionToken());
   chip.innerHTML = user
     ? '<span class="chip-name">' + user.pseudo + '</span><span class="chip-elo">' + user.elo + '</span>'
-    : t('account.signIn');
+    : (pending ? t('online.connecting') : t('account.signIn'));
   chip.classList.toggle('is-signed-in', Boolean(user));
+  chip.classList.toggle('is-pending', pending);
 }
 
 /**

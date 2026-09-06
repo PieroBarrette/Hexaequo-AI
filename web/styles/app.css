@@ -1554,6 +1554,9 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
 #account-chip .chip-name { overflow: hidden; text-overflow: ellipsis; }
 #account-chip .chip-elo { color: var(--accent); font-variant-numeric: tabular-nums; font-weight: 600; }
 #account-chip.is-signed-in { border-color: var(--accent); }
+/* Waiting on the server to confirm the session: quiet, because it is not yet
+   an answer, and not an invitation either. */
+#account-chip.is-pending { color: var(--muted); }
 .account-head { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
 .account-head .avatar { width: 56px; height: 56px; border-radius: 50%; border: 1px solid var(--line); }
 .google-button { display: flex; justify-content: center; margin: 22px 0 8px; min-height: 44px; }

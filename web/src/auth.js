@@ -245,15 +245,82 @@ export async function api(path, options = {}, allowRetry = true) {
   return body;
 }
 
-/** Restore the session on start-up, if the stored token is still good. */
-export async function restoreSession() {
-  if (!readToken()) { ready = true; announce(); return null; }
-  try {
-    const body = await api('/auth/me');
-    account = body.user;
-    needsPseudo = Boolean(body.needsPseudo);
-  } catch {
-    account = null;
+/*
+ * Restore the session on start-up, if the stored token is still good.
+ *
+ * Only the server can say a session is over, and it says so with a 401 -- which
+ * api() answers by throwing the token away -- or a 404, the account behind it
+ * being gone. Every other failure is the server not being reachable just then:
+ * asleep and waking up, a proxy answering 502 while the process starts, a phone
+ * between two networks. This used to treat those as "signed out" too, once, and
+ * never ask again. So the page said "sign in" over a lobby that listed the same
+ * person as online: the socket had reached the server a moment later, offered
+ * the same token, and been recognised. Two sources of truth about who you are,
+ * and only one of them retried.
+ *
+ * Now a failure that is not an answer is asked again, with a growing pause and
+ * at once when the network comes back, until it is answered one way or the
+ * other. Until then the session is not "signed out", it is not yet known --
+ * sessionReady() says so, and everything that draws the account waits rather
+ * than guessing.
+ */
+const RETRY_FIRST_MS = 1000;
+const RETRY_MAX_MS = 15000;
+let restoring = null;
+
+/** Whether a failed request may succeed if asked again in a moment. */
+function transient(error) {
+  const status = error && error.status;
+  if (!status) return true;                        // the network, not the server
+  return status >= 500 || status === 408 || status === 429;
+}
+
+function pause(ms) {
+  return new Promise((resolve) => {
+    const timer = setTimeout(done, ms);
+    function done() {
+      clearTimeout(timer);
+      if (typeof window !== 'undefined') window.removeEventListener('online', done);
+      resolve();
+    }
+    // Back on the network is the moment to ask, not the end of the pause.
+    if (typeof window !== 'undefined') window.addEventListener('online', done);
+  });
+}
+
+export function restoreSession() {
+  if (restoring) return restoring;
+  /* Cleared in a finally rather than inside restore(): with no token the whole
+     of restore() runs before this assignment does, and a clearing written in
+     there was overwritten by the very promise it had just cleared. */
+  restoring = restore().finally(() => { restoring = null; });
+  return restoring;
+}
+
+async function restore() {
+  let delay = RETRY_FIRST_MS;
+  for (;;) {
+    /* Read each time round: signing out mid-wait ends it, and a refresh that
+       happened meanwhile is picked up rather than retried with the old one. */
+    if (!readToken()) { account = null; break; }
+    try {
+      const body = await api('/auth/me');
+      account = body.user;
+      needsPseudo = Boolean(body.needsPseudo);
+      break;
+    } catch (error) {
+      if (transient(error)) {
+        await pause(delay);
+        delay = Math.min(delay * 2, RETRY_MAX_MS);
+        continue;
+      }
+      /* An answer. 401 has already had the token thrown away by api(); an
+         account that no longer exists gets the same, so the socket stops
+         offering a token nobody can honour. */
+      if (error.status === 404) { writeToken(null); writeRefresh(null); }
+      account = null;
+      break;
+    }
   }
   ready = true;
   announce();
