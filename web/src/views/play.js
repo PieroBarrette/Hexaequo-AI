@@ -915,12 +915,78 @@ export function mountPlay(outlet, params) {
     agreed: 'byAgreed',
   };
 
+  /**
+   * Who a seat is, to whoever is reading.
+   *
+   * The same seat is a different thing to different people: to the person
+   * sitting in it, "you"; to their opponent and to anybody watching, a name.
+   * The end of a game is written from the reader's chair, so this answers both
+   * the name and whether it is theirs, and the sentence is chosen to match.
+   *
+   * Nobody is "you" in a game played by two people at one board, or by two
+   * engines: there is no single reader to be one of them, and colours are what
+   * those games have instead of names.
+   */
+  function speakerFor(player) {
+    const you = () => ({ name: t('common.you'), isYou: true });
+    if (archive) {
+      const who = archive[player === BLACK ? 'black' : 'white'];
+      const me = currentUser();
+      if (me && who && who.userId === me.id) return you();
+      return { name: (who && who.pseudo) || t('profile.guest'), isYou: false };
+    }
+    if (net) {
+      if (!net.watching && net.colour === player) return you();
+      const who = net.people ? net.people[player] : null;
+      return { name: (who && who.pseudo) || t('profile.guest'), isYou: false };
+    }
+    if (isAI(player)) {
+      return {
+        name: `${t('game.computer')} · ${t('game.' + LEVEL_KEYS[levelFor(player)])}`,
+        isYou: false,
+      };
+    }
+    if (mode === MODE_AI && player === humanSide) return you();
+    return { name: colourName(player), isYou: false };
+  }
+
+  /** One sentence, in the person the reader belongs to. */
+  function sayOf(key, player) {
+    const who = speakerFor(player);
+    return t('result.' + key + (who.isYou ? 'You' : ''), { who: who.name });
+  }
+
+  /**
+   * Whose doing it was.
+   *
+   * Each ending is about one seat, and not always the same one: a capture
+   * count is the winner's doing, an empty board or a resignation or a flag is
+   * the loser's, and a stalemate belongs to whoever has nothing to play. The
+   * sentence used to name none of them -- it said "the opponent resigned" to
+   * both players, which is false to the one who just resigned, and to anybody
+   * watching is a question rather than an answer.
+   */
+  function whySubject(outcome) {
+    if (outcome.draw || outcome.winner === undefined || outcome.winner === null) {
+      return outcome.colour === undefined ? state.turn : outcome.colour;
+    }
+    switch (outcome.reason) {
+      case 'disks': case 'rings': return outcome.winner;
+      case 'cleared': case 'resigned': case 'timeout': case 'abandoned':
+        return 1 - outcome.winner;
+      default: return null;
+    }
+  }
+
   /** The sentence for a result, rendered in whatever language is current. */
   function resultWhy(outcome) {
     if (!outcome) return '';
-    return t('result.' + (REASON_KEYS[outcome.reason] || 'byNoMoves'), {
-      colour: colourName(outcome.colour === undefined ? state.turn : outcome.colour),
-    });
+    const key = REASON_KEYS[outcome.reason] || 'byNoMoves';
+    const subject = whySubject(outcome);
+    /* Repetition and an agreed draw are about the game rather than a player,
+       so they take no name and no second person. */
+    if (subject === null) return t('result.' + key);
+    return sayOf(key, subject);
   }
 
   function readResult(payload) {
@@ -2161,7 +2227,9 @@ export function mountPlay(outlet, params) {
     overlay.querySelector('.result-title').innerHTML = result.draw
       ? `<span style="color:var(--muted)">${t('result.draw')}</span>`
       : `<span class="player-dot${result.winner === WHITE ? ' is-white' : ''}"></span>`
-        + t('result.wins', { colour: colourName(result.winner) });
+        /* The dot stays whatever the name is: with pseudonyms on the card,
+           it is the only thing left saying which colour they were playing. */
+        + sayOf('wins', result.winner);
     overlay.querySelector('.result-why').textContent = resultWhy(result);
 
     /* A rated game moved two ratings; show the player what theirs did. */

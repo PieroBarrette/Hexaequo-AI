@@ -41,7 +41,8 @@
     "disk": "Disque",
     "disks": "Disques",
     "ring": "Anneau",
-    "rings": "Anneaux"
+    "rings": "Anneaux",
+    "you": "Vous"
   },
   "game": {
     "mode": "Mode",
@@ -171,24 +172,32 @@
     "finishFirst": "Vous avez une partie en cours. Terminez-la avant d'en commencer une autre — le salon reste ouvert."
   },
   "result": {
-    "wins": "{colour} gagne",
+    "wins": "{who} gagne",
     "draw": "ExAequo",
-    "byDisks": "six disques adverses capturés",
-    "byRings": "trois anneaux adverses capturés",
-    "byCleared": "l'adversaire n'a plus aucune pièce sur le plateau",
-    "byNoMoves": "{colour} n'a aucun coup légal",
+    "byDisks": "{who} a capturé six disques",
+    "byRings": "{who} a capturé trois anneaux",
+    "byCleared": "{who} n'a plus aucune pièce sur le plateau",
+    "byNoMoves": "{who} n'a aucun coup légal",
     "byRepetition": "la même position est survenue trois fois",
-    "byResigned": "l'adversaire a abandonné",
-    "byAbandoned": "l'adversaire ne s'est pas reconnecté à temps",
+    "byResigned": "{who} a abandonné",
+    "byAbandoned": "{who} ne s'est pas reconnecté à temps",
     "rematch": "Revanche",
-    "byTimeout": "l'adversaire a manqué de temps",
+    "byTimeout": "{who} a manqué de temps",
     "viewGame": "Voir la partie",
     "newOpponent": "Autre adversaire",
     "rematchAccept": "Accepter la revanche",
     "rematchWaiting": "Revanche proposée…",
     "rematchOffered": "Votre adversaire propose une revanche.",
     "rematchDeclined": "Revanche refusée.",
-    "byAgreed": "les deux joueurs ont convenu d’un ExAequo"
+    "byAgreed": "les deux joueurs ont convenu d’un ExAequo",
+    "winsYou": "Vous gagnez",
+    "byDisksYou": "vous avez capturé six disques",
+    "byRingsYou": "vous avez capturé trois anneaux",
+    "byClearedYou": "vous n'avez plus aucune pièce sur le plateau",
+    "byNoMovesYou": "vous n'avez aucun coup légal",
+    "byResignedYou": "vous avez abandonné",
+    "byTimeoutYou": "vous avez manqué de temps",
+    "byAbandonedYou": "vous ne vous êtes pas reconnecté à temps"
   },
   "settings": {
     "title": "Paramètres",

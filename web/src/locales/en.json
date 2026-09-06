@@ -41,7 +41,8 @@
     "disk": "Disk",
     "disks": "Disks",
     "ring": "Ring",
-    "rings": "Rings"
+    "rings": "Rings",
+    "you": "You"
   },
   "game": {
     "mode": "Mode",
@@ -171,24 +172,32 @@
     "finishFirst": "You have a game in progress. Finish it before starting another — the lobby stays open."
   },
   "result": {
-    "wins": "{colour} wins",
+    "wins": "{who} wins",
     "draw": "ExAequo",
-    "byDisks": "six enemy disks captured",
-    "byRings": "three enemy rings captured",
-    "byCleared": "the opponent has no pieces left on the board",
-    "byNoMoves": "{colour} has no legal move",
+    "byDisks": "{who} captured six disks",
+    "byRings": "{who} captured three rings",
+    "byCleared": "{who} has nothing left on the board",
+    "byNoMoves": "{who} has no legal move",
     "byRepetition": "the same position occurred three times",
-    "byResigned": "the opponent resigned",
-    "byAbandoned": "the opponent did not reconnect in time",
+    "byResigned": "{who} resigned",
+    "byAbandoned": "{who} did not come back in time",
     "rematch": "Rematch",
-    "byTimeout": "the opponent ran out of time",
+    "byTimeout": "{who} ran out of time",
     "viewGame": "Review the game",
     "newOpponent": "Another opponent",
     "rematchAccept": "Accept rematch",
     "rematchWaiting": "Rematch offered…",
     "rematchOffered": "Your opponent offers a rematch.",
     "rematchDeclined": "Rematch declined.",
-    "byAgreed": "both players agreed to an ExAequo"
+    "byAgreed": "both players agreed to an ExAequo",
+    "winsYou": "You win",
+    "byDisksYou": "you captured six disks",
+    "byRingsYou": "you captured three rings",
+    "byClearedYou": "you have nothing left on the board",
+    "byNoMovesYou": "you have no legal move",
+    "byResignedYou": "you resigned",
+    "byTimeoutYou": "you ran out of time",
+    "byAbandonedYou": "you did not come back in time"
   },
   "settings": {
     "title": "Settings",
