@@ -28,6 +28,10 @@ export const DEFAULTS = {
   animateMoves: true,
   animatePlacement: true,
   premove: false,
+  /* Hold a move on the board and ask before playing it. Off by default: for
+     most people the tap is the decision, and a second one on every move is a
+     tax. On, it is the difference between a slip and a lost game. */
+  confirmMove: false,
   /* The gentlest of the four. Somebody opening the site for the first time
      has not read the rules yet, and an opponent that beats them before they
      have understood how a ring moves teaches nothing. The level is one tap

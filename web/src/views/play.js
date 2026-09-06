@@ -240,6 +240,15 @@ export function mountPlay(outlet, params) {
         <div class="board-host" style="flex:1;display:flex;min-width:0"></div>
         <div class="piece-picker" hidden></div>
         <div class="resume-sheet" hidden></div>
+        <!-- A move chosen and not yet played. Same place and shape as the
+             jump chain's bar: both are "this is not finished yet". -->
+        <div class="chain-bar confirm-bar" hidden>
+          <span class="taken"></span>
+          <button class="btn btn--icon" data-action="confirm-move"
+                  title="${t('game.confirmPlay')}">✓</button>
+          <button class="btn btn--icon" data-action="cancel-move"
+                  title="${t('game.cancel')}">✕</button>
+        </div>
         <div class="chain-bar">
           <span class="taken"></span>
           <button class="btn btn--icon" data-action="end-jump" title="${t('game.endJump')}">✓</button>
@@ -314,7 +323,8 @@ export function mountPlay(outlet, params) {
   const gameEl = outlet.querySelector('.game');
   const board = createBoard(outlet.querySelector('.board-host'));
   const rails = [outlet.querySelector('[data-rail="0"]'), outlet.querySelector('[data-rail="1"]')];
-  const chainBar = outlet.querySelector('.chain-bar');
+  const chainBar = outlet.querySelector('.chain-bar:not(.confirm-bar)');
+  const confirmBar = outlet.querySelector('.confirm-bar');
   const pickerEl = outlet.querySelector('.piece-picker');
   const resumeEl = outlet.querySelector('.resume-sheet');
   const guestNote = outlet.querySelector('.guest-note');
@@ -351,6 +361,8 @@ export function mountPlay(outlet, params) {
   /* A tile or piece crossing from a reserve: { cell, tile }. While it is set,
      the board leaves that cell alone and the move's own animation waits. */
   let arriving = null;
+  /* A move chosen and not yet played, while confirmMove is on. */
+  let held = null;
 
   /* The cache is keyed by ply, and a ply number does not mean the same position
      from one line to the next — a branch, a new game or a game loaded over this
@@ -640,6 +652,25 @@ export function mountPlay(outlet, params) {
       refresh();
       return;
     }
+    /*
+     * Asked to confirm: hold the move and show it, rather than play it.
+     *
+     * Here because every selection path in the view already ends here — a tap,
+     * a drag, a jump chain, a piece chosen from the picker — so one gate
+     * catches all of them. Not for an engine's move, and not for a premove:
+     * one was never a person's tap, and the other was deliberate already.
+     */
+    if (!held && getSetting('confirmMove') && !isAI(state.turn) && !thinking) {
+      held = { move, noFly, flyPath, captureList };
+      selected = null;
+      chain = null;
+      picker = null;
+      placeMode = null;
+      playSound('ui');
+      refresh();
+      return;
+    }
+    held = null;
     if (net) { sendIntent(move, noFly); return; }
     /* Playing from the middle of a branch replaces the rest of it. The move
        was chosen against the position on screen, so the line it belonged to
@@ -1448,6 +1479,14 @@ export function mountPlay(outlet, params) {
        watching, and the reviewed ply's own move while reading back. */
     const showEffect = Boolean(effect) && (!reviewing || effect.review);
     const premoveCells = [];
+    /* A move waiting to be confirmed has not happened either, and the board
+       already has a way of saying that. */
+    if (held) {
+      const m = held.move;
+      if (m.type === 'tile' || m.type === 'piece') premoveCells.push(m.cell);
+      else if (m.type === 'disk') premoveCells.push(m.path[0], m.path[m.path.length - 1]);
+      else premoveCells.push(m.from, m.to);
+    }
     if (premove && !reviewing) {
       if (premove.type === 'tile' || premove.type === 'piece') premoveCells.push(premove.cell);
       else if (premove.type === 'disk') premoveCells.push(premove.path[0], premove.path[premove.path.length - 1]);
@@ -1964,6 +2003,20 @@ export function mountPlay(outlet, params) {
   }
 
   function renderChainBar() {
+    /* What the held move would take, if anything: the same thing the jump bar
+       shows, for the same reason — you are about to decide, and what it costs
+       the other player is the deciding part. */
+    confirmBar.hidden = !held;
+    confirmBar.classList.toggle('is-on', Boolean(held));
+    if (held) {
+      const m = held.move;
+      const taken = m.type === 'disk' ? m.captures
+        : (m.type === 'ring' && m.capture ? [m.capture] : []);
+      confirmBar.querySelector('.taken').innerHTML = taken.length
+        ? taken.map((c) =>
+          `<span class="token">${tokenSvg(pieceType(c.code) === RING ? 'ring' : 'disk', pieceOwner(c.code))}</span>`).join('')
+        : `<span style="color:var(--muted);padding:0 4px">${escapeText(moveNotation(m, cellLabel))}</span>`;
+    }
     chainBar.classList.toggle('is-on', !!chain);
     if (!chain) return;
     chainBar.querySelector('.taken').innerHTML = chain.captures.length
@@ -3834,6 +3887,11 @@ export function mountPlay(outlet, params) {
       else goToPly(timeline.length - 1);
     } else if (action === 'resume') { stopAutoplay(); openResumeSheet(); }
     else if (action === 'guest-sign-in') { openPanel('account'); }
+    /* The hold is left standing on purpose: commit clears it, and clearing it
+       here first would make commit hold the very move being confirmed. */
+    else if (action === 'confirm-move') {
+      if (held) commit(held.move, held.noFly, held.flyPath, held.captureList);
+    } else if (action === 'cancel-move') { held = null; playSound('ui'); refresh(); }
     else if (action === 'analyse') startReport();
     else if (action === 'analyse-stop') { stopReport(); renderReport(); }
     else if (action === 'rev-play') {

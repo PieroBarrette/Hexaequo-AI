@@ -81,7 +81,8 @@
     "drawOffer": "Proposer ExAequo",
     "drawAccept": "Accepter l’ExAequo",
     "drawWaiting": "ExAequo proposé…",
-    "drawOfferedBy": "Votre adversaire propose ExAequo."
+    "drawOfferedBy": "Votre adversaire propose ExAequo.",
+    "confirmPlay": "Jouer ce coup"
   },
   "online": {
     "title": "Jouer en ligne",
@@ -216,6 +217,8 @@
     "playSample": "Faire entendre",
     "premove": "Coup à l’avance",
     "premoveHint": "Jouer pendant le tour de l'adversaire.",
+    "confirmMove": "Confirmer chaque coup",
+    "confirmMoveHint": "Le coup attend un second geste avant d’être joué.",
     "animatePlacement": "Animer depuis la réserve",
     "animatePlacementHint": "La pièce traverse depuis votre réserve.",
     "soundVoice": "Timbre",

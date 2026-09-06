@@ -81,7 +81,8 @@
     "drawOffer": "Offer ExAequo",
     "drawAccept": "Accept ExAequo",
     "drawWaiting": "ExAequo offered…",
-    "drawOfferedBy": "Your opponent offers ExAequo."
+    "drawOfferedBy": "Your opponent offers ExAequo.",
+    "confirmPlay": "Play this move"
   },
   "online": {
     "title": "Play online",
@@ -216,6 +217,8 @@
     "playSample": "Play a sample",
     "premove": "Premove",
     "premoveHint": "Play during your opponent's turn.",
+    "confirmMove": "Confirm every move",
+    "confirmMoveHint": "A move waits for a second tap before it is played.",
     "animatePlacement": "Animate from the reserve",
     "animatePlacementHint": "The piece travels from your reserve.",
     "soundVoice": "Timbre",

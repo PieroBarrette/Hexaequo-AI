@@ -118,6 +118,8 @@ export function mountSettings(outlet) {
 
         <h2>${t('settings.gameSection')}</h2>
         ${row('settings.premove', 'settings.premoveHint', toggle('premove', getSetting('premove')))}
+        ${row('settings.confirmMove', 'settings.confirmMoveHint',
+          toggle('confirmMove', getSetting('confirmMove')))}
         ${row('settings.aiLevel', 'settings.aiLevelHint', segmented('aiLevel', getSetting('aiLevel'), [
           { value: 0, label: t('game.levelBeginner') },
           { value: 1, label: t('game.levelEasy') },
