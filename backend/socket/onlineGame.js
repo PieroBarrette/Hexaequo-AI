@@ -103,6 +103,13 @@ function seatView(seat) {
  */
 const online = new Map();
 
+/* Three taken back in a game, so it stays a remedy rather than a way to play,
+   and nothing offered while a clock is inside its last ten seconds -- which is
+   exactly when an offer stops being about the move and starts being about the
+   time. */
+const UNDO_PER_GAME = 3;
+const UNDO_CLOCK_FLOOR_MS = 10000;
+
 /**
  * Stop answering for this socket's account.
  *
@@ -367,6 +374,18 @@ async function createRoom({ timeControl = 'none', reserved = null } = {}) {
         names: [null, null],
         chat: [],
         rematch: null,          // { seat } while one side has offered
+        /*
+         * Taking a move back, by agreement.
+         *
+         * `undo` is the request on the table: { seat, ply, at }. `ply` is the
+         * move being asked about, so an offer cannot outlive the position it
+         * was made in. `undoUsed` counts the ones granted, and `undoRefused`
+         * remembers which plies were turned down -- a refusal is an answer, and
+         * asking again about the same move is pestering.
+         */
+        undo: null,
+        undoUsed: 0,
+        undoRefused: [],
         /* { seat } while one side has offered a draw. Cleared when they move:
            playing on is changing your mind, and an offer left standing from
            twenty plies ago is a trap rather than an offer. */
@@ -1108,6 +1127,131 @@ function attachOnlineGames(io) {
             room.rematch = null;
             io.to(code).emit('hx:rematch:ready', { code, next: made });
             reply(callback, { ok: true, code: made, ready: true });
+        });
+
+        /*
+         * Take the last move back, if the other player agrees.
+         *
+         * One event does both, as with the rematch and the draw: the first
+         * seat to send it asks, and the other accepts. What keeps it from
+         * becoming a way to play is a short list of rules, all of them checked
+         * here, because a client cannot be trusted to check anything:
+         *
+         *   - only the last move, and only if it was yours: you cannot ask to
+         *     take back something the other player did;
+         *   - once per move. A refusal is an answer, and the ply is remembered
+         *     so asking again about it is refused outright. Counting plies
+         *     rather than seconds means waiting does not reset it;
+         *   - three granted in a game, so it stays a remedy;
+         *   - not while either clock is inside its last ten seconds, which is
+         *     when an offer would be a way of taking time rather than giving a
+         *     move back;
+         *   - and the clock is not wound back. The position returns; the time
+         *     it cost does not.
+         */
+        socket.on('hx:undo', async (payload, callback) => {
+            const code = String((payload && payload.code) || '').toUpperCase().trim();
+            const room = rooms.get(code);
+            if (!room) return reply(callback, { ok: false, error: 'NO_SUCH_ROOM' });
+            const seat = seatOf(room, socket.id);
+            if (seat === -1) return reply(callback, { ok: false, error: 'NOT_A_PLAYER' });
+            if (room.result) return reply(callback, { ok: false, error: 'GAME_OVER' });
+            if (!room.moves.length) return reply(callback, { ok: false, error: 'NOTHING_TO_UNDO' });
+            touch(room);
+
+            const ply = room.moves.length;              // the move on the table
+            const lastMover = (ply - 1) % 2;            // Black plays the first
+
+            /* An offer that is about an older position is not an offer any
+               more: the game moved on, and so did what would be taken back. */
+            if (room.undo && room.undo.ply !== ply) room.undo = null;
+            if (room.undo && room.undo.seat === seat) {
+                return reply(callback, { ok: true, asked: true, ply });
+            }
+
+            if (!room.undo) {
+                if (seat !== lastMover) return reply(callback, { ok: false, error: 'NOT_YOUR_MOVE' });
+                if (room.undoRefused.includes(ply)) {
+                    return reply(callback, { ok: false, error: 'UNDO_REFUSED' });
+                }
+                if (room.undoUsed >= UNDO_PER_GAME) {
+                    return reply(callback, { ok: false, error: 'UNDO_SPENT' });
+                }
+                const left = liveRemaining(room);
+                if (left && Math.min(left[0], left[1]) < UNDO_CLOCK_FLOOR_MS) {
+                    return reply(callback, { ok: false, error: 'UNDO_TOO_LATE' });
+                }
+                room.undo = { seat, ply, at: Date.now() };
+                socket.to(code).emit('hx:undo:offer', { code, seat, ply });
+                return reply(callback, { ok: true, asked: true, ply });
+            }
+
+            /* Agreed. Replayed one move shorter rather than undone in place:
+               the position is what the moves say it is, and rebuilding it from
+               them cannot drift from what both sides have been shown. */
+            const kept = room.moves.slice(0, ply - 1);
+            let rebuilt;
+            try {
+                rebuilt = await engine.replay(kept);
+            } catch {
+                return reply(callback, { ok: false, error: 'ENGINE_UNAVAILABLE' });
+            }
+            if (!rebuilt.ok) return reply(callback, { ok: false, error: 'ENGINE_UNAVAILABLE' });
+
+            room.moves = kept;
+            room.notations = room.notations.slice(0, ply - 1);
+            room.times = room.times.slice(0, ply - 1);
+            room.state = rebuilt.state;
+            /* The threefold ledger counts the positions this game now stands
+               on, so it is rebuilt rather than decremented: a count that has
+               drifted is worse than one that cost a replay to get right. */
+            room.signatures = new Map();
+            try {
+                let walk = await engine.createGame();
+                room.signatures.set(await engine.positionSignature(walk), 1);
+                let turn = engine.BLACK;
+                for (const intent of kept) {
+                    const step = await engine.applyIntent(walk, intent, turn);
+                    if (!step.ok) break;
+                    walk = step.state;
+                    turn = 1 - turn;
+                    const sig = await engine.positionSignature(walk);
+                    room.signatures.set(sig, (room.signatures.get(sig) || 0) + 1);
+                }
+            } catch { /* a ledger we could not rebuild simply starts empty */ }
+
+            room.undo = null;
+            room.undoUsed += 1;
+            room.turnAt = Date.now();
+            if (room.clock) room.clock.turnStartedAt = Date.now();
+            armFlag(io, room);
+
+            const done = {
+                code,
+                state: room.state,
+                ply: kept.length,
+                undoUsed: room.undoUsed,
+                undoLeft: Math.max(0, UNDO_PER_GAME - room.undoUsed),
+                clock: clockView(room),
+            };
+            io.to(code).emit('hx:undo:done', done);
+            reply(callback, { ok: true, ...done });
+        });
+
+        /** Refuse it, and remember that this move has had its answer. */
+        socket.on('hx:undo:decline', (payload, callback) => {
+            const code = String((payload && payload.code) || '').toUpperCase().trim();
+            const room = rooms.get(code);
+            if (!room) return reply(callback, { ok: false, error: 'NO_SUCH_ROOM' });
+            const seat = seatOf(room, socket.id);
+            if (seat === -1) return reply(callback, { ok: false, error: 'NOT_A_PLAYER' });
+            if (room.undo && room.undo.seat !== seat) {
+                const ply = room.undo.ply;
+                if (!room.undoRefused.includes(ply)) room.undoRefused.push(ply);
+                room.undo = null;
+                socket.to(code).emit('hx:undo:declined', { code, seat, ply });
+            }
+            reply(callback, { ok: true });
         });
 
         /** Turn a rematch down, so the other side stops waiting on an answer. */

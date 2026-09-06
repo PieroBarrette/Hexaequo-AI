@@ -354,6 +354,130 @@ async function run() {
         b.disconnect();
     });
 
+    /* -- Taking a move back, by agreement --------------------------------- */
+
+    /** A room with both seats filled and `plies` moves played from the start. */
+    async function playedGame(plies) {
+        const a = await open();
+        const b = await open();
+        const created = await ask(a, 'hx:create', {});
+        const code = created.code;
+        await ask(b, 'hx:join', { code });
+        const seats = [a, b];
+        let view = created;
+        for (let i = 0; i < plies; i++) {
+            const intent = await legalIntent(view.state, i);
+            await new Promise((r) => setTimeout(r, MIN_WAIT));
+            view = await ask(seats[view.state.turn], 'hx:move', { code, intent });
+            if (!view.ok) throw new Error('setup move refused: ' + view.error);
+        }
+        return { a, b, code, view, plies };
+    }
+
+    await test('a move comes back when the other player agrees', async () => {
+        const { a, b, code, view, plies } = await playedGame(3);
+        const before = view.state;
+        /* Whoever played the last ply is the one who may ask about it. */
+        const seats = [a, b];
+        const mine = seats[(plies - 1) % 2];
+        const theirs = seats[plies % 2];
+        const heard = waitFor(theirs, 'hx:undo:offer');
+        const asked = await ask(mine, 'hx:undo', { code });
+        assert.ok(asked.ok, asked.error);
+        assert.strictEqual(asked.asked, true, 'the first press asks');
+        await heard;
+        // Pressing again is not accepting on the other player's behalf.
+        const twice = await ask(mine, 'hx:undo', { code });
+        assert.strictEqual(twice.asked, true, 'still only asked');
+
+        const done = await ask(theirs, 'hx:undo', { code });
+        assert.ok(done.ok, done.error);
+        assert.strictEqual(done.ply, 2, 'one move shorter');
+        assert.strictEqual(done.undoLeft, 2, 'two of the three left');
+        assert.notDeepStrictEqual(done.state, before, 'and the position moved back');
+
+        const after = await ask(a, 'hx:sync', { code });
+        assert.strictEqual(after.moves.length, 2, 'the room agrees');
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('you cannot ask to take back a move that was not yours', async () => {
+        const { a, b, code, plies } = await playedGame(3);
+        /* The seat that did not play the last ply is asking about somebody
+           else's move, which is not a thing anyone may ask. */
+        const idle = [a, b][plies % 2];
+        const answer = await ask(idle, 'hx:undo', { code });
+        assert.strictEqual(answer.ok, false);
+        assert.strictEqual(answer.error, 'NOT_YOUR_MOVE');
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('a refusal is an answer, and the same move cannot be asked about again', async () => {
+        const { a, b, code, plies } = await playedGame(3);
+        const seats = [a, b];
+        const mine = seats[(plies - 1) % 2];
+        const theirs = seats[plies % 2];
+        const heard = waitFor(theirs, 'hx:undo:offer');
+        await ask(mine, 'hx:undo', { code });
+        await heard;
+        await ask(theirs, 'hx:undo:decline', { code });
+
+        const again = await ask(mine, 'hx:undo', { code });
+        assert.strictEqual(again.ok, false, 'asking again is not allowed');
+        assert.strictEqual(again.error, 'UNDO_REFUSED');
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('three in a game, and no more', async () => {
+        const { a, b, code } = await playedGame(3);
+        const seats = [a, b];
+        /* Take three back, replaying a move between each so there is always a
+           last move belonging to whoever asks. */
+        for (let i = 0; i < 3; i++) {
+            const view = await ask(a, 'hx:sync', { code });
+            const mover = (view.moves.length - 1) % 2;
+            const asked = await ask(seats[mover], 'hx:undo', { code });
+            assert.ok(asked.ok, `ask ${i}: ${asked.error}`);
+            const done = await ask(seats[1 - mover], 'hx:undo', { code });
+            assert.ok(done.ok, `accept ${i}: ${done.error}`);
+            assert.strictEqual(done.undoLeft, 2 - i);
+            /* Play one so there is something to ask about next time. */
+            const now = await ask(a, 'hx:sync', { code });
+            const intent = await legalIntent(now.state, i);
+            await new Promise((r) => setTimeout(r, MIN_WAIT));
+            await ask(seats[now.state.turn], 'hx:move', { code, intent });
+        }
+        const view = await ask(a, 'hx:sync', { code });
+        const mover = (view.moves.length - 1) % 2;
+        const spent = await ask(seats[mover], 'hx:undo', { code });
+        assert.strictEqual(spent.ok, false, 'the fourth is refused');
+        assert.strictEqual(spent.error, 'UNDO_SPENT');
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('there is nothing to take back before anybody has moved', async () => {
+        const { a, b, code } = await playedGame(0);
+        const answer = await ask(a, 'hx:undo', { code });
+        assert.strictEqual(answer.ok, false);
+        assert.strictEqual(answer.error, 'NOTHING_TO_UNDO');
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('a finished game keeps its moves', async () => {
+        const { a, b, code } = await playedGame(2);
+        await ask(a, 'hx:resign', { code });
+        const answer = await ask(b, 'hx:undo', { code });
+        assert.strictEqual(answer.ok, false);
+        assert.strictEqual(answer.error, 'GAME_OVER');
+        a.disconnect();
+        b.disconnect();
+    });
+
     await test('resigning ends the game for both sides', async () => {
         const a = await open();
         const b = await open();
