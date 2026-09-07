@@ -58,9 +58,14 @@ document.addEventListener('keydown', onKeyDown, true);
  *
  * Closing here rather than at each call site means a panel added later cannot
  * forget to do it.
+ *
+ * Not on a refresh, though. Changing the language mounts the same screen
+ * again in the new words, and the panel it was changed from — the settings D
+ * used to vanish with it, leaving the reader looking at the page instead of
+ * the switch they had just pressed. The router says which is which.
  */
-window.addEventListener('routechange', () => {
-  if (openName) closeOverlay();
+window.addEventListener('routechange', (event) => {
+  if (openName && !(event.detail && event.detail.refresh)) closeOverlay();
 });
 
 export const isOverlayOpen = () => Boolean(openName);
@@ -120,6 +125,10 @@ export function closeOverlay() {
 export function refreshOverlay(title, mount) {
   if (!openName) return;
   const name = openName;
+  /* The body is rebuilt from scratch, so its scroll would start over at the
+     top; put it back where the reader had it. */
+  const scrolled = host.querySelector('.overlay-body').scrollTop;
   closeOverlay();
   openOverlay(name, title, mount);
+  host.querySelector('.overlay-body').scrollTop = scrolled;
 }

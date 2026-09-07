@@ -46,8 +46,11 @@ export function navigate(name, params) {
   else window.location.hash = target;
 }
 
-function resolve() {
+function resolve(options = {}) {
   if (reverting) { reverting = false; return; }
+  /* A refresh mounts the same screen again — for a new language — and is not
+     a departure: the panel floating over it has no reason to close. */
+  const refresh = Boolean(options.refresh);
 
   const { name, params } = parseHash();
   const mount = routes.get(name) || routes.get('home');
@@ -93,7 +96,7 @@ function resolve() {
     for (const link of document.querySelectorAll('[data-route-link]')) {
       link.classList.toggle('is-active', link.getAttribute('data-route-link') === resolvedName);
     }
-    window.dispatchEvent(new CustomEvent('routechange', { detail: { name: resolvedName } }));
+    window.dispatchEvent(new CustomEvent('routechange', { detail: { name: resolvedName, refresh } }));
   };
 
   /* One screen dissolves into the next — see fade.js. The first has nothing
@@ -112,14 +115,14 @@ function resolve() {
 const PATH_ROUTES = { '/privacy': 'privacy', '/terms': 'terms' };
 
 export function startRouter() {
-  window.addEventListener('hashchange', resolve);
+  window.addEventListener('hashchange', () => resolve());
   const fromPath = PATH_ROUTES[window.location.pathname.replace(/\/+$/, '') || '/'];
   if (fromPath && !window.location.hash) window.location.replace(`#/${fromPath}`);
   else if (!window.location.hash) window.location.replace('#/home');
   else resolve();
 }
 
-/** Re-mount the current view, e.g. after the language changes. */
+/** Mount the current view again, in place — after the language changes. */
 export function refreshRoute() {
-  resolve();
+  resolve({ refresh: true });
 }
