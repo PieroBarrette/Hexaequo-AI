@@ -22,6 +22,7 @@ const SHELL = [
   './src/main.js',
   './src/router.js',
   './src/settings.js',
+  './src/fade.js',
   './src/i18n.js',
   './src/auth.js',
   './src/net.js',

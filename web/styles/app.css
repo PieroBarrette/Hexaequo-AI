@@ -1503,6 +1503,37 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
 }
 
 
+/* ── A change of look ────────────────────────────────────────────────────── */
+
+/*
+ * Theme, language and view fade rather than snap.
+ *
+ * fade.js asks the browser for a view transition around anything that rewrites
+ * the whole page, so the old screen — gradients and board included — dissolves
+ * into the new one. The browser supplies the cross-fade; these only say how
+ * long it takes, by the kind fade.js writes on <html> for the duration. Four
+ * hundred milliseconds for a change of light or language is a beat: long
+ * enough to read as a change rather than a glitch, short enough that the next
+ * tap is not kept waiting, since the page takes no input while a transition
+ * is in flight. A change of view is a step rather than a change of light, and
+ * a step is quicker.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: .4s;
+  animation-timing-function: var(--ease);
+}
+:root[data-fade="route"]::view-transition-old(root),
+:root[data-fade="route"]::view-transition-new(root) { animation-duration: .22s; }
+/* Not motion — nothing moves — but shorter anyway, as the loader is: the flash
+   from dark to light is the more jarring of the two. The rule below that
+   shortens every transition selects elements, and these pseudo-elements are
+   not elements, so they need their own. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) { animation-duration: .15s; animation-timing-function: linear; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }

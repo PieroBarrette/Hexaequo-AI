@@ -4,6 +4,7 @@
  */
 
 import { get as getSetting, onSettingsChange } from './settings.js';
+import { crossFade } from './fade.js';
 
 export const LANGUAGES = ['en', 'fr'];
 
@@ -33,9 +34,14 @@ export async function setLanguage(language) {
   if (!LANGUAGES.includes(language)) return;
   await loadBundle(language);
   active = language;
-  document.documentElement.setAttribute('lang', language);
-  translateDocument();
-  for (const fn of listeners) fn(language);
+  /* Every word on the page changes at once, and the views rebuild themselves
+     to say it. One fade for all of it, the rebuild included: the router asks
+     for a fade of its own on the way and is told to join this one. */
+  crossFade(() => {
+    document.documentElement.setAttribute('lang', language);
+    translateDocument();
+    for (const fn of listeners) fn(language);
+  }, 'look');
 }
 
 export const currentLanguage = () => active;

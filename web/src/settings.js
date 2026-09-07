@@ -6,6 +6,8 @@
  * four combinations are defined in styles/tokens.css.
  */
 
+import { crossFade } from './fade.js';
+
 const STORAGE_KEY = 'hexaequo.settings';
 
 export const DEFAULTS = {
@@ -146,16 +148,52 @@ export function resolvedTheme() {
     : 'dark';
 }
 
-export function applyToDocument() {
+/** The three attributes that decide how the page looks, as tokens.css reads them. */
+function lookAttributes() {
+  return {
+    'data-theme': resolvedTheme(),
+    'data-board-style': current.boardStyle,
+    'data-text-size': current.textSize === 'large' ? 'large' : 'normal',
+  };
+}
+
+function writeLook() {
   const root = document.documentElement;
-  root.setAttribute('data-theme', resolvedTheme());
-  root.setAttribute('data-board-style', current.boardStyle);
-  root.setAttribute('data-text-size', current.textSize === 'large' ? 'large' : 'normal');
-  root.setAttribute('lang', current.language || 'en');
+  for (const [name, value] of Object.entries(lookAttributes())) root.setAttribute(name, value);
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) {
     meta.setAttribute('content', getComputedStyle(root).getPropertyValue('--bg').trim() || '#0e1015');
   }
+}
+
+/*
+ * A change of look fades in rather than snapping — see fade.js.
+ *
+ * One fade per tick. Several settings can change in the same breath — an
+ * account's theme and material arriving together at sign-in — and each would
+ * otherwise start its own fade, the second cutting the first short. So the
+ * write is deferred to a microtask and done once, from whatever `current`
+ * says by then.
+ */
+let fadeScheduled = false;
+
+function lookChanged() {
+  const root = document.documentElement;
+  /* The markup carries no data-text-size until the first write: absent means
+     normal, not changed — or the page would fade into itself on every load. */
+  return Object.entries(lookAttributes()).some(([name, value]) =>
+    (root.getAttribute(name) || (name === 'data-text-size' ? 'normal' : '')) !== value);
+}
+
+export function applyToDocument() {
+  document.documentElement.setAttribute('lang', current.language || 'en');
+  if (!lookChanged()) { writeLook(); return; }
+  if (fadeScheduled) return;
+  fadeScheduled = true;
+  queueMicrotask(() => {
+    fadeScheduled = false;
+    if (lookChanged()) crossFade(writeLook, 'look'); else writeLook();
+  });
 }
 
 // Follow the OS when the user has chosen 'auto'.

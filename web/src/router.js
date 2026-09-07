@@ -4,7 +4,10 @@
  * PWA that must also resolve deep links offline.
  */
 
+import { crossFade } from './fade.js';
+
 const routes = new Map();
+let sequence = 0;
 let currentTeardown = null;
 let currentName = null;
 let currentHash = null;
@@ -62,28 +65,41 @@ function resolve() {
   leaveGuard = null;
   currentHash = window.location.hash;
 
-  if (currentTeardown) {
-    try { currentTeardown(); } catch { /* a broken view must not block routing */ }
-    currentTeardown = null;
-  }
+  /* The swap itself, which the fade below runs when the browser is ready for
+     it. Two departures inside one frame — a redirect on the heels of a link —
+     would each queue a swap; the ticket says only the last one mounts. */
+  const ticket = ++sequence;
+  const swap = () => {
+    if (ticket !== sequence) return;
 
-  /* Each view gets a brand-new container. Anything it listens to on that
-     element dies with it, so handlers cannot accumulate across mounts. */
-  const outlet = document.getElementById('view');
-  outlet.innerHTML = '';
-  const container = document.createElement('div');
-  container.className = 'view-container';
-  outlet.appendChild(container);
-  currentName = resolvedName;
-  document.documentElement.setAttribute('data-route', resolvedName);
+    if (currentTeardown) {
+      try { currentTeardown(); } catch { /* a broken view must not block routing */ }
+      currentTeardown = null;
+    }
 
-  const teardown = mount(container, params);
-  currentTeardown = typeof teardown === 'function' ? teardown : null;
+    /* Each view gets a brand-new container. Anything it listens to on that
+       element dies with it, so handlers cannot accumulate across mounts. */
+    const outlet = document.getElementById('view');
+    outlet.innerHTML = '';
+    const container = document.createElement('div');
+    container.className = 'view-container';
+    outlet.appendChild(container);
+    currentName = resolvedName;
+    document.documentElement.setAttribute('data-route', resolvedName);
 
-  for (const link of document.querySelectorAll('[data-route-link]')) {
-    link.classList.toggle('is-active', link.getAttribute('data-route-link') === resolvedName);
-  }
-  window.dispatchEvent(new CustomEvent('routechange', { detail: { name: resolvedName } }));
+    const teardown = mount(container, params);
+    currentTeardown = typeof teardown === 'function' ? teardown : null;
+
+    for (const link of document.querySelectorAll('[data-route-link]')) {
+      link.classList.toggle('is-active', link.getAttribute('data-route-link') === resolvedName);
+    }
+    window.dispatchEvent(new CustomEvent('routechange', { detail: { name: resolvedName } }));
+  };
+
+  /* One screen dissolves into the next — see fade.js. The first has nothing
+     to dissolve from but the loader, which has its own way of leaving. */
+  if (currentName === null) swap();
+  else crossFade(swap, 'route');
 }
 
 /**
