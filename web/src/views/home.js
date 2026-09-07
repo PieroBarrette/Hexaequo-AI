@@ -82,5 +82,20 @@ export function mountHome(outlet) {
 
   showAccountOnly();
   const stop = onAuthChange(() => showAccountOnly());
-  return () => stop();
+
+  /* The sun or the moon says which way the next press goes, so it has to
+     turn when the theme does — from this button, from the settings panel,
+     from an account signing in, or from the sky outside when the theme
+     follows the system. All of those end in the same place, the attribute on
+     <html>, so that is what is watched. It is written in the middle of the
+     fade, which puts the turn of the icon inside the fade with everything
+     else. */
+  const themeButton = outlet.querySelector('[data-action="theme"]');
+  const themeWatch = new MutationObserver(() => {
+    themeButton.textContent =
+      document.documentElement.getAttribute('data-theme') === 'dark' ? '☀' : '☾';
+  });
+  themeWatch.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  return () => { stop(); themeWatch.disconnect(); };
 }
