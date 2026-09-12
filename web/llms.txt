@@ -11,7 +11,10 @@ lay a tile, place a piece from your reserve, or move a piece already on the
 board. A disk steps to a neighbouring tile or jumps over a piece, capturing it,
 and may chain several jumps in one turn. A ring leaps to any tile two spaces
 away and captures whatever it lands on. You win by capturing six enemy disks,
-three enemy rings, or by leaving your opponent with no piece on the board.
+three enemy rings, or by leaving your opponent with no piece on the board. The
+game is level — ExAequo — if the player to move has no legal move, if the same
+position occurs three times, or if fifty moves pass for each player with no
+capture and nothing placed on the board.
 
 It can be played by two people on one device, against a computer opponent at
 four strengths, or online — by invitation link, or as a rated game matched by

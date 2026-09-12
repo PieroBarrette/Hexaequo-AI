@@ -60,6 +60,63 @@ async function test(name, fn) {
     }
 }
 
+/** The shared rules module, for tests that have to build a legal line. */
+async function sharedEngine() {
+    const { pathToFileURL } = require('url');
+    const path = require('path');
+    const dir = path.join(__dirname, '..', '..', 'web', 'src', 'game');
+    const url = (f) => pathToFileURL(path.join(dir, f)).href;
+    const [state, moves] = await Promise.all([import(url('state.js')), import(url('moves.js'))]);
+    return { state, moves };
+}
+
+/**
+ * A game that goes nowhere: the board filled in, then a hundred plies of
+ * shuffling that never stands on any position for a third time.
+ *
+ * Built rather than written out, because it has to dodge the *other* draw on
+ * the way. A line long enough to run the idle counter out is far too long to
+ * write by hand without repeating a position, and one that tripped the
+ * threefold rule at ply nine would prove nothing about this rule.
+ */
+async function deadDrawLine() {
+    const { state, moves } = await sharedEngine();
+    const position = state.createState();
+    const line = [];
+    const play = (move) => {
+        line.push(moves.moveIntent(move));
+        state.applyMove(position, move);
+    };
+
+    while (position.tileKeys.length < 18) {
+        // The far end of the list, so the board grows outward and the two
+        // opening disks have somewhere to wander once it is full.
+        const spots = state.tilePlacementSpots(position);
+        play({ type: 'tile', cell: spots[spots.length - 1] });
+    }
+
+    const seen = new Map([[state.positionKey(position), 1]]);
+    const timesSeen = (s) => seen.get(state.positionKey(s)) || 0;
+    for (let ply = 0; ply < 100; ply++) {
+        let chosen = null;
+        let fewest = Infinity;
+        for (const move of moves.generateMoves(position)) {
+            if (moves.isProgress(move)) continue;
+            state.applyMove(position, move);
+            const times = timesSeen(position);
+            state.undoMove(position, move);
+            /* Least-trodden first: two plies that both avoid a third visit are
+               not equally safe, and the walk has ninety-odd more to make. */
+            if (times < fewest) { fewest = times; chosen = move; }
+        }
+        if (!chosen || fewest >= 2) throw new Error(`nowhere quiet to go at ply ${line.length + 1}`);
+        play(chosen);
+        const key = state.positionKey(position);
+        seen.set(key, (seen.get(key) || 0) + 1);
+    }
+    return line;
+}
+
 /** Promise wrapper around socket.io acknowledgements. */
 function ask(socket, event, payload) {
     return new Promise((resolve, reject) => {
@@ -373,6 +430,50 @@ async function run() {
         assert.strictEqual(view.notations[view.notations.length - 1], last.notation);
         assert.strictEqual(view.notations.filter((text) => /[#=]$/.test(text)).length, 1,
             'one mark in the game');
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('fifty moves each with neither a capture nor a placement is level', async () => {
+        /* Counted on the server, like the repetition ledger above and for the
+           same reason: a client that could claim this draw could claim it
+           early, and one that could deny it could play on for ever. The board
+           is filled in first, because only a full board with empty reserves
+           leaves both players with nothing to do but shuffle. */
+        const line = await deadDrawLine();
+        const a = await open();
+        const b = await open();
+        const created = await ask(a, 'hx:create', {});
+        const room = created.code;
+        await ask(b, 'hx:join', { code: room });
+
+        const seats = [a, b];
+        let last = null;
+        for (let i = 0; i < line.length; i++) {
+            /* Half the usual gap: the seats alternate, so each socket still
+               waits twice this between two moves of its own. */
+            await new Promise((r) => setTimeout(r, Math.ceil(MIN_WAIT / 2)));
+            const response = await ask(seats[i % 2], 'hx:move', { code: room, intent: line[i] });
+            assert.ok(response.ok, `ply ${i + 1}: ${response.error}`);
+            const idle = i < 14 ? 0 : i - 13;
+            assert.strictEqual(response.idle, idle, `ply ${i + 1} stands at ${idle}`);
+            if (i < line.length - 1) {
+                assert.strictEqual(response.result, null, `ply ${i + 1} does not end it`);
+                assert.ok(!/[#=]$/.test(response.notation), `ply ${i + 1} is unmarked: ${response.notation}`);
+            }
+            last = response;
+        }
+
+        assert.ok(last.result, 'the hundredth idle ply ends it');
+        assert.strictEqual(last.result.reason, 'idle');
+        assert.strictEqual(last.result.winner, null, 'level, so nobody won');
+        assert.strictEqual(last.idle, 100, 'and it says how it got there');
+        assert.ok(last.notation.endsWith('='), `got ${last.notation}`);
+
+        const view = await ask(a, 'hx:sync', { code: room });
+        assert.strictEqual(view.notations.filter((text) => /[#=]$/.test(text)).length, 1,
+            'one mark in the game');
+        assert.strictEqual(view.result.reason, 'idle', 'and the room remembers why');
         a.disconnect();
         b.disconnect();
     });

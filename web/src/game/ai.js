@@ -11,7 +11,9 @@ import {
   DISK, RING, pieceOwner, pieceType, applyMove, undoMove,
   BLACK, DISKS_PER_PLAYER, RINGS_PER_PLAYER,
 } from './state.js';
-import { generateMoves, generateCaptures, checkWinner } from './moves.js';
+import {
+  generateMoves, generateCaptures, checkWinner, idleAfter, IDLE_LIMIT,
+} from './moves.js';
 
 const INFINITY = 1e9;
 const MATE = 100000;
@@ -240,13 +242,18 @@ function quiesce(s, alpha, beta, ply, depth) {
   return best;
 }
 
-function negamax(s, depth, alpha, beta, ply) {
+function negamax(s, depth, alpha, beta, ply, idle) {
   if (outOfTime()) return 0;
   if (checkWinner(s)) return -(MATE - ply);
   /* Checked before the depth runs out, so that a repetition is a draw however
      deep it is found — and after the winner, because a game that has ended has
      ended whatever position it ended in. */
   if (ply > 0 && isRepetition(s, ply)) return 0;
+  /* The other way a line runs out of road. Worth the parameter it costs: a
+     player shuffling near the limit is throwing a win away just as surely as
+     one repeating a position, and without this the search could not tell the
+     two apart from any other quiet move. */
+  if (ply > 0 && idle >= IDLE_LIMIT) return 0;
   if (depth <= 0) return useQuiescence ? quiesce(s, alpha, beta, ply, 0) : evaluateForSideToMove(s);
 
   const originalAlpha = alpha;
@@ -273,7 +280,7 @@ function negamax(s, depth, alpha, beta, ply) {
   let bestMove = 0;
   for (const m of moves) {
     applyMove(s, m);
-    const score = -negamax(s, depth - 1, -beta, -alpha, ply + 1);
+    const score = -negamax(s, depth - 1, -beta, -alpha, ply + 1, idleAfter(idle, m));
     undoMove(s, m);
     if (aborted) return best > -INFINITY ? best : 0;
     if (score > best) { best = score; bestMove = encodeMove(m); }
@@ -333,8 +340,12 @@ function weakerChoice(scored) {
  * `history` is the positions the game has already been through — the timeline
  * a game keeps anyway. With it the engine knows which repetitions are one step
  * from a draw, and a player who is ahead stops walking into one.
+ *
+ * `idle` is how many plies the game has gone with neither a capture nor a
+ * placement, and it does the same job for the other way a game peters out: a
+ * player who is ahead with the counter nearly full stops playing quiet moves.
  */
-export function chooseMove(state, level = 1, { history = null } = {}) {
+export function chooseMove(state, level = 1, { history = null, idle = 0 } = {}) {
   const config = LEVELS[Math.max(0, Math.min(LEVELS.length - 1, level))];
   noise = config.noise;
   useQuiescence = config.quiesce !== false;
@@ -363,7 +374,8 @@ export function chooseMove(state, level = 1, { history = null } = {}) {
 
     for (const entry of scored) {
       applyMove(state, entry.move);
-      const score = -negamax(state, depth - 1, -INFINITY, -alpha, 1);
+      const score = -negamax(state, depth - 1, -INFINITY, -alpha, 1,
+        idleAfter(idle, entry.move));
       undoMove(state, entry.move);
       if (aborted) { completed = false; break; }
       entry.score = score;
@@ -432,7 +444,7 @@ export function pliesToMate(score) {
  *   depth at which it last changed its mind about that move, which is as close
  *   as a search comes to saying how hard the move was to see.
  */
-export function judge(state, { ms = 140, maxDepth = 5, history = null } = {}) {
+export function judge(state, { ms = 140, maxDepth = 5, history = null, idle = 0 } = {}) {
   /*
    * A finished game is not a position to think about.
    *
@@ -502,7 +514,7 @@ export function judge(state, { ms = 140, maxDepth = 5, history = null } = {}) {
     let completed = true;
     for (const move of root) {
       applyMove(state, move);
-      const score = -negamax(state, depth - 1, -INFINITY, -alpha, 1);
+      const score = -negamax(state, depth - 1, -INFINITY, -alpha, 1, idleAfter(idle, move));
       undoMove(state, move);
       // A depth cut short has looked at some moves and not the others, which is
       // worse than the depth below it rather than better.

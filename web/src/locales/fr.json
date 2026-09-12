@@ -191,6 +191,7 @@
     "byCleared": "{who} n'a plus aucune pièce sur le plateau",
     "byNoMoves": "{who} n'a aucun coup légal",
     "byRepetition": "la même position est survenue trois fois",
+    "byIdle": "cinquante coups de chaque côté se sont écoulés sans capture ni pose",
     "byResigned": "{who} a abandonné",
     "byAbandoned": "{who} ne s'est pas reconnecté à temps",
     "rematch": "Revanche",
@@ -302,7 +303,7 @@
     "finePrint3": "<b>Sauter n'est pas obligatoire.</b> Vous pouvez jouer un coup tranquille même si une capture est disponible.",
     "finePrint4": "<b>Le plateau plafonne à 18 tuiles</b>, neuf par joueur.",
     "drawTitle": "ExAequo",
-    "drawText": "La partie est nulle — ExAequo — si le joueur au trait n'a aucun coup légal, ou si la même position survient trois fois.",
+    "drawText": "La partie est nulle — ExAequo — si le joueur au trait n'a aucun coup légal, si la même position survient trois fois, ou si cinquante coups s'écoulent de chaque côté sans aucune capture et sans rien poser sur le plateau.",
     "figureLegend": "Tuile noire, tuile blanche, disque, anneau."
   },
   "a11y": {

@@ -26,7 +26,7 @@
  */
 
 import { createState, cloneState, applyMove } from './state.js';
-import { findLegalMove } from './moves.js';
+import { findLegalMove, idleAfter } from './moves.js';
 import { judge } from './ai.js';
 
 self.addEventListener('message', (event) => {
@@ -46,6 +46,10 @@ function run({ moves, depth, token }) {
      review would not be drawing either. */
   const state = createState();
   const timeline = [cloneState(state)];
+  /* What the idle counter stood at as each position was reached. Kept beside
+     the timeline because a stored move is an intent, and an intent does not
+     say what it captured — only replaying it does. */
+  const idles = [0];
   for (const intent of moves) {
     const move = findLegalMove(state, intent);
     if (!move) {
@@ -54,6 +58,7 @@ function run({ moves, depth, token }) {
     }
     applyMove(state, move);
     timeline.push(cloneState(state));
+    idles.push(idleAfter(idles[idles.length - 1], move));
   }
 
   self.postMessage({ type: 'started', token, plies: timeline.length });
@@ -64,7 +69,7 @@ function run({ moves, depth, token }) {
        and call a line drawn on a repetition still in the future. */
     const history = timeline.slice(0, ply + 1);
     const verdict = judge(cloneState(timeline[ply]),
-      { ms: Infinity, maxDepth: depth, history });
+      { ms: Infinity, maxDepth: depth, history, idle: idles[ply] });
     self.postMessage({
       type: 'verdict',
       token,

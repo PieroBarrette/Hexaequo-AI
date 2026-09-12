@@ -229,6 +229,9 @@ function publicView(room) {
         rematchCode: room.rematchCode || null,
         rematchOfferedBy: room.rematch ? room.rematch.seat : null,
         timeControl: room.timeControl,
+        // Plies of dead play so far. Sent rather than left to be worked out:
+        // a stored move is an intent, and an intent does not say what it took.
+        idle: room.idle,
         clock: clockView(room),
         graceMs: RECONNECT_GRACE_MS[room.timeControl] || RECONNECT_GRACE_MS.none,
         // Absolute deadline so a client can render a countdown without needing
@@ -401,6 +404,11 @@ async function createRoom({ timeControl = 'none', reserved = null } = {}) {
         // game is not something a passer-by can walk into.
         reserved,
         signatures: new Map(),
+        /* Plies since the last capture or placement, kept for the same reason
+           the signatures are: it is a fact about this game's history rather
+           than about its position, and neither client may claim a draw the
+           server has not counted for itself. */
+        idle: 0,
         result: null,
         lastSeen: Date.now(),
         timeControl: Object.prototype.hasOwnProperty.call(TIME_CONTROLS, timeControl) ? timeControl : 'none',
@@ -882,7 +890,8 @@ function attachOnlineGames(io) {
 
             let outcome;
             try {
-                outcome = await engine.applyIntent(room.state, payload && payload.intent, seat);
+                outcome = await engine.applyIntent(
+                    room.state, payload && payload.intent, seat, room.idle);
             } catch (error) {
                 return reply(callback, { ok: false, error: 'ENGINE_ERROR' });
             }
@@ -897,6 +906,7 @@ function attachOnlineGames(io) {
             }
             room.settled[seat] = true;   // this seat is now whoever played from it
             room.state = outcome.state;
+            room.idle = outcome.idle;
             room.moves.push(outcome.move);
             room.notations.push(outcome.notation);
             /* What the move cost its player, measured here rather than taken
@@ -947,6 +957,7 @@ function attachOnlineGames(io) {
                 by: seat,
                 ply: room.moves.length,
                 ms: spent,
+                idle: room.idle,
                 clock: clockView(room),
                 result: result || null,
             };
@@ -1296,9 +1307,12 @@ function attachOnlineGames(io) {
             room.notations = room.notations.slice(0, ply - 1);
             room.times = room.times.slice(0, ply - 1);
             room.state = rebuilt.state;
-            /* The threefold ledger counts the positions this game now stands
-               on, so it is rebuilt rather than decremented: a count that has
-               drifted is worse than one that cost a replay to get right. */
+            /* Both ledgers count what this game now stands on, so both are
+               rebuilt rather than decremented: a count that has drifted is
+               worse than one that cost a replay to get right. The replay hands
+               back the idle count it walked through; the positions it stood on
+               it does not keep, so those are walked again below. */
+            room.idle = rebuilt.idle;
             room.signatures = new Map();
             try {
                 let walk = await engine.createGame();
@@ -1325,6 +1339,7 @@ function attachOnlineGames(io) {
                 state: room.state,
                 ply: kept.length,
                 undoUsed: room.undoUsed,
+                idle: room.idle,
                 clock: clockView(room),
             };
             io.to(code).emit('hx:undo:done', done);

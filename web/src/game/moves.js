@@ -157,6 +157,42 @@ export function generateCaptures(s, out = []) {
   return out;
 }
 
+/* ── Dead play ──────────────────────────────────────────────────────────── */
+
+/**
+ * How many plies of nothing happening make the game level.
+ *
+ * Fifty moves each, counted in plies — the number chess settled on, borrowed
+ * for the same reason rather than for the sound of it. Once the board is full
+ * and the reserves are empty, two players who merely decline to repeat a
+ * position can wander for ever: four pieces on eighteen tiles stand in 73,440
+ * arrangements, so the threefold rule never comes round. And no endgame that
+ * can be won by force takes anything like fifty moves to win, so a line cut
+ * off here is a line that had already been drawn.
+ */
+export const IDLE_LIMIT = 100;
+
+/**
+ * Does this move take the game anywhere?
+ *
+ * Captures and placements, and nothing else. Those are this game's
+ * irreversible moves — its pawn push: a captured piece never comes back, bar
+ * the single disk handed over to pay for a ring, and a tile or a piece laid
+ * down comes out of a reserve that is never refilled. Every other move only
+ * rearranges what is already on the board, which is precisely the state of
+ * affairs the limit exists to end.
+ */
+export function isProgress(move) {
+  if (move.type === 'tile' || move.type === 'piece') return true;
+  if (move.type === 'disk') return move.captures.length > 0;
+  return Boolean(move.capture);
+}
+
+/** The idle count after `move` is played in a position that stood at `idle`. */
+export function idleAfter(idle, move) {
+  return isProgress(move) ? 0 : idle + 1;
+}
+
 /**
  * Did the player who has just moved win? Checked immediately after `applyMove`,
  * so the winner is the side that is *not* to move.
@@ -173,19 +209,20 @@ export function checkWinner(s) {
  * The mark a move leaves when the position it reaches ends the game.
  *
  * Only the board's own endings get one: the three ways to win are a `#`, and
- * the two ways to be level — nowhere left to go, or the same position for a
- * third time — are a `=`. Resigning, running out of time, walking away and
- * agreeing a draw end the *game* rather than the position, and the move played
- * before any of them was an ordinary move that deserves no mark.
+ * the three ways to be level — nowhere left to go, the same position for a
+ * third time, or fifty moves each with nothing to show for them — are a `=`.
+ * Resigning, running out of time, walking away and agreeing a draw end the
+ * *game* rather than the position, and the move played before any of them was
+ * an ordinary move that deserves no mark.
  *
- * Repetition is the one ending this file cannot see for itself: it is a fact
- * about a history, not about a position, so it is the caller keeping that
- * ledger who passes it in.
+ * Repetition and the idle limit are the two endings this file cannot see for
+ * itself: both are facts about a history rather than about a position, so it
+ * is the caller keeping those ledgers who passes them in.
  */
 export function endingMark(result) {
   if (!result || !result.reason) return '';
   if (result.reason === 'disks' || result.reason === 'rings' || result.reason === 'cleared') return '#';
-  if (result.reason === 'noMoves' || result.reason === 'repetition') return '=';
+  if (result.reason === 'noMoves' || result.reason === 'repetition' || result.reason === 'idle') return '=';
   return '';
 }
 

@@ -225,7 +225,7 @@ async function run() {
            is not a checkmate, and the move before it was an ordinary move. */
         const marks = {
             disks: '#', rings: '#', cleared: '#',
-            noMoves: '=', repetition: '=',
+            noMoves: '=', repetition: '=', idle: '=',
             resigned: '', timeout: '', abandoned: '', agreed: '',
         };
         for (const [reason, mark] of Object.entries(marks)) {
@@ -234,6 +234,97 @@ async function run() {
         }
         assert.strictEqual(moves.endingMark(null), '', 'an unfinished game is unmarked');
         assert.strictEqual(moves.endingMark({ winner: null }), '', 'and so is a result with no reason');
+    });
+
+    /* -- Fifty moves with nothing to show for them ---------------------- */
+
+    await test('only captures and placements move the game on', async () => {
+        /* The whole of the rule is in this one predicate, so it is tested on
+           the move shapes themselves rather than through a game: a disk that
+           took something and one that only walked are the same shape. */
+        const cases = [
+            [{ type: 'tile', cell: 2080 }, true],
+            [{ type: 'piece', cell: 2080, piece: 0 }, true],
+            [{ type: 'disk', path: [2144, 2080], captures: [] }, false],
+            [{ type: 'disk', path: [2144, 2016], captures: [{ cell: 2080, code: 2 }] }, true],
+            [{ type: 'ring', from: 2144, to: 2080, capture: null }, false],
+            [{ type: 'ring', from: 2144, to: 2080, capture: { cell: 2080, code: 2 } }, true],
+        ];
+        for (const [move, expected] of cases) {
+            assert.strictEqual(moves.isProgress(move), expected,
+                `${move.type} with${expected ? '' : 'out'} progress`);
+        }
+        assert.strictEqual(moves.idleAfter(7, cases[2][0]), 8, 'a quiet move adds one');
+        assert.strictEqual(moves.idleAfter(7, cases[0][0]), 0, 'a placement starts again');
+        assert.strictEqual(moves.idleAfter(0, cases[3][0]), 0, 'and so does a capture');
+    });
+
+    await test('a hundred plies with neither a capture nor a placement is level', async () => {
+        /* Played for real rather than posed: the two opening disks step back
+           and forth between the four opening tiles, which is legal, quiet, and
+           gets nowhere. The repetition rule would have stopped this on the
+           ninth ply -- but repetition is the room's ledger, not the engine's,
+           so what is being tested here is the other one on its own. */
+        const CYCLE = [
+            { type: 'disk', path: [2144, 2080] },
+            { type: 'disk', path: [2017, 2081] },
+            { type: 'disk', path: [2080, 2144] },
+            { type: 'disk', path: [2081, 2017] },
+        ];
+        let snapshot = await engine.createGame();
+        let turn = engine.BLACK;
+        let idle = 0;
+        const line = [];
+        for (let ply = 1; ply <= 100; ply++) {
+            const intent = CYCLE[(ply - 1) % 4];
+            const outcome = await engine.applyIntent(snapshot, intent, turn, idle);
+            assert.ok(outcome.ok, `ply ${ply}: ${outcome.error}`);
+            assert.strictEqual(outcome.idle, ply, `ply ${ply} is the ${ply}th idle one`);
+            if (ply < 100) {
+                assert.strictEqual(outcome.result, null, `ply ${ply} does not end it`);
+                assert.ok(!/[#=]$/.test(outcome.notation), `ply ${ply} is unmarked`);
+            } else {
+                assert.ok(outcome.result, 'the hundredth ply ends it');
+                assert.strictEqual(outcome.result.reason, 'idle');
+                assert.strictEqual(outcome.result.winner, null, 'level, so nobody won');
+                assert.ok(outcome.notation.endsWith('='), `got ${outcome.notation}`);
+            }
+            snapshot = outcome.state;
+            idle = outcome.idle;
+            turn = 1 - turn;
+            line.push(intent);
+        }
+
+        /* A rebuilt game has to stand where the real one stood, or an undo
+           would hand both players fifty free moves. */
+        const replayed = await engine.replay(line);
+        assert.ok(replayed.ok, replayed.error);
+        assert.strictEqual(replayed.idle, 100, 'the replay walked the same hundred');
+        assert.strictEqual((await engine.replay(line.slice(0, 40))).idle, 40, 'and any prefix of them');
+    });
+
+    await test('laying a tile starts the count again', async () => {
+        let snapshot = await engine.createGame();
+        let turn = engine.BLACK;
+        let idle = 0;
+        for (const intent of [
+            { type: 'disk', path: [2144, 2080] },
+            { type: 'disk', path: [2017, 2081] },
+        ]) {
+            const outcome = await engine.applyIntent(snapshot, intent, turn, idle);
+            assert.ok(outcome.ok, outcome.error);
+            snapshot = outcome.state;
+            idle = outcome.idle;
+            turn = 1 - turn;
+        }
+        assert.strictEqual(idle, 2, 'two quiet plies so far');
+
+        const position = state.deserializeState(snapshot);
+        const spot = state.tilePlacementSpots(position)[0];
+        const laid = await engine.applyIntent(snapshot, { type: 'tile', cell: spot }, turn, idle);
+        assert.ok(laid.ok, laid.error);
+        assert.strictEqual(laid.idle, 0, 'a tile is somewhere the game has got to');
+        assert.strictEqual(laid.result, null, 'and it ends nothing');
     });
 
     await test('a finished game carries its mark on the move that finished it, and nowhere else', async () => {

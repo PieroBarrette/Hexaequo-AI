@@ -54,10 +54,16 @@ async function createGame() {
 /**
  * Apply `intent` to `snapshot` on behalf of `player`.
  *
- * Returns either { ok: true, state, move, notation, result } or
+ * `idle` is how many plies the game has already gone with neither a capture
+ * nor a placement, and the new count comes back with the answer. That ledger
+ * belongs to the caller — it is a fact about a history, not about a position —
+ * but the rule is applied here, so the server reads the limit out of the same
+ * module the browser does instead of keeping a number of its own.
+ *
+ * Returns either { ok: true, state, move, notation, result, idle } or
  * { ok: false, error } with a stable machine-readable error code.
  */
-async function applyIntent(snapshot, intent, player) {
+async function applyIntent(snapshot, intent, player, idle = 0) {
     const { hex, state, moves } = await loadEngine();
 
     let position;
@@ -83,6 +89,7 @@ async function applyIntent(snapshot, intent, player) {
     }
 
     state.applyMove(position, move);
+    const nextIdle = moves.idleAfter(Number.isFinite(idle) ? idle : 0, move);
 
     const won = moves.checkWinner(position);
     let result = null;
@@ -90,6 +97,8 @@ async function applyIntent(snapshot, intent, player) {
         result = { winner: won.winner, reason: won.reason };
     } else if (moves.generateMoves(position).length === 0) {
         result = { winner: null, reason: 'noMoves' };
+    } else if (nextIdle >= moves.IDLE_LIMIT) {
+        result = { winner: null, reason: 'idle' };
     }
 
     return {
@@ -100,6 +109,7 @@ async function applyIntent(snapshot, intent, player) {
         captures: (move.type === 'disk' ? move.captures : (move.capture ? [move.capture] : []))
             .map((c) => ({ cell: c.cell, code: c.code })),
         result,
+        idle: nextIdle,
     };
 }
 
@@ -111,15 +121,20 @@ async function replay(intents) {
     const { state } = await loadEngine();
     let snapshot = state.serializeState(state.createState());
     let turn = state.BLACK;
+    let idle = 0;
     for (let i = 0; i < intents.length; i++) {
-        const outcome = await applyIntent(snapshot, intents[i], turn);
+        const outcome = await applyIntent(snapshot, intents[i], turn, idle);
         if (!outcome.ok) {
             return { ok: false, error: outcome.error, atMove: i };
         }
         snapshot = outcome.state;
         turn = 1 - turn;
+        idle = outcome.idle;
     }
-    return { ok: true, state: snapshot, turn };
+    /* The idle count comes back with the position because a rebuilt game has to
+       stand where the real one stood: a room that replayed its moves and then
+       started counting from nought would hand both players fifty free moves. */
+    return { ok: true, state: snapshot, turn, idle };
 }
 
 /** Whose turn it is in a snapshot, without a full deserialisation by callers. */

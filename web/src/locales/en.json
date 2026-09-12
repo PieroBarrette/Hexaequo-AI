@@ -191,6 +191,7 @@
     "byCleared": "{who} has nothing left on the board",
     "byNoMoves": "{who} has no legal move",
     "byRepetition": "the same position occurred three times",
+    "byIdle": "fifty moves each went by with no capture and no placement",
     "byResigned": "{who} resigned",
     "byAbandoned": "{who} did not come back in time",
     "rematch": "Rematch",
@@ -302,7 +303,7 @@
     "finePrint3": "<b>A jump is not compulsory.</b> You may play a quiet move even when a capture is on offer.",
     "finePrint4": "<b>The board tops out at 18 tiles</b>, nine from each player.",
     "drawTitle": "ExAequo",
-    "drawText": "The game is a draw — ExAequo — if the player to move has no legal move at all, or if the same position occurs three times.",
+    "drawText": "The game is a draw — ExAequo — if the player to move has no legal move at all, if the same position occurs three times, or if fifty moves pass for each player with no capture and nothing placed on the board.",
     "figureLegend": "Black tile, white tile, disk, ring."
   },
   "a11y": {

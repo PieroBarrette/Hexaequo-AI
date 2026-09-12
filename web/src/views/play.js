@@ -21,7 +21,7 @@ import {
 } from '../game/state.js';
 import {
   generateMoves, generateDiskMoves, availableJumps, checkWinner, moveNotation, moveIntent, endingMark,
-  findLegalMove,
+  findLegalMove, idleAfter, IDLE_LIMIT,
 } from '../game/moves.js';
 import { chooseMove, judge, DISK_POINTS, pliesToMate } from '../game/ai.js';
 import { weigh, summarise, markOf } from '../game/accuracy.js';
@@ -40,6 +40,12 @@ const MODE_AI_AI = 'aiai';
 export function mountPlay(outlet, params) {
   /* ── View state ───────────────────────────────────────────────────────── */
   let state, history, moveLog, repetitions, result, lastMove;
+  /* Plies since the last capture or placement. Kept beside `repetitions` and
+     for the same reason: both are facts about this game's history rather than
+     about the position on the board, so both are counted here. Online the
+     server keeps its own and this one is never consulted — a draw neither
+     client can claim is a draw neither client can miscount. */
+  let idle = 0;
   let selected = null;
   let chain = null;
   let placeMode = null;
@@ -665,6 +671,7 @@ export function mountPlay(outlet, params) {
     history = [];
     moveLog = [];
     repetitions = new Map();
+    idle = 0;
     result = null;
     lastMove = null;
     selected = null;
@@ -699,6 +706,24 @@ export function mountPlay(outlet, params) {
     timelineMoves.push(move);
     timeline.push(cloneState(state));
     review = null;                  // the game has moved on; so does the board
+  }
+
+  /**
+   * The idle count after the first `plies` moves of the line on screen.
+   *
+   * Each move is matched against the position it was played in rather than
+   * read off, because the moves a timeline holds are not all the same shape: a
+   * local game keeps the move the engine produced, and an online one keeps the
+   * intent the server echoed back — and an intent says where a disk went but
+   * not what it took on the way, which is the one thing the count needs.
+   */
+  function idleAfterPlies(plies = timelineMoves.length) {
+    let count = 0;
+    for (let i = 0; i < plies; i++) {
+      const move = findLegalMove(timeline[i], timelineMoves[i]);
+      count = move ? idleAfter(count, move) : count + 1;
+    }
+    return count;
   }
 
   function recordPosition() {
@@ -810,6 +835,7 @@ export function mountPlay(outlet, params) {
       snapshot: cloneState(state),
       log: moveLog.slice(),
       repetitions: new Map(repetitions),
+      idle,
       lastMove,
     });
 
@@ -853,6 +879,7 @@ export function mountPlay(outlet, params) {
     next.flew = Boolean(flight);
 
     applyMove(state, move);
+    idle = idleAfter(idle, move);
     lastMove = move;
     const entry = { player, text: notation, captured: allCaptures.length > 0, ms: spent() };
     moveLog.push(entry);
@@ -866,6 +893,9 @@ export function mountPlay(outlet, params) {
       if (!result && generateMoves(state).length === 0) {
         result = { draw: true, reason: 'noMoves', colour: state.turn };
       }
+      /* Last of the three, because the other two are about the position in
+         front of you and this one is about the fifty moves behind it. */
+      if (!result && idle >= IDLE_LIMIT) result = { draw: true, reason: 'idle' };
     }
     /* Written now rather than with the notation: a move only earns its mark
        from the position it reaches, which is not known until it is played.
@@ -923,6 +953,7 @@ export function mountPlay(outlet, params) {
       state = previous.snapshot;
       moveLog = previous.log;
       repetitions = previous.repetitions;
+      idle = previous.idle;
       lastMove = previous.lastMove;
       result = null;
       resultSeen = false;
@@ -963,7 +994,7 @@ export function mountPlay(outlet, params) {
     thinking = true;
     refresh();
     setTimeout(() => {
-      const move = chooseMove(state, levelFor(mover), { history: timeline });
+      const move = chooseMove(state, levelFor(mover), { history: timeline, idle });
       thinking = false;
       if (move) commit(move); else refresh();
     }, 40);
@@ -975,7 +1006,7 @@ export function mountPlay(outlet, params) {
     thinking = true;
     refresh();
     setTimeout(() => {
-      const move = chooseMove(state, levelFor(mover), { history: timeline });
+      const move = chooseMove(state, levelFor(mover), { history: timeline, idle });
       thinking = false;
       if (move) commit(move); else refresh();
     }, 40);
@@ -1007,7 +1038,7 @@ export function mountPlay(outlet, params) {
 
   const REASON_KEYS = {
     disks: 'byDisks', rings: 'byRings', cleared: 'byCleared',
-    noMoves: 'byNoMoves', repetition: 'byRepetition',
+    noMoves: 'byNoMoves', repetition: 'byRepetition', idle: 'byIdle',
     resigned: 'byResigned', abandoned: 'byAbandoned', timeout: 'byTimeout',
     agreed: 'byAgreed',
   };
@@ -1064,6 +1095,13 @@ export function mountPlay(outlet, params) {
    * watching is a question rather than an answer.
    */
   function whySubject(outcome) {
+    /* Three endings are about the game rather than about anybody in it: the
+       position came back, the moves ran dry, or both players agreed. They take
+       no subject at all, which is also why they have no second person to be
+       written in — asking for one used to hand the reader the key itself.
+       Stalemate is not among them: it names the player with nothing to play. */
+    if (outcome.reason === 'repetition' || outcome.reason === 'idle'
+      || outcome.reason === 'agreed') return null;
     if (outcome.draw || outcome.winner === undefined || outcome.winner === null) {
       return outcome.colour === undefined ? state.turn : outcome.colour;
     }
@@ -2586,6 +2624,9 @@ export function mountPlay(outlet, params) {
       const signature = positionKey(position);
       repetitions.set(signature, (repetitions.get(signature) || 0) + 1);
     }
+    /* Rebuilt from the moves rather than the positions: whether a ply was idle
+       is a fact about what it did, not about where it landed. */
+    idle = idleAfterPlies();
     selected = null;
     chain = null;
     placeMode = null;
@@ -2615,7 +2656,7 @@ export function mountPlay(outlet, params) {
     // Whatever was on the clock belonged to the game, not to the review.
     turnAt = Date.now();
     exploring = {
-      timeline, timelineMoves, moveLog, history, repetitions,
+      timeline, timelineMoves, moveLog, history, repetitions, idle,
       state, result, lastMove, review, resultSeen, at,
       /* Watching, until you say otherwise. */
       play: 'view',
@@ -2636,6 +2677,9 @@ export function mountPlay(outlet, params) {
       const signature = positionKey(position);
       repetitions.set(signature, (repetitions.get(signature) || 0) + 1);
     }
+    /* Rebuilt from the moves rather than the positions: whether a ply was idle
+       is a fact about what it did, not about where it landed. */
+    idle = idleAfterPlies();
     selected = null;
     chain = null;
     placeMode = null;
@@ -2668,7 +2712,7 @@ export function mountPlay(outlet, params) {
   function stopExploring() {
     if (!exploring) return;
     turnAt = Date.now();
-    ({ timeline, timelineMoves, moveLog, history, repetitions,
+    ({ timeline, timelineMoves, moveLog, history, repetitions, idle,
       state, result, lastMove, review } = exploring);
     resultSeen = false;
     aiRunning = false;
@@ -2720,6 +2764,7 @@ export function mountPlay(outlet, params) {
         const signature = positionKey(position);
         repetitions.set(signature, (repetitions.get(signature) || 0) + 1);
       }
+      idle = idleAfterPlies();
       selected = null;
       chain = null;
       placeMode = null;
@@ -3575,8 +3620,11 @@ export function mountPlay(outlet, params) {
          would have the search treat positions that have not happened yet as
          though they had, and call a line drawn on the strength of a repetition
          still in the future. */
-      found = judge(cloneState(timeline[ply]),
-        { ...JUDGE_BUDGET, history: timeline.slice(0, ply + 1) });
+      found = judge(cloneState(timeline[ply]), {
+        ...JUDGE_BUDGET,
+        history: timeline.slice(0, ply + 1),
+        idle: idleAfterPlies(ply),
+      });
       evalCache.set(ply, found);
     }
     return found;
