@@ -137,7 +137,7 @@ export function mountPlay(outlet, params) {
       watchers: 0,
       pending: false,          // a move is in flight
       noFly: false,            // that move came from a drag, so do not re-animate it
-      sent: null,              // that move is a jump chain: the board as its hops left it
+      sent: null,              // that move is a jump chain or a drag: the board as it was left
       opponentPresent: false,
       awaiting: null,          // { seat, until } while an opponent may still return
       error: null,
@@ -1421,10 +1421,33 @@ export function mountPlay(outlet, params) {
     return { board, flyPath, captureList };
   }
 
+  /**
+   * The board a dragged move leaves on screen, kept while the server has it.
+   *
+   * A step, a single jump or a ring's move: the piece is where it was
+   * dropped, which is where a local game leaves it. Drawn from where it
+   * started, it sat back on the cell it was picked up from for the round
+   * trip, then turned up where it had been dropped when the echo came -- a
+   * drag does not fly. What it takes stays standing for the echo to fade, as
+   * a local game fades it, bar a ring's: the ring is put down on its cell.
+   */
+  function dropSent(move) {
+    const board = cloneState(state);
+    const ring = move.type === 'ring';
+    const from = ring ? move.from : move.path[0];
+    const code = board.pieceAt[from];
+    board.pieceAt[from] = -1;
+    board.pieceAt[ring ? move.to : move.path[move.path.length - 1]] = code;
+    /* All of it, for the echo to fade: none of it has been shown. */
+    const captureList = ring ? (move.capture ? [move.capture] : []) : move.captures;
+    return { board, flyPath: null, captureList };
+  }
+
   async function sendIntent(move, noFly, flyPath, captureList) {
     net.pending = true;
     net.noFly = Boolean(noFly);
-    net.sent = flyPath === undefined ? null : chainSent(move, noFly, flyPath, captureList);
+    net.sent = flyPath !== undefined ? chainSent(move, noFly, flyPath, captureList)
+      : (noFly ? dropSent(move) : null);
     net.error = null;
     selected = null;
     chain = null;
@@ -1853,7 +1876,8 @@ export function mountPlay(outlet, params) {
        case, and an empty cell's name is worth most to somebody looking for the
        square a placement in the list is talking about. */
     const spots = tilePlacementSpots(chain ? chain.preview : acting);
-    /* Our jump chain, on its way to the server: as its hops left it. */
+    /* Our jump chain or dragged piece, on its way to the server: as its hops
+       left it, or where it was dropped. */
     const sent = net && net.sent && !reviewing ? net.sent : null;
     const source = chain ? chain.preview : (sent ? sent.board : acting);
 
