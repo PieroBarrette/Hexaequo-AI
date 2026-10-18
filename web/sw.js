@@ -59,6 +59,7 @@ const SHELL = [
   './src/game/accuracy.js',
   './src/game/analysisWorker.js',
   './src/presence.js',
+  './src/progress.js',
   './src/settingsSync.js',
   './src/ui/challenge.js',
   './src/ui/emoji.js',

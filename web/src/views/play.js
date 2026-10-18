@@ -7,7 +7,7 @@
  * click, so both live on the same handlers without a mode switch.
  */
 
-import { t, onLanguageChange } from '../i18n.js';
+import { t, onLanguageChange, currentLanguage } from '../i18n.js';
 import { navigate, setLeaveGuard } from '../router.js';
 import { get as getSetting, set as setSetting, onSettingsChange } from '../settings.js';
 import { play as playSound } from '../audio.js';
@@ -24,12 +24,14 @@ import {
   findLegalMove, idleAfter, IDLE_LIMIT,
 } from '../game/moves.js';
 import { chooseMove, judge, DISK_POINTS, pliesToMate } from '../game/ai.js';
-import { weigh, summarise, markOf } from '../game/accuracy.js';
+import { weigh, summarise, markOf, winShare } from '../game/accuracy.js';
 import { request, listen, connect, rejoinKey } from '../net.js';
 import {
   api, isSignedIn, onAuthChange, ratingChanged, ratingFor, currentUser,
 } from '../auth.js';
 import { openPanel } from '../ui/panels.js';
+import { startSeeking, stopSeeking, isSeeking, onSeekChange } from '../ui/challenge.js';
+import { leaderboardPlace, isPersonalBest, ordinal } from '../progress.js';
 import { emojiRowHtml } from '../ui/emoji.js';
 import { icon } from '../ui/icons.js';
 
@@ -234,7 +236,7 @@ export function mountPlay(outlet, params) {
 
   /** Whether the player may line a move up while the other side thinks. */
   const canPremove = () => Boolean(
-    net && net.ready && !net.pending && !result && review === null
+    net && net.ready && !net.pending && !result && review === null && !exploring
     && net.colour !== null && state.turn !== net.colour && getSetting('premove')
   );
 
@@ -296,9 +298,19 @@ export function mountPlay(outlet, params) {
             <div class="result-title"></div>
             <div class="result-why"></div>
             <div class="result-series"></div>
-            <div class="result-rating"></div>
             <div class="result-note"></div>
             <div class="result-actions"></div>
+            <!-- Under the buttons, because these arrive at their own pace --
+                 the rating once the server has written it, the report once it
+                 is done -- and a line landing above a button moves the button
+                 out from under the finger reaching for it. -->
+            <div class="result-stats" hidden>
+              <div class="result-rating"></div>
+              <div class="result-progress"></div>
+              <div class="result-report"></div>
+              <div class="result-guest"></div>
+              <div class="result-share"></div>
+            </div>
             <!-- What is said once the game is over, said here: the card is
                  where both players are looking, and a "gg" that has to be
                  hunted for in a closed panel is a "gg" nobody answers. -->
@@ -823,7 +835,11 @@ export function mountPlay(outlet, params) {
       return;
     }
     held = null;
-    if (net) { sendIntent(move, noFly, flyPath, captureList); return; }
+    /* Online, a move goes to the server -- except in a review, which is a
+       board of one's own to try things on. The game it was read from is over;
+       the server refused the move and the resync wiped the branch, so nothing
+       could be tried from the turning point the card points at. */
+    if (net && !exploring) { sendIntent(move, noFly, flyPath, captureList); return; }
     /* Playing from the middle of a branch replaces the rest of it. The move
        was chosen against the position on screen, so the line it belonged to
        has to be cut back to that position before it is applied — otherwise it
@@ -858,6 +874,8 @@ export function mountPlay(outlet, params) {
   function applyLocal(move, noFly, flyPath, captureList) {
     /* Whatever was being looked at, the board it was on is about to change. */
     peek = null;
+    /* A move played in a review makes the line something other than the game. */
+    if (exploring) exploring.strayed = true;
     history.push({
       snapshot: cloneState(state),
       log: moveLog.slice(),
@@ -1519,6 +1537,7 @@ export function mountPlay(outlet, params) {
     net.unsubscribe.push(listen('hx:rated', (payload) => {
       if (!net || payload.code !== net.code) return;
       net.ratings = payload.ratings || null;
+      net.gameId = payload.gameId || null;       // kept for good: the link worth sharing
       /* The rating the header is showing has just changed. Told here, where the
          new one arrives, rather than left for the next page load — the chip and
          the profile were disagreeing about the same number. */
@@ -1526,6 +1545,7 @@ export function mountPlay(outlet, params) {
       if (mine && typeof mine.after === 'number') ratingChanged(mine.after);
       renderResult();
       refresh();                 // and the rails, which print it too
+      loadProgress();            // and what it did for their place
     }));
     net.unsubscribe.push(listen('hx:chat', (payload) => {
       if (!net || payload.code !== net.code) return;
@@ -1750,6 +1770,7 @@ export function mountPlay(outlet, params) {
   function goToRematch(code) {
     if (!net || net.leaving || net.code === code) return;
     net.leaving = true;
+    stopSeeking();               // the next game is this one; nobody else is needed
     playSound('ui');
     navigate('play', { online: '1', code });
   }
@@ -2553,9 +2574,19 @@ export function mountPlay(outlet, params) {
     if (!mine) { stake.textContent = ''; stake.className = 'result-rating'; }
     else {
       const sign = mine.change > 0 ? '+' : '';
-      stake.textContent = `${t('online.ratingChange')} ${mine.after} (${sign}${mine.change})`;
+      // Started first, so the first frame shows the old number rather than the new.
+      if (!net.ratingCounted) countRating(mine);
+      stake.innerHTML = `${escapeText(t('online.ratingChange'))} `
+        + `<span class="rating-count">${ratingShown(mine)}</span> (${sign}${mine.change})`;
       stake.className = `result-rating ${mine.change > 0 ? 'is-up' : (mine.change < 0 ? 'is-down' : '')}`;
     }
+    renderProgress();
+    renderCardReport();
+    renderGuestPrompt();
+    renderShare();
+    maybeAutoReport();
+    findAnotherGame();
+    settleStats();
 
     const note = overlay.querySelector('.result-note');
     note.textContent = !net ? ''
@@ -2577,9 +2608,22 @@ export function mountPlay(outlet, params) {
     }
     /* Somebody who was watching has nothing to ask for: a rematch is between
        the two who played, and a new opponent is a thing you go and find. What
-       is left is the game they just watched. */
-    if (net.watching) return viewButton + menu;
+       is left is the game they just watched -- and the next one to watch,
+       which keeps a spectator on the site rather than at its door. */
+    if (net.watching) {
+      const next = net.live && net.live[0];
+      const onward = next
+        ? `<button class="btn btn--primary" data-action="watch-next"`
+          + ` title="${escapeText(`${next.black.pseudo} – ${next.white.pseudo}`)}">${t('result.watchNext')}</button>`
+        : `<button class="btn" data-action="to-lobby">${t('result.toLobby')}</button>`;
+      return onward + viewButton + menu;
+    }
 
+    /* Somebody new, at the same cadence, without leaving the card: the press
+       joins the queue and the button becomes the way out of it. */
+    const another = isSeeking()
+      ? `<button class="btn" data-action="new-online">${t('online.quickCancel')}</button>`
+      : `<button class="btn" data-action="new-online">${t('result.newOpponent')}</button>`;
     /* Nobody left to ask. The button stays, so the card keeps its shape, but
        it cannot be pressed, and the line under the card says why. */
     const gone = !net.opponentPresent;
@@ -2594,8 +2638,244 @@ export function mountPlay(outlet, params) {
       + `${label}</button>`
       + decline
       + viewButton
-      + `<button class="btn" data-action="new-online">${t('result.newOpponent')}</button>`
+      + another
       + menu;
+  }
+
+  /*
+   * The new rating counts from the old one, the first time the card shows it.
+   *
+   * A number that moves is a number that gets read, and the distance it
+   * travels is the game's worth said without a sign in front of it. Once per
+   * game; a reader who has asked for less motion gets the number standing.
+   */
+  let ratingCount = null;         // { from, to, start } while it runs
+
+  function ratingShown(mine) {
+    if (!ratingCount) return mine.after;
+    const share = Math.min(1, (performance.now() - ratingCount.start) / 900);
+    const eased = 1 - Math.pow(1 - share, 3);
+    return Math.round(ratingCount.from + (ratingCount.to - ratingCount.from) * eased);
+  }
+
+  function countRating(mine) {
+    net.ratingCounted = true;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches || mine.before === mine.after) return;
+    ratingCount = { from: mine.before, to: mine.after, start: performance.now() };
+    const settle = () => {
+      ratingCount = null;
+      const node = overlay.querySelector('.rating-count');
+      if (node) node.textContent = String(mine.after);
+    };
+    const step = () => {
+      const node = overlay.querySelector('.rating-count');
+      if (!ratingCount || !node) { ratingCount = null; return; }
+      node.textContent = String(ratingShown(mine));
+      if (performance.now() - ratingCount.start < 900) requestAnimationFrame(step);
+      else settle();
+    };
+    requestAnimationFrame(step);
+    /* A tab nobody is looking at paints no frames; the number still has to
+       arrive at where it is going. */
+    setTimeout(() => { if (ratingCount) settle(); }, 1000);
+  }
+
+  /**
+   * Where the game left the player: their place on the leaderboard and
+   * whether this is the best rating they have had.
+   *
+   * Asked of the leaderboard and the player's own record once the rating has
+   * been written, which is what hx:rated means. Nothing is shown until both
+   * answers are in, and nothing at all if either fails: the rating above it
+   * already says what happened.
+   */
+  async function loadProgress() {
+    const me = currentUser();
+    if (!net || !me || net.watching || net.colour === null || !net.ratings) return;
+    const mine = net.ratings[net.colour];
+    const theirs = net.ratings[1 - net.colour];
+    if (!mine) return;
+    const code = net.code;
+    try {
+      const [stats, players] = await Promise.all([
+        api('/profile/me'), leaderboardDownTo(Math.min(mine.before, mine.after)),
+      ]);
+      if (!net || net.code !== code) return;
+      const opponent = net.people ? net.people[1 - net.colour] : null;
+      net.progress = {
+        place: leaderboardPlace({
+          players, myId: me.id, opponentId: opponent && opponent.userId, mine, theirs,
+          firstGame: Boolean(stats && stats.rated && stats.rated.played <= 1),
+        }),
+        best: isPersonalBest({ stats, mine }),
+      };
+      renderResult();
+    } catch { /* the card can do without it */ }
+  }
+
+  /* The leaderboard from the top down to the first rating below `floor`:
+     everybody who could stand above the player, before the game or after. */
+  async function leaderboardDownTo(floor) {
+    const players = [];
+    for (let page = 1; page <= 5; page++) {
+      const body = await api(`/users/leaderboard?limit=100&page=${page}`);
+      const rows = (body && body.players) || [];
+      players.push(...rows);
+      if (rows.length < 100 || rows[rows.length - 1].elo < floor) break;
+    }
+    return players;
+  }
+
+  function renderProgress() {
+    const el = overlay.querySelector('.result-progress');
+    const progress = net && net.progress;
+    if (!progress) { el.innerHTML = ''; return; }
+    const parts = [];
+    if (progress.place) {
+      const rank = ordinal(progress.place.after, currentLanguage());
+      if (progress.place.before === null) parts.push(escapeText(t('result.rankNew', { rank })));
+      else {
+        const moved = progress.place.before - progress.place.after;
+        parts.push(escapeText(t('result.rank', { rank }))
+          + (moved ? ` <span class="${moved > 0 ? 'is-up' : 'is-down'}">`
+            + `${moved > 0 ? '▲' : '▼'}${Math.abs(moved)}</span>` : ''));
+      }
+    }
+    if (progress.best) parts.push(`<span class="result-best">${escapeText(t('result.personalBest'))}</span>`);
+    el.innerHTML = parts.join(' · ');
+  }
+
+  /*
+   * The game read back by itself, once it is over.
+   *
+   * The report already existed and was asked for from inside the review,
+   * which nobody found. It is the same report, started as the card goes up
+   * for the two who played: a game long enough to be worth weighing, once.
+   * A failure stays a failure rather than starting again on every redraw.
+   */
+  const AUTO_REPORT_PLIES = 12;
+
+  function maybeAutoReport() {
+    if (!net || net.watching || net.colour === null || !result || exploring || report) return;
+    if (timeline.length <= AUTO_REPORT_PLIES) return;
+    startReport();
+  }
+
+  /* The group under the buttons shows once one of its lines has something to say. */
+  function settleStats() {
+    const stats = overlay.querySelector('.result-stats');
+    stats.hidden = ![...stats.children].some((line) => line.innerHTML.trim());
+  }
+
+  /** The report, as far as the card needs it: both accuracies and the way to the move that mattered. */
+  function renderCardReport() {
+    const el = overlay.querySelector('.result-report');
+    el.innerHTML = cardReportHtml();
+    settleStats();
+  }
+
+  function cardReportHtml() {
+    const seat = net && !net.watching && net.colour !== null ? net.colour : null;
+    if (seat === null || !report || report.failed) return '';
+    if (!report.done) {
+      const share = report.plies ? Math.round((100 * report.seen) / report.plies) : 0;
+      return `<span class="report-bar"><i style="width:${share}%"></i></span>`
+        + `<span class="result-report-note">${t('report.running', { n: share })}</span>`;
+    }
+    const me = seat === BLACK ? report.black : report.white;
+    const them = seat === BLACK ? report.white : report.black;
+    if (!me || me.accuracy === null) return '';
+    return `<span>${escapeText(t('result.accuracyLine', {
+      left: speakerFor(seat).name, a: me.accuracy,
+      right: speakerFor(1 - seat).name, b: them && them.accuracy !== null ? them.accuracy : '—',
+    }))}</span>`
+      + (report.key !== null && report.key !== undefined
+        ? `<button class="btn btn--sm" data-action="key-moment">${t('result.keyMoment')}</button>` : '');
+  }
+
+  /*
+   * The move the game turned on: the one that gave away the most, by either
+   * side, measured the way the report measures everything -- in chances of
+   * winning, read from the side that played it. Nothing that cost less than a
+   * tenth of the game is called a turning point. The ply returned is the
+   * position before the move, so the review opens on the question rather than
+   * on its answer.
+   */
+  function turningPoint() {
+    let worst = 0.1;
+    let at = null;
+    for (let ply = 0; ply + 1 < timeline.length; ply++) {
+      const before = evalCache.get(ply);
+      const after = evalCache.get(ply + 1);
+      if (!before || !after) continue;
+      const sign = timeline[ply].turn === BLACK ? 1 : -1;
+      const loss = winShare(sign * before.score) - winShare(sign * after.score);
+      if (loss > worst) { worst = loss; at = ply; }
+    }
+    return at;
+  }
+
+  /*
+   * Passing the game on.
+   *
+   * A rated game is kept for good and has a page of its own, so that is the
+   * link. Any other game is still in the room it was played in for a couple
+   * of hours, where anybody with the link can watch it from the first move --
+   * so that is the link instead. Shared through the device's own sheet where
+   * there is one, and copied where there is not.
+   */
+  function renderShare() {
+    const el = overlay.querySelector('.result-share');
+    el.innerHTML = net
+      ? `<button class="btn btn--sm" data-action="share-game">${t('result.share')}</button>` : '';
+  }
+
+  async function shareGame(button) {
+    if (!net) return;
+    // Built the way an invitation is (see inviteLink): this page, another hash.
+    const url = new URL(location.href);
+    url.hash = net.gameId
+      ? `#/play?game=${encodeURIComponent(net.gameId)}`
+      : `#/play?watch=1&code=${encodeURIComponent(net.code)}`;
+    const link = url.toString();
+    if (navigator.share) {
+      try { await navigator.share({ title: 'Hexaequo', text: t('result.shareText'), url: link }); }
+      catch { /* dismissed, or refused by the platform */ }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(link);
+      if (button && button.isConnected) button.textContent = t('result.linkCopied');
+    } catch { showNote(link); }    // no clipboard: the link itself, to copy by hand
+  }
+
+  /*
+   * For a spectator, once the game they watched is over: another game to
+   * watch, asked of the server once. Without one the card offers the lobby,
+   * where the players are.
+   */
+  function findAnotherGame() {
+    if (!net || !net.watching || !result || net.liveAsked) return;
+    net.liveAsked = true;
+    const code = net.code;
+    request('hx:live', {}).then((answer) => {
+      if (!net || net.code !== code || !answer || !answer.ok) return;
+      net.live = (answer.games || []).filter((game) => game.code !== code);
+      renderResult();
+    }).catch(() => { /* the lobby button stands in for it */ });
+  }
+
+  /*
+   * A guest's game counts for nothing, and this is the moment that is worth
+   * saying: straight after a game, with the result in front of them. Said as
+   * what the game would have been worth, and one press from the way to fix it.
+   */
+  function renderGuestPrompt() {
+    const el = overlay.querySelector('.result-guest');
+    if (!net || net.watching || net.colour === null || isSignedIn()) { el.innerHTML = ''; return; }
+    const won = result && !result.draw && result.winner === net.colour;
+    el.innerHTML = `<span>${escapeText(t(won ? 'result.guestWon' : 'result.guestOther'))}</span>`
+      + `<button class="btn btn--sm btn--primary" data-action="guest-sign-in">${t('result.createAccount')}</button>`;
   }
 
   /**
@@ -2799,6 +3079,7 @@ export function mountPlay(outlet, params) {
     review = null;
     history = [];
     forgetAnalysis();
+    if (exploring) exploring.strayed = true;
     /* Rebuilt from the line that survives, so the threefold rule counts the
        positions this branch actually stands on rather than starting blind. */
     repetitions = new Map();
@@ -2853,7 +3134,11 @@ export function mountPlay(outlet, params) {
     history = [];
     result = null;
     resultSeen = false;
-    forgetAnalysis();
+    /* The analysis stays: until a move is played here the line is the game,
+       ply for ply, and the report the card has just read out -- or is still
+       working on -- is about exactly what is on screen. The first move played
+       into the branch is what makes it something else (see cutBackTo and
+       applyLocal), and the way out puts it right then. */
     repetitions = new Map();
     for (const position of timeline) {
       const signature = positionKey(position);
@@ -2896,10 +3181,13 @@ export function mountPlay(outlet, params) {
     turnAt = Date.now();
     ({ timeline, timelineMoves, moveLog, history, repetitions, idle,
       state, result, lastMove, review } = exploring);
+    const strayed = exploring.strayed;
     resultSeen = false;
     aiRunning = false;
     exploring = null;
-    forgetAnalysis();            // the branch's numbers were not about this game
+    /* A branch that was only read leaves the game's numbers as they were; one
+       that was played into has numbers about something else. */
+    if (strayed) forgetAnalysis();
     selected = null;
     chain = null;
     placeMode = null;
@@ -2940,7 +3228,9 @@ export function mountPlay(outlet, params) {
       history = [];
       result = null;
       resultSeen = false;
-      forgetAnalysis();
+      // The game's line again: its numbers hold unless the branch had strayed.
+      if (exploring.strayed) forgetAnalysis();
+      exploring.strayed = false;
       repetitions = new Map();
       for (const position of timeline) {
         const signature = positionKey(position);
@@ -3981,6 +4271,7 @@ export function mountPlay(outlet, params) {
     } else if (message.type === 'done') {
       report.done = true;
       Object.assign(report, weighReport());
+      report.key = turningPoint();
       refreshReport();
       stopReport(true);              // the numbers stay; the thread does not
     } else if (message.type === 'failed') {
@@ -4010,6 +4301,7 @@ export function mountPlay(outlet, params) {
    * phone.
    */
   function renderReport() {
+    renderCardReport();          // the card shows the same run, in brief
     if (!reportEl || !reportCtl) return;
     const room = isReview() && timeline.length > 1 && drawerOpen && drawerTab === 'moves';
 
@@ -4671,7 +4963,7 @@ export function mountPlay(outlet, params) {
     if (action === 'tools') setToolsOpen(!toolsOpen());
     /* The same button, and the server decides what it means: alone with the
        board a move simply comes back, online it has to be asked for. */
-    else if (action === 'undo') { if (net) askUndo(); else undoLast(); }
+    else if (action === 'undo') { if (net && !exploring) askUndo(); else undoLast(); }
     else if (action === 'new') {
       if (net) { navigate('online'); return; }
       /* On the bar now, where a thumb finds it -- and can find it by accident.
@@ -4681,7 +4973,29 @@ export function mountPlay(outlet, params) {
       aiRunning = false;
       newGame();
     }
-    else if (action === 'new-online') navigate('online');
+    else if (action === 'new-online') {
+      /* From the card: straight into the queue at the cadence just played,
+         and the card stays -- the chat, the report, a rematch if one comes.
+         A guest, or an untimed game, has nothing to queue with, and goes to
+         the online page as before. */
+      const cadence = net && net.clock && net.clock.control;
+      if (net && !net.watching && result && isSignedIn() && cadence && cadence !== 'none') {
+        if (isSeeking()) stopSeeking(); else startSeeking(cadence);
+      } else navigate('online');
+    }
+    else if (action === 'share-game') shareGame(button);
+    else if (action === 'watch-next') {
+      const next = net && net.live && net.live[0];
+      if (next) navigate('play', { watch: '1', code: next.code });
+    }
+    else if (action === 'to-lobby') navigate('online');
+    else if (action === 'key-moment') {
+      if (report && report.key !== null && report.key !== undefined) {
+        const at = report.key;
+        startExploring(at);
+        setDrawer(true, 'moves');
+      }
+    }
     else if (action === 'menu') navigate('home');
     else if (action === 'resign') resign();
     else if (action === 'draw') offerDraw();
@@ -4931,6 +5245,9 @@ export function mountPlay(outlet, params) {
     else if (name === 'aiLevel' && !net) { level = getSetting('aiLevel'); buildTools(); refresh(); }
   });
   const stopWatchingLanguage = onLanguageChange(relabel);
+  /* A search started from the card can end anywhere -- cancelled from the
+     corner, matched, dropped -- and the button on the card says which. */
+  const stopWatchingSeek = onSeekChange(() => { if (result) renderResult(); });
 
   /*
    * A position handed over from a game being read back.
@@ -4992,6 +5309,7 @@ export function mountPlay(outlet, params) {
     }
     stopWatchingSettings();
     stopWatchingLanguage();
+    stopWatchingSeek();
     document.removeEventListener('keydown', onKey);
     document.removeEventListener('pointerdown', onAnyPointer, true);
     clearTimeout(bubbleTimer);

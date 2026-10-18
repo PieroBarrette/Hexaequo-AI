@@ -506,6 +506,41 @@ select.btn option {
   margin: -8px 0 14px;
 }
 .result-series:empty { display: none; }
+.rating-count { font-variant-numeric: tabular-nums; }
+
+/* The lines that arrive after the card: under the buttons, one group. */
+.result-stats {
+  margin-top: 14px; display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.result-stats[hidden] { display: none; }
+.result-card .result-stats > * { margin: 0; }
+
+/* What the game did for the player: their place, and a best when it is one. */
+.result-progress {
+  font-size: calc(12.5px * var(--text-scale)); color: var(--muted); margin: -8px 0 14px;
+}
+.result-progress:empty { display: none; }
+.result-progress .is-up { color: var(--green, #5cba7d); font-weight: 600; }
+.result-progress .is-down { color: var(--danger); font-weight: 600; }
+.result-best { color: var(--accent); font-weight: 600; }
+
+/* The report, in brief: running, then the two accuracies and the way to the
+   move the game turned on. */
+.result-report {
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px;
+  font-size: calc(12.5px * var(--text-scale)); margin: -4px 0 14px;
+}
+.result-report:empty { display: none; }
+.result-report-note { color: var(--muted); }
+
+/* For a guest: what the game would have been worth, and the way to have it. */
+.result-guest {
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px;
+  font-size: calc(12.5px * var(--text-scale)); color: var(--muted);
+  margin: -4px 0 14px; padding: 8px 10px; border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+}
+.result-guest:empty { display: none; }
 
 /*
  * After the game, the conversation.
@@ -1271,6 +1306,9 @@ h1 > .pip { width: 11px; height: 11px; margin-right: 10px; }
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
 .hail--note { font-size: 12.5px; color: var(--muted); }
+/* A search for an opponent, running while you do something else. */
+.hail-time { font-variant-numeric: tabular-nums; color: var(--text); margin-left: 4px; }
+.hail-sub { margin-top: 4px; }
 @media (prefers-reduced-motion: reduce) { .hail { animation: none; } }
 .lobby-elo { font: 600 13px/1 var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
 .lobby-status { font-size: 12px; color: var(--muted); min-width: 5.5em; text-align: right; }

@@ -17,6 +17,9 @@
  * A game already under way is addressed to you in the same sense, so it shares
  * the corner: leaving a game is safe only if the way back is one press from
  * wherever you went.
+ *
+ * So does a search for an opponent started from the end of a game: it follows
+ * you, and the game it finds opens wherever you are.
  */
 
 import { t } from '../i18n.js';
@@ -36,6 +39,106 @@ let incoming = null;      // a question waiting for an answer
 let outgoing = null;      // a question we asked, waiting on them
 let agreed = null;        // a yes that is waiting for a board to clear
 let notice = null;        // the last thing that happened, in words
+
+/*
+ * Looking for an opponent while doing something else.
+ *
+ * Started from the card at the end of a game, where the way to somebody new
+ * used to be a trip to the online page and a second press. Held here rather
+ * than in the view that started it, so it outlives that view: the player can
+ * stay and talk, read the game back, or -- once nobody has turned up for a
+ * while -- play the computer to pass the time, and the match still finds them.
+ * The online page keeps a search of its own, and this one leaves it alone.
+ */
+let seeking = null;       // { timeControl, since } while in the quick-match queue
+let seekTicker = 0;
+const SEEK_IDLE_MS = 30000;
+const seekWatchers = new Set();
+
+export const isSeeking = () => Boolean(seeking);
+
+/** Be told when a search starts or stops. */
+export function onSeekChange(fn) {
+  seekWatchers.add(fn);
+  return () => seekWatchers.delete(fn);
+}
+
+function seekChanged() {
+  clearInterval(seekTicker);
+  seekTicker = seeking ? setInterval(paintSeek, 1000) : 0;
+  render();
+  for (const fn of seekWatchers) { try { fn(); } catch { /* one bad watcher stops nobody */ } }
+}
+
+/** Join the quick-match queue at this cadence. Resolves true once queued. */
+export async function startSeeking(timeControl) {
+  if (!isSignedIn() || seeking) return Boolean(seeking);
+  try {
+    await connect();
+    await arm();
+    const response = await request('hx:queue', { timeControl });
+    if (!response || !response.ok) {
+      say(t('online.errors.' + ((response && response.error) || 'OFFLINE')));
+      return false;
+    }
+    seeking = { timeControl, since: Date.now() - (response.waitingMs || 0) };
+    seekChanged();
+    return true;
+  } catch {
+    say(t('online.errors.OFFLINE'));
+    return false;
+  }
+}
+
+export function stopSeeking() {
+  if (!seeking) return;
+  seeking = null;
+  seekChanged();
+  request('hx:queue:leave', {}).catch(() => {});
+}
+
+const waitedText = (ms) => {
+  const s = Math.floor(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+
+/* Whether the board in front of us is already a game against the computer --
+   where offering one would be offering what is being played. */
+function atLocalBoard() {
+  const [name, query] = (window.location.hash || '').replace(/^#\/?/, '').split('?');
+  if (name !== 'play') return false;
+  const params = new URLSearchParams(query || '');
+  return !params.get('online') && !params.get('watch') && !params.get('game');
+}
+
+/* Just the clock, every second; the whole chip only when what it offers
+   changes. Redrawing it every second would fight the finger on its buttons. */
+function paintSeek() {
+  if (!seeking || !host) return;
+  const waited = Date.now() - seeking.since;
+  const time = host.querySelector('.hail-time');
+  if (time) time.textContent = waitedText(waited);
+  const idle = waited >= SEEK_IDLE_MS;
+  if (idle !== Boolean(host.querySelector('.hail--seek.is-idle'))) render();
+}
+
+function seekChip() {
+  const waited = Date.now() - seeking.since;
+  const idle = waited >= SEEK_IDLE_MS;
+  const computer = idle && !atLocalBoard()
+    ? `<button class="btn btn--sm btn--primary" data-hail="seek-computer">${t('challenge.seekComputer')}</button>`
+    : '';
+  return `
+    <div class="hail hail--seek${idle ? ' is-idle' : ''}">
+      <div class="hail-lede">${t('online.quickSearching')}
+        <span class="hail-time">${waitedText(waited)}</span></div>
+      ${idle ? `<div class="hail-lede hail-sub">${t('challenge.seekIdle')}</div>` : ''}
+      <div class="hail-actions">
+        ${computer}
+        <button class="btn btn--sm" data-hail="seek-cancel">${t('online.quickCancel')}</button>
+      </div>
+    </div>`;
+}
 /* Somebody said your name in the lobby. Kept here rather than in the lobby
    view, because the whole point of being named is to be reached while looking
    at something else. */
@@ -99,11 +202,12 @@ function render() {
   if (!host) return;
   const chip = agreed && !watchingTheDeal();
   const back = myGame && !inMyGame() && !pageOffersTheWayBack();
-  if (!incoming && !outgoing && !chip && !back && !notice && !mention) {
+  if (!incoming && !outgoing && !chip && !back && !notice && !mention && !seeking) {
     host.hidden = true; host.innerHTML = ''; return;
   }
   host.hidden = false;
   host.innerHTML = (back ? backChip() : '')
+    + (seeking ? seekChip() : '')
     + (incoming ? incomingCard() : '')
     + (outgoing ? outgoingChip() : '')
     + (chip ? agreedChip() : '')
@@ -256,6 +360,15 @@ async function onClick(event) {
     clearMention();
     return;
   }
+  if (action === 'seek-cancel') {
+    stopSeeking();
+    return;
+  }
+  if (action === 'seek-computer') {
+    // The search goes on; the board in front of you is only for the wait.
+    navigate('play');
+    return;
+  }
   if (action === 'watch' && agreed && agreed.watchCode) {
     /* The chip stays: the agreement is still standing, and it is what opens
        the real game when the one being watched ends. */
@@ -344,10 +457,31 @@ async function arm() {
     if (agreed && agreed.id === payload.id) agreed = null;
     say(t('lobby.expired'));
   });
+  /* A search of ours found somebody. The online page answers for a search of
+     its own, so one that is not ours is left to it. */
+  listen('hx:matched', (payload) => {
+    if (!seeking || !payload || !payload.code) return;
+    seeking = null;
+    seekChanged();
+    playSound('ui');
+    navigate('play', { online: '1', code: payload.code });
+    /* A game against the computer may have asked whether to leave it, and
+       been told no: the new game then waits in the corner like any other.
+       Asked once the question has had its answer. */
+    setTimeout(catchUp, 1500);
+  });
+  listen('hx:queue:update', (status) => {
+    if (!seeking || (status && status.inQueue)) return;
+    seeking = null;
+    seekChanged();
+    if (status && status.error) say(t('online.errors.' + status.error));
+  });
   /* Signing in on a live socket does not re-dial, so take the identity across
      explicitly or the server has nobody to address. */
   listen('connect', async () => {
     catchUp();
+    /* The queue slot belonged to the socket that dropped; take it again. */
+    if (seeking) request('hx:queue', { timeControl: seeking.timeControl }).catch(() => {});
   });
   catchUp();
 }
@@ -395,6 +529,7 @@ export function mountChallenges() {
     agreed = null;
     notice = null;
     myGame = null;
+    if (seeking) { seeking = null; seekChanged(); }
     render();
   });
   arm();

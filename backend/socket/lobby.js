@@ -317,6 +317,17 @@ function attachLobby(io) {
             reply(callback, { ok: true, players: roster(), games: liveGames(), chat, you: user.userId });
         });
 
+        /*
+         * The games anybody may look in on, without stepping into the room.
+         *
+         * Asked by somebody whose game -- the one they were watching -- has
+         * just ended, and who might watch another. Entering the lobby to read
+         * the list would put their name on it for everybody else to see.
+         */
+        socket.on('hx:live', (payload, callback) => {
+            reply(callback, { ok: true, games: liveGames() });
+        });
+
         socket.on('hx:lobby:leave', (payload, callback) => {
             const user = socket.data.user;
             if (user) {

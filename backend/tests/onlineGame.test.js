@@ -1444,6 +1444,28 @@ async function run() {
         b.disconnect();
     });
 
+    await test('the games anybody may watch can be read without stepping into the lobby', async () => {
+        const a = await open();
+        const b = await open();
+        await Promise.all([signIn(a, 'acct-amelie'), signIn(b, 'acct-bertrand')]);
+        const created = await ask(a, 'hx:create', { timeControl: 'blitz' });
+        await ask(b, 'hx:join', { code: created.code });
+
+        const passerBy = await open();
+        const live = await ask(passerBy, 'hx:live', {});
+        assert.ok(live.ok);
+        const listed = live.games.find((g) => g.code === created.code);
+        assert.ok(listed, 'the game under way is on the list');
+        assert.deepStrictEqual([listed.black.pseudo, listed.white.pseudo], ['Amelie', 'Bertrand']);
+
+        await ask(a, 'hx:resign', { code: created.code });
+        const after = await ask(passerBy, 'hx:live', {});
+        assert.ok(!after.games.some((g) => g.code === created.code), 'and off it once it is over');
+        passerBy.disconnect();
+        a.disconnect();
+        b.disconnect();
+    });
+
     black.disconnect();
     white.disconnect();
     io.close();
