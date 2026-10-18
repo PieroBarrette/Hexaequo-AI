@@ -1132,6 +1132,12 @@ export function mountPlay(outlet, params) {
       : { winner: payload.winner, ...outcome };
   }
 
+  /** A refusal from the server, in words. One with no words of its own reads as offline. */
+  function errorText(code) {
+    const key = 'online.errors.' + code;
+    return t(key) === key ? t('online.errors.OFFLINE') : t(key);
+  }
+
   /**
    * The clock a seat should be showing right now. The server sends a snapshot
    * with each move; between moves the side on turn is counted down locally, so
@@ -1352,10 +1358,13 @@ export function mountPlay(outlet, params) {
     }
     net.pending = false;
     if (!response.ok) {
-      net.error = response.error;
       net.noFly = false;
       // The server refused: whatever we thought the position was, it is wrong.
       await syncFromServer();
+      /* And it says why, over the board. On the strip the reason lasted one
+         round trip -- adopting the room clears it -- so a refused move looked
+         like a button that did nothing. */
+      if (net && !net.error) showNote(errorText(response.error));
       return;
     }
     // The accepted move arrives through the hx:moved broadcast, which the
@@ -4014,8 +4023,7 @@ export function mountPlay(outlet, params) {
     let message;
     let tone = '';
     if (net.error) {
-      message = t('online.errors.' + net.error) === 'online.errors.' + net.error
-        ? t('online.errors.OFFLINE') : t('online.errors.' + net.error);
+      message = errorText(net.error);
       tone = 'is-warn';
     } else if (!net.ready) {
       message = t('online.connecting');

@@ -47,8 +47,11 @@ export function availableJumps(s, from, player, visited, visitedFrom) {
 
 const MAX_CHAIN = 24;
 
-/** All moves for one disk. `capturesOnly` restricts output to capturing chains. */
-export function generateDiskMoves(s, origin, out, capturesOnly) {
+/**
+ * All moves for one disk. `capturesOnly` restricts output to capturing chains;
+ * `everyRoute` keeps every chain rather than one per landing and captures.
+ */
+export function generateDiskMoves(s, origin, out, capturesOnly, everyRoute = false) {
   const player = s.turn;
   const code = makePiece(player, DISK);
 
@@ -78,10 +81,11 @@ export function generateDiskMoves(s, origin, out, capturesOnly) {
 
       if (!capturesOnly || captures.length) {
         // Two chains reaching the same cell with the same captures produce the
-        // same position; keep only one.
+        // same position; a search needs only one. Matching a player's route
+        // needs them all -- see findLegalMove.
         let signature = jump.land + '|';
         for (const c of captures) signature += c.cell + ',';
-        if (!emitted.has(signature)) {
+        if (everyRoute || !emitted.has(signature)) {
           emitted.add(signature);
           out.push({ type: 'disk', path: path.slice(), captures: captures.slice() });
         }
@@ -119,8 +123,8 @@ export function generateRingMoves(s, from, out, capturesOnly) {
   }
 }
 
-/** Every legal move for the side to move. */
-export function generateMoves(s, out = []) {
+/** Every legal move for the side to move. `everyRoute` as for generateDiskMoves. */
+export function generateMoves(s, out = [], everyRoute = false) {
   const player = s.turn;
 
   if (s.tileReserve[player] > 0) {
@@ -139,7 +143,7 @@ export function generateMoves(s, out = []) {
   for (const cell of s.tileKeys) {
     const v = s.pieceAt[cell];
     if (v < 0 || pieceOwner(v) !== player) continue;
-    if (pieceType(v) === DISK) generateDiskMoves(s, cell, out, false);
+    if (pieceType(v) === DISK) generateDiskMoves(s, cell, out, false, everyRoute);
     else generateRingMoves(s, cell, out, false);
   }
   return out;
@@ -260,10 +264,18 @@ function matchesIntent(move, intent) {
 /**
  * The canonical legal move matching `intent`, or null if there is none.
  * Never trust the caller's captures: the returned move carries the server's own.
+ *
+ * Matched against every route a disk can take, not the one per landing that
+ * the search is given. Two chains ending on the same cell with the same pieces
+ * taken leave the same position, so the search keeps whichever it found first;
+ * but a player builds a chain a hop at a time, and the route they built is the
+ * one that has to be found. Matched against the shortlist, about one chain in
+ * thirteen stopped part-way in random play was refused: the tick on the jump
+ * bar sent a legal move, and the board was put back.
  */
 export function findLegalMove(s, intent) {
   if (!intent || typeof intent !== 'object') return null;
-  for (const move of generateMoves(s)) {
+  for (const move of generateMoves(s, [], true)) {
     if (matchesIntent(move, intent)) return move;
   }
   return null;

@@ -159,6 +159,37 @@ async function run() {
         }
     });
 
+    await test('a chain is accepted by whichever route it took', async () => {
+        /* Two ways to the same cell: straight over one friendly disk, or round
+           by two. The search keeps one route per landing and kept the long way
+           round, so the straight hop -- stopped there with the tick while a
+           capture was still on offer -- came back as an illegal move. Every
+           route the jump bar can stop on is a move. */
+        const at = (q, r) => ((q + 32) << 6) | (r + 32);
+        const O = at(0, 0), A = at(2, 0), L = at(2, -2), M = at(0, -2);
+        const snapshot = {
+            v: 1,
+            tiles: [O, 0, at(1, 0), 0, A, 0, at(2, -1), 0, at(1, -1), 0,
+                L, 1, at(1, -2), 1, M, 1, at(0, 2), 1],
+            pieces: [O, 0, at(1, 0), 0, at(2, -1), 0, at(1, -1), 0, at(1, -2), 2, at(0, 2), 2],
+            turn: engine.BLACK,
+            capturedDisks: [0, 0],
+            capturedRings: [0, 0],
+        };
+        const position = state.deserializeState(snapshot);
+        const toL = (list) => list.filter((m) => m.type === 'disk'
+            && m.path[0] === O && m.path[m.path.length - 1] === L).length;
+        assert.strictEqual(toL(moves.generateMoves(position)), 1, 'the search still sees one way there');
+        assert.strictEqual(toL(moves.generateMoves(position, [], true)), 2, 'a player may take either');
+
+        for (const path of [[O, L], [O, L, M], [O, L, A], [O, A, L], [O, A, L, M]]) {
+            const outcome = await engine.applyIntent(snapshot, { type: 'disk', path }, engine.BLACK);
+            assert.ok(outcome.ok, `${path.join('-')} was refused: ${outcome.error}`);
+        }
+        const taken = await engine.applyIntent(snapshot, { type: 'disk', path: [O, L, M] }, engine.BLACK);
+        assert.deepStrictEqual(taken.captures.map((c) => c.cell), [at(1, -2)], 'and takes what it crossed');
+    });
+
     await test('a state that does not conserve material is refused', async () => {
         const snapshot = await engine.createGame();
         // Claim seven captured white disks: more than exist in the game.
