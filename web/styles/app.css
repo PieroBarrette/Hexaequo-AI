@@ -501,6 +501,47 @@ select.btn option {
 .result-note { color: var(--accent); font-size: calc(13px * var(--text-scale)); margin: -8px 0 14px; min-height: 0; }
 .result-note:empty { display: none; }
 .result-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.result-series {
+  font: 600 calc(13px * var(--text-scale))/1.3 var(--font-mono); font-variant-numeric: tabular-nums;
+  margin: -8px 0 14px;
+}
+.result-series:empty { display: none; }
+
+/*
+ * After the game, the conversation.
+ *
+ * Under the buttons rather than above them: the next game is still the first
+ * thing on offer, and what is said about the last one comes after it. Left-
+ * aligned like the panel's chat, because lines of talk read down a margin.
+ */
+.result-talk {
+  margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line);
+  display: flex; flex-direction: column; gap: 8px; text-align: left;
+}
+.result-talk[hidden] { display: none; }
+.result-presence {
+  display: flex; align-items: center; gap: 7px;
+  font-size: calc(12.5px * var(--text-scale)); color: var(--muted);
+}
+.result-presence::before {
+  content: ''; width: 8px; height: 8px; border-radius: 50%; flex: none;
+  background: var(--muted); opacity: .6;
+}
+.result-presence.is-here::before { background: var(--green, #5cba7d); opacity: 1; }
+.result-chat { display: flex; flex-direction: column; gap: 3px; }
+.result-chat .chat-line { font-size: calc(13px * var(--text-scale)); }
+.result-chat-hint { color: var(--muted); font-size: calc(13px * var(--text-scale)); }
+.result-quick { display: flex; flex-wrap: wrap; gap: 6px; }
+.result-say { display: flex; gap: 6px; }
+.result-say-input { flex: 1; min-width: 0; text-align: left; }
+
+/* Where one game of a series ends and the next begins, in the chat log. */
+.chat-mark {
+  display: flex; align-items: center; gap: 8px; margin: 4px 0;
+  color: var(--muted); font-size: calc(11.5px * var(--text-scale));
+  letter-spacing: .06em; text-transform: uppercase;
+}
+.chat-mark::before, .chat-mark::after { content: ''; flex: 1; border-top: 1px solid var(--line); }
 
 /*
  * Reading back through a game.

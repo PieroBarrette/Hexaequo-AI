@@ -224,6 +224,8 @@ function publicView(room) {
         watchers: room.watchers.size,
         names: room.names,
         chat: room.chat,
+        game: room.game,
+        series: room.series,
         // A rematch already agreed: whoever arrives late is sent to the new room
         // rather than left looking at a finished one.
         rematchCode: room.rematchCode || null,
@@ -361,12 +363,19 @@ function chargeClock(room, seat) {
  * Shared by hx:create and by matchmaking, which needs the same room but
  * reserves both seats in advance for the two players it paired.
  */
-async function createRoom({ timeControl = 'none', reserved = null } = {}) {
+async function createRoom({
+    timeControl = 'none', reserved = null, game = 1, series = null, chat = null,
+} = {}) {
     const state = await engine.createGame();
     const code = makeCode();
     const room = {
         code,
         state,
+        /* Which game of a series this is, and how the series stands, by seat.
+           A rematch is the same two players again, so it carries both on --
+           turned round, as the seats are. */
+        game,
+        series: series || { wins: [0, 0], draws: 0 },
         moves: [],
         notations: [],
         /* How long each move took, in milliseconds, one for one with `moves`.
@@ -380,7 +389,7 @@ async function createRoom({ timeControl = 'none', reserved = null } = {}) {
         /* The key each seat was taken with: what a tab is known by when its
            connection is not the one that sat down. See seatByClaim. */
         keys: [null, null],
-        chat: [],
+        chat: chat || [],
         rematch: null,          // { seat } while one side has offered
         /*
          * Taking a move back, by agreement.
@@ -521,6 +530,24 @@ function seatTheRematch(io, room, next) {
     }
 }
 
+/**
+ * What a rematch takes with it: the series, and the conversation.
+ *
+ * The two players swap seats, so both are turned round to match -- the
+ * series is kept by seat, and so is every line of chat. Each line keeps the
+ * number of the game it was said over, which is how a "gg" stays above the
+ * game it was about rather than reading as the opening of the next one.
+ */
+function carriedIntoRematch(room) {
+    const turned = (seat) => (seat === 0 || seat === 1 ? 1 - seat : seat);
+    return {
+        game: room.game + 1,
+        series: { wins: [room.series.wins[1], room.series.wins[0]], draws: room.series.draws },
+        chat: room.chat.slice(-CHAT_HISTORY)
+            .map((line) => ({ ...line, seat: turned(line.seat), game: line.game || room.game })),
+    };
+}
+
 function touch(room) {
     room.lastSeen = Date.now();
 }
@@ -538,8 +565,14 @@ function finish(io, room, result) {
     if (room.clock) room.clock.running = false;
     if (room.result) return;                     // a game ends exactly once
     room.result = result;
+    /* Only a game that was played counts towards the series: a room nobody
+       else ever sat down in has no score to keep. */
+    if (room.everFull) {
+        if (result.winner === 0 || result.winner === 1) room.series.wins[result.winner]++;
+        else room.series.draws++;
+    }
     io.to(room.code).emit('hx:ended', {
-        code: room.code, result, clock: clockView(room), rated: isRated(room),
+        code: room.code, result, clock: clockView(room), rated: isRated(room), series: room.series,
     });
 
     /* Both players are free again: their lights, and anyone who agreed to
@@ -560,6 +593,19 @@ function finish(io, room, result) {
             });
         })
         .catch((error) => console.error('[online] recording failed:', error.message));
+}
+
+/**
+ * Somebody has left a finished game: whatever was offered for the next one
+ * goes with them.
+ *
+ * Their offer was waiting on an answer they are no longer there to hear, and
+ * an offer made to them was waiting on someone who has gone -- the button
+ * that sent it sat saying "rematch offered" to an empty chair. The departure
+ * itself is announced by the caller, as it is during a game.
+ */
+function withdrawRematch(room) {
+    if (room.result) room.rematch = null;
 }
 
 function cancelGrace(room) {
@@ -1032,6 +1078,7 @@ function attachOnlineGames(io) {
             // A game nobody is watching from that seat is a game nobody is
             // offering a draw from either.
             if (room.draw && room.draw.seat === seat) room.draw = null;
+            withdrawRematch(room);
             const grace = startGrace(io, room, seat);
             socket.to(code).emit('hx:opponent', {
                 code,
@@ -1138,6 +1185,7 @@ function attachOnlineGames(io) {
                 name: room.names[seat] || null,
                 text: text.slice(0, CHAT_MAX_LENGTH),
                 at: now,
+                game: room.game,        // which game of the series it was said over
             };
             room.chat.push(message);
             if (room.chat.length > CHAT_HISTORY) room.chat.shift();
@@ -1214,6 +1262,7 @@ function attachOnlineGames(io) {
                         reserved: black && white && black.userId && white.userId
                             ? [black.userId, white.userId]
                             : null,
+                        ...carriedIntoRematch(room),
                     });
                     return next.code;
                 } catch {
@@ -1401,6 +1450,7 @@ function attachOnlineGames(io) {
                 // Free the seat so the same player can come back to it, and give
                 // them a window to do so before the game is awarded away.
                 room.seats[seat] = null;
+                withdrawRematch(room);
                 const grace = startGrace(io, room, seat);
                 socket.to(code).emit('hx:opponent', {
                     code,

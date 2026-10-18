@@ -1372,6 +1372,78 @@ async function run() {
         b.disconnect();
     });
 
+    /* -- After the game ------------------------------------------------- */
+
+    await test('leaving a finished game is announced, and takes the rematch offer with it', async () => {
+        const a = await open();
+        const b = await open();
+        const created = await ask(a, 'hx:create', {});
+        await ask(b, 'hx:join', { code: created.code });
+        await ask(a, 'hx:resign', { code: created.code });
+        const offered = waitFor(b, 'hx:rematch:offer');
+        await ask(a, 'hx:rematch', { code: created.code });
+        await offered;
+
+        const gone = waitFor(b, 'hx:opponent');
+        await ask(a, 'hx:leave', { code: created.code });
+        const told = await gone;
+        assert.strictEqual(told.seat, 0, 'the one who left');
+        assert.strictEqual(told.joined, false);
+        assert.strictEqual(told.msLeft, null, 'no countdown: the game is already over');
+        const view = await ask(b, 'hx:sync', { code: created.code });
+        assert.strictEqual(view.rematchOfferedBy, null, 'an offer from an empty chair is no offer');
+        assert.deepStrictEqual(view.seats, [false, true]);
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('an offer made to somebody who then drops goes too', async () => {
+        const a = await open();
+        const b = await open();
+        const created = await ask(a, 'hx:create', {});
+        await ask(b, 'hx:join', { code: created.code });
+        await ask(a, 'hx:resign', { code: created.code });
+        await ask(a, 'hx:rematch', { code: created.code });
+        const gone = waitFor(a, 'hx:opponent');
+        b.disconnect();
+        assert.strictEqual((await gone).joined, false, 'the one still there is told');
+        const view = await ask(a, 'hx:sync', { code: created.code });
+        assert.strictEqual(view.rematchOfferedBy, null);
+        a.disconnect();
+    });
+
+    await test('a rematch carries the series and the conversation, turned to the new seats', async () => {
+        const a = await open();
+        const b = await open();
+        const created = await ask(a, 'hx:create', { name: 'Ana' });
+        await ask(b, 'hx:join', { code: created.code, name: 'Ben' });
+        assert.strictEqual(created.game, 1, 'a room starts a series');
+        assert.deepStrictEqual(created.series, { wins: [0, 0], draws: 0 });
+
+        await ask(a, 'hx:chat', { code: created.code, text: 'good luck' });
+        const ended = waitFor(b, 'hx:ended');
+        await ask(a, 'hx:resign', { code: created.code });          // Ben, on White, wins
+        assert.deepStrictEqual((await ended).series, { wins: [0, 1], draws: 0 },
+            'the ending says how the series stands');
+        await ask(b, 'hx:chat', { code: created.code, text: 'gg' });
+
+        await ask(a, 'hx:rematch', { code: created.code });
+        const agreed = await ask(b, 'hx:rematch', { code: created.code });
+        const second = await ask(b, 'hx:join', { code: agreed.code });
+        assert.strictEqual(second.colour, 0, 'Ben has Black now');
+        assert.strictEqual(second.game, 2);
+        assert.deepStrictEqual(second.series, { wins: [1, 0], draws: 0 },
+            'his win comes with him to the seat he now holds');
+        assert.deepStrictEqual(second.chat.map((m) => [m.text, m.seat, m.game]),
+            [['good luck', 1, 1], ['gg', 0, 1]], 'each line follows its writer, and keeps its game');
+
+        await ask(b, 'hx:resign', { code: agreed.code });           // Ana, now on White, wins
+        const view = await ask(a, 'hx:sync', { code: agreed.code });
+        assert.deepStrictEqual(view.series, { wins: [1, 1], draws: 0 }, 'one all');
+        a.disconnect();
+        b.disconnect();
+    });
+
     black.disconnect();
     white.disconnect();
     io.close();

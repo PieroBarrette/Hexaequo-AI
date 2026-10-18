@@ -153,6 +153,10 @@ export function mountPlay(outlet, params) {
       rematchAsked: false,     // we have offered
       rematchOffered: false,   // they have offered
       rematchDeclined: false,
+      /* Which game of a series this room is, and the series so far, by seat:
+         { wins: [black, white], draws }. A rematch carries both on. */
+      game: 1,
+      series: null,
       drawOffered: false,      // they have offered
       drawAsked: false,        // we have offered
       leaving: false,          // on the way to the room that replaces this one
@@ -291,9 +295,22 @@ export function mountPlay(outlet, params) {
           <div class="result-card">
             <div class="result-title"></div>
             <div class="result-why"></div>
+            <div class="result-series"></div>
             <div class="result-rating"></div>
             <div class="result-note"></div>
             <div class="result-actions"></div>
+            <!-- What is said once the game is over, said here: the card is
+                 where both players are looking, and a "gg" that has to be
+                 hunted for in a closed panel is a "gg" nobody answers. -->
+            <div class="result-talk" hidden>
+              <div class="result-presence"></div>
+              <div class="result-chat"></div>
+              <div class="result-quick"></div>
+              <form class="result-say">
+                <input class="btn result-say-input" maxlength="300" autocomplete="off">
+                <button class="btn btn--primary" type="submit"></button>
+              </form>
+            </div>
           </div>
         </div>
         <div class="board-bar">
@@ -464,6 +481,12 @@ export function mountPlay(outlet, params) {
   let bubbleTimer = 0;
   const noteEl = outlet.querySelector('.board-note');
   const overlay = outlet.querySelector('.result-overlay');
+  const talkEl = overlay.querySelector('.result-talk');
+  const sayForm = overlay.querySelector('.result-say');
+  const sayInput = overlay.querySelector('.result-say-input');
+  /* Whether the card is up with the conversation in it, which makes it the
+     place a message is read rather than the bubble or the panel. */
+  const cardTalking = () => overlay.classList.contains('is-on') && !talkEl.hidden;
   const drawer = outlet.querySelector('.drawer');
   const moveListEl = outlet.querySelector('.move-list');
 
@@ -1323,8 +1346,13 @@ export function mountPlay(outlet, params) {
     premove = null;
     net.sent = null;            // the room is what is on the board now
     net.chat = (view.chat || []).slice();
+    net.game = view.game || 1;
+    net.series = view.series || null;
     net.rematchOffered = view.rematchOfferedBy !== null && view.rematchOfferedBy !== undefined
       && view.rematchOfferedBy !== net.colour;
+    /* Ours, still on the table: the button says so after a reload too. */
+    net.rematchAsked = view.rematchOfferedBy !== null && view.rematchOfferedBy !== undefined
+      && view.rematchOfferedBy === net.colour;
     /*
      * The game has moved on without us.
      *
@@ -1472,6 +1500,7 @@ export function mountPlay(outlet, params) {
       if (!net || payload.code !== net.code) return;
       result = readResult(payload.result);
       adoptClock(payload.clock);
+      if (payload.series) net.series = payload.series;
       net.awaiting = null;
       refresh();
     }));
@@ -1503,10 +1532,15 @@ export function mountPlay(outlet, params) {
       net.chat.push(payload.message);
       // Somebody else's message, with the tab closed: mark it and chime once.
       if (payload.message.seat !== net.colour && !(drawerOpen && drawerTab === 'chat')) {
-        net.unread++;
         playSound('message');
-        buildDrawerButton();      // the arrow carries the mark while shut
-        showBubble(payload.message);
+        /* Unless the card is up: it holds the conversation, so the line is
+           read where it lands -- and a bubble shown now sat underneath the
+           card, where it could be neither read nor pressed. */
+        if (!cardTalking()) {
+          net.unread++;
+          buildDrawerButton();      // the arrow carries the mark while shut
+          showBubble(payload.message);
+        }
       }
       renderChat();
     }));
@@ -1551,7 +1585,10 @@ export function mountPlay(outlet, params) {
       if (!net || payload.code !== net.code) return;
       net.rematchOffered = true;
       net.rematchDeclined = false;
-      playSound('ui');
+      /* The chime a message gets, not the click a button does: this one is
+         somebody asking, and it may arrive while you are reading the game
+         back, with the card out of sight -- the strip carries it then. */
+      playSound('message');
       // An offer is worth seeing even if the card was put away.
       resultSeen = false;
       refresh();
@@ -1571,6 +1608,12 @@ export function mountPlay(outlet, params) {
       if (payload.seat === net.colour) return;
       adoptClock(payload.clock);
       net.opponentPresent = payload.joined;
+      /* Gone after the game: the server took any rematch offer off the table
+         with them -- theirs to us, or ours to an empty chair. */
+      if (result && !payload.joined) {
+        net.rematchOffered = false;
+        net.rematchAsked = false;
+      }
       net.awaiting = payload.joined || payload.msLeft == null
         ? null
         : { seat: payload.seat, until: Date.now() + payload.msLeft };
@@ -1623,7 +1666,9 @@ export function mountPlay(outlet, params) {
    * player having to know whose turn it is to ask.
    */
   async function askRematch() {
-    if (!net || !result) return;
+    /* Reading the game back puts its result aside for the length of the
+       branch; the game is no less over, and the strip offers this from there. */
+    if (!net || !(result || (exploring && exploring.result))) return;
     /* One press at a time. The server makes one room however many times it is
        asked, but a second press while the first is in the air is a request
        nobody is waiting for and a button that looks like it did nothing. */
@@ -1684,6 +1729,13 @@ export function mountPlay(outlet, params) {
     net.undoOffered = false;
     refresh();
     try { await request('hx:undo:decline', { code: net.code }); } catch { /* best effort */ }
+  }
+
+  async function declineRematch() {
+    if (!net || !net.rematchOffered) return;
+    net.rematchOffered = false;
+    refresh();
+    try { await request('hx:rematch:decline', { code: net.code }); } catch { /* best effort */ }
   }
 
   /**
@@ -2511,7 +2563,9 @@ export function mountPlay(outlet, params) {
         : (net.rematchAsked ? t('result.rematchWaiting')
           : (net.rematchOffered ? t('result.rematchOffered') : '')));
 
+    overlay.querySelector('.result-series').textContent = seriesText(false);
     overlay.querySelector('.result-actions').innerHTML = resultActions();
+    renderResultTalk();
   }
 
   function resultActions() {
@@ -2526,14 +2580,95 @@ export function mountPlay(outlet, params) {
        is left is the game they just watched. */
     if (net.watching) return viewButton + menu;
 
+    /* Nobody left to ask. The button stays, so the card keeps its shape, but
+       it cannot be pressed, and the line under the card says why. */
+    const gone = !net.opponentPresent;
     // Online, a rematch is a request, not a decision: the wording says which.
     const label = net.rematchOffered ? t('result.rematchAccept')
       : (net.rematchAsked ? t('result.rematchWaiting') : t('result.rematch'));
-    return `<button class="btn btn--primary" data-action="rematch"${net.rematchAsked ? ' disabled' : ''}>`
+    /* An offer can be turned down out loud, rather than only by walking away
+       from it -- which left the other player waiting on a button. */
+    const decline = net.rematchOffered && !gone
+      ? `<button class="btn" data-action="rematch-decline">${t('lobby.decline')}</button>` : '';
+    return `<button class="btn btn--primary" data-action="rematch"${net.rematchAsked || gone ? ' disabled' : ''}>`
       + `${label}</button>`
+      + decline
       + viewButton
       + `<button class="btn" data-action="new-online">${t('result.newOpponent')}</button>`
       + menu;
+  }
+
+  /**
+   * How a series of rematches stands, from the reader's chair.
+   *
+   * Nothing for a single game -- one-nil after one game is a result, not a
+   * series -- so it appears once the same two have played again: on the strip
+   * while the second game is under way, and on the card from its ending on.
+   * The reader's own score comes first; a spectator reads it Black first.
+   */
+  function seriesText(short) {
+    const s = net && net.series;
+    if (!s) return '';
+    if (s.wins[0] + s.wins[1] + s.draws < (result ? 2 : 1)) return '';
+    const first = net.watching || net.colour === null ? BLACK : net.colour;
+    const a = s.wins[first];
+    const b = s.wins[1 - first];
+    if (short) return t('online.seriesShort', { a, b });
+    const draws = s.draws ? ' · ' + t('result.seriesDraws', { n: s.draws }) : '';
+    return t('result.series', {
+      left: speakerFor(first).name, a, b, right: speakerFor(1 - first).name,
+    }) + draws;
+  }
+
+  /** One line of the conversation, the same in the panel and on the card. */
+  function chatLineHtml(message) {
+    return `<div class="chat-line${message.seat === net.colour ? ' is-mine' : ''}">`
+      + `<span class="chat-who">${escapeText(message.name || colourName(message.seat))}</span>`
+      + `<span class="chat-text">${escapeText(message.text)}</span></div>`;
+  }
+
+  /* The four things most often said over a finished board, one tap each. */
+  const QUICK_REPLIES = ['quickGg', 'quickWellPlayed', 'quickThanks', 'quickAgain'];
+
+  /**
+   * The conversation, on the card.
+   *
+   * The last few lines, the quick replies and a box for anything else, under
+   * a line saying whether there is still anybody at the other end. Only
+   * between the two who played: a spectator has no voice in the room, and a
+   * game on one device has nobody at the other end to talk to.
+   */
+  function renderResultTalk() {
+    const open = Boolean(net && !net.watching && net.colour !== null && result
+      && overlay.classList.contains('is-on'));
+    talkEl.hidden = !open;
+    if (!open) return;
+    const here = net.opponentPresent;
+    const presence = talkEl.querySelector('.result-presence');
+    presence.className = `result-presence ${here ? 'is-here' : 'is-gone'}`;
+    /* A name when there is one; "Guest is still here" reads as a label, not
+       as the person you have just played. */
+    const them = net.people ? net.people[1 - net.colour] : null;
+    presence.textContent = them && them.pseudo
+      ? t(here ? 'result.stillHere' : 'result.left', { name: them.pseudo })
+      : t(here ? 'result.opponentStillHere' : 'result.opponentLeft');
+
+    const lines = net.chat.slice(-3);
+    talkEl.querySelector('.result-chat').innerHTML = lines.length
+      ? lines.map(chatLineHtml).join('')
+      : `<div class="result-chat-hint">${t('result.talkHint')}</div>`;
+    talkEl.querySelector('.result-quick').innerHTML = QUICK_REPLIES.map((key) =>
+      `<button class="btn btn--sm" type="button" data-say="${key}"${here ? '' : ' disabled'}>`
+      + `${escapeText(t('chat.' + key))}</button>`).join('');
+    sayInput.placeholder = t('chat.placeholder');
+    sayInput.disabled = !here;
+    const send = sayForm.querySelector('button');
+    send.textContent = t('chat.send');
+    send.disabled = !here;
+    /* Shown here is read here: the mark on the button and the bubble were
+       both saying "there is something you have not seen". */
+    if (net.unread) { net.unread = 0; buildDrawerButton(); }
+    hideBubble();
   }
 
   /* ── Playing on from a position ───────────────────────────────────────── */
@@ -3262,15 +3397,22 @@ export function mountPlay(outlet, params) {
     // There is nobody to talk to in a local game.
     chatTab.style.display = net ? '' : 'none';
     chatTab.classList.toggle('has-unread', Boolean(net && net.unread));
+    renderResultTalk();
     if (!net || !drawerOpen || drawerTab !== 'chat') return;
 
-    const mine = (message) => message.seat === net.colour;
-    chatLogEl.innerHTML = net.chat.length
-      ? net.chat.map((message) =>
-        `<div class="chat-line${mine(message) ? ' is-mine' : ''}">`
-        + `<span class="chat-who">${escapeText(message.name || colourName(message.seat))}</span>`
-        + `<span class="chat-text">${escapeText(message.text)}</span></div>`).join('')
-      : `<div style="color:var(--muted)">${t('chat.empty')}</div>`;
+    /* A rematch brings the conversation with it, so the log marks where each
+       game began: a "gg" belongs above the game it was about. */
+    const mark = (n) => `<div class="chat-mark">${t('chat.gameMark', { n })}</div>`;
+    let html = '';
+    let game = 0;
+    for (const message of net.chat) {
+      const its = message.game || 1;
+      if (game && its !== game) html += mark(its);
+      game = its;
+      html += chatLineHtml(message);
+    }
+    if (game && net.game > game) html += mark(net.game);
+    chatLogEl.innerHTML = html || `<div style="color:var(--muted)">${t('chat.empty')}</div>`;
     chatLogEl.scrollTop = chatLogEl.scrollHeight;
   }
 
@@ -4038,6 +4180,15 @@ export function mountPlay(outlet, params) {
        Ahead of everything else, since a branch is the most immediate truth
        about what is on the board. */
     if (exploring) {
+      /* Bar one thing: a rematch offer is waiting on an answer, and reading
+         the game back is exactly when the card that asks it is out of sight. */
+      if (net && !net.watching && net.rematchOffered) {
+        strip.className = 'net-strip is-on is-warn';
+        strip.innerHTML = `<span class="net-msg">${t('result.rematchOffered')}</span>`
+          + `<button class="btn btn--sm btn--primary" data-action="rematch">${t('result.rematchAccept')}</button>`
+          + `<button class="btn btn--sm" data-action="rematch-decline">${t('lobby.decline')}</button>`;
+        return;
+      }
       strip.className = 'net-strip is-on';
       strip.innerHTML = `<span class="net-msg">${t('review.reviewing')}</span>`;
       return;
@@ -4120,6 +4271,11 @@ export function mountPlay(outlet, params) {
         + `<button class="btn btn--sm" data-action="draw-decline">${t('lobby.decline')}</button>`
       : '';
 
+    /* How the series stands, once there is one: beside the stake, because it
+       is the other thing this game is being played for. */
+    const series = seriesText(true);
+    const seriesLabel = series ? `<span class="net-stake net-series">${series}</span>` : '';
+
     strip.className = `net-strip is-on ${tone}`;
     strip.innerHTML =
       asWatcher
@@ -4128,6 +4284,7 @@ export function mountPlay(outlet, params) {
       + drawAnswer
       + eyes
       + `<span class="grow"></span>`
+      + seriesLabel
       + stakeLabel;
 
     // Keep the abandonment countdown ticking without redrawing the board.
@@ -4473,6 +4630,21 @@ export function mountPlay(outlet, params) {
     sendChat(text);
   });
 
+  /* The card's own way of talking: a quick reply is sent as it reads, in the
+     sender's language, exactly as if it had been typed. */
+  talkEl.addEventListener('click', (event) => {
+    const quick = event.target.closest('[data-say]');
+    if (!quick || quick.disabled) return;
+    playSound('ui');
+    sendChat(t('chat.' + quick.getAttribute('data-say')));
+  });
+  sayForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const text = sayInput.value;
+    sayInput.value = '';
+    sendChat(text);
+  });
+
   /* ── Controls ─────────────────────────────────────────────────────────── */
 
   function onToolClick(event) {
@@ -4520,6 +4692,7 @@ export function mountPlay(outlet, params) {
        this is the one. */
     else if (action === 'review-game') { startExploring(0); setDrawer(true, 'moves'); }
     else if (action === 'rematch') askRematch();
+    else if (action === 'rematch-decline') declineRematch();
     else if (action === 'rev-first') { stopAutoplay(); goToPly(0); }
     else if (action === 'rev-prev') { stopAutoplay(); stepReview(-1); }
     else if (action === 'rev-next') { stopAutoplay(); stepReview(1); }
@@ -4809,9 +4982,11 @@ export function mountPlay(outlet, params) {
     if (net) {
       /* Going elsewhere is not the same as sitting there in silence. Say so,
          and the server starts the same countdown a dropped connection does;
-         coming back through hx:join calls it off. */
+         coming back through hx:join calls it off. After the game too: there
+         is no countdown then, but the other player stops waiting on a
+         rematch, and on an answer to what they just wrote. */
       if (net.watching) request('hx:unwatch', { code: net.code }).catch(() => {});
-      else if (!result) request('hx:leave', { code: net.code }).catch(() => {});
+      else request('hx:leave', { code: net.code }).catch(() => {});
       for (const off of net.unsubscribe) { try { off(); } catch { /* already gone */ } }
       net = null;                       // stops in-flight handlers from touching a dead view
     }
