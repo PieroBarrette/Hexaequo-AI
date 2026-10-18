@@ -135,6 +135,7 @@ export function mountPlay(outlet, params) {
       watchers: 0,
       pending: false,          // a move is in flight
       noFly: false,            // that move came from a drag, so do not re-animate it
+      sent: null,              // that move is a jump chain: the board as its hops left it
       opponentPresent: false,
       awaiting: null,          // { seat, until } while an opponent may still return
       error: null,
@@ -786,7 +787,10 @@ export function mountPlay(outlet, params) {
          another is already held. It used to check `held` instead, so a second
          choice made while the first was waiting fell straight past the gate
          and was played -- the very thing the setting exists to prevent. */
-      held = { move, noFly, flyPath, captureList };
+      /* Without a jump chain's hops: a held move is drawn from where it
+         started, so that is where it flies from once played. Kept, they flew
+         the last hop alone, from a cell the disk had been taken back off. */
+      held = { move, noFly };
       selected = null;
       chain = null;
       picker = null;
@@ -796,7 +800,7 @@ export function mountPlay(outlet, params) {
       return;
     }
     held = null;
-    if (net) { sendIntent(move, noFly); return; }
+    if (net) { sendIntent(move, noFly, flyPath, captureList); return; }
     /* Playing from the middle of a branch replaces the rest of it. The move
        was chosen against the position on screen, so the line it belonged to
        has to be cut back to that position before it is applied — otherwise it
@@ -1195,18 +1199,25 @@ export function mountPlay(outlet, params) {
       : (move.type === 'disk' ? { type: 'disk', path: move.path } : { type: 'ring', from: move.from, to: move.to });
 
     const mine = payload.by === net.colour;
-    const captured = (payload.captures || []).map((c) => {
-      let step = 1;
-      if (path) {
-        for (let i = 0; i + 1 < path.length; i++) {
-          if ((path[i] + path[i + 1]) / 2 === c.cell) { step = i + 1; break; }
-        }
-      }
-      return { cell: c.cell, code: c.code, step };
-    });
+    /* Our own jump chain is on screen as far as its hops went, and stayed
+       there while the server had it: only what was still to come is played,
+       as in a local game. Flown from the start, it was the whole chain again. */
+    const sent = mine ? net.sent : null;
+    const taken = payload.captures || [];
 
     // A move the local player dragged is already where they put it.
-    const flightPath = (mine && net.noFly) ? null : path;
+    const flightPath = (mine && net.noFly) ? null : (sent ? sent.flyPath : path);
+    const captured = taken
+      .filter((c) => !sent || sent.captureList.some((left) => left.cell === c.cell))
+      .map((c) => {
+        let step = 1;
+        if (flightPath) {
+          for (let i = 0; i + 1 < flightPath.length; i++) {
+            if ((flightPath[i] + flightPath[i + 1]) / 2 === c.cell) { step = i + 1; break; }
+          }
+        }
+        return { cell: c.cell, code: c.code, step };
+      });
     effect = {
       path: flightPath,
       code: makePiece(payload.by, move.type === 'ring' ? RING : DISK),
@@ -1218,10 +1229,10 @@ export function mountPlay(outlet, params) {
          it lands: one telling of one arrival. */
       flew: Boolean(handoff),
     };
-    if (mine) net.noFly = false;
+    if (mine) { net.noFly = false; net.sent = null; }
 
     moveLog.push({
-      player: payload.by, text: payload.notation, captured: captured.length > 0,
+      player: payload.by, text: payload.notation, captured: taken.length > 0,
       // The server's measurement, not ours: ours would include the trip here.
       ms: typeof payload.ms === 'number' ? payload.ms : null,
     });
@@ -1310,6 +1321,7 @@ export function mountPlay(outlet, params) {
     if (review !== null && review >= timeline.length) review = null;
     lastMove = null;
     premove = null;
+    net.sent = null;            // the room is what is on the board now
     net.chat = (view.chat || []).slice();
     net.rematchOffered = view.rematchOfferedBy !== null && view.rematchOfferedBy !== undefined
       && view.rematchOfferedBy !== net.colour;
@@ -1341,9 +1353,32 @@ export function mountPlay(outlet, params) {
     refresh();
   }
 
-  async function sendIntent(move, noFly) {
+  /**
+   * The board a jump chain leaves on screen, kept while the server has it.
+   *
+   * Its hops were played out as they were taken, so the position in front of
+   * the player is no longer the one the move started from. Going back to that
+   * for the round trip put the disk on its first cell with everything it had
+   * taken standing again. `flyPath` and `captureList` are what was still to be
+   * shown, as they are for a local game; the rest stays as it was left.
+   */
+  function chainSent(move, noFly, flyPath, captureList) {
+    const board = cloneState(state);
+    const code = board.pieceAt[move.path[0]];
+    board.pieceAt[move.path[0]] = -1;
+    const left = new Set(captureList.map((c) => c.cell));
+    for (const c of move.captures) if (!left.has(c.cell)) board.pieceAt[c.cell] = -1;
+    /* At the end when nothing is left to fly -- a drag never flies, and the
+       tick stops the disk where it stands -- and otherwise where the hop still
+       to come sets off. */
+    board.pieceAt[noFly || !flyPath ? move.path[move.path.length - 1] : flyPath[0]] = code;
+    return { board, flyPath, captureList };
+  }
+
+  async function sendIntent(move, noFly, flyPath, captureList) {
     net.pending = true;
     net.noFly = Boolean(noFly);
+    net.sent = flyPath === undefined ? null : chainSent(move, noFly, flyPath, captureList);
     net.error = null;
     selected = null;
     chain = null;
@@ -1359,6 +1394,7 @@ export function mountPlay(outlet, params) {
     net.pending = false;
     if (!response.ok) {
       net.noFly = false;
+      net.sent = null;
       // The server refused: whatever we thought the position was, it is wrong.
       await syncFromServer();
       /* And it says why, over the board. On the strip the reason lasted one
@@ -1744,7 +1780,9 @@ export function mountPlay(outlet, params) {
        case, and an empty cell's name is worth most to somebody looking for the
        square a placement in the list is talking about. */
     const spots = tilePlacementSpots(chain ? chain.preview : acting);
-    const source = chain ? chain.preview : acting;
+    /* Our jump chain, on its way to the server: as its hops left it. */
+    const sent = net && net.sent && !reviewing ? net.sent : null;
+    const source = chain ? chain.preview : (sent ? sent.board : acting);
 
     const targets = new Map();
     if (human) {
@@ -1826,7 +1864,7 @@ export function mountPlay(outlet, params) {
       : reviewing ? (review > 0 ? timelineMoves[review - 1] : null)
       : lastMove;
     const lastMoveCells = [];
-    if (marked && !chain) {
+    if (marked && !chain && !sent) {
       if (marked.type === 'tile' || marked.type === 'piece') lastMoveCells.push(marked.cell);
       else if (marked.type === 'disk') lastMoveCells.push(marked.path[0], marked.path[marked.path.length - 1]);
       else lastMoveCells.push(marked.from, marked.to);
@@ -4520,7 +4558,7 @@ export function mountPlay(outlet, params) {
     } else if (action === 'undo-accept') askUndo();
     else if (action === 'undo-decline') declineUndo();
     else if (action === 'confirm-move') {
-      if (held) commit(held.move, held.noFly, held.flyPath, held.captureList, true);
+      if (held) commit(held.move, held.noFly, undefined, undefined, true);
     } else if (action === 'cancel-move') { held = null; playSound('ui'); refresh(); }
     else if (action === 'analyse') startReport();
     else if (action === 'analyse-stop') { stopReport(); renderReport(); }
