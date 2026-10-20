@@ -51,14 +51,33 @@ export function onLanguageChange(fn) {
   return () => listeners.delete(fn);
 }
 
-function lookup(bundle, path) {
+function walk(bundle, path) {
   let node = bundle;
   for (const part of path.split('.')) {
     if (node == null || typeof node !== 'object') return undefined;
     node = node[part];
   }
+  return node;
+}
+
+function lookup(bundle, path) {
+  const node = walk(bundle, path);
   return typeof node === 'string' ? node : undefined;
 }
+
+/**
+ * A value of any shape — the list of a page's sections, the answers of the
+ * FAQ — from the active language, or from English. undefined when neither
+ * has it. The longer pages keep their structure in the locale files rather
+ * than flattening it into numbered keys.
+ */
+export function raw(path) {
+  const own = walk(bundles[active] || {}, path);
+  return own !== undefined ? own : walk(bundles.en || {}, path);
+}
+
+/** What the pages in content/ are handed to read the locale with. */
+export const reader = () => ({ t, raw, language: active });
 
 /**
  * Translate `path`, falling back to English and then to the path itself so a

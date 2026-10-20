@@ -7,6 +7,7 @@
  */
 
 import { crossFade } from './fade.js';
+import { pageAt } from './pages.js';
 
 const STORAGE_KEY = 'hexaequo.settings';
 
@@ -93,8 +94,14 @@ function persist() {
  * the site does not speak Spanish, so it fell to the default rather than
  * carrying on down the list to the language it does speak. The region is
  * dropped: fr-CA and fr-FR are the same locale file here.
+ *
+ * Before any of that, the address: somebody whose first visit is to
+ * /fr/regles/ followed a French link — a search result, more often than not —
+ * and is answered in French whatever their browser says.
  */
 function preferredLanguage() {
+  const page = typeof location !== 'undefined' ? pageAt(location.pathname) : null;
+  if (page) return page.language;
   const offered = (navigator.languages && navigator.languages.length)
     ? navigator.languages
     : [navigator.language];

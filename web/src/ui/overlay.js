@@ -71,6 +71,22 @@ window.addEventListener('routechange', (event) => {
 export const isOverlayOpen = () => Boolean(openName);
 export const overlayName = () => openName;
 
+/*
+ * Told when a panel opens or closes — by any route: a button, Escape, the
+ * backdrop, a change of screen. The pages with an address of their own keep
+ * the address bar in step through this (see panels.js).
+ */
+const changeListeners = new Set();
+export function onOverlayChange(fn) {
+  changeListeners.add(fn);
+  return () => changeListeners.delete(fn);
+}
+function told(name, open) {
+  for (const fn of changeListeners) {
+    try { fn(name, open); } catch { /* a listener must not wedge the overlay */ }
+  }
+}
+
 /**
  * @param {string} name  identifier, so re-opening the same panel just closes it
  * @param {string} title heading shown in the panel
@@ -105,6 +121,7 @@ export function openOverlay(name, title, mount) {
   document.documentElement.classList.add('has-overlay');
   const close = node.querySelector('[data-overlay-close].btn');
   if (close) close.focus();
+  told(name, true);
 }
 
 export function closeOverlay() {
@@ -113,12 +130,14 @@ export function closeOverlay() {
     try { teardown(); } catch { /* a broken panel must not wedge the overlay */ }
     teardown = null;
   }
+  const name = openName;
   openName = null;
   host.classList.remove('is-on');
   document.documentElement.classList.remove('has-overlay');
   host.querySelector('.overlay-body').innerHTML = '';
   if (lastFocus && lastFocus.focus) lastFocus.focus();
   lastFocus = null;
+  told(name, false);
 }
 
 /** Re-mount the open panel, e.g. after the language changed. */

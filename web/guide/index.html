@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en" data-theme="dark" data-board-style="modern" data-route="home">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0e1015">
+<!--
+  This file is the shell of every page of the site. The home page is this
+  file; each page with an address of its own (web/src/pages.js — /rules/,
+  /fr/regles/ and the rest) is a copy of it written by
+  backend/scripts/makePages.js, with what lies between the page:head markers
+  and between the page:view markers replaced by that page's own. The same
+  shell is served at /fr/regles/ as at /, so every path in it is absolute.
+-->
+<!-- page:head -->
+<title>Beginner&#39;s guide to Hexaequo — first moves and common mistakes</title>
+<meta name="description" content="How to begin at Hexaequo: the seven first moves, why a lone piece is in danger, the mistakes that are easiest to make, and what changes between the computer&#39;s four levels.">
+<link rel="canonical" href="https://hexaequo.com/guide/">
+<link rel="alternate" hreflang="en" href="https://hexaequo.com/guide/">
+<link rel="alternate" hreflang="fr" href="https://hexaequo.com/fr/guide/">
+<link rel="alternate" hreflang="x-default" href="https://hexaequo.com/guide/">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Hexaequo">
+<meta property="og:title" content="Beginner&#39;s guide to Hexaequo — first moves and common mistakes">
+<meta property="og:url" content="https://hexaequo.com/guide/">
+<meta property="og:description" content="How to begin at Hexaequo: the seven first moves, why a lone piece is in danger, the mistakes that are easiest to make, and what changes between the computer&#39;s four levels.">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://hexaequo.com/assets/icons/icon-512x512.png">
+<meta name="twitter:card" content="summary">
+<!-- /page:head -->
+
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/assets/icons/icon-192x192.png" sizes="192x192">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+
+<script src="/src/bootTheme.js"></script>
+
+<link rel="stylesheet" href="/styles/tokens.css">
+<link rel="stylesheet" href="/styles/app.css">
+
+<!-- page:data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Beginner's guide to Hexaequo — first moves and common mistakes",
+  "description": "How to begin at Hexaequo: the seven first moves, why a lone piece is in danger, the mistakes that are easiest to make, and what changes between the computer's four levels.",
+  "inLanguage": "en",
+  "url": "https://hexaequo.com/guide/",
+  "image": "https://hexaequo.com/assets/icons/icon-512x512.png",
+  "about": {
+    "@type": "VideoGame",
+    "name": "Hexaequo",
+    "url": "https://hexaequo.com/"
+  },
+  "author": {
+    "@type": "Person",
+    "name": "Piero Barrette"
+  }
+}
+</script>
+<!-- /page:data -->
+</head>
+<body>
+
+<!--
+  The opening position, laying itself out.
+
+  Not a spinner: the four tiles of the mark are the four tiles a game of
+  Hexaequo starts from, and they arrive the way they are played — black, white,
+  black, white — each piece dropping onto its tile after the tile has landed.
+  It says what the site is while it waits, which is more than a rotating arc
+  can do.
+
+  It sits over the copy below rather than replacing it: that text is what a
+  crawler reads, and it has to stay in the document.
+-->
+<div id="loader" class="loader" aria-hidden="true">
+  <svg class="loader-mark" viewBox="-145.1 -166.5 705.8 573.0" xmlns="http://www.w3.org/2000/svg">
+  <g class="ld-cell" style="--i:0">
+    <path class="ld-tile" d="M138.56 -80.00 L138.56 80.00 L0.00 160.00 L-138.56 80.00 L-138.56 -80.00 L-0.00 -160.00Z" fill="var(--tile-dark)" stroke="var(--tile-dark)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="0.00" cy="0.00" r="60.80" fill="var(--piece-light)"/></g>
+  </g>
+  <g class="ld-cell" style="--i:1">
+    <path class="ld-tile" d="M415.69 -80.00 L415.69 80.00 L277.13 160.00 L138.56 80.00 L138.56 -80.00 L277.13 -160.00Z" fill="var(--tile-light)" stroke="var(--tile-dark-edge)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="277.13" cy="0.00" r="80.80" fill="none" stroke="var(--piece-dark)" stroke-width="40.00"/></g>
+  </g>
+  <g class="ld-cell" style="--i:3">
+    <path class="ld-tile" d="M277.13 160.00 L277.13 320.00 L138.56 400.00 L-0.00 320.00 L0.00 160.00 L138.56 80.00Z" fill="var(--tile-light)" stroke="var(--tile-dark-edge)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="138.56" cy="240.00" r="60.80" fill="var(--piece-dark)"/></g>
+  </g>
+  <g class="ld-cell" style="--i:2">
+    <path class="ld-tile" d="M554.26 160.00 L554.26 320.00 L415.69 400.00 L277.13 320.00 L277.13 160.00 L415.69 80.00Z" fill="var(--tile-dark)" stroke="var(--tile-dark)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="415.69" cy="240.00" r="80.80" fill="none" stroke="var(--piece-light)" stroke-width="40.00"/></g>
+  </g>
+  </svg>
+  <span class="loader-word">HEXAEQUO</span>
+</div>
+
+<header class="site-header">
+  <!-- The way back to the menu, on every page but the menu itself. A chevron,
+       the mark, and the word: the logo alone read as decoration, not as a
+       button, and nothing about it said where it went. -->
+  <button class="btn" id="brand" data-go="home" data-route-link="home"
+          data-i18n-attr="aria-label:nav.backToMenu,title:nav.backToMenu"></button>
+  <span class="spacer"></span>
+  <nav id="site-nav">
+    <button class="btn" id="account-chip" data-go="account"></button>
+    <button class="btn btn--icon" data-go="rules" data-route-link="rules" data-i18n-attr="title:nav.rules">?</button>
+    <button class="btn btn--icon" data-go="settings" data-route-link="settings" data-i18n-attr="title:nav.settings">⚙</button>
+  </nav>
+</header>
+
+<!--
+  The app replaces this the moment it boots. It exists because anything that
+  reads the page without running JavaScript — link previews, search crawlers,
+  the assistants people ask instead of searching — would otherwise find an
+  empty document, and could neither confirm the site is called Hexaequo nor
+  tell what it is for.
+
+  It says what the home view says once the app has drawn it (home.about and
+  home.ways in the English locale), so that a crawler reading the page before
+  the script runs and one reading it after find the same description. On a
+  page's own copy of this file, it is that page, in full.
+-->
+<main id="view">
+  <!-- page:view -->
+  <div class="boot-copy boot-page">
+    <p class="boot-crumbs"><a href="/">Hexaequo</a> · <a href="/fr/guide/" hreflang="fr">Français</a></p>
+    <article class="page-text"><h1>Beginner's guide</h1>
+      <p class="lede">The rules take five minutes to learn; the first few games take a little longer. This page covers what to watch in the opening turns, the mistakes that are easiest to make, and how the computer's four levels differ, so you know which one to play next.</p>
+      <h2>Your first moves</h2>
+      <p>Black moves first. The board is four tiles; each side has one disk on it, and 7 tiles, 5 disks and 3 rings in reserve. Black's first turn offers exactly seven moves: lay a tile on one of four cells, place a disk on the one empty black tile, or step the disk onto either empty tile beside it. None of them is a mistake in itself — the strongest computer level rates all seven as close to even. What matters is what comes next.</p>
+      <ul>
+      <li><b>A lone piece is the whole game.</b> Until you have a second piece on the board, your first disk is all that stands between you and defeat: a player left with nothing on the board has lost, whatever is still in reserve. It can come quickly. If Black's disk steps next to White's and White lays the tile just behind it, five of Black's ten possible replies lose on the spot. Before every move, ask whether your disk can be jumped next turn.</li>
+      <li><b>Your tiles are your way in.</b> A piece from the reserve can only be placed on an empty tile of your own colour, and at the start you have just one. Each tile of your colour that you lay is one more place to bring a piece in — and an empty one can be shut by an enemy piece standing on it, since colour does not limit where pieces move.</li>
+      <li><b>Every tile is also a landing.</b> A jump needs an empty tile beyond the piece it crosses, so a tile you lay may be the very landing an enemy disk was waiting for. The reverse is a defence: a piece at the edge of the board cannot be jumped towards the edge.</li>
+      <li><b>Rings come later, and cost a disk.</b> You cannot place a ring before you have captured a disk, and placing one hands that disk back to its owner's reserve, to be placed again. Weigh the trade: a ring reaches up to twelve tiles in a single leap, over anything in between, but the disk you give back comes off your count of six.</li>
+      </ul>
+      <h2>Common mistakes</h2>
+      <ul>
+      <li><b>Counting only one jump.</b> A disk can chain jumps, and it may hop over its own side's pieces as freely as over yours — only yours are captured. A piece two hops from an enemy disk is not out of reach.</li>
+      <li><b>Standing two tiles from a ring.</b> A ring captures on any tile exactly two steps away, and nothing in between stops it. Next to a ring is safer than two steps from it: a ring cannot take a piece that stands beside it.</li>
+      <li><b>Taking because you can.</b> A capture is never compulsory, and a chain may stop after any jump. If taking leaves your disk where it will be taken back, a quiet move may be worth more.</li>
+      <li><b>Paying for a ring at five.</b> One disk short of six, placing a ring puts you two short: the disk you hand back no longer counts.</li>
+      <li><b>Treating colour as territory.</b> Tile colour only decides where a piece from the reserve can be placed. Once on the board, any piece may move onto any empty tile, whichever colour it is.</li>
+      <li><b>Going round in circles when ahead.</b> The same position three times is an ExAequo, and so are fifty moves each with no capture, no tile laid and no piece placed. A lead only counts once it becomes a win.</li>
+      <li><b>Forgetting the reserves at the end.</b> Once a player has no disks left in reserve, their last disk on the board is your sixth; once they have no rings left in reserve, their last ring is your third. Late in a game, a single capture can decide it.</li>
+      </ul>
+      <h2>The computer's four levels</h2>
+      <p>Pick the level from the menu during a game, or set the one new games start at in the settings; a first visit starts at Beginner. All four levels use the same search, which weighs captures, the pieces on the board and in reserve, and the threats against each side. What changes is how far ahead it looks, how long it thinks, and whether it always plays the best move it found.</p>
+      <ul>
+      <li><b>Beginner</b> — looks at its own move and your reply, and stops there, even in the middle of an exchange of captures. About one move in three, it does not hold to the best move it found and picks at random from the better half of its options. It overlooks captures and leaves pieces loose: the level to learn the rules against.</li>
+      <li><b>Easy</b> — looks just as far, but plays out the exchanges of captures it sees coming before judging a position, and always plays the best move it found.</li>
+      <li><b>Medium</b> — looks up to five moves ahead, yours and its own counted separately, and thinks for up to a little over a second per move.</li>
+      <li><b>Strong</b> — looks up to seven moves ahead and thinks for up to three and a half seconds per move: the strongest opponent the game has.</li>
+      </ul>
+      <p>Each level also adds a little chance to how it scores a position, so that games vary: nearly a disk's worth at Beginner, almost none at Strong. All four know the draw rules: ahead, the computer avoids repeating a position or letting the fifty-move count run out; behind, it plays for the ExAequo. Move up a level once you win more often than you lose — and to see what changes, set two levels against each other in AI vs AI mode and watch.</p>
+      <h2>Going further</h2>
+      <p>The <a href="/rules/" data-panel="rules">complete rules</a> fit on one page, and the <a href="/faq/" data-panel="faq">FAQ</a> answers questions about accounts, rated games and playing offline.</p>
+    </article>
+    <p class="boot-crumbs"><a href="/#/play">Play</a> · <a href="/">Hexaequo</a></p>
+  </div>
+<!-- /page:view -->
+</main>
+
+<noscript>
+  <style>.loader { display: none !important; }</style>
+  Hexaequo needs JavaScript to play, but everything above describes the game.
+</noscript>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

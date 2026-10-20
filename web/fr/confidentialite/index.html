@@ -1,82 +1,145 @@
 <!doctype html>
-<html lang="fr" data-theme="dark" data-board-style="modern">
+<html lang="fr" data-theme="dark" data-board-style="modern" data-route="home">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0e1015">
+<!--
+  This file is the shell of every page of the site. The home page is this
+  file; each page with an address of its own (web/src/pages.js — /rules/,
+  /fr/regles/ and the rest) is a copy of it written by
+  backend/scripts/makePages.js, with what lies between the page:head markers
+  and between the page:view markers replaced by that page's own. The same
+  shell is served at /fr/regles/ as at /, so every path in it is absolute.
+-->
+<!-- page:head -->
 <title>Politique de confidentialité — Hexaequo</title>
-<meta name="description" content="Politique de confidentialité">
-<meta name="robots" content="noindex, follow">
+<meta name="description" content="Hexaequo est un jeu de plateau en ligne. Cette page explique quelles données nous recueillons, pourquoi, et ce que vous pouvez en faire. Nous n&#39;affichons aucune publicité et ne vendons aucune donnée.">
 <link rel="canonical" href="https://hexaequo.com/fr/confidentialite/">
-<link rel="alternate" hreflang="fr" href="https://hexaequo.com/fr/confidentialite/">
 <link rel="alternate" hreflang="en" href="https://hexaequo.com/privacy/">
+<link rel="alternate" hreflang="fr" href="https://hexaequo.com/fr/confidentialite/">
 <link rel="alternate" hreflang="x-default" href="https://hexaequo.com/privacy/">
+<meta name="robots" content="noindex, follow">
 
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="Hexaequo">
 <meta property="og:title" content="Politique de confidentialité — Hexaequo">
 <meta property="og:url" content="https://hexaequo.com/fr/confidentialite/">
-<meta property="og:description" content="Politique de confidentialité">
+<meta property="og:description" content="Hexaequo est un jeu de plateau en ligne. Cette page explique quelles données nous recueillons, pourquoi, et ce que vous pouvez en faire. Nous n&#39;affichons aucune publicité et ne vendons aucune donnée.">
+<meta property="og:locale" content="fr_CA">
 <meta property="og:image" content="https://hexaequo.com/assets/icons/icon-512x512.png">
 <meta name="twitter:card" content="summary">
+<!-- /page:head -->
 
+<link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/assets/icons/icon-192x192.png" sizes="192x192">
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="/styles/tokens.css">
-<link rel="stylesheet" href="/styles/page.css">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
 
+<script src="/src/bootTheme.js"></script>
+
+<link rel="stylesheet" href="/styles/tokens.css">
+<link rel="stylesheet" href="/styles/app.css">
+
+<!-- page:data -->
+
+<!-- /page:data -->
 </head>
 <body>
-<header class="doc-head">
-  <a class="doc-brand" href="/"><svg class="mark" aria-hidden="true" viewBox="-145.1 -166.5 705.8 573.0" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Hexaequo">
-  <title>Hexaequo</title>
-  <!-- The opening position: two black tiles, two white tiles, alternating disk and ring. -->
-  <path d="M138.56 -80.00 L138.56 80.00 L0.00 160.00 L-138.56 80.00 L-138.56 -80.00 L-0.00 -160.00Z" fill="#000000" stroke="#000000" stroke-width="11" stroke-linejoin="round"/>
-  <circle cx="0.00" cy="0.00" r="60.80" fill="#ffffff"/>
-  <path d="M415.69 -80.00 L415.69 80.00 L277.13 160.00 L138.56 80.00 L138.56 -80.00 L277.13 -160.00Z" fill="#ffffff" stroke="#000000" stroke-width="11" stroke-linejoin="round"/>
-  <circle cx="277.13" cy="0.00" r="80.80" fill="none" stroke="#000000" stroke-width="40.00"/>
-  <path d="M277.13 160.00 L277.13 320.00 L138.56 400.00 L-0.00 320.00 L0.00 160.00 L138.56 80.00Z" fill="#ffffff" stroke="#000000" stroke-width="11" stroke-linejoin="round"/>
-  <circle cx="138.56" cy="240.00" r="60.80" fill="#000000"/>
-  <path d="M554.26 160.00 L554.26 320.00 L415.69 400.00 L277.13 320.00 L277.13 160.00 L415.69 80.00Z" fill="#000000" stroke="#000000" stroke-width="11" stroke-linejoin="round"/>
-  <circle cx="415.69" cy="240.00" r="80.80" fill="none" stroke="#ffffff" stroke-width="40.00"/>
-</svg><span>HEXAEQUO</span></a>
-  <nav class="doc-nav">
-    <a href="/">Accueil</a>
-    <a href="/fr/regles/">Règles</a>
-    <a href="/privacy/" hreflang="en">English</a>
+
+<!--
+  The opening position, laying itself out.
+
+  Not a spinner: the four tiles of the mark are the four tiles a game of
+  Hexaequo starts from, and they arrive the way they are played — black, white,
+  black, white — each piece dropping onto its tile after the tile has landed.
+  It says what the site is while it waits, which is more than a rotating arc
+  can do.
+
+  It sits over the copy below rather than replacing it: that text is what a
+  crawler reads, and it has to stay in the document.
+-->
+<div id="loader" class="loader" aria-hidden="true">
+  <svg class="loader-mark" viewBox="-145.1 -166.5 705.8 573.0" xmlns="http://www.w3.org/2000/svg">
+  <g class="ld-cell" style="--i:0">
+    <path class="ld-tile" d="M138.56 -80.00 L138.56 80.00 L0.00 160.00 L-138.56 80.00 L-138.56 -80.00 L-0.00 -160.00Z" fill="var(--tile-dark)" stroke="var(--tile-dark)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="0.00" cy="0.00" r="60.80" fill="var(--piece-light)"/></g>
+  </g>
+  <g class="ld-cell" style="--i:1">
+    <path class="ld-tile" d="M415.69 -80.00 L415.69 80.00 L277.13 160.00 L138.56 80.00 L138.56 -80.00 L277.13 -160.00Z" fill="var(--tile-light)" stroke="var(--tile-dark-edge)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="277.13" cy="0.00" r="80.80" fill="none" stroke="var(--piece-dark)" stroke-width="40.00"/></g>
+  </g>
+  <g class="ld-cell" style="--i:3">
+    <path class="ld-tile" d="M277.13 160.00 L277.13 320.00 L138.56 400.00 L-0.00 320.00 L0.00 160.00 L138.56 80.00Z" fill="var(--tile-light)" stroke="var(--tile-dark-edge)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="138.56" cy="240.00" r="60.80" fill="var(--piece-dark)"/></g>
+  </g>
+  <g class="ld-cell" style="--i:2">
+    <path class="ld-tile" d="M554.26 160.00 L554.26 320.00 L415.69 400.00 L277.13 320.00 L277.13 160.00 L415.69 80.00Z" fill="var(--tile-dark)" stroke="var(--tile-dark)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="415.69" cy="240.00" r="80.80" fill="none" stroke="var(--piece-light)" stroke-width="40.00"/></g>
+  </g>
+  </svg>
+  <span class="loader-word">HEXAEQUO</span>
+</div>
+
+<header class="site-header">
+  <!-- The way back to the menu, on every page but the menu itself. A chevron,
+       the mark, and the word: the logo alone read as decoration, not as a
+       button, and nothing about it said where it went. -->
+  <button class="btn" id="brand" data-go="home" data-route-link="home"
+          data-i18n-attr="aria-label:nav.backToMenu,title:nav.backToMenu"></button>
+  <span class="spacer"></span>
+  <nav id="site-nav">
+    <button class="btn" id="account-chip" data-go="account"></button>
+    <button class="btn btn--icon" data-go="rules" data-route-link="rules" data-i18n-attr="title:nav.rules">?</button>
+    <button class="btn btn--icon" data-go="settings" data-route-link="settings" data-i18n-attr="title:nav.settings">⚙</button>
   </nav>
 </header>
 
-<main class="doc">
-  <h1>Politique de confidentialité</h1>
-  <p class="doc-caption">Dernière mise à jour : 14 août 2026</p>
-  <p class="doc-lede">Hexaequo est un jeu de plateau en ligne. Cette page explique quelles données nous recueillons, pourquoi, et ce que vous pouvez en faire. Nous n'affichons aucune publicité et ne vendons aucune donnée.</p>
-  <h2>Ce que nous recueillons</h2>
-  <p>Sans compte, rien n'est envoyé à nos serveurs à votre sujet : vos préférences (langue, thème, sons, aide de jeu) restent dans le stockage local de votre navigateur. Si vous ouvrez une session avec Google, nous recevons votre identifiant Google, votre adresse courriel et votre nom d'affichage, et nous conservons le pseudonyme que vous choisissez sur Hexaequo. Nous enregistrons aussi vos parties : les coups joués, le résultat, la cadence et votre classement.</p>
-  <h2>Pourquoi</h2>
-  <p>Votre identifiant Google sert uniquement à vous reconnaître d'une visite à l'autre. Le courriel sert à vous joindre au sujet de votre compte. Les parties et le classement font fonctionner le jeu et le tableau des scores. Nous ne faisons ni profilage, ni publicité ciblée.</p>
-  <h2>Où sont conservées les données</h2>
-  <p>Nos serveurs et notre base de données sont hébergés chez Render, aux États-Unis. Vos données sont donc traitées hors du Canada et peuvent être soumises aux lois du pays hôte.</p>
-  <h2>Ce que nous partageons</h2>
-  <p>Rien n'est vendu ni loué. Votre pseudonyme, votre classement et vos parties terminées sont visibles des autres joueurs — c'est le principe d'un classement. Votre adresse courriel ne l'est jamais.</p>
-  <h2>Combien de temps</h2>
-  <p>Tant que votre compte existe. Vous pouvez demander sa suppression à tout moment : le compte et son courriel sont effacés, et les parties déjà jouées sont dissociées de votre identité.</p>
-  <h2>Vos droits</h2>
-  <p>Vous pouvez demander l'accès à vos données, leur correction, leur suppression, ou une copie transférable. Nous répondons dans les trente jours.</p>
-  <h2>Témoins et traceurs</h2>
-  <p>Nous n'utilisons aucun témoin publicitaire ni outil de mesure d'audience tiers. Le stockage local de votre navigateur ne sert qu'à vos préférences et à votre session.</p>
-  <h2>Nous joindre</h2>
-  <p>Pour toute question, demande d'accès ou de suppression, écrivez à info@hexaequo.com.</p>
-  <p class="doc-cta"><a class="doc-button" href="/#/privacy">Jouer à Hexaequo</a></p>
+<!--
+  The app replaces this the moment it boots. It exists because anything that
+  reads the page without running JavaScript — link previews, search crawlers,
+  the assistants people ask instead of searching — would otherwise find an
+  empty document, and could neither confirm the site is called Hexaequo nor
+  tell what it is for.
+
+  It says what the home view says once the app has drawn it (home.about and
+  home.ways in the English locale), so that a crawler reading the page before
+  the script runs and one reading it after find the same description. On a
+  page's own copy of this file, it is that page, in full.
+-->
+<main id="view">
+  <!-- page:view -->
+  <div class="boot-copy boot-page">
+    <p class="boot-crumbs"><a href="/">Hexaequo</a> · <a href="/privacy/" hreflang="en">English</a></p>
+    <article class="page-text">
+      <div class="legal">
+        <h1>Politique de confidentialité</h1>
+        <p class="legal-date">Dernière mise à jour : 20 octobre 2026</p>
+        <p class="lede">Hexaequo est un jeu de plateau en ligne. Cette page explique quelles données nous recueillons, pourquoi, et ce que vous pouvez en faire. Nous n'affichons aucune publicité et ne vendons aucune donnée.</p>
+        <h2>Ce que nous recueillons</h2><p>Sans compte, rien n'est envoyé à nos serveurs à votre sujet : vos préférences (langue, thème, sons, aide de jeu) restent dans le stockage local de votre navigateur. Si vous créez un compte, nous recevons votre adresse courriel, et nous conservons le pseudonyme que vous choisissez ainsi qu’une empreinte de votre mot de passe — jamais le mot de passe lui-même. Nous enregistrons aussi vos parties : les coups joués, le résultat, la cadence et votre classement.</p>
+        <h2>Pourquoi</h2><p>Votre adresse courriel sert à vous reconnaître quand vous vous connectez et à vous joindre au sujet de votre compte : pour le confirmer, ou pour vous envoyer un lien si vous oubliez votre mot de passe. Les parties et le classement font fonctionner le jeu et le tableau des scores. Nous ne faisons ni profilage, ni publicité ciblée.</p>
+        <h2>Où sont conservées les données</h2><p>Nos serveurs et notre base de données sont hébergés chez Render, aux États-Unis. Vos données sont donc traitées hors du Canada et peuvent être soumises aux lois du pays hôte.</p>
+        <h2>Ce que nous partageons</h2><p>Rien n'est vendu ni loué. Votre pseudonyme, votre classement et vos parties terminées sont visibles des autres joueurs — c'est le principe d'un classement. Votre adresse courriel ne l'est jamais.</p>
+        <h2>Combien de temps</h2><p>Tant que votre compte existe. Vous pouvez demander sa suppression à tout moment : le compte et son courriel sont effacés, et les parties déjà jouées sont dissociées de votre identité.</p>
+        <h2>Vos droits</h2><p>Vous pouvez demander l'accès à vos données, leur correction, leur suppression, ou une copie transférable. Nous répondons dans les trente jours.</p>
+        <h2>Témoins et traceurs</h2><p>Nous n'utilisons aucun témoin publicitaire ni outil de mesure d'audience tiers. Le stockage local de votre navigateur ne sert qu'à vos préférences et à votre session.</p>
+        <h2>Nous joindre</h2>
+        <p>Pour toute question, demande d'accès ou de suppression, écrivez à info@hexaequo.com.</p>
+        <div class="legal-foot"><div class="legal-mark"><svg class="logo-mark" viewBox="-145.1 -166.5 705.8 573.0" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M138.56 -80.00 L138.56 80.00 L0.00 160.00 L-138.56 80.00 L-138.56 -80.00 L-0.00 -160.00Z" fill="var(--tile-dark)" stroke="var(--tile-dark)" stroke-width="11" stroke-linejoin="round"/><circle cx="0.00" cy="0.00" r="60.80" fill="var(--piece-light)"/><path d="M415.69 -80.00 L415.69 80.00 L277.13 160.00 L138.56 80.00 L138.56 -80.00 L277.13 -160.00Z" fill="var(--tile-light)" stroke="var(--tile-dark-edge)" stroke-width="11" stroke-linejoin="round"/><circle cx="277.13" cy="0.00" r="80.80" fill="none" stroke="var(--piece-dark)" stroke-width="40.00"/><path d="M277.13 160.00 L277.13 320.00 L138.56 400.00 L-0.00 320.00 L0.00 160.00 L138.56 80.00Z" fill="var(--tile-light)" stroke="var(--tile-dark-edge)" stroke-width="11" stroke-linejoin="round"/><circle cx="138.56" cy="240.00" r="60.80" fill="var(--piece-dark)"/><path d="M554.26 160.00 L554.26 320.00 L415.69 400.00 L277.13 320.00 L277.13 160.00 L415.69 80.00Z" fill="var(--tile-dark)" stroke="var(--tile-dark)" stroke-width="11" stroke-linejoin="round"/><circle cx="415.69" cy="240.00" r="80.80" fill="none" stroke="var(--piece-light)" stroke-width="40.00"/></svg></div></div>
+      </div>
+    </article>
+    <p class="boot-crumbs"><a href="/#/play">Jouer</a> · <a href="/">Hexaequo</a></p>
+  </div>
+<!-- /page:view -->
 </main>
 
-<footer class="doc-foot">
-  <p>Un jeu créé par Piero Barrette</p>
-  <p>
-    <a href="/fr/confidentialite/">Politique de confidentialité</a> ·
-    <a href="/fr/conditions/">Conditions d&#39;utilisation</a> ·
-    <a href="/fr/regles/">Règles</a>
-  </p>
-</footer>
+<noscript>
+  <style>.loader { display: none !important; }</style>
+  Hexaequo a besoin de JavaScript pour jouer, mais tout ce qui précède décrit le jeu.
+</noscript>
+<script type="module" src="/src/main.js"></script>
 </body>
 </html>

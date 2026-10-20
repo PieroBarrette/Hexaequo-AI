@@ -3,14 +3,15 @@
  *
  * Every diagram is generated from the same geometry and tokens as the live
  * board, so the illustrations follow the theme and cannot fall out of step with
- * the implementation.
+ * the implementation. They are plain SVG, so the copy of this page written
+ * into /rules/ for search engines carries them too.
  */
 
-import { t } from '../i18n.js';
 import { miniBoardSvg } from '../ui/miniBoard.js';
 import { logoMarkSvg } from '../ui/logo.js';
 import { BLACK, WHITE, DISK, RING } from '../game/state.js';
 import { RING_OFFSETS, keyQ, keyR, key } from '../game/hex.js';
+import { further } from './shared.js';
 
 /* The opening block, reused by several diagrams. */
 const OPENING = [[0, 0, BLACK], [1, 0, BLACK], [-1, 1, WHITE], [0, 1, WHITE]];
@@ -63,8 +64,17 @@ const FIGURES = {
   },
 };
 
-function figure(nameKey, textKey, figureName, captionKey) {
-  return `
+/* Tiny standalone glyphs for the legend. */
+function miniTile(colour) {
+  return miniBoardSvg({ tiles: [[0, 0, colour]] });
+}
+function miniPiece(player, type) {
+  return miniBoardSvg({ tiles: [[0, 0, player === BLACK ? WHITE : BLACK]], pieces: [[0, 0, player, type]] });
+}
+
+export function rulesHtml(tr) {
+  const { t } = tr;
+  const figure = (nameKey, textKey, figureName, captionKey) => `
     <section class="rule-block">
       <h3>${t(nameKey)}</h3>
       <p>${t(textKey)}</p>
@@ -73,11 +83,8 @@ function figure(nameKey, textKey, figureName, captionKey) {
         <p class="caption">${t(captionKey)}</p>
       </div>
     </section>`;
-}
 
-export function mountRules(outlet) {
-  outlet.innerHTML = `
-    <div class="page"><div class="page-inner">
+  return `
       <h1>${t('rules.title')}</h1>
       <p class="lede">${t('rules.lede')}</p>
 
@@ -119,18 +126,12 @@ export function mountRules(outlet) {
 
       <h2>${t('rules.drawTitle')}</h2>
       <p>${t('rules.drawText')}</p>
+      <p>${t('rules.drawReset')}</p>
+
+      ${further(tr)}
 
       <div class="rules-colophon">
-        <div class="rules-mark">${logoMarkSvg()}</div>
+        <div class="rules-mark">${logoMarkSvg({ decorative: true })}</div>
         <p>${t('home.credit')}</p>
-      </div>
-    </div></div>`;
-}
-
-/* Tiny standalone glyphs for the legend. */
-function miniTile(colour) {
-  return miniBoardSvg({ tiles: [[0, 0, colour]] });
-}
-function miniPiece(player, type) {
-  return miniBoardSvg({ tiles: [[0, 0, player === BLACK ? WHITE : BLACK]], pieces: [[0, 0, player, type]] });
+      </div>`;
 }

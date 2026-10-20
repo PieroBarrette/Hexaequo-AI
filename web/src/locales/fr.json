@@ -1,7 +1,8 @@
 {
   "meta": {
     "title": "Hexaequo",
-    "tagline": "Un jeu de stratégie abstrait à deux"
+    "tagline": "Un jeu de stratégie abstrait à deux",
+    "homeTitle": "Hexaequo — un jeu de stratégie abstrait gratuit pour deux"
   },
   "nav": {
     "home": "Accueil",
@@ -24,8 +25,9 @@
     "settings": "Paramètres",
     "about": "Il n'y a pas de plateau fixe : on le construit en jouant, une tuile hexagonale à la fois, et on y déplace deux sortes de pièces — les disques, qui avancent et sautent, et les anneaux, qui bondissent. On gagne en capturant six disques ou trois anneaux, ou en ne laissant plus rien à l'adversaire sur le plateau.",
     "ways": "Jouez face à face sur un même appareil, contre l'ordinateur à quatre niveaux, ou en ligne — avec un ami grâce à un lien, ou contre un joueur de votre force. C'est gratuit, sans publicité, et aucun compte n'est nécessaire, sauf pour être classé.",
-    "fullRules": "Règles complètes",
     "more": "En savoir plus sur Hexaequo",
+    "guide": "Guide du débutant",
+    "faq": "Questions fréquentes",
     "leaderboard": "Classement",
     "profile": "Mon profil",
     "credit": "Un jeu créé par Piero Barrette",
@@ -354,6 +356,7 @@
     "finePrint4": "<b>Le plateau plafonne à 18 tuiles</b>, neuf par joueur.",
     "drawTitle": "ExAequo",
     "drawText": "La partie est nulle — ExAequo — si le joueur au trait n'a aucun coup légal, si la même position survient trois fois, ou si cinquante coups s'écoulent de chaque côté sans aucune capture et sans rien poser sur le plateau.",
+    "drawReset": "Toute capture, toute tuile posée et toute pièce placée remettent ce compte de cinquante à zéro. Ce sont les coups sur lesquels une partie ne revient pas : le plateau ne fait que grandir, et une pièce capturée ne revient que sous la forme de l'unique disque rendu pour payer un anneau. Lorsque les deux joueurs ont cessé d'en jouer, plus rien de ce qui arrive ne peut être défait ni répété jusqu'à la victoire, et la partie est à égalité.",
     "figureLegend": "Tuile noire, tuile blanche, disque, anneau."
   },
   "a11y": {
@@ -707,5 +710,206 @@
       "title": "Hexaequo",
       "body": "Les notifications fonctionnent sur cet appareil."
     }
+  },
+  "pages": {
+    "furtherTitle": "Pour aller plus loin",
+    "furtherText": "Le <a href=\"/fr/guide/\">guide du débutant</a> passe en revue les premiers coups, les erreurs les plus faciles à commettre et les quatre niveaux de l’ordinateur, et la <a href=\"/fr/faq/\">FAQ</a> répond aux questions sur les comptes, les parties classées et le jeu hors ligne."
+  },
+  "about": {
+    "title": "À propos d’Hexaequo",
+    "docTitle": "Jouer à Hexaequo — un jeu de stratégie abstrait gratuit pour deux",
+    "description": "Hexaequo est un jeu de stratégie abstrait gratuit pour deux joueurs, sans hasard ni information cachée. Il n’y a pas de plateau fixe : on le construit en jouant. En local, contre l’ordinateur, ou en ligne.",
+    "intro": "Hexaequo est un jeu de stratégie abstrait pour deux joueurs. Aucun hasard, rien de caché, et pas de plateau dans la boîte — le plateau se construit en jouant, en posant des tuiles hexagonales et en y déplaçant des disques et des anneaux.",
+    "waysTitle": "Quatre façons de jouer",
+    "ways": [
+      [
+        "À deux sur un même écran",
+        "On se passe l’appareil. Rien à installer, aucun compte requis."
+      ],
+      [
+        "Contre l’ordinateur",
+        "Quatre niveaux, du débutant qui laisse passer des captures à un adversaire qui calcule sept coups d’avance."
+      ],
+      [
+        "En ligne avec un ami",
+        "Créez une partie et transmettez le lien. Celui qui l’a prend la place libre."
+      ],
+      [
+        "Parties classées en ligne",
+        "Connectez-vous et affrontez quelqu’un de votre force, avec pendules et classement mondial."
+      ]
+    ],
+    "whyTitle": "Ce qui le distingue",
+    "why": [
+      [
+        "Le plateau n’est pas donné",
+        "Chaque partie commence avec quatre tuiles. L’endroit où le plateau s’étend est lui-même un coup, et une partie jouée large ne ressemble en rien à une partie jouée serrée."
+      ],
+      [
+        "Trois façons de gagner",
+        "Prendre six disques, prendre trois anneaux, ou ne laisser à l’adversaire aucune pièce sur le plateau. Chacune tire le jeu dans une direction différente."
+      ],
+      [
+        "Sans hasard ni information cachée",
+        "Tout ce que les deux joueurs savent est sur la table. Une défaite est toujours quelque chose qu’on aurait pu voir venir."
+      ],
+      [
+        "Cinq minutes pour apprendre",
+        "Deux sortes de pièces, une sorte de tuile, et un tour se résume à un seul choix."
+      ]
+    ],
+    "freeTitle": "Gratuit, et ça le restera",
+    "freeText": "Hexaequo fonctionne dans un navigateur, sans rien installer. On peut l’ajouter à l’écran d’accueil d’un téléphone et y jouer hors ligne. Aucune publicité, aucun achat, et aucun suivi au-delà de ce qu’exige un compte que vous choisissez de créer.",
+    "nameTitle": "Comment ça s'écrit",
+    "nameText": "Hexaequo s'écrit en un mot : <i>hex</i> pour les hexagones sur lesquels on y joue, et <i>aequo</i> du latin <i>ex aequo</i> — à égalité, ce qu'on appelle ici une partie nulle. C'est un mot difficile à écrire de mémoire, et on le tape souvent hexeko, hexaco, hexeco, hexequo, hexaquo, exako ou exeko. Toutes ces graphies désignent ce jeu, et toutes mènent ici.",
+    "rulesLink": "Lire les règles complètes"
+  },
+  "guide": {
+    "title": "Guide du débutant",
+    "docTitle": "Bien débuter à Hexaequo — premiers coups et erreurs courantes",
+    "description": "Comment bien commencer à Hexaequo : les sept premiers coups possibles, le danger d’une pièce seule, les erreurs les plus faciles à commettre et ce qui distingue les quatre niveaux de l’ordinateur.",
+    "heading": "Guide du débutant",
+    "lede": "Les règles s’apprennent en cinq minutes ; les premières parties demandent un peu plus de temps. Cette page couvre ce qu’il faut surveiller dans les premiers tours, les erreurs les plus faciles à commettre et ce qui distingue les quatre niveaux de l’ordinateur, pour savoir lequel affronter ensuite.",
+    "sections": [
+      {
+        "title": "Vos premiers coups",
+        "intro": "Les Noirs commencent. Le plateau compte quatre tuiles ; chaque camp y a un disque, et garde en réserve 7 tuiles, 5 disques et 3 anneaux. Au premier tour, les Noirs ont exactement sept coups : poser une tuile sur l’une des quatre cases possibles, placer un disque sur la seule tuile noire vide, ou avancer leur disque sur l’une des deux tuiles vides voisines. Aucun n’est une erreur en soi — le niveau le plus fort de l’ordinateur les juge tous à peu près équivalents. C’est la suite qui compte.",
+        "tips": [
+          [
+            "Une pièce seule, c’est toute la partie.",
+            "Tant que vous n’avez pas une deuxième pièce sur le plateau, votre premier disque est tout ce qui vous sépare de la défaite : un joueur qui n’a plus rien sur le plateau a perdu, quoi qu’il lui reste en réserve. Cela peut aller vite. Si le disque noir s’avance à côté du disque blanc et que les Blancs posent la tuile juste derrière lui, cinq des dix réponses possibles des Noirs perdent sur-le-champ. Avant chaque coup, demandez-vous si votre disque peut être sauté au tour suivant."
+          ],
+          [
+            "Vos tuiles sont vos portes d’entrée.",
+            "Une pièce de la réserve ne peut être placée que sur une tuile vide de votre couleur, et au départ vous n’en avez qu’une. Chaque tuile de votre couleur que vous posez est un endroit de plus où faire entrer une pièce — et l’adversaire peut en condamner une en s’y installant, puisque la couleur ne limite pas les déplacements."
+          ],
+          [
+            "Chaque tuile est aussi un point d’atterrissage.",
+            "Un saut demande une tuile vide au-delà de la pièce franchie : une tuile que vous posez peut être justement l’atterrissage qu’attendait un disque adverse. À l’inverse, une pièce au bord du plateau ne peut pas être sautée vers le bord."
+          ],
+          [
+            "Les anneaux viennent plus tard, et coûtent un disque.",
+            "Impossible de placer un anneau avant d’avoir capturé un disque, et le placer rend ce disque à la réserve de son propriétaire, qui pourra le replacer. Pesez l’échange : un anneau atteint jusqu’à douze tuiles d’un seul bond, par-dessus tout ce qui se trouve entre les deux, mais le disque rendu ne compte plus dans votre total de six."
+          ]
+        ]
+      },
+      {
+        "title": "Les erreurs courantes",
+        "tips": [
+          [
+            "Ne compter qu’un seul saut.",
+            "Un disque peut enchaîner les sauts, et il franchit ses propres pièces aussi librement que les vôtres — seules les vôtres sont capturées. Une pièce à deux sauts d’un disque adverse n’est pas hors de portée."
+          ],
+          [
+            "Se tenir à deux pas d’un anneau.",
+            "Un anneau capture sur n’importe quelle tuile située à exactement deux pas, et rien entre les deux ne l’arrête. Juste à côté d’un anneau, on est plus en sécurité qu’à deux pas : un anneau ne peut pas prendre une pièce qui le touche."
+          ],
+          [
+            "Prendre parce qu’on peut.",
+            "Une capture n’est jamais obligatoire, et une suite de sauts peut s’arrêter après n’importe quel saut. Si prendre laisse votre disque là où il sera repris, un coup tranquille vaut peut-être mieux."
+          ],
+          [
+            "Payer un anneau à cinq.",
+            "À un disque des six, placer un anneau vous en remet à deux : le disque rendu ne compte plus."
+          ],
+          [
+            "Prendre la couleur pour un territoire.",
+            "La couleur d’une tuile décide seulement où une pièce de la réserve peut être placée. Une fois sur le plateau, n’importe quelle pièce peut aller sur n’importe quelle tuile vide, quelle que soit sa couleur."
+          ],
+          [
+            "Tourner en rond quand on mène.",
+            "La même position trois fois, c’est un ExAequo, tout comme cinquante coups de chaque côté sans capture, sans tuile posée et sans pièce placée. Une avance ne compte que lorsqu’elle devient une victoire."
+          ],
+          [
+            "Oublier les réserves en fin de partie.",
+            "Quand un joueur n’a plus de disque en réserve, son dernier disque sur le plateau est votre sixième ; quand il n’a plus d’anneau en réserve, son dernier anneau est votre troisième. En fin de partie, une seule capture peut tout décider."
+          ]
+        ]
+      },
+      {
+        "title": "Les quatre niveaux de l’ordinateur",
+        "intro": "Le niveau se choisit dans le menu de la partie, et celui des nouvelles parties se règle dans les paramètres ; une première visite commence au niveau Débutant. Les quatre niveaux utilisent la même recherche, qui pèse les captures, les pièces sur le plateau et en réserve, et les menaces de chaque côté. Ce qui change : jusqu’où elle regarde, combien de temps elle réfléchit, et si elle joue toujours le meilleur coup trouvé.",
+        "levels": [
+          [
+            "Débutant",
+            "regarde son propre coup et votre réponse, puis s’arrête là, même au milieu d’un échange de captures. Environ un coup sur trois, il ne s’en tient pas au meilleur coup trouvé et en tire un au hasard dans la meilleure moitié de ses options. Il rate des captures et laisse des pièces en prise : le niveau pour apprendre les règles."
+          ],
+          [
+            "Facile",
+            "regarde aussi loin, mais mène à leur terme les échanges de captures qu’il voit venir avant de juger une position, et joue toujours le meilleur coup trouvé."
+          ],
+          [
+            "Moyen",
+            "regarde jusqu’à cinq coups d’avance, les vôtres et les siens comptés séparément, et réfléchit jusqu’à un peu plus d’une seconde par coup."
+          ],
+          [
+            "Fort",
+            "regarde jusqu’à sept coups d’avance et réfléchit jusqu’à trois secondes et demie par coup : l’adversaire le plus fort du jeu."
+          ]
+        ],
+        "outro": "Chaque niveau ajoute aussi une part de hasard à ses évaluations, pour que les parties varient : presque la valeur d’un disque au niveau Débutant, presque rien au niveau Fort. Les quatre connaissent les règles de l’ExAequo : en avance, l’ordinateur évite de répéter une position ou de laisser filer le compte des cinquante coups ; en retard, c’est l’ExAequo qu’il cherche. Passez au niveau supérieur quand vous gagnez plus souvent que vous ne perdez — et pour voir ce qui change, opposez deux niveaux en mode IA contre IA et regardez-les jouer."
+      },
+      {
+        "title": "Pour aller plus loin",
+        "intro": "Les <a href=\"/fr/regles/\">règles complètes</a> tiennent sur une page, et la <a href=\"/fr/faq/\">FAQ</a> répond aux questions sur les comptes, les parties classées et le jeu hors ligne."
+      }
+    ]
+  },
+  "faq": {
+    "title": "Questions fréquentes",
+    "docTitle": "FAQ Hexaequo — gratuité, jeu hors ligne, comptes et parties classées",
+    "description": "Hexaequo est-il gratuit, peut-on y jouer hors ligne, faut-il un compte, comment fonctionnent les parties classées et l’ExAequo, et comment s’écrit le nom ? Des réponses courtes à chaque question.",
+    "heading": "Questions fréquentes",
+    "lede": "Des réponses courtes sur le jeu, le site et les parties en ligne. Les <a href=\"/fr/regles/\">règles</a> ont leur propre page, et le <a href=\"/fr/guide/\">guide du débutant</a> accompagne les premières parties.",
+    "items": [
+      [
+        "Hexaequo est-il gratuit ?",
+        "Oui, entièrement. Jouer sur un même écran, contre l’ordinateur ou en ligne — parties classées comprises — ne coûte rien. Il n’y a ni publicité, ni achat, ni outil de mesure d’audience tiers."
+      ],
+      [
+        "Faut-il un compte ?",
+        "Non. Les parties à deux sur un même écran, contre l’ordinateur et en ligne par un lien se jouent sans compte. Il en faut un pour les parties classées — partie rapide et défis compris —, pour avoir un profil qui garde vos parties et pour figurer au classement."
+      ],
+      [
+        "Comment créer un compte ?",
+        "Ouvrez la page Compte de l’application et inscrivez-vous avec une adresse courriel et un mot de passe. Vous choisissez le pseudonyme que verront les autres joueurs, et vous pourrez le changer plus tard. Un compte se supprime à tout moment depuis votre profil."
+      ],
+      [
+        "Peut-on jouer hors ligne ?",
+        "Oui. Après une première visite avec une connexion, tout le jeu est gardé sur votre appareil : les parties à deux sur un même écran, l’ordinateur et la revue d’une partie terminée fonctionnent hors ligne, puisque l’ordinateur joue dans votre navigateur. Les parties en ligne, le salon et le classement demandent une connexion."
+      ],
+      [
+        "Peut-on l’installer sur un téléphone ?",
+        "Oui. Hexaequo fonctionne dans le navigateur des téléphones, des tablettes et des ordinateurs, sans rien télécharger d’une boutique d’applications. Choisissez « Installer l’application » dans les paramètres, ou « Ajouter à l’écran d’accueil » dans le menu de votre navigateur : il s’ouvre alors dans sa propre fenêtre, comme n’importe quelle application, et se joue hors ligne."
+      ],
+      [
+        "Comment jouer en ligne avec un ami ?",
+        "Choisissez « En ligne » dans le menu, puis « Créer une partie », avec ou sans pendule, et partagez le lien ou le code QR. Celui qui l’ouvre prend la place libre, et aucun de vous n’a besoin d’un compte. Si vous êtes tous les deux connectés et avez choisi une pendule, la partie compte au classement ; sans pendule, elle reste amicale. Une partie que personne ne touche pendant deux heures est oubliée, et son lien ne fonctionne plus."
+      ],
+      [
+        "Comment fonctionnent les parties classées ?",
+        "Une partie compte au classement quand ses deux places sont tenues par deux joueurs connectés différents et qu’elle se joue avec une pendule, qu’ils se soient trouvés par la partie rapide, par un défi ou par un lien. La partie rapide cherche un adversaire proche de votre classement à la cadence choisie — bullet (2 minutes plus 1 seconde par coup), blitz (5 + 3), rapide (10 + 5) ou classique (20 + 10) — et élargit la recherche à mesure que vous attendez. Le classement suit le système Elo et part de 1000 ; vos trente premières parties classées le font bouger plus vite, et une cadence plus longue rapporte plus de points. On perd une partie en abandonnant, en dépassant son temps, ou en partant sans revenir avant la fin du compte à rebours. Tous ceux qui ont joué au moins une partie classée figurent au classement."
+      ],
+      [
+        "Qu’est-ce qu’un ExAequo ?",
+        "C’est ainsi qu’on appelle une partie nulle à Hexaequo, du latin <i>ex aequo</i>, à égalité. La partie se termine par un ExAequo quand le joueur au trait n’a aucun coup légal, quand la même position revient pour la troisième fois, ou après cinquante coups de chaque côté sans capture, sans tuile posée et sans pièce placée. En ligne, chaque joueur peut aussi proposer l’ExAequo, qui est conclu si l’autre l’accepte. Dans une partie classée, il vaut un demi-point à chacun. Les <a href=\"/fr/regles/\">règles</a> expliquent pourquoi une capture, une tuile posée ou une pièce placée remettent ce compte à zéro."
+      ],
+      [
+        "Peut-on jouer contre l’ordinateur ?",
+        "Oui, à quatre niveaux — Débutant, Facile, Moyen et Fort —, avec les Noirs ou les Blancs. L’ordinateur joue sur votre appareil et n’a besoin d’aucune connexion. Le <a href=\"/fr/guide/\">guide du débutant</a> explique ce qui change d’un niveau à l’autre."
+      ],
+      [
+        "Comment s’écrit Hexaequo ?",
+        "En un seul mot : <i>hex</i> pour les hexagones sur lesquels on y joue, et <i>aequo</i> du latin <i>ex aequo</i>, à égalité — le nom qu’on donne ici à une partie nulle. On le tape souvent hexeko, hexaco, hexeco, hexequo, hexaquo, exako ou exeko : toutes ces graphies désignent ce jeu."
+      ],
+      [
+        "En quelles langues peut-on jouer ?",
+        "En français et en anglais. Le jeu s’ouvre dans la langue que préfère votre navigateur, si c’est l’une des deux, et la langue se change dans les paramètres."
+      ],
+      [
+        "Qui a créé Hexaequo ?",
+        "Hexaequo a été créé par Piero Barrette. Questions et suggestions sont les bienvenues à <a href=\"mailto:info@hexaequo.com\">info@hexaequo.com</a>."
+      ]
+    ]
   }
 }

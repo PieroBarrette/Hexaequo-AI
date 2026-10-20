@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="fr" data-theme="dark" data-board-style="modern" data-route="home">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0e1015">
+<!--
+  This file is the shell of every page of the site. The home page is this
+  file; each page with an address of its own (web/src/pages.js — /rules/,
+  /fr/regles/ and the rest) is a copy of it written by
+  backend/scripts/makePages.js, with what lies between the page:head markers
+  and between the page:view markers replaced by that page's own. The same
+  shell is served at /fr/regles/ as at /, so every path in it is absolute.
+-->
+<!-- page:head -->
+<title>Bien débuter à Hexaequo — premiers coups et erreurs courantes</title>
+<meta name="description" content="Comment bien commencer à Hexaequo : les sept premiers coups possibles, le danger d’une pièce seule, les erreurs les plus faciles à commettre et ce qui distingue les quatre niveaux de l’ordinateur.">
+<link rel="canonical" href="https://hexaequo.com/fr/guide/">
+<link rel="alternate" hreflang="en" href="https://hexaequo.com/guide/">
+<link rel="alternate" hreflang="fr" href="https://hexaequo.com/fr/guide/">
+<link rel="alternate" hreflang="x-default" href="https://hexaequo.com/guide/">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Hexaequo">
+<meta property="og:title" content="Bien débuter à Hexaequo — premiers coups et erreurs courantes">
+<meta property="og:url" content="https://hexaequo.com/fr/guide/">
+<meta property="og:description" content="Comment bien commencer à Hexaequo : les sept premiers coups possibles, le danger d’une pièce seule, les erreurs les plus faciles à commettre et ce qui distingue les quatre niveaux de l’ordinateur.">
+<meta property="og:locale" content="fr_CA">
+<meta property="og:image" content="https://hexaequo.com/assets/icons/icon-512x512.png">
+<meta name="twitter:card" content="summary">
+<!-- /page:head -->
+
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/assets/icons/icon-192x192.png" sizes="192x192">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+
+<script src="/src/bootTheme.js"></script>
+
+<link rel="stylesheet" href="/styles/tokens.css">
+<link rel="stylesheet" href="/styles/app.css">
+
+<!-- page:data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Bien débuter à Hexaequo — premiers coups et erreurs courantes",
+  "description": "Comment bien commencer à Hexaequo : les sept premiers coups possibles, le danger d’une pièce seule, les erreurs les plus faciles à commettre et ce qui distingue les quatre niveaux de l’ordinateur.",
+  "inLanguage": "fr",
+  "url": "https://hexaequo.com/fr/guide/",
+  "image": "https://hexaequo.com/assets/icons/icon-512x512.png",
+  "about": {
+    "@type": "VideoGame",
+    "name": "Hexaequo",
+    "url": "https://hexaequo.com/"
+  },
+  "author": {
+    "@type": "Person",
+    "name": "Piero Barrette"
+  }
+}
+</script>
+<!-- /page:data -->
+</head>
+<body>
+
+<!--
+  The opening position, laying itself out.
+
+  Not a spinner: the four tiles of the mark are the four tiles a game of
+  Hexaequo starts from, and they arrive the way they are played — black, white,
+  black, white — each piece dropping onto its tile after the tile has landed.
+  It says what the site is while it waits, which is more than a rotating arc
+  can do.
+
+  It sits over the copy below rather than replacing it: that text is what a
+  crawler reads, and it has to stay in the document.
+-->
+<div id="loader" class="loader" aria-hidden="true">
+  <svg class="loader-mark" viewBox="-145.1 -166.5 705.8 573.0" xmlns="http://www.w3.org/2000/svg">
+  <g class="ld-cell" style="--i:0">
+    <path class="ld-tile" d="M138.56 -80.00 L138.56 80.00 L0.00 160.00 L-138.56 80.00 L-138.56 -80.00 L-0.00 -160.00Z" fill="var(--tile-dark)" stroke="var(--tile-dark)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="0.00" cy="0.00" r="60.80" fill="var(--piece-light)"/></g>
+  </g>
+  <g class="ld-cell" style="--i:1">
+    <path class="ld-tile" d="M415.69 -80.00 L415.69 80.00 L277.13 160.00 L138.56 80.00 L138.56 -80.00 L277.13 -160.00Z" fill="var(--tile-light)" stroke="var(--tile-dark-edge)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="277.13" cy="0.00" r="80.80" fill="none" stroke="var(--piece-dark)" stroke-width="40.00"/></g>
+  </g>
+  <g class="ld-cell" style="--i:3">
+    <path class="ld-tile" d="M277.13 160.00 L277.13 320.00 L138.56 400.00 L-0.00 320.00 L0.00 160.00 L138.56 80.00Z" fill="var(--tile-light)" stroke="var(--tile-dark-edge)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="138.56" cy="240.00" r="60.80" fill="var(--piece-dark)"/></g>
+  </g>
+  <g class="ld-cell" style="--i:2">
+    <path class="ld-tile" d="M554.26 160.00 L554.26 320.00 L415.69 400.00 L277.13 320.00 L277.13 160.00 L415.69 80.00Z" fill="var(--tile-dark)" stroke="var(--tile-dark)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="415.69" cy="240.00" r="80.80" fill="none" stroke="var(--piece-light)" stroke-width="40.00"/></g>
+  </g>
+  </svg>
+  <span class="loader-word">HEXAEQUO</span>
+</div>
+
+<header class="site-header">
+  <!-- The way back to the menu, on every page but the menu itself. A chevron,
+       the mark, and the word: the logo alone read as decoration, not as a
+       button, and nothing about it said where it went. -->
+  <button class="btn" id="brand" data-go="home" data-route-link="home"
+          data-i18n-attr="aria-label:nav.backToMenu,title:nav.backToMenu"></button>
+  <span class="spacer"></span>
+  <nav id="site-nav">
+    <button class="btn" id="account-chip" data-go="account"></button>
+    <button class="btn btn--icon" data-go="rules" data-route-link="rules" data-i18n-attr="title:nav.rules">?</button>
+    <button class="btn btn--icon" data-go="settings" data-route-link="settings" data-i18n-attr="title:nav.settings">⚙</button>
+  </nav>
+</header>
+
+<!--
+  The app replaces this the moment it boots. It exists because anything that
+  reads the page without running JavaScript — link previews, search crawlers,
+  the assistants people ask instead of searching — would otherwise find an
+  empty document, and could neither confirm the site is called Hexaequo nor
+  tell what it is for.
+
+  It says what the home view says once the app has drawn it (home.about and
+  home.ways in the English locale), so that a crawler reading the page before
+  the script runs and one reading it after find the same description. On a
+  page's own copy of this file, it is that page, in full.
+-->
+<main id="view">
+  <!-- page:view -->
+  <div class="boot-copy boot-page">
+    <p class="boot-crumbs"><a href="/">Hexaequo</a> · <a href="/guide/" hreflang="en">English</a></p>
+    <article class="page-text"><h1>Guide du débutant</h1>
+      <p class="lede">Les règles s’apprennent en cinq minutes ; les premières parties demandent un peu plus de temps. Cette page couvre ce qu’il faut surveiller dans les premiers tours, les erreurs les plus faciles à commettre et ce qui distingue les quatre niveaux de l’ordinateur, pour savoir lequel affronter ensuite.</p>
+      <h2>Vos premiers coups</h2>
+      <p>Les Noirs commencent. Le plateau compte quatre tuiles ; chaque camp y a un disque, et garde en réserve 7 tuiles, 5 disques et 3 anneaux. Au premier tour, les Noirs ont exactement sept coups : poser une tuile sur l’une des quatre cases possibles, placer un disque sur la seule tuile noire vide, ou avancer leur disque sur l’une des deux tuiles vides voisines. Aucun n’est une erreur en soi — le niveau le plus fort de l’ordinateur les juge tous à peu près équivalents. C’est la suite qui compte.</p>
+      <ul>
+      <li><b>Une pièce seule, c’est toute la partie.</b> Tant que vous n’avez pas une deuxième pièce sur le plateau, votre premier disque est tout ce qui vous sépare de la défaite : un joueur qui n’a plus rien sur le plateau a perdu, quoi qu’il lui reste en réserve. Cela peut aller vite. Si le disque noir s’avance à côté du disque blanc et que les Blancs posent la tuile juste derrière lui, cinq des dix réponses possibles des Noirs perdent sur-le-champ. Avant chaque coup, demandez-vous si votre disque peut être sauté au tour suivant.</li>
+      <li><b>Vos tuiles sont vos portes d’entrée.</b> Une pièce de la réserve ne peut être placée que sur une tuile vide de votre couleur, et au départ vous n’en avez qu’une. Chaque tuile de votre couleur que vous posez est un endroit de plus où faire entrer une pièce — et l’adversaire peut en condamner une en s’y installant, puisque la couleur ne limite pas les déplacements.</li>
+      <li><b>Chaque tuile est aussi un point d’atterrissage.</b> Un saut demande une tuile vide au-delà de la pièce franchie : une tuile que vous posez peut être justement l’atterrissage qu’attendait un disque adverse. À l’inverse, une pièce au bord du plateau ne peut pas être sautée vers le bord.</li>
+      <li><b>Les anneaux viennent plus tard, et coûtent un disque.</b> Impossible de placer un anneau avant d’avoir capturé un disque, et le placer rend ce disque à la réserve de son propriétaire, qui pourra le replacer. Pesez l’échange : un anneau atteint jusqu’à douze tuiles d’un seul bond, par-dessus tout ce qui se trouve entre les deux, mais le disque rendu ne compte plus dans votre total de six.</li>
+      </ul>
+      <h2>Les erreurs courantes</h2>
+      <ul>
+      <li><b>Ne compter qu’un seul saut.</b> Un disque peut enchaîner les sauts, et il franchit ses propres pièces aussi librement que les vôtres — seules les vôtres sont capturées. Une pièce à deux sauts d’un disque adverse n’est pas hors de portée.</li>
+      <li><b>Se tenir à deux pas d’un anneau.</b> Un anneau capture sur n’importe quelle tuile située à exactement deux pas, et rien entre les deux ne l’arrête. Juste à côté d’un anneau, on est plus en sécurité qu’à deux pas : un anneau ne peut pas prendre une pièce qui le touche.</li>
+      <li><b>Prendre parce qu’on peut.</b> Une capture n’est jamais obligatoire, et une suite de sauts peut s’arrêter après n’importe quel saut. Si prendre laisse votre disque là où il sera repris, un coup tranquille vaut peut-être mieux.</li>
+      <li><b>Payer un anneau à cinq.</b> À un disque des six, placer un anneau vous en remet à deux : le disque rendu ne compte plus.</li>
+      <li><b>Prendre la couleur pour un territoire.</b> La couleur d’une tuile décide seulement où une pièce de la réserve peut être placée. Une fois sur le plateau, n’importe quelle pièce peut aller sur n’importe quelle tuile vide, quelle que soit sa couleur.</li>
+      <li><b>Tourner en rond quand on mène.</b> La même position trois fois, c’est un ExAequo, tout comme cinquante coups de chaque côté sans capture, sans tuile posée et sans pièce placée. Une avance ne compte que lorsqu’elle devient une victoire.</li>
+      <li><b>Oublier les réserves en fin de partie.</b> Quand un joueur n’a plus de disque en réserve, son dernier disque sur le plateau est votre sixième ; quand il n’a plus d’anneau en réserve, son dernier anneau est votre troisième. En fin de partie, une seule capture peut tout décider.</li>
+      </ul>
+      <h2>Les quatre niveaux de l’ordinateur</h2>
+      <p>Le niveau se choisit dans le menu de la partie, et celui des nouvelles parties se règle dans les paramètres ; une première visite commence au niveau Débutant. Les quatre niveaux utilisent la même recherche, qui pèse les captures, les pièces sur le plateau et en réserve, et les menaces de chaque côté. Ce qui change : jusqu’où elle regarde, combien de temps elle réfléchit, et si elle joue toujours le meilleur coup trouvé.</p>
+      <ul>
+      <li><b>Débutant</b> — regarde son propre coup et votre réponse, puis s’arrête là, même au milieu d’un échange de captures. Environ un coup sur trois, il ne s’en tient pas au meilleur coup trouvé et en tire un au hasard dans la meilleure moitié de ses options. Il rate des captures et laisse des pièces en prise : le niveau pour apprendre les règles.</li>
+      <li><b>Facile</b> — regarde aussi loin, mais mène à leur terme les échanges de captures qu’il voit venir avant de juger une position, et joue toujours le meilleur coup trouvé.</li>
+      <li><b>Moyen</b> — regarde jusqu’à cinq coups d’avance, les vôtres et les siens comptés séparément, et réfléchit jusqu’à un peu plus d’une seconde par coup.</li>
+      <li><b>Fort</b> — regarde jusqu’à sept coups d’avance et réfléchit jusqu’à trois secondes et demie par coup : l’adversaire le plus fort du jeu.</li>
+      </ul>
+      <p>Chaque niveau ajoute aussi une part de hasard à ses évaluations, pour que les parties varient : presque la valeur d’un disque au niveau Débutant, presque rien au niveau Fort. Les quatre connaissent les règles de l’ExAequo : en avance, l’ordinateur évite de répéter une position ou de laisser filer le compte des cinquante coups ; en retard, c’est l’ExAequo qu’il cherche. Passez au niveau supérieur quand vous gagnez plus souvent que vous ne perdez — et pour voir ce qui change, opposez deux niveaux en mode IA contre IA et regardez-les jouer.</p>
+      <h2>Pour aller plus loin</h2>
+      <p>Les <a href="/fr/regles/" data-panel="rules">règles complètes</a> tiennent sur une page, et la <a href="/fr/faq/" data-panel="faq">FAQ</a> répond aux questions sur les comptes, les parties classées et le jeu hors ligne.</p>
+    </article>
+    <p class="boot-crumbs"><a href="/#/play">Jouer</a> · <a href="/">Hexaequo</a></p>
+  </div>
+<!-- /page:view -->
+</main>
+
+<noscript>
+  <style>.loader { display: none !important; }</style>
+  Hexaequo a besoin de JavaScript pour jouer, mais tout ce qui précède décrit le jeu.
+</noscript>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

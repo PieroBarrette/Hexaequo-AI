@@ -28,6 +28,13 @@ works offline. Created by Piero Barrette.
 - [Rules](https://hexaequo.com/rules/): the complete rules, in full.
 - [Jouer à Hexaequo](https://hexaequo.com/fr/jouer/): the same in French.
 - [Règles](https://hexaequo.com/fr/regles/): the complete rules in French.
+- [Beginner's guide](https://hexaequo.com/guide/): the first moves, the
+  mistakes that are easiest to make, and how the computer's four levels differ.
+- [FAQ](https://hexaequo.com/faq/): whether it is free, playing offline,
+  accounts, rated games, draws, and how the name is spelled.
+- [Guide du débutant](https://hexaequo.com/fr/guide/): the beginner's guide in
+  French.
+- [FAQ en français](https://hexaequo.com/fr/faq/): the FAQ in French.
 - [The game itself](https://hexaequo.com/): the playable application.
 
 ## Optional

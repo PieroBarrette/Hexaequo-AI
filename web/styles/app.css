@@ -115,6 +115,12 @@ button:disabled { opacity: .35; cursor: not-allowed; }
   transition: background .15s var(--ease), border-color .15s var(--ease);
 }
 .btn:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--accent); }
+/* A link dressed as a button: a page with an address of its own, in the
+   menu. It has to read as one of the buttons beside it, not as a link. */
+a.btn {
+  color: inherit; text-decoration: none; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
 .btn.is-active, .btn.is-on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 /*
  * A button that is only its glyph, with the glyph in the middle of it.
@@ -1182,6 +1188,14 @@ select.btn option {
 .overlay-body .page { padding-top: 18px; }
 .overlay-body .page h1 { display: none; }   /* the panel header already names it */
 
+/* The pages with an address of their own (content/), in a panel and in the
+   copy written for search engines: links that read as the game's, in both
+   themes (plain --accent is under 4.5:1 on the light background), and
+   questions set as sentences. */
+.page-text a { color: color-mix(in srgb, var(--accent) 70%, var(--text)); text-underline-offset: 3px; }
+.page-text a:hover { color: var(--text); }
+.page-text h3 { margin: 22px 0 6px; font-size: 15px; font-weight: 600; }
+
 @keyframes overlay-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes overlay-slide { from { transform: translateX(18px); opacity: 0; } to { transform: none; opacity: 1; } }
 
@@ -1712,6 +1726,10 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
 }
 .boot-copy a { color: var(--accent); text-decoration: none; }
 .boot-copy a:hover { text-decoration: underline; }
+/* A page's own copy (makePages.js): the whole page, so wider than the home's
+   few lines, with a way home above and below it. */
+.boot-page { max-width: 72ch; }
+.boot-crumbs { font-size: 13px; }
 
 /* ── Leaderboard ─────────────────────────────────────────────────────────── */
 

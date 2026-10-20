@@ -50,13 +50,23 @@ const SHELL = [
   './src/ui/miniBoard.js',
   './src/views/home.js',
   './src/views/play.js',
-  './src/views/rules.js',
-  './src/views/legal.js',
   './src/views/account.js',
   './src/views/leaderboard.js',
   './src/views/online.js',
   './src/ui/overlay.js',
   './src/ui/panels.js',
+  './src/ui/authErrors.js',
+  /* The pages with addresses of their own, drawn as panels. Their documents
+     (/rules/, /fr/regles/…) need not be cached: offline, any address falls
+     back to the shell below, and the shell opens the page from the path. */
+  './src/pages.js',
+  './src/content/index.js',
+  './src/content/shared.js',
+  './src/content/rules.js',
+  './src/content/about.js',
+  './src/content/guide.js',
+  './src/content/faq.js',
+  './src/content/legal.js',
   './src/views/settings.js',
   './assets/icons/icon-192x192.png',
   './assets/icons/icon-512x512.png',
@@ -79,7 +89,6 @@ const SHELL = [
   './src/views/lobby.js',
   './src/views/mailAction.js',
   './src/views/profile.js',
-  './styles/page.css',
   // Sound is synthesised in audio.js; there is nothing left to download.
 ];
 
@@ -194,14 +203,10 @@ self.addEventListener('notificationclick', (event) => {
   const target = new URL(wanted, self.registration.scope).href;
   event.waitUntil((async () => {
     const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    /* The app itself, not any page of the site: the static pages under
-       /rules/ or /fr/ have no router to hear where to go. */
-    const scope = new URL(self.registration.scope).pathname;
-    const open = windows.find((client) => {
-      const url = new URL(client.url);
-      return url.origin === self.location.origin
-        && (url.pathname === scope || url.pathname === `${scope}index.html`);
-    });
+    /* Every page of the site is the app now — /rules/ and the rest open it
+       with a panel over the home screen — so any window of ours can be told
+       where to go. */
+    const open = windows.find((client) => new URL(client.url).origin === self.location.origin);
     if (open) {
       await open.focus().catch(() => {});
       open.postMessage({ type: 'hx:open', url: target });

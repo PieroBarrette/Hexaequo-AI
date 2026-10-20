@@ -260,6 +260,11 @@ app.get('/api/version', (req, res) => {
     res.set('Cache-Control', 'no-store');
     res.json({ build: BUILD });
 });
+/* The French pages live under /fr/, but /fr/ itself is no page: it served the
+   home a second time, in English, under a second address. The French page
+   about the game is what somebody typing it is after. */
+app.get(['/fr', '/fr/'], (req, res) => res.redirect(301, '/fr/jouer/'));
+
 if (fs.existsSync(frontendPath)) {
     console.log(`✅ Frontend folder found at: ${frontendPath}`);
     app.use(express.static(frontendPath));

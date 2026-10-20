@@ -1,9 +1,18 @@
 <!doctype html>
-<html lang="en" data-theme="dark" data-board-style="modern">
+<html lang="en" data-theme="dark" data-board-style="modern" data-route="home">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0e1015">
+<!--
+  This file is the shell of every page of the site. The home page is this
+  file; each page with an address of its own (web/src/pages.js — /rules/,
+  /fr/regles/ and the rest) is a copy of it written by
+  backend/scripts/makePages.js, with what lies between the page:head markers
+  and between the page:view markers replaced by that page's own. The same
+  shell is served at /fr/regles/ as at /, so every path in it is absolute.
+-->
+<!-- page:head -->
 <title>Play Hexaequo — a free abstract strategy game for two</title>
 <meta name="description" content="Hexaequo is a free two-player abstract strategy game with no hidden information and no dice. There is no fixed board: you build it as you play. Play locally, against the computer, or online.">
 <link rel="canonical" href="https://hexaequo.com/play/">
@@ -11,25 +20,47 @@
 <link rel="alternate" hreflang="fr" href="https://hexaequo.com/fr/jouer/">
 <link rel="alternate" hreflang="x-default" href="https://hexaequo.com/play/">
 
-<meta property="og:type" content="article">
+<meta property="og:type" content="website">
 <meta property="og:site_name" content="Hexaequo">
 <meta property="og:title" content="Play Hexaequo — a free abstract strategy game for two">
 <meta property="og:url" content="https://hexaequo.com/play/">
 <meta property="og:description" content="Hexaequo is a free two-player abstract strategy game with no hidden information and no dice. There is no fixed board: you build it as you play. Play locally, against the computer, or online.">
+<meta property="og:locale" content="en_US">
 <meta property="og:image" content="https://hexaequo.com/assets/icons/icon-512x512.png">
 <meta name="twitter:card" content="summary">
+<!-- /page:head -->
 
+<link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/assets/icons/icon-192x192.png" sizes="192x192">
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+
+<script src="/src/bootTheme.js"></script>
+
 <link rel="stylesheet" href="/styles/tokens.css">
-<link rel="stylesheet" href="/styles/page.css">
+<link rel="stylesheet" href="/styles/app.css">
+
+<!-- page:data -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "VideoGame",
   "name": "Hexaequo",
-  "alternateName": ["Hexaequo — abstract strategy game", "Hexæquo", "Hex aequo", "hexeko", "hexaco", "hexeco", "hexequo", "hexaquo", "exako", "exeko"],
-  "url": "https://hexaequo.com",
+  "alternateName": [
+    "Hexæquo",
+    "Hex aequo",
+    "hexeko",
+    "hexaco",
+    "hexeco",
+    "hexequo",
+    "hexaquo",
+    "exako",
+    "exeko"
+  ],
+  "url": "https://hexaequo.com/",
   "description": "Hexaequo is a free two-player abstract strategy game with no hidden information and no dice. There is no fixed board: you build it as you play. Play locally, against the computer, or online.",
   "inLanguage": [
     "en",
@@ -47,8 +78,7 @@
   ],
   "playMode": [
     "SinglePlayer",
-    "MultiPlayer",
-    "CoOp"
+    "MultiPlayer"
   ],
   "numberOfPlayers": {
     "@type": "QuantitativeValue",
@@ -74,66 +104,113 @@
   "isAccessibleForFree": true
 }
 </script>
+<!-- /page:data -->
 </head>
 <body>
-<header class="doc-head">
-  <a class="doc-brand" href="/"><svg class="mark" aria-hidden="true" viewBox="-145.1 -166.5 705.8 573.0" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Hexaequo">
-  <title>Hexaequo</title>
-  <!-- The opening position: two black tiles, two white tiles, alternating disk and ring. -->
-  <path d="M138.56 -80.00 L138.56 80.00 L0.00 160.00 L-138.56 80.00 L-138.56 -80.00 L-0.00 -160.00Z" fill="#000000" stroke="#000000" stroke-width="11" stroke-linejoin="round"/>
-  <circle cx="0.00" cy="0.00" r="60.80" fill="#ffffff"/>
-  <path d="M415.69 -80.00 L415.69 80.00 L277.13 160.00 L138.56 80.00 L138.56 -80.00 L277.13 -160.00Z" fill="#ffffff" stroke="#000000" stroke-width="11" stroke-linejoin="round"/>
-  <circle cx="277.13" cy="0.00" r="80.80" fill="none" stroke="#000000" stroke-width="40.00"/>
-  <path d="M277.13 160.00 L277.13 320.00 L138.56 400.00 L-0.00 320.00 L0.00 160.00 L138.56 80.00Z" fill="#ffffff" stroke="#000000" stroke-width="11" stroke-linejoin="round"/>
-  <circle cx="138.56" cy="240.00" r="60.80" fill="#000000"/>
-  <path d="M554.26 160.00 L554.26 320.00 L415.69 400.00 L277.13 320.00 L277.13 160.00 L415.69 80.00Z" fill="#000000" stroke="#000000" stroke-width="11" stroke-linejoin="round"/>
-  <circle cx="415.69" cy="240.00" r="80.80" fill="none" stroke="#ffffff" stroke-width="40.00"/>
-</svg><span>HEXAEQUO</span></a>
-  <nav class="doc-nav">
-    <a href="/">Home</a>
-    <a href="/rules/">Rules</a>
-    <a href="/fr/jouer/" hreflang="fr">Français</a>
+
+<!--
+  The opening position, laying itself out.
+
+  Not a spinner: the four tiles of the mark are the four tiles a game of
+  Hexaequo starts from, and they arrive the way they are played — black, white,
+  black, white — each piece dropping onto its tile after the tile has landed.
+  It says what the site is while it waits, which is more than a rotating arc
+  can do.
+
+  It sits over the copy below rather than replacing it: that text is what a
+  crawler reads, and it has to stay in the document.
+-->
+<div id="loader" class="loader" aria-hidden="true">
+  <svg class="loader-mark" viewBox="-145.1 -166.5 705.8 573.0" xmlns="http://www.w3.org/2000/svg">
+  <g class="ld-cell" style="--i:0">
+    <path class="ld-tile" d="M138.56 -80.00 L138.56 80.00 L0.00 160.00 L-138.56 80.00 L-138.56 -80.00 L-0.00 -160.00Z" fill="var(--tile-dark)" stroke="var(--tile-dark)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="0.00" cy="0.00" r="60.80" fill="var(--piece-light)"/></g>
+  </g>
+  <g class="ld-cell" style="--i:1">
+    <path class="ld-tile" d="M415.69 -80.00 L415.69 80.00 L277.13 160.00 L138.56 80.00 L138.56 -80.00 L277.13 -160.00Z" fill="var(--tile-light)" stroke="var(--tile-dark-edge)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="277.13" cy="0.00" r="80.80" fill="none" stroke="var(--piece-dark)" stroke-width="40.00"/></g>
+  </g>
+  <g class="ld-cell" style="--i:3">
+    <path class="ld-tile" d="M277.13 160.00 L277.13 320.00 L138.56 400.00 L-0.00 320.00 L0.00 160.00 L138.56 80.00Z" fill="var(--tile-light)" stroke="var(--tile-dark-edge)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="138.56" cy="240.00" r="60.80" fill="var(--piece-dark)"/></g>
+  </g>
+  <g class="ld-cell" style="--i:2">
+    <path class="ld-tile" d="M554.26 160.00 L554.26 320.00 L415.69 400.00 L277.13 320.00 L277.13 160.00 L415.69 80.00Z" fill="var(--tile-dark)" stroke="var(--tile-dark)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="415.69" cy="240.00" r="80.80" fill="none" stroke="var(--piece-light)" stroke-width="40.00"/></g>
+  </g>
+  </svg>
+  <span class="loader-word">HEXAEQUO</span>
+</div>
+
+<header class="site-header">
+  <!-- The way back to the menu, on every page but the menu itself. A chevron,
+       the mark, and the word: the logo alone read as decoration, not as a
+       button, and nothing about it said where it went. -->
+  <button class="btn" id="brand" data-go="home" data-route-link="home"
+          data-i18n-attr="aria-label:nav.backToMenu,title:nav.backToMenu"></button>
+  <span class="spacer"></span>
+  <nav id="site-nav">
+    <button class="btn" id="account-chip" data-go="account"></button>
+    <button class="btn btn--icon" data-go="rules" data-route-link="rules" data-i18n-attr="title:nav.rules">?</button>
+    <button class="btn btn--icon" data-go="settings" data-route-link="settings" data-i18n-attr="title:nav.settings">⚙</button>
   </nav>
 </header>
 
-<main class="doc">
-  <h1>Hexaequo</h1>
-  <p class="doc-lede">Hexaequo is an abstract strategy game for two players. There is no luck in it, nothing is hidden, and there is no board in the box — you build the board as you play, laying hexagonal tiles and moving disks and rings across them.</p>
+<!--
+  The app replaces this the moment it boots. It exists because anything that
+  reads the page without running JavaScript — link previews, search crawlers,
+  the assistants people ask instead of searching — would otherwise find an
+  empty document, and could neither confirm the site is called Hexaequo nor
+  tell what it is for.
 
-  <h2>Four ways to play</h2>
-  <ul>
-    <li><b>Two players, one screen</b> — Pass the device back and forth. Nothing to install and no account needed.</li>
-    <li><b>Against the computer</b> — Four strengths, from a beginner that overlooks captures to an opponent that searches seven moves ahead.</li>
-    <li><b>Online with a friend</b> — Open a game and send the link. Whoever holds it takes the free seat.</li>
-    <li><b>Rated games online</b> — Sign in and be matched with someone near your rating, with clocks and a world leaderboard.</li>
-  </ul>
+  It says what the home view says once the app has drawn it (home.about and
+  home.ways in the English locale), so that a crawler reading the page before
+  the script runs and one reading it after find the same description. On a
+  page's own copy of this file, it is that page, in full.
+-->
+<main id="view">
+  <!-- page:view -->
+  <div class="boot-copy boot-page">
+    <p class="boot-crumbs"><a href="/">Hexaequo</a> · <a href="/fr/jouer/" hreflang="fr">Français</a></p>
+    <article class="page-text">
+      <h1>Hexaequo</h1>
+      <p class="lede">Hexaequo is an abstract strategy game for two players. There is no luck in it, nothing is hidden, and there is no board in the box — you build the board as you play, laying hexagonal tiles and moving disks and rings across them.</p>
 
-  <h2>What makes it different</h2>
-  <ul>
-    <li><b>The board is not given</b> — Every game starts with four tiles. Where the board goes is itself a move, and a game played wide is nothing like one played tight.</li>
-    <li><b>Three ways to win</b> — Take six disks, take three rings, or leave your opponent with nothing on the board. Each pulls play in a different direction.</li>
-    <li><b>No hidden information, no dice</b> — Everything either player knows is on the table. A loss is always something you could have seen.</li>
-    <li><b>Five minutes to learn</b> — Two kinds of piece, one kind of tile, and a turn is a single choice.</li>
-  </ul>
+      <h2>Four ways to play</h2>
+      <ul>
+          <li><b>Two players, one screen</b> — Pass the device back and forth. Nothing to install and no account needed.</li>
+          <li><b>Against the computer</b> — Four strengths, from a beginner that overlooks captures to an opponent that searches seven moves ahead.</li>
+          <li><b>Online with a friend</b> — Open a game and send the link. Whoever holds it takes the free seat.</li>
+          <li><b>Rated games online</b> — Sign in and be matched with someone near your rating, with clocks and a world leaderboard.</li>
+      </ul>
 
-  <h2>Free, and it stays free</h2>
-  <p>Hexaequo runs in a browser with nothing to install. It can be added to a phone home screen and played offline. There are no advertisements, no purchases and no tracking beyond what an account you choose to create requires.</p>
-  <h2>How the name is spelled</h2>
-  <p>Hexaequo is one word: <i>hex</i> for the hexagons it is played on, and <i>aequo</i> from
-     the Latin <i>ex aequo</i> — on equal footing, which is what a drawn game is called here.
-     It is an odd word to spell from memory, and people reach for it as hexeko, hexaco, hexeco,
-     hexequo, hexaquo, exako or exeko. They all mean this game, and they all end up here.</p>
-  <p><a href="/rules/">Read the full rules</a></p>
-  <p class="doc-cta"><a class="doc-button" href="/#/play">Play Hexaequo</a></p>
+      <h2>What makes it different</h2>
+      <ul>
+          <li><b>The board is not given</b> — Every game starts with four tiles. Where the board goes is itself a move, and a game played wide is nothing like one played tight.</li>
+          <li><b>Three ways to win</b> — Take six disks, take three rings, or leave your opponent with nothing on the board. Each pulls play in a different direction.</li>
+          <li><b>No hidden information, no dice</b> — Everything either player knows is on the table. A loss is always something you could have seen.</li>
+          <li><b>Five minutes to learn</b> — Two kinds of piece, one kind of tile, and a turn is a single choice.</li>
+      </ul>
+
+      <h2>Free, and it stays free</h2>
+      <p>Hexaequo runs in a browser with nothing to install. It can be added to a phone home screen and played offline. There are no advertisements, no purchases and no tracking beyond what an account you choose to create requires.</p>
+
+      <h2>How the name is spelled</h2>
+      <p>Hexaequo is one word: <i>hex</i> for the hexagons it is played on, and <i>aequo</i> from the Latin <i>ex aequo</i> — on equal footing, which is what a drawn game is called here. It is an odd word to spell from memory, and people reach for it as hexeko, hexaco, hexeco, hexequo, hexaquo, exako or exeko. They all mean this game, and they all end up here.</p>
+
+      <h2>Going further</h2>
+    <p>The <a href="/guide/" data-panel="guide">beginner's guide</a> walks through the first moves, the mistakes that are easiest to make and the computer's four levels, and the <a href="/faq/" data-panel="faq">FAQ</a> answers questions about accounts, rated games and playing offline.</p>
+      <p><a href="/rules/" data-panel="rules">Read the full rules</a></p>
+    </article>
+    <p class="boot-crumbs"><a href="/#/play">Play</a> · <a href="/">Hexaequo</a></p>
+  </div>
+<!-- /page:view -->
 </main>
 
-<footer class="doc-foot">
-  <p>A game created by Piero Barrette</p>
-  <p>
-    <a href="/privacy/">Privacy policy</a> ·
-    <a href="/terms/">Terms of service</a> ·
-    <a href="/rules/">Rules</a>
-  </p>
-</footer>
+<noscript>
+  <style>.loader { display: none !important; }</style>
+  Hexaequo needs JavaScript to play, but everything above describes the game.
+</noscript>
+<script type="module" src="/src/main.js"></script>
 </body>
 </html>

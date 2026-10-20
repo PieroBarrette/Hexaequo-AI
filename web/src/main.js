@@ -8,14 +8,13 @@ import { logoMarkSvg } from './ui/logo.js';
 import { icon } from './ui/icons.js';
 import { mountHome } from './views/home.js';
 import { mountPlay } from './views/play.js';
-import { mountRules } from './views/rules.js';
 import { mountOnline } from './views/online.js';
-import { mountPrivacy, mountTerms } from './views/legal.js';
 import { mountProfile } from './views/profile.js';
 import { mountVerify, mountReset } from './views/mailAction.js';
 import { mountSettings, setInstallPrompt } from './views/settings.js';
 import { closeOverlay, overlayName } from './ui/overlay.js';
 import { openPanel, relabelPanel } from './ui/panels.js';
+import { pageAt } from './pages.js';
 import { mountChallenges } from './ui/challenge.js';
 import {
   restoreSession, onAuthChange, currentUser, mustChoosePseudo, isSignedIn,
@@ -56,7 +55,9 @@ function renderAccountChip() {
  * the markup's data-i18n-attr, which translateDocument fills in below.
  */
 function renderChrome() {
-  document.title = t('meta.title');
+  /* The game's own title; a page open in a panel puts its own back over
+     this as soon as it is relabelled (panels.js). */
+  document.title = t('meta.homeTitle');
   document.getElementById('brand').innerHTML =
     `${icon('prev')}${logoMarkSvg()}<span class="brand-word">${t('nav.menu')}</span>`;
   translateDocument();
@@ -102,10 +103,18 @@ async function boot() {
 
   defineRoute('home', mountHome);
   defineRoute('play', mountPlay);
-  defineRoute('rules', mountRules);
   defineRoute('online', mountOnline);
-  defineRoute('privacy', mountPrivacy);
-  defineRoute('terms', mountTerms);
+  /* #/rules, #/privacy and #/terms were screens before they were panels with
+     addresses of their own, and links to them are out there. Each now lands
+     on the home screen with its page open over it. After this route has
+     settled, since a change of screen closes whatever panel is open. */
+  const legacyPage = (name) => () => {
+    setTimeout(() => {
+      window.addEventListener('routechange', () => openPanel(name), { once: true });
+      window.location.replace('#/home');
+    }, 0);
+  };
+  for (const name of ['rules', 'privacy', 'terms']) defineRoute(name, legacyPage(name));
   defineRoute('settings', mountSettings);
   defineRoute('profile', mountProfile);
   /* Landing points for the links in our own mail. */
@@ -120,6 +129,11 @@ async function boot() {
   /* Notifications on this device follow the session in the same way:
      registered for the account at sign-in, forgotten at sign-out. */
   startPush();
+  /* Arrived at a page's own address — /fr/regles/ from a search result, a
+     shared link — the game opens as usual, with that page drawn over it once
+     the first screen is up. Closing it leaves the player at the menu. */
+  const landed = pageAt(window.location.pathname);
+  if (landed) window.addEventListener('routechange', () => openPanel(landed.name), { once: true });
   startRouter();
   dismissLoader();
 

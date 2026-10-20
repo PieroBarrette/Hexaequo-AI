@@ -1,9 +1,18 @@
 <!doctype html>
-<html lang="en" data-theme="dark" data-board-style="modern">
+<html lang="en" data-theme="dark" data-board-style="modern" data-route="home">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0e1015">
+<!--
+  This file is the shell of every page of the site. The home page is this
+  file; each page with an address of its own (web/src/pages.js — /rules/,
+  /fr/regles/ and the rest) is a copy of it written by
+  backend/scripts/makePages.js, with what lies between the page:head markers
+  and between the page:view markers replaced by that page's own. The same
+  shell is served at /fr/regles/ as at /, so every path in it is absolute.
+-->
+<!-- page:head -->
 <title>Rules — Hexaequo</title>
 <meta name="description" content="Hexaequo is played on a board that does not exist yet: the players build it as they go, one tile at a time.">
 <link rel="canonical" href="https://hexaequo.com/rules/">
@@ -16,13 +25,25 @@
 <meta property="og:title" content="Rules — Hexaequo">
 <meta property="og:url" content="https://hexaequo.com/rules/">
 <meta property="og:description" content="Hexaequo is played on a board that does not exist yet: the players build it as they go, one tile at a time.">
+<meta property="og:locale" content="en_US">
 <meta property="og:image" content="https://hexaequo.com/assets/icons/icon-512x512.png">
 <meta name="twitter:card" content="summary">
+<!-- /page:head -->
 
+<link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/assets/icons/icon-192x192.png" sizes="192x192">
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+
+<script src="/src/bootTheme.js"></script>
+
 <link rel="stylesheet" href="/styles/tokens.css">
-<link rel="stylesheet" href="/styles/page.css">
+<link rel="stylesheet" href="/styles/app.css">
+
+<!-- page:data -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -35,32 +56,32 @@
     {
       "@type": "HowToStep",
       "name": "Setup",
-      "text": "The two black tiles and the two white tiles are laid against each other in a compact block of four. A disk sits on each of the two opposite tiles of that block — the only pair that do not touch — each on a tile of its own colour. Those pieces come out of the reserves, so each player starts the game holding 7 tiles and 5 disks."
+      "text": "The two black tiles and the two white ones form a block of four. A disk sits on each of the two opposite tiles — the only pair that do not touch — on a tile of its own colour. Those pieces come from the reserves, so each player starts with 7 tiles and 5 disks."
     },
     {
       "@type": "HowToStep",
       "name": "Your turn",
-      "text": "On your turn you must carry out <b>exactly one</b> of three actions: lay a tile, place a piece, or move a piece. Passing is not allowed, and whatever you do must change the position."
+      "text": "On your turn, exactly one action: lay a tile, place a piece, or move a piece. Passing is not allowed, and the action must change the position."
     },
     {
       "@type": "HowToStep",
       "name": "Laying a tile",
-      "text": "Take a tile from your reserve and lay it on any empty cell that touches <b>at least two</b> tiles already on the board. The colours of those neighbours do not matter — only how many there are."
+      "text": "Lay a tile from your reserve on any empty cell touching at least two tiles already on the board. Their colour does not matter, only how many."
     },
     {
       "@type": "HowToStep",
       "name": "Placing a piece",
-      "text": "Take a disk or a ring from your reserve and place it on an empty tile <b>of your own colour</b>. Placing a ring costs you something extra: you must hand back one enemy disk you have already captured. It returns to your opponent's reserve and no longer counts towards your total of six."
+      "text": "Place a disk or a ring from your reserve on an empty tile of your own colour. A ring has a price: hand back one enemy disk you have captured. It returns to your opponent's reserve and no longer counts towards your six."
     },
     {
       "@type": "HowToStep",
       "name": "Moving a disk",
-      "text": "A disk does one of two things. It either takes <b>one step</b> onto an adjacent empty tile, or it makes <b>a chain of one or more jumps</b>. A jump crosses one adjacent occupied tile — friendly or enemy — and lands on the next tile in the same straight line, which must exist and be empty. Every enemy piece crossed is captured and taken off at once; friendly pieces crossed are simply flown over. You may stop after any jump in the chain."
+      "text": "A disk takes one step onto an adjacent empty tile, or makes a chain of one or more jumps. A jump crosses one adjacent piece — friendly or enemy — and lands on the next tile in the same straight line, which must exist and be empty. An enemy piece crossed is captured at once; a friendly one is merely flown over. You may stop after any jump."
     },
     {
       "@type": "HowToStep",
       "name": "Moving a ring",
-      "text": "A ring makes <b>one leap, of exactly two tiles' distance</b> — twelve possible destinations on a full board. Nothing can block it: the cell it passes over may hold any piece, or may not even hold a tile. If an enemy piece stands on the arrival tile, it is captured. A ring may never finish on a piece of its own colour."
+      "text": "A ring makes one leap, of exactly two tiles — twelve destinations on a full board. Nothing blocks it: the cell it passes over may hold any piece, or no tile at all. An enemy piece on the arrival tile is captured; a friendly one forbids the leap."
     },
     {
       "@type": "HowToStep",
@@ -70,85 +91,175 @@
   ]
 }
 </script>
+<!-- /page:data -->
 </head>
 <body>
-<header class="doc-head">
-  <a class="doc-brand" href="/"><svg class="mark" aria-hidden="true" viewBox="-145.1 -166.5 705.8 573.0" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Hexaequo">
-  <title>Hexaequo</title>
-  <!-- The opening position: two black tiles, two white tiles, alternating disk and ring. -->
-  <path d="M138.56 -80.00 L138.56 80.00 L0.00 160.00 L-138.56 80.00 L-138.56 -80.00 L-0.00 -160.00Z" fill="#000000" stroke="#000000" stroke-width="11" stroke-linejoin="round"/>
-  <circle cx="0.00" cy="0.00" r="60.80" fill="#ffffff"/>
-  <path d="M415.69 -80.00 L415.69 80.00 L277.13 160.00 L138.56 80.00 L138.56 -80.00 L277.13 -160.00Z" fill="#ffffff" stroke="#000000" stroke-width="11" stroke-linejoin="round"/>
-  <circle cx="277.13" cy="0.00" r="80.80" fill="none" stroke="#000000" stroke-width="40.00"/>
-  <path d="M277.13 160.00 L277.13 320.00 L138.56 400.00 L-0.00 320.00 L0.00 160.00 L138.56 80.00Z" fill="#ffffff" stroke="#000000" stroke-width="11" stroke-linejoin="round"/>
-  <circle cx="138.56" cy="240.00" r="60.80" fill="#000000"/>
-  <path d="M554.26 160.00 L554.26 320.00 L415.69 400.00 L277.13 320.00 L277.13 160.00 L415.69 80.00Z" fill="#000000" stroke="#000000" stroke-width="11" stroke-linejoin="round"/>
-  <circle cx="415.69" cy="240.00" r="80.80" fill="none" stroke="#ffffff" stroke-width="40.00"/>
-</svg><span>HEXAEQUO</span></a>
-  <nav class="doc-nav">
-    <a href="/">Home</a>
-    <a href="/rules/">Rules</a>
-    <a href="/fr/regles/" hreflang="fr">Français</a>
+
+<!--
+  The opening position, laying itself out.
+
+  Not a spinner: the four tiles of the mark are the four tiles a game of
+  Hexaequo starts from, and they arrive the way they are played — black, white,
+  black, white — each piece dropping onto its tile after the tile has landed.
+  It says what the site is while it waits, which is more than a rotating arc
+  can do.
+
+  It sits over the copy below rather than replacing it: that text is what a
+  crawler reads, and it has to stay in the document.
+-->
+<div id="loader" class="loader" aria-hidden="true">
+  <svg class="loader-mark" viewBox="-145.1 -166.5 705.8 573.0" xmlns="http://www.w3.org/2000/svg">
+  <g class="ld-cell" style="--i:0">
+    <path class="ld-tile" d="M138.56 -80.00 L138.56 80.00 L0.00 160.00 L-138.56 80.00 L-138.56 -80.00 L-0.00 -160.00Z" fill="var(--tile-dark)" stroke="var(--tile-dark)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="0.00" cy="0.00" r="60.80" fill="var(--piece-light)"/></g>
+  </g>
+  <g class="ld-cell" style="--i:1">
+    <path class="ld-tile" d="M415.69 -80.00 L415.69 80.00 L277.13 160.00 L138.56 80.00 L138.56 -80.00 L277.13 -160.00Z" fill="var(--tile-light)" stroke="var(--tile-dark-edge)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="277.13" cy="0.00" r="80.80" fill="none" stroke="var(--piece-dark)" stroke-width="40.00"/></g>
+  </g>
+  <g class="ld-cell" style="--i:3">
+    <path class="ld-tile" d="M277.13 160.00 L277.13 320.00 L138.56 400.00 L-0.00 320.00 L0.00 160.00 L138.56 80.00Z" fill="var(--tile-light)" stroke="var(--tile-dark-edge)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="138.56" cy="240.00" r="60.80" fill="var(--piece-dark)"/></g>
+  </g>
+  <g class="ld-cell" style="--i:2">
+    <path class="ld-tile" d="M554.26 160.00 L554.26 320.00 L415.69 400.00 L277.13 320.00 L277.13 160.00 L415.69 80.00Z" fill="var(--tile-dark)" stroke="var(--tile-dark)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="415.69" cy="240.00" r="80.80" fill="none" stroke="var(--piece-light)" stroke-width="40.00"/></g>
+  </g>
+  </svg>
+  <span class="loader-word">HEXAEQUO</span>
+</div>
+
+<header class="site-header">
+  <!-- The way back to the menu, on every page but the menu itself. A chevron,
+       the mark, and the word: the logo alone read as decoration, not as a
+       button, and nothing about it said where it went. -->
+  <button class="btn" id="brand" data-go="home" data-route-link="home"
+          data-i18n-attr="aria-label:nav.backToMenu,title:nav.backToMenu"></button>
+  <span class="spacer"></span>
+  <nav id="site-nav">
+    <button class="btn" id="account-chip" data-go="account"></button>
+    <button class="btn btn--icon" data-go="rules" data-route-link="rules" data-i18n-attr="title:nav.rules">?</button>
+    <button class="btn btn--icon" data-go="settings" data-route-link="settings" data-i18n-attr="title:nav.settings">⚙</button>
   </nav>
 </header>
 
-<main class="doc">
-  <h1>Rules — Hexaequo</h1>
-  <p class="doc-lede">Hexaequo is played on a board that does not exist yet: the players build it as they go, one tile at a time.</p>
+<!--
+  The app replaces this the moment it boots. It exists because anything that
+  reads the page without running JavaScript — link previews, search crawlers,
+  the assistants people ask instead of searching — would otherwise find an
+  empty document, and could neither confirm the site is called Hexaequo nor
+  tell what it is for.
 
-  <h2>Winning</h2>
-  <p>You win the moment any one of these is true at the end of your turn:</p>
-  <ul>
-    <li>you have captured <b>six</b> enemy disks;</li>
-    <li>you have captured <b>three</b> enemy rings;</li>
-    <li>your opponent has <b>no piece left on the board</b> — even if pieces remain in their reserve.</li>
-  </ul>
+  It says what the home view says once the app has drawn it (home.about and
+  home.ways in the English locale), so that a crawler reading the page before
+  the script runs and one reading it after find the same description. On a
+  page's own copy of this file, it is that page, in full.
+-->
+<main id="view">
+  <!-- page:view -->
+  <div class="boot-copy boot-page">
+    <p class="boot-crumbs"><a href="/">Hexaequo</a> · <a href="/fr/regles/" hreflang="fr">Français</a></p>
+    <article class="page-text">
+      <h1>Rules</h1>
+      <p class="lede">Hexaequo is played on a board that does not exist yet: the players build it as they go, one tile at a time.</p>
 
-  <h2>Material</h2>
-  <p>Each player owns 9 tiles, 6 disks and 3 rings in their colour. Black moves first.</p>
+      <h2>Winning</h2>
+      <p>You win the moment any one of these is true at the end of your turn:</p>
+      <ul>
+        <li>you have captured <b>six</b> enemy disks;</li>
+        <li>you have captured <b>three</b> enemy rings;</li>
+        <li>your opponent has <b>no piece left on the board</b> — even if pieces remain in their reserve.</li>
+      </ul>
 
-  <h2>Setup</h2>
-  <p>The two black tiles and the two white tiles are laid against each other in a compact block of four. A disk sits on each of the two opposite tiles of that block — the only pair that do not touch — each on a tile of its own colour. Those pieces come out of the reserves, so each player starts the game holding 7 tiles and 5 disks.</p>
-  <p class="doc-caption">The opening position. Black's disk is top right, White's is bottom left; the two tiles carrying them are the only ones in the block that are not neighbours.</p>
+      <h2>Material</h2>
+      <p>Each player owns 9 tiles, 6 disks and 3 rings in their colour. Black moves first.</p>
+      <div class="legend">
+        <span><span class="token"><svg viewBox="-46.0 -46.0 92.0 92.0" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true"><path d="M32.56 -18.80 L32.56 18.80 L0.00 37.60 L-32.56 18.80 L-32.56 -18.80 L-0.00 -37.60Z" fill="var(--tile-dark)" stroke="var(--tile-dark-edge)" stroke-width="1.6"/></svg></span>Tile black</span>
+        <span><span class="token"><svg viewBox="-46.0 -46.0 92.0 92.0" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true"><path d="M32.56 -18.80 L32.56 18.80 L0.00 37.60 L-32.56 18.80 L-32.56 -18.80 L-0.00 -37.60Z" fill="var(--tile-light)" stroke="var(--tile-light-edge)" stroke-width="1.6"/></svg></span>Tile white</span>
+        <span><span class="token"><svg viewBox="-46.0 -46.0 92.0 92.0" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true"><path d="M32.56 -18.80 L32.56 18.80 L0.00 37.60 L-32.56 18.80 L-32.56 -18.80 L-0.00 -37.60Z" fill="var(--tile-light)" stroke="var(--tile-light-edge)" stroke-width="1.6"/><g pointer-events="none"><circle cx="0" cy="2" r="16.8" fill="var(--piece-shadow)"/><circle cx="0" cy="0" r="16.8" fill="var(--piece-dark)" stroke="var(--piece-dark-edge)" stroke-width="2.5"/><circle cx="-5.2" cy="-6" r="4" fill="rgba(255,255,255,var(--piece-gloss))"/></g></svg></span>Disk</span>
+        <span><span class="token"><svg viewBox="-46.0 -46.0 92.0 92.0" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true"><path d="M32.56 -18.80 L32.56 18.80 L0.00 37.60 L-32.56 18.80 L-32.56 -18.80 L-0.00 -37.60Z" fill="var(--tile-light)" stroke="var(--tile-light-edge)" stroke-width="1.6"/><g pointer-events="none"><circle cx="0" cy="2" r="17.6" fill="none" stroke="var(--piece-shadow)" stroke-width="10.4"/><circle cx="0" cy="0" r="17.6" fill="none" stroke="var(--piece-dark)" stroke-width="10.4"/><circle cx="0" cy="0" r="22.799999999999997" fill="none" stroke="var(--piece-dark-edge)" stroke-width="1.6"/><circle cx="0" cy="0" r="12.4" fill="none" stroke="var(--piece-dark-edge)" stroke-width="1.6"/></g></svg></span>Ring</span>
+      </div>
 
-  <h2>Your turn</h2>
-  <p>On your turn you must carry out <b>exactly one</b> of three actions: lay a tile, place a piece, or move a piece. Passing is not allowed, and whatever you do must change the position.</p>
+      
+    <section class="rule-block">
+      <h3>Setup</h3>
+      <p>The two black tiles and the two white ones form a block of four. A disk sits on each of the two opposite tiles — the only pair that do not touch — on a tile of its own colour. Those pieces come from the reserves, so each player starts with 7 tiles and 5 disks.</p>
+      <div class="rule-figure">
+        <div class="mini"><svg viewBox="-80.6 -46.0 195.9 152.0" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true"><path d="M32.56 -18.80 L32.56 18.80 L0.00 37.60 L-32.56 18.80 L-32.56 -18.80 L-0.00 -37.60Z" fill="var(--tile-dark)" stroke="var(--tile-dark-edge)" stroke-width="1.6"/><path d="M101.84 -18.80 L101.84 18.80 L69.28 37.60 L36.72 18.80 L36.72 -18.80 L69.28 -37.60Z" fill="var(--tile-dark)" stroke="var(--tile-dark-edge)" stroke-width="1.6"/><path d="M-2.08 41.20 L-2.08 78.80 L-34.64 97.60 L-67.20 78.80 L-67.20 41.20 L-34.64 22.40Z" fill="var(--tile-light)" stroke="var(--tile-light-edge)" stroke-width="1.6"/><path d="M67.20 41.20 L67.20 78.80 L34.64 97.60 L2.08 78.80 L2.08 41.20 L34.64 22.40Z" fill="var(--tile-light)" stroke="var(--tile-light-edge)" stroke-width="1.6"/><g pointer-events="none"><circle cx="69.28203230275508" cy="2" r="16.8" fill="var(--piece-shadow)"/><circle cx="69.28203230275508" cy="0" r="16.8" fill="var(--piece-dark)" stroke="var(--piece-dark-edge)" stroke-width="2.5"/><circle cx="64.08203230275508" cy="-6" r="4" fill="rgba(255,255,255,var(--piece-gloss))"/></g><g pointer-events="none"><circle cx="-34.64101615137754" cy="62" r="16.8" fill="var(--piece-shadow)"/><circle cx="-34.64101615137754" cy="60" r="16.8" fill="var(--piece-light)" stroke="var(--piece-light-edge)" stroke-width="2.5"/><circle cx="-39.841016151377545" cy="54" r="4" fill="rgba(255,255,255,var(--piece-gloss-light))"/></g></svg></div>
+        <p class="caption">The opening position. Black's disk is top right, White's is bottom left; the two tiles carrying them are the only ones in the block that are not neighbours.</p>
+      </div>
+    </section>
 
-  <h2>Laying a tile</h2>
-  <p>Take a tile from your reserve and lay it on any empty cell that touches <b>at least two</b> tiles already on the board. The colours of those neighbours do not matter — only how many there are.</p>
-  <p class="doc-caption">The dashed cells each touch two existing tiles, so any of them may take a tile. The cell marked in red touches only one, so it may not.</p>
-  <h2>Placing a piece</h2>
-  <p>Take a disk or a ring from your reserve and place it on an empty tile <b>of your own colour</b>. Placing a ring costs you something extra: you must hand back one enemy disk you have already captured. It returns to your opponent's reserve and no longer counts towards your total of six.</p>
-  <p class="doc-caption">Black may place on either empty black tile, never on a white one. The ring is only available once Black holds at least one captured white disk to give back.</p>
-  <h2>Moving a disk</h2>
-  <p>A disk does one of two things. It either takes <b>one step</b> onto an adjacent empty tile, or it makes <b>a chain of one or more jumps</b>. A jump crosses one adjacent occupied tile — friendly or enemy — and lands on the next tile in the same straight line, which must exist and be empty. Every enemy piece crossed is captured and taken off at once; friendly pieces crossed are simply flown over. You may stop after any jump in the chain.</p>
-  <p class="doc-caption">Black jumps the white disk and lands on the empty tile beyond it, capturing as it passes. A second jump is available from there, and Black may take it or stop.</p>
-  <p>One restriction keeps chains finite: within a single chain a disk may not land again on a cell it has already occupied <b>since its last capture</b>. Hopping back and forth over friendly pieces is therefore impossible, while a genuine capturing chain that loops back to its starting cell remains legal.</p>
-  <h2>Moving a ring</h2>
-  <p>A ring makes <b>one leap, of exactly two tiles' distance</b> — twelve possible destinations on a full board. Nothing can block it: the cell it passes over may hold any piece, or may not even hold a tile. If an enemy piece stands on the arrival tile, it is captured. A ring may never finish on a piece of its own colour.</p>
-  <p class="doc-caption">All twelve cells at distance two from the ring. It may leap onto any of them that carries a tile, capturing an enemy piece there.</p>
+      <h2>Your turn</h2>
+      <p>On your turn, <b>exactly one</b> action: lay a tile, place a piece, or move a piece. Passing is not allowed, and the action must change the position.</p>
 
-  <h2>Points that are easy to get wrong</h2>
-  <ul>
-    <li><b>Tile colour only restricts placement.</b> A piece that <i>moves</i> may finish on any empty tile, whatever its colour.</li>
-    <li><b>Captured pieces leave the game</b>, with one exception: a disk handed back to pay for a ring. Captured rings never come back.</li>
-    <li><b>A jump is not compulsory.</b> You may play a quiet move even when a capture is on offer.</li>
-    <li><b>The board tops out at 18 tiles</b>, nine from each player.</li>
-  </ul>
+      
+    <section class="rule-block">
+      <h3>Laying a tile</h3>
+      <p>Lay a tile from your reserve on any empty cell touching <b>at least two</b> tiles already on the board. Their colour does not matter, only how many.</p>
+      <div class="rule-figure">
+        <div class="mini"><svg viewBox="-115.3 -106.0 299.8 272.0" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true"><path d="M-54.73 -8.40 L-54.73 8.40 L-69.28 16.80 L-83.83 8.40 L-83.83 -8.40 L-69.28 -16.80Z" fill="none" stroke="var(--spot-line)" stroke-width="1.8" stroke-dasharray="5 4" stroke-opacity=".8"/><path d="M49.19 -68.40 L49.19 -51.60 L34.64 -43.20 L20.09 -51.60 L20.09 -68.40 L34.64 -76.80Z" fill="none" stroke="var(--spot-line)" stroke-width="1.8" stroke-dasharray="5 4" stroke-opacity=".8"/><path d="M118.47 51.60 L118.47 68.40 L103.92 76.80 L89.37 68.40 L89.37 51.60 L103.92 43.20Z" fill="none" stroke="var(--spot-line)" stroke-width="1.8" stroke-dasharray="5 4" stroke-opacity=".8"/><path d="M14.55 111.60 L14.55 128.40 L0.00 136.80 L-14.55 128.40 L-14.55 111.60 L-0.00 103.20Z" fill="none" stroke="var(--spot-line)" stroke-width="1.8" stroke-dasharray="5 4" stroke-opacity=".8"/><path d="M171.13 -18.80 L171.13 18.80 L138.56 37.60 L106.00 18.80 L106.00 -18.80 L138.56 -37.60Z" fill="none" stroke="var(--danger)" stroke-width="2" stroke-dasharray="6 4"/><path d="M127.36406460551017 -11.200000000000001L149.76406460551016 11.200000000000001M149.76406460551016 -11.200000000000001L127.36406460551017 11.200000000000001" stroke="var(--danger)" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M32.56 -18.80 L32.56 18.80 L0.00 37.60 L-32.56 18.80 L-32.56 -18.80 L-0.00 -37.60Z" fill="var(--tile-dark)" stroke="var(--tile-dark-edge)" stroke-width="1.6"/><path d="M101.84 -18.80 L101.84 18.80 L69.28 37.60 L36.72 18.80 L36.72 -18.80 L69.28 -37.60Z" fill="var(--tile-dark)" stroke="var(--tile-dark-edge)" stroke-width="1.6"/><path d="M-2.08 41.20 L-2.08 78.80 L-34.64 97.60 L-67.20 78.80 L-67.20 41.20 L-34.64 22.40Z" fill="var(--tile-light)" stroke="var(--tile-light-edge)" stroke-width="1.6"/><path d="M67.20 41.20 L67.20 78.80 L34.64 97.60 L2.08 78.80 L2.08 41.20 L34.64 22.40Z" fill="var(--tile-light)" stroke="var(--tile-light-edge)" stroke-width="1.6"/><g pointer-events="none"><circle cx="69.28203230275508" cy="2" r="16.8" fill="var(--piece-shadow)"/><circle cx="69.28203230275508" cy="0" r="16.8" fill="var(--piece-dark)" stroke="var(--piece-dark-edge)" stroke-width="2.5"/><circle cx="64.08203230275508" cy="-6" r="4" fill="rgba(255,255,255,var(--piece-gloss))"/></g><g pointer-events="none"><circle cx="-34.64101615137754" cy="62" r="16.8" fill="var(--piece-shadow)"/><circle cx="-34.64101615137754" cy="60" r="16.8" fill="var(--piece-light)" stroke="var(--piece-light-edge)" stroke-width="2.5"/><circle cx="-39.841016151377545" cy="54" r="4" fill="rgba(255,255,255,var(--piece-gloss-light))"/></g></svg></div>
+        <p class="caption">The dashed cells each touch two existing tiles, so any of them may take a tile. The cell marked in red touches only one, so it may not.</p>
+      </div>
+    </section>
+      
+    <section class="rule-block">
+      <h3>Placing a piece</h3>
+      <p>Place a disk or a ring from your reserve on an empty tile <b>of your own colour</b>. A ring has a price: hand back one enemy disk you have captured. It returns to your opponent's reserve and no longer counts towards your six.</p>
+      <div class="rule-figure">
+        <div class="mini"><svg viewBox="-80.6 -106.0 195.9 212.0" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true"><path d="M32.56 -18.80 L32.56 18.80 L0.00 37.60 L-32.56 18.80 L-32.56 -18.80 L-0.00 -37.60Z" fill="var(--tile-dark)" stroke="var(--tile-dark-edge)" stroke-width="1.6"/><path d="M101.84 -18.80 L101.84 18.80 L69.28 37.60 L36.72 18.80 L36.72 -18.80 L69.28 -37.60Z" fill="var(--tile-dark)" stroke="var(--tile-dark-edge)" stroke-width="1.6"/><path d="M-2.08 41.20 L-2.08 78.80 L-34.64 97.60 L-67.20 78.80 L-67.20 41.20 L-34.64 22.40Z" fill="var(--tile-light)" stroke="var(--tile-light-edge)" stroke-width="1.6"/><path d="M67.20 41.20 L67.20 78.80 L34.64 97.60 L2.08 78.80 L2.08 41.20 L34.64 22.40Z" fill="var(--tile-light)" stroke="var(--tile-light-edge)" stroke-width="1.6"/><path d="M67.20 -78.80 L67.20 -41.20 L34.64 -22.40 L2.08 -41.20 L2.08 -78.80 L34.64 -97.60Z" fill="var(--tile-dark)" stroke="var(--tile-dark-edge)" stroke-width="1.6"/><g pointer-events="none"><circle cx="69.28203230275508" cy="2" r="16.8" fill="var(--piece-shadow)"/><circle cx="69.28203230275508" cy="0" r="16.8" fill="var(--piece-dark)" stroke="var(--piece-dark-edge)" stroke-width="2.5"/><circle cx="64.08203230275508" cy="-6" r="4" fill="rgba(255,255,255,var(--piece-gloss))"/></g><g pointer-events="none"><circle cx="-34.64101615137754" cy="62" r="16.8" fill="var(--piece-shadow)"/><circle cx="-34.64101615137754" cy="60" r="16.8" fill="var(--piece-light)" stroke="var(--piece-light-edge)" stroke-width="2.5"/><circle cx="-39.841016151377545" cy="54" r="4" fill="rgba(255,255,255,var(--piece-gloss-light))"/></g><circle cx="0" cy="0" r="15.2" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-opacity=".6"/><circle cx="34.64101615137754" cy="-60" r="15.2" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-opacity=".6"/></svg></div>
+        <p class="caption">Black may place on either empty black tile, never on a white one. The ring is only available once Black holds at least one captured white disk to give back.</p>
+      </div>
+    </section>
+      
+    <section class="rule-block">
+      <h3>Moving a disk</h3>
+      <p>A disk takes <b>one step</b> onto an adjacent empty tile, or makes <b>a chain of one or more jumps</b>. A jump crosses one adjacent piece — friendly or enemy — and lands on the next tile in the same straight line, which must exist and be empty. An enemy piece crossed is captured at once; a friendly one is merely flown over. You may stop after any jump.</p>
+      <div class="rule-figure">
+        <div class="mini"><svg viewBox="-46.0 -46.0 369.1 152.0" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true"><path d="M32.56 -18.80 L32.56 18.80 L0.00 37.60 L-32.56 18.80 L-32.56 -18.80 L-0.00 -37.60Z" fill="var(--tile-dark)" stroke="var(--tile-dark-edge)" stroke-width="1.6"/><path d="M101.84 -18.80 L101.84 18.80 L69.28 37.60 L36.72 18.80 L36.72 -18.80 L69.28 -37.60Z" fill="var(--tile-light)" stroke="var(--tile-light-edge)" stroke-width="1.6"/><path d="M171.13 -18.80 L171.13 18.80 L138.56 37.60 L106.00 18.80 L106.00 -18.80 L138.56 -37.60Z" fill="var(--tile-dark)" stroke="var(--tile-dark-edge)" stroke-width="1.6"/><path d="M240.41 -18.80 L240.41 18.80 L207.85 37.60 L175.28 18.80 L175.28 -18.80 L207.85 -37.60Z" fill="var(--tile-light)" stroke="var(--tile-light-edge)" stroke-width="1.6"/><path d="M309.69 -18.80 L309.69 18.80 L277.13 37.60 L244.57 18.80 L244.57 -18.80 L277.13 -37.60Z" fill="var(--tile-dark)" stroke="var(--tile-dark-edge)" stroke-width="1.6"/><path d="M67.20 41.20 L67.20 78.80 L34.64 97.60 L2.08 78.80 L2.08 41.20 L34.64 22.40Z" fill="var(--tile-light)" stroke="var(--tile-light-edge)" stroke-width="1.6"/><path d="M136.49 41.20 L136.49 78.80 L103.92 97.60 L71.36 78.80 L71.36 41.20 L103.92 22.40Z" fill="var(--tile-dark)" stroke="var(--tile-dark-edge)" stroke-width="1.6"/><path d="M205.77 41.20 L205.77 78.80 L173.21 97.60 L140.64 78.80 L140.64 41.20 L173.21 22.40Z" fill="var(--tile-light)" stroke="var(--tile-light-edge)" stroke-width="1.6"/><path d="M0.0 0.0L138.6 0.0L277.1 0.0" fill="none" stroke="var(--accent)" stroke-width="3" stroke-dasharray="7 5" stroke-linecap="round"/><g pointer-events="none"><circle cx="0" cy="2" r="16.8" fill="var(--piece-shadow)"/><circle cx="0" cy="0" r="16.8" fill="var(--piece-dark)" stroke="var(--piece-dark-edge)" stroke-width="2.5"/><circle cx="-5.2" cy="-6" r="4" fill="rgba(255,255,255,var(--piece-gloss))"/></g><g pointer-events="none"><circle cx="69.28203230275508" cy="2" r="16.8" fill="var(--piece-shadow)"/><circle cx="69.28203230275508" cy="0" r="16.8" fill="var(--piece-light)" stroke="var(--piece-light-edge)" stroke-width="2.5"/><circle cx="64.08203230275508" cy="-6" r="4" fill="rgba(255,255,255,var(--piece-gloss-light))"/></g><g pointer-events="none"><circle cx="207.84609690826525" cy="2" r="16.8" fill="var(--piece-shadow)"/><circle cx="207.84609690826525" cy="0" r="16.8" fill="var(--piece-light)" stroke="var(--piece-light-edge)" stroke-width="2.5"/><circle cx="202.64609690826526" cy="-6" r="4" fill="rgba(255,255,255,var(--piece-gloss-light))"/></g><circle cx="138.56406460551017" cy="0" r="15.2" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-opacity=".6"/><circle cx="277.12812921102034" cy="0" r="15.2" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-opacity=".6"/></svg></div>
+        <p class="caption">Black jumps the white disk and lands on the empty tile beyond it, capturing as it passes. A second jump is available from there, and Black may take it or stop.</p>
+      </div>
+    </section>
+      <p>Within a single chain, a disk may not land again on a cell it has already occupied <b>since its last capture</b>. Hopping back and forth over friendly pieces is therefore impossible, while a genuine capturing chain that loops back to its starting cell stays legal.</p>
+      
+    <section class="rule-block">
+      <h3>Moving a ring</h3>
+      <p>A ring makes <b>one leap, of exactly two tiles</b> — twelve destinations on a full board. Nothing blocks it: the cell it passes over may hold any piece, or no tile at all. An enemy piece on the arrival tile is captured; a friendly one forbids the leap.</p>
+      <div class="rule-figure">
+        <div class="mini"><svg viewBox="-184.6 -166.0 369.1 332.0" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true"><path d="M32.56 -18.80 L32.56 18.80 L0.00 37.60 L-32.56 18.80 L-32.56 -18.80 L-0.00 -37.60Z" fill="var(--tile-dark)" stroke="var(--tile-dark-edge)" stroke-width="1.6"/><path d="M171.13 -18.80 L171.13 18.80 L138.56 37.60 L106.00 18.80 L106.00 -18.80 L138.56 -37.60Z" fill="var(--tile-dark)" stroke="var(--tile-dark-edge)" stroke-width="1.6"/><path d="M101.84 -138.80 L101.84 -101.20 L69.28 -82.40 L36.72 -101.20 L36.72 -138.80 L69.28 -157.60Z" fill="var(--tile-light)" stroke="var(--tile-light-edge)" stroke-width="1.6"/><path d="M-36.72 -138.80 L-36.72 -101.20 L-69.28 -82.40 L-101.84 -101.20 L-101.84 -138.80 L-69.28 -157.60Z" fill="var(--tile-dark)" stroke="var(--tile-dark-edge)" stroke-width="1.6"/><path d="M-106.00 -18.80 L-106.00 18.80 L-138.56 37.60 L-171.13 18.80 L-171.13 -18.80 L-138.56 -37.60Z" fill="var(--tile-light)" stroke="var(--tile-light-edge)" stroke-width="1.6"/><path d="M-36.72 101.20 L-36.72 138.80 L-69.28 157.60 L-101.84 138.80 L-101.84 101.20 L-69.28 82.40Z" fill="var(--tile-dark)" stroke="var(--tile-dark-edge)" stroke-width="1.6"/><path d="M101.84 101.20 L101.84 138.80 L69.28 157.60 L36.72 138.80 L36.72 101.20 L69.28 82.40Z" fill="var(--tile-light)" stroke="var(--tile-light-edge)" stroke-width="1.6"/><path d="M136.49 -78.80 L136.49 -41.20 L103.92 -22.40 L71.36 -41.20 L71.36 -78.80 L103.92 -97.60Z" fill="var(--tile-dark)" stroke="var(--tile-dark-edge)" stroke-width="1.6"/><path d="M32.56 -138.80 L32.56 -101.20 L0.00 -82.40 L-32.56 -101.20 L-32.56 -138.80 L-0.00 -157.60Z" fill="var(--tile-light)" stroke="var(--tile-light-edge)" stroke-width="1.6"/><path d="M-71.36 -78.80 L-71.36 -41.20 L-103.92 -22.40 L-136.49 -41.20 L-136.49 -78.80 L-103.92 -97.60Z" fill="var(--tile-dark)" stroke="var(--tile-dark-edge)" stroke-width="1.6"/><path d="M-71.36 41.20 L-71.36 78.80 L-103.92 97.60 L-136.49 78.80 L-136.49 41.20 L-103.92 22.40Z" fill="var(--tile-light)" stroke="var(--tile-light-edge)" stroke-width="1.6"/><path d="M32.56 101.20 L32.56 138.80 L0.00 157.60 L-32.56 138.80 L-32.56 101.20 L-0.00 82.40Z" fill="var(--tile-dark)" stroke="var(--tile-dark-edge)" stroke-width="1.6"/><path d="M136.49 41.20 L136.49 78.80 L103.92 97.60 L71.36 78.80 L71.36 41.20 L103.92 22.40Z" fill="var(--tile-light)" stroke="var(--tile-light-edge)" stroke-width="1.6"/><g pointer-events="none"><circle cx="0" cy="2" r="17.6" fill="none" stroke="var(--piece-shadow)" stroke-width="10.4"/><circle cx="0" cy="0" r="17.6" fill="none" stroke="var(--piece-dark)" stroke-width="10.4"/><circle cx="0" cy="0" r="22.799999999999997" fill="none" stroke="var(--piece-dark-edge)" stroke-width="1.6"/><circle cx="0" cy="0" r="12.4" fill="none" stroke="var(--piece-dark-edge)" stroke-width="1.6"/></g><g pointer-events="none"><circle cx="138.56406460551017" cy="2" r="16.8" fill="var(--piece-shadow)"/><circle cx="138.56406460551017" cy="0" r="16.8" fill="var(--piece-light)" stroke="var(--piece-light-edge)" stroke-width="2.5"/><circle cx="133.36406460551018" cy="-6" r="4" fill="rgba(255,255,255,var(--piece-gloss-light))"/></g><g pointer-events="none"><circle cx="0" cy="122" r="17.6" fill="none" stroke="var(--piece-shadow)" stroke-width="10.4"/><circle cx="0" cy="120" r="17.6" fill="none" stroke="var(--piece-light)" stroke-width="10.4"/><circle cx="0" cy="120" r="22.799999999999997" fill="none" stroke="var(--piece-light-edge)" stroke-width="1.6"/><circle cx="0" cy="120" r="12.4" fill="none" stroke="var(--piece-light-edge)" stroke-width="1.6"/></g><circle cx="138.56406460551017" cy="0" r="22" fill="none" stroke="var(--danger)" stroke-width="4"/><circle cx="69.28203230275508" cy="-120" r="15.2" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-opacity=".6"/><circle cx="-69.28203230275508" cy="-120" r="15.2" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-opacity=".6"/><circle cx="-138.56406460551017" cy="0" r="15.2" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-opacity=".6"/><circle cx="-69.28203230275508" cy="120" r="15.2" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-opacity=".6"/><circle cx="69.28203230275508" cy="120" r="15.2" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-opacity=".6"/><circle cx="103.92304845413263" cy="-60" r="15.2" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-opacity=".6"/><circle cx="0" cy="-120" r="15.2" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-opacity=".6"/><circle cx="-103.92304845413263" cy="-60" r="15.2" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-opacity=".6"/><circle cx="-103.92304845413263" cy="60" r="15.2" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-opacity=".6"/><circle cx="0" cy="120" r="22" fill="none" stroke="var(--danger)" stroke-width="4"/><circle cx="103.92304845413263" cy="60" r="15.2" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-opacity=".6"/></svg></div>
+        <p class="caption">All twelve cells at distance two from the ring. It may leap onto any of them that carries a tile, capturing an enemy piece there.</p>
+      </div>
+    </section>
 
-  <h2>ExAequo</h2>
-  <p>The game is a draw — ExAequo — if the player to move has no legal move at all, if the same position occurs three times, or if fifty moves pass for each player with no capture and nothing placed on the board.</p>
-  <p>Any capture, any tile laid and any piece placed set that count of fifty back to zero. Those are the moves a game cannot take back: the board only ever grows, and a captured piece only ever returns as the single disk handed over to pay for a ring. Once both players have stopped making them, nothing that happens can be undone or repeated into a win, and the game is level.</p>
-  <p class="doc-cta"><a class="doc-button" href="/#/rules">Play Hexaequo</a></p>
+      <h2>Points that are easy to get wrong</h2>
+      <ul>
+        <li><b>Tile colour only restricts placement.</b> A piece that <i>moves</i> may finish on any empty tile, whatever its colour.</li>
+        <li><b>Captured pieces leave the game</b>, with one exception: a disk handed back to pay for a ring. Captured rings never come back.</li>
+        <li><b>A jump is not compulsory.</b> You may play a quiet move even when a capture is on offer.</li>
+        <li><b>The board tops out at 18 tiles</b>, nine from each player.</li>
+      </ul>
+
+      <h2>ExAequo</h2>
+      <p>The game is a draw — ExAequo — if the player to move has no legal move at all, if the same position occurs three times, or if fifty moves pass for each player with no capture and nothing placed on the board.</p>
+      <p>Any capture, any tile laid and any piece placed set that count of fifty back to zero. Those are the moves a game cannot take back: the board only ever grows, and a captured piece only ever returns as the single disk handed over to pay for a ring. Once both players have stopped making them, nothing that happens can be undone or repeated into a win, and the game is level.</p>
+
+      <h2>Going further</h2>
+    <p>The <a href="/guide/" data-panel="guide">beginner's guide</a> walks through the first moves, the mistakes that are easiest to make and the computer's four levels, and the <a href="/faq/" data-panel="faq">FAQ</a> answers questions about accounts, rated games and playing offline.</p>
+
+      <div class="rules-colophon">
+        <div class="rules-mark"><svg class="logo-mark" viewBox="-145.1 -166.5 705.8 573.0" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M138.56 -80.00 L138.56 80.00 L0.00 160.00 L-138.56 80.00 L-138.56 -80.00 L-0.00 -160.00Z" fill="var(--tile-dark)" stroke="var(--tile-dark)" stroke-width="11" stroke-linejoin="round"/><circle cx="0.00" cy="0.00" r="60.80" fill="var(--piece-light)"/><path d="M415.69 -80.00 L415.69 80.00 L277.13 160.00 L138.56 80.00 L138.56 -80.00 L277.13 -160.00Z" fill="var(--tile-light)" stroke="var(--tile-dark-edge)" stroke-width="11" stroke-linejoin="round"/><circle cx="277.13" cy="0.00" r="80.80" fill="none" stroke="var(--piece-dark)" stroke-width="40.00"/><path d="M277.13 160.00 L277.13 320.00 L138.56 400.00 L-0.00 320.00 L0.00 160.00 L138.56 80.00Z" fill="var(--tile-light)" stroke="var(--tile-dark-edge)" stroke-width="11" stroke-linejoin="round"/><circle cx="138.56" cy="240.00" r="60.80" fill="var(--piece-dark)"/><path d="M554.26 160.00 L554.26 320.00 L415.69 400.00 L277.13 320.00 L277.13 160.00 L415.69 80.00Z" fill="var(--tile-dark)" stroke="var(--tile-dark)" stroke-width="11" stroke-linejoin="round"/><circle cx="415.69" cy="240.00" r="80.80" fill="none" stroke="var(--piece-light)" stroke-width="40.00"/></svg></div>
+        <p>A game created by Piero Barrette</p>
+      </div>
+    </article>
+    <p class="boot-crumbs"><a href="/#/play">Play</a> · <a href="/">Hexaequo</a></p>
+  </div>
+<!-- /page:view -->
 </main>
 
-<footer class="doc-foot">
-  <p>A game created by Piero Barrette</p>
-  <p>
-    <a href="/privacy/">Privacy policy</a> ·
-    <a href="/terms/">Terms of service</a> ·
-    <a href="/rules/">Rules</a>
-  </p>
-</footer>
+<noscript>
+  <style>.loader { display: none !important; }</style>
+  Hexaequo needs JavaScript to play, but everything above describes the game.
+</noscript>
+<script type="module" src="/src/main.js"></script>
 </body>
 </html>

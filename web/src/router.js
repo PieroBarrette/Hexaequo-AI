@@ -105,20 +105,14 @@ function resolve(options = {}) {
   else crossFade(swap, 'route');
 }
 
-/**
- * Clean paths for the pages other services need to link to.
- *
- * The server hands index.html to any non-API route, so /privacy loads the app;
- * without this it would silently fall back to the home screen. Google's consent
- * screen wants a plain URL, not a fragment.
+/*
+ * The screens are fragments of one address; the pages with addresses of their
+ * own (pages.js) are panels over them, opened from the path by main.js. A path
+ * that is neither leaves the router to start at home.
  */
-const PATH_ROUTES = { '/privacy': 'privacy', '/terms': 'terms' };
-
 export function startRouter() {
   window.addEventListener('hashchange', () => resolve());
-  const fromPath = PATH_ROUTES[window.location.pathname.replace(/\/+$/, '') || '/'];
-  if (fromPath && !window.location.hash) window.location.replace(`#/${fromPath}`);
-  else if (!window.location.hash) window.location.replace('#/home');
+  if (!window.location.hash) window.location.replace('#/home');
   else resolve();
 }
 

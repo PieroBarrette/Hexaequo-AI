@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="fr" data-theme="dark" data-board-style="modern" data-route="home">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0e1015">
+<!--
+  This file is the shell of every page of the site. The home page is this
+  file; each page with an address of its own (web/src/pages.js — /rules/,
+  /fr/regles/ and the rest) is a copy of it written by
+  backend/scripts/makePages.js, with what lies between the page:head markers
+  and between the page:view markers replaced by that page's own. The same
+  shell is served at /fr/regles/ as at /, so every path in it is absolute.
+-->
+<!-- page:head -->
+<title>FAQ Hexaequo — gratuité, jeu hors ligne, comptes et parties classées</title>
+<meta name="description" content="Hexaequo est-il gratuit, peut-on y jouer hors ligne, faut-il un compte, comment fonctionnent les parties classées et l’ExAequo, et comment s’écrit le nom ? Des réponses courtes à chaque question.">
+<link rel="canonical" href="https://hexaequo.com/fr/faq/">
+<link rel="alternate" hreflang="en" href="https://hexaequo.com/faq/">
+<link rel="alternate" hreflang="fr" href="https://hexaequo.com/fr/faq/">
+<link rel="alternate" hreflang="x-default" href="https://hexaequo.com/faq/">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Hexaequo">
+<meta property="og:title" content="FAQ Hexaequo — gratuité, jeu hors ligne, comptes et parties classées">
+<meta property="og:url" content="https://hexaequo.com/fr/faq/">
+<meta property="og:description" content="Hexaequo est-il gratuit, peut-on y jouer hors ligne, faut-il un compte, comment fonctionnent les parties classées et l’ExAequo, et comment s’écrit le nom ? Des réponses courtes à chaque question.">
+<meta property="og:locale" content="fr_CA">
+<meta property="og:image" content="https://hexaequo.com/assets/icons/icon-512x512.png">
+<meta name="twitter:card" content="summary">
+<!-- /page:head -->
+
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/assets/icons/icon-192x192.png" sizes="192x192">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+
+<script src="/src/bootTheme.js"></script>
+
+<link rel="stylesheet" href="/styles/tokens.css">
+<link rel="stylesheet" href="/styles/app.css">
+
+<!-- page:data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "fr",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Hexaequo est-il gratuit ?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Oui, entièrement. Jouer sur un même écran, contre l’ordinateur ou en ligne — parties classées comprises — ne coûte rien. Il n’y a ni publicité, ni achat, ni outil de mesure d’audience tiers."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Faut-il un compte ?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Non. Les parties à deux sur un même écran, contre l’ordinateur et en ligne par un lien se jouent sans compte. Il en faut un pour les parties classées — partie rapide et défis compris —, pour avoir un profil qui garde vos parties et pour figurer au classement."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Comment créer un compte ?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Ouvrez la page Compte de l’application et inscrivez-vous avec une adresse courriel et un mot de passe. Vous choisissez le pseudonyme que verront les autres joueurs, et vous pourrez le changer plus tard. Un compte se supprime à tout moment depuis votre profil."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Peut-on jouer hors ligne ?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Oui. Après une première visite avec une connexion, tout le jeu est gardé sur votre appareil : les parties à deux sur un même écran, l’ordinateur et la revue d’une partie terminée fonctionnent hors ligne, puisque l’ordinateur joue dans votre navigateur. Les parties en ligne, le salon et le classement demandent une connexion."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Peut-on l’installer sur un téléphone ?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Oui. Hexaequo fonctionne dans le navigateur des téléphones, des tablettes et des ordinateurs, sans rien télécharger d’une boutique d’applications. Choisissez « Installer l’application » dans les paramètres, ou « Ajouter à l’écran d’accueil » dans le menu de votre navigateur : il s’ouvre alors dans sa propre fenêtre, comme n’importe quelle application, et se joue hors ligne."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Comment jouer en ligne avec un ami ?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Choisissez « En ligne » dans le menu, puis « Créer une partie », avec ou sans pendule, et partagez le lien ou le code QR. Celui qui l’ouvre prend la place libre, et aucun de vous n’a besoin d’un compte. Si vous êtes tous les deux connectés et avez choisi une pendule, la partie compte au classement ; sans pendule, elle reste amicale. Une partie que personne ne touche pendant deux heures est oubliée, et son lien ne fonctionne plus."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Comment fonctionnent les parties classées ?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Une partie compte au classement quand ses deux places sont tenues par deux joueurs connectés différents et qu’elle se joue avec une pendule, qu’ils se soient trouvés par la partie rapide, par un défi ou par un lien. La partie rapide cherche un adversaire proche de votre classement à la cadence choisie — bullet (2 minutes plus 1 seconde par coup), blitz (5 + 3), rapide (10 + 5) ou classique (20 + 10) — et élargit la recherche à mesure que vous attendez. Le classement suit le système Elo et part de 1000 ; vos trente premières parties classées le font bouger plus vite, et une cadence plus longue rapporte plus de points. On perd une partie en abandonnant, en dépassant son temps, ou en partant sans revenir avant la fin du compte à rebours. Tous ceux qui ont joué au moins une partie classée figurent au classement."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Qu’est-ce qu’un ExAequo ?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "C’est ainsi qu’on appelle une partie nulle à Hexaequo, du latin <i>ex aequo<\/i>, à égalité. La partie se termine par un ExAequo quand le joueur au trait n’a aucun coup légal, quand la même position revient pour la troisième fois, ou après cinquante coups de chaque côté sans capture, sans tuile posée et sans pièce placée. En ligne, chaque joueur peut aussi proposer l’ExAequo, qui est conclu si l’autre l’accepte. Dans une partie classée, il vaut un demi-point à chacun. Les <a href=\"https://hexaequo.com/fr/regles/\">règles<\/a> expliquent pourquoi une capture, une tuile posée ou une pièce placée remettent ce compte à zéro."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Peut-on jouer contre l’ordinateur ?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Oui, à quatre niveaux — Débutant, Facile, Moyen et Fort —, avec les Noirs ou les Blancs. L’ordinateur joue sur votre appareil et n’a besoin d’aucune connexion. Le <a href=\"https://hexaequo.com/fr/guide/\">guide du débutant<\/a> explique ce qui change d’un niveau à l’autre."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Comment s’écrit Hexaequo ?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "En un seul mot : <i>hex<\/i> pour les hexagones sur lesquels on y joue, et <i>aequo<\/i> du latin <i>ex aequo<\/i>, à égalité — le nom qu’on donne ici à une partie nulle. On le tape souvent hexeko, hexaco, hexeco, hexequo, hexaquo, exako ou exeko : toutes ces graphies désignent ce jeu."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "En quelles langues peut-on jouer ?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "En français et en anglais. Le jeu s’ouvre dans la langue que préfère votre navigateur, si c’est l’une des deux, et la langue se change dans les paramètres."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Qui a créé Hexaequo ?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Hexaequo a été créé par Piero Barrette. Questions et suggestions sont les bienvenues à <a href=\"mailto:info@hexaequo.com\">info@hexaequo.com<\/a>."
+      }
+    }
+  ]
+}
+</script>
+<!-- /page:data -->
+</head>
+<body>
+
+<!--
+  The opening position, laying itself out.
+
+  Not a spinner: the four tiles of the mark are the four tiles a game of
+  Hexaequo starts from, and they arrive the way they are played — black, white,
+  black, white — each piece dropping onto its tile after the tile has landed.
+  It says what the site is while it waits, which is more than a rotating arc
+  can do.
+
+  It sits over the copy below rather than replacing it: that text is what a
+  crawler reads, and it has to stay in the document.
+-->
+<div id="loader" class="loader" aria-hidden="true">
+  <svg class="loader-mark" viewBox="-145.1 -166.5 705.8 573.0" xmlns="http://www.w3.org/2000/svg">
+  <g class="ld-cell" style="--i:0">
+    <path class="ld-tile" d="M138.56 -80.00 L138.56 80.00 L0.00 160.00 L-138.56 80.00 L-138.56 -80.00 L-0.00 -160.00Z" fill="var(--tile-dark)" stroke="var(--tile-dark)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="0.00" cy="0.00" r="60.80" fill="var(--piece-light)"/></g>
+  </g>
+  <g class="ld-cell" style="--i:1">
+    <path class="ld-tile" d="M415.69 -80.00 L415.69 80.00 L277.13 160.00 L138.56 80.00 L138.56 -80.00 L277.13 -160.00Z" fill="var(--tile-light)" stroke="var(--tile-dark-edge)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="277.13" cy="0.00" r="80.80" fill="none" stroke="var(--piece-dark)" stroke-width="40.00"/></g>
+  </g>
+  <g class="ld-cell" style="--i:3">
+    <path class="ld-tile" d="M277.13 160.00 L277.13 320.00 L138.56 400.00 L-0.00 320.00 L0.00 160.00 L138.56 80.00Z" fill="var(--tile-light)" stroke="var(--tile-dark-edge)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="138.56" cy="240.00" r="60.80" fill="var(--piece-dark)"/></g>
+  </g>
+  <g class="ld-cell" style="--i:2">
+    <path class="ld-tile" d="M554.26 160.00 L554.26 320.00 L415.69 400.00 L277.13 320.00 L277.13 160.00 L415.69 80.00Z" fill="var(--tile-dark)" stroke="var(--tile-dark)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="415.69" cy="240.00" r="80.80" fill="none" stroke="var(--piece-light)" stroke-width="40.00"/></g>
+  </g>
+  </svg>
+  <span class="loader-word">HEXAEQUO</span>
+</div>
+
+<header class="site-header">
+  <!-- The way back to the menu, on every page but the menu itself. A chevron,
+       the mark, and the word: the logo alone read as decoration, not as a
+       button, and nothing about it said where it went. -->
+  <button class="btn" id="brand" data-go="home" data-route-link="home"
+          data-i18n-attr="aria-label:nav.backToMenu,title:nav.backToMenu"></button>
+  <span class="spacer"></span>
+  <nav id="site-nav">
+    <button class="btn" id="account-chip" data-go="account"></button>
+    <button class="btn btn--icon" data-go="rules" data-route-link="rules" data-i18n-attr="title:nav.rules">?</button>
+    <button class="btn btn--icon" data-go="settings" data-route-link="settings" data-i18n-attr="title:nav.settings">⚙</button>
+  </nav>
+</header>
+
+<!--
+  The app replaces this the moment it boots. It exists because anything that
+  reads the page without running JavaScript — link previews, search crawlers,
+  the assistants people ask instead of searching — would otherwise find an
+  empty document, and could neither confirm the site is called Hexaequo nor
+  tell what it is for.
+
+  It says what the home view says once the app has drawn it (home.about and
+  home.ways in the English locale), so that a crawler reading the page before
+  the script runs and one reading it after find the same description. On a
+  page's own copy of this file, it is that page, in full.
+-->
+<main id="view">
+  <!-- page:view -->
+  <div class="boot-copy boot-page">
+    <p class="boot-crumbs"><a href="/">Hexaequo</a> · <a href="/faq/" hreflang="en">English</a></p>
+    <article class="page-text"><h1>Questions fréquentes</h1>
+      <p class="lede">Des réponses courtes sur le jeu, le site et les parties en ligne. Les <a href="/fr/regles/" data-panel="rules">règles</a> ont leur propre page, et le <a href="/fr/guide/" data-panel="guide">guide du débutant</a> accompagne les premières parties.</p>
+      <h3>Hexaequo est-il gratuit ?</h3>
+      <p>Oui, entièrement. Jouer sur un même écran, contre l’ordinateur ou en ligne — parties classées comprises — ne coûte rien. Il n’y a ni publicité, ni achat, ni outil de mesure d’audience tiers.</p>
+      <h3>Faut-il un compte ?</h3>
+      <p>Non. Les parties à deux sur un même écran, contre l’ordinateur et en ligne par un lien se jouent sans compte. Il en faut un pour les parties classées — partie rapide et défis compris —, pour avoir un profil qui garde vos parties et pour figurer au classement.</p>
+      <h3>Comment créer un compte ?</h3>
+      <p>Ouvrez la page Compte de l’application et inscrivez-vous avec une adresse courriel et un mot de passe. Vous choisissez le pseudonyme que verront les autres joueurs, et vous pourrez le changer plus tard. Un compte se supprime à tout moment depuis votre profil.</p>
+      <h3>Peut-on jouer hors ligne ?</h3>
+      <p>Oui. Après une première visite avec une connexion, tout le jeu est gardé sur votre appareil : les parties à deux sur un même écran, l’ordinateur et la revue d’une partie terminée fonctionnent hors ligne, puisque l’ordinateur joue dans votre navigateur. Les parties en ligne, le salon et le classement demandent une connexion.</p>
+      <h3>Peut-on l’installer sur un téléphone ?</h3>
+      <p>Oui. Hexaequo fonctionne dans le navigateur des téléphones, des tablettes et des ordinateurs, sans rien télécharger d’une boutique d’applications. Choisissez « Installer l’application » dans les paramètres, ou « Ajouter à l’écran d’accueil » dans le menu de votre navigateur : il s’ouvre alors dans sa propre fenêtre, comme n’importe quelle application, et se joue hors ligne.</p>
+      <h3>Comment jouer en ligne avec un ami ?</h3>
+      <p>Choisissez « En ligne » dans le menu, puis « Créer une partie », avec ou sans pendule, et partagez le lien ou le code QR. Celui qui l’ouvre prend la place libre, et aucun de vous n’a besoin d’un compte. Si vous êtes tous les deux connectés et avez choisi une pendule, la partie compte au classement ; sans pendule, elle reste amicale. Une partie que personne ne touche pendant deux heures est oubliée, et son lien ne fonctionne plus.</p>
+      <h3>Comment fonctionnent les parties classées ?</h3>
+      <p>Une partie compte au classement quand ses deux places sont tenues par deux joueurs connectés différents et qu’elle se joue avec une pendule, qu’ils se soient trouvés par la partie rapide, par un défi ou par un lien. La partie rapide cherche un adversaire proche de votre classement à la cadence choisie — bullet (2 minutes plus 1 seconde par coup), blitz (5 + 3), rapide (10 + 5) ou classique (20 + 10) — et élargit la recherche à mesure que vous attendez. Le classement suit le système Elo et part de 1000 ; vos trente premières parties classées le font bouger plus vite, et une cadence plus longue rapporte plus de points. On perd une partie en abandonnant, en dépassant son temps, ou en partant sans revenir avant la fin du compte à rebours. Tous ceux qui ont joué au moins une partie classée figurent au classement.</p>
+      <h3>Qu’est-ce qu’un ExAequo ?</h3>
+      <p>C’est ainsi qu’on appelle une partie nulle à Hexaequo, du latin <i>ex aequo</i>, à égalité. La partie se termine par un ExAequo quand le joueur au trait n’a aucun coup légal, quand la même position revient pour la troisième fois, ou après cinquante coups de chaque côté sans capture, sans tuile posée et sans pièce placée. En ligne, chaque joueur peut aussi proposer l’ExAequo, qui est conclu si l’autre l’accepte. Dans une partie classée, il vaut un demi-point à chacun. Les <a href="/fr/regles/" data-panel="rules">règles</a> expliquent pourquoi une capture, une tuile posée ou une pièce placée remettent ce compte à zéro.</p>
+      <h3>Peut-on jouer contre l’ordinateur ?</h3>
+      <p>Oui, à quatre niveaux — Débutant, Facile, Moyen et Fort —, avec les Noirs ou les Blancs. L’ordinateur joue sur votre appareil et n’a besoin d’aucune connexion. Le <a href="/fr/guide/" data-panel="guide">guide du débutant</a> explique ce qui change d’un niveau à l’autre.</p>
+      <h3>Comment s’écrit Hexaequo ?</h3>
+      <p>En un seul mot : <i>hex</i> pour les hexagones sur lesquels on y joue, et <i>aequo</i> du latin <i>ex aequo</i>, à égalité — le nom qu’on donne ici à une partie nulle. On le tape souvent hexeko, hexaco, hexeco, hexequo, hexaquo, exako ou exeko : toutes ces graphies désignent ce jeu.</p>
+      <h3>En quelles langues peut-on jouer ?</h3>
+      <p>En français et en anglais. Le jeu s’ouvre dans la langue que préfère votre navigateur, si c’est l’une des deux, et la langue se change dans les paramètres.</p>
+      <h3>Qui a créé Hexaequo ?</h3>
+      <p>Hexaequo a été créé par Piero Barrette. Questions et suggestions sont les bienvenues à <a href="mailto:info@hexaequo.com">info@hexaequo.com</a>.</p>
+    </article>
+    <p class="boot-crumbs"><a href="/#/play">Jouer</a> · <a href="/">Hexaequo</a></p>
+  </div>
+<!-- /page:view -->
+</main>
+
+<noscript>
+  <style>.loader { display: none !important; }</style>
+  Hexaequo a besoin de JavaScript pour jouer, mais tout ce qui précède décrit le jeu.
+</noscript>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

@@ -7,6 +7,7 @@ import { logoLockupHtml } from '../ui/logo.js';
 import { play } from '../audio.js';
 import { get as getSetting, set as setSetting, resolvedTheme } from '../settings.js';
 import { openPanel } from '../ui/panels.js';
+import { pathOf } from '../pages.js';
 
 export function mountHome(outlet) {
   /* Restoring the session finishes after this view is built, so anything that
@@ -22,17 +23,20 @@ export function mountHome(outlet) {
    *
    * Search engines run this script and index what it leaves, not the copy in
    * index.html, so this is the description they read — and it needs real
-   * addresses to follow, the published pages in the language on screen. The
-   * menu comes first because a returning player wants the buttons; the
-   * tagline over it already says what the game is in one line, so the text
-   * below goes on from there rather than saying it again.
+   * addresses to follow: the pages with an address of their own (pages.js),
+   * in the language on screen. The menu comes first because a returning
+   * player wants the buttons; the tagline over it already says what the game
+   * is in one line, so the text below goes on from there rather than saying
+   * it again.
    *
-   * The links in the footer are addresses for the same reason. In the app
-   * they still switch the language and open the policies in place; only a
+   * Every way to a page is a link for the same reason, and each page has one
+   * way in from here: the rules from the menu, the rest from the lines under
+   * it and the footer. In the app a click opens the page in its panel; only a
    * click meant for a new tab follows the href.
    */
-  const fr = getSetting('language') === 'fr';
-  const page = (en, french) => (fr ? french : en);
+  const language = getSetting('language') === 'fr' ? 'fr' : 'en';
+  const other = language === 'fr' ? 'en' : 'fr';
+  const to = (name) => `href="${pathOf(name, language)}" data-panel="${name}"`;
   outlet.innerHTML = `
     <div class="home">
       <div class="home-inner">
@@ -48,22 +52,23 @@ export function mountHome(outlet) {
         <button class="btn" data-panel="leaderboard">${t('home.leaderboard')}</button>
         <button class="btn" data-go="profile" data-needs-account
                 hidden>${t('home.profile')}</button>
-        <button class="btn" data-panel="rules">${t('home.rules')}</button>
+        <a class="btn" ${to('rules')}>${t('home.rules')}</a>
         <button class="btn" data-panel="settings">${t('home.settings')}</button>
       </nav>
       <section class="home-about">
         <p>${t('home.about')}</p>
         <p>${t('home.ways')}</p>
         <p class="home-links">
-          <a href="${page('/rules/', '/fr/regles/')}" data-panel="rules">${t('home.fullRules')}</a>
-          <a href="${page('/play/', '/fr/jouer/')}">${t('home.more')}</a>
+          <a ${to('about')}>${t('home.more')}</a>
+          <a ${to('guide')}>${t('home.guide')}</a>
+          <a ${to('faq')}>${t('home.faq')}</a>
         </p>
       </section>
       <div class="home-foot">
-        <a href="${page('/fr/jouer/', '/play/')}" hreflang="${page('fr', 'en')}"
-           data-action="lang">${page('Français', 'English')}</a>
-        <a href="${page('/privacy/', '/fr/confidentialite/')}" data-go="privacy">${t('nav.privacy')}</a>
-        <a href="${page('/terms/', '/fr/conditions/')}" data-go="terms">${t('nav.terms')}</a>
+        <a href="${pathOf('about', other)}" hreflang="${other}"
+           data-action="lang">${language === 'fr' ? 'English' : 'Français'}</a>
+        <a ${to('privacy')}>${t('nav.privacy')}</a>
+        <a ${to('terms')}>${t('nav.terms')}</a>
         <button data-action="theme">${resolvedTheme() === 'dark' ? '☀' : '☾'}</button>
       </div>
       <p class="home-credit">${t('home.credit')}</p>

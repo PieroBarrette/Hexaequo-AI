@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en" data-theme="dark" data-board-style="modern" data-route="home">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0e1015">
+<!--
+  This file is the shell of every page of the site. The home page is this
+  file; each page with an address of its own (web/src/pages.js — /rules/,
+  /fr/regles/ and the rest) is a copy of it written by
+  backend/scripts/makePages.js, with what lies between the page:head markers
+  and between the page:view markers replaced by that page's own. The same
+  shell is served at /fr/regles/ as at /, so every path in it is absolute.
+-->
+<!-- page:head -->
+<title>Hexaequo FAQ — free play, offline, accounts and rated games</title>
+<meta name="description" content="Is Hexaequo free, can it be played offline, do you need an account, how do rated games and draws work, and how is the name spelled? Short answers to each.">
+<link rel="canonical" href="https://hexaequo.com/faq/">
+<link rel="alternate" hreflang="en" href="https://hexaequo.com/faq/">
+<link rel="alternate" hreflang="fr" href="https://hexaequo.com/fr/faq/">
+<link rel="alternate" hreflang="x-default" href="https://hexaequo.com/faq/">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Hexaequo">
+<meta property="og:title" content="Hexaequo FAQ — free play, offline, accounts and rated games">
+<meta property="og:url" content="https://hexaequo.com/faq/">
+<meta property="og:description" content="Is Hexaequo free, can it be played offline, do you need an account, how do rated games and draws work, and how is the name spelled? Short answers to each.">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://hexaequo.com/assets/icons/icon-512x512.png">
+<meta name="twitter:card" content="summary">
+<!-- /page:head -->
+
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/assets/icons/icon-192x192.png" sizes="192x192">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+
+<script src="/src/bootTheme.js"></script>
+
+<link rel="stylesheet" href="/styles/tokens.css">
+<link rel="stylesheet" href="/styles/app.css">
+
+<!-- page:data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "en",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Is Hexaequo free?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, entirely. Playing on one screen, against the computer and online — rated games included — costs nothing. There are no advertisements, nothing to buy and no third-party analytics."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I need an account?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Two players on one screen, games against the computer and online games through a link all work without one. An account is what you need for rated games, quick match and challenges included, and to keep a rating, a profile with your past games and a place on the leaderboard."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I create an account?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Open the Account page in the app and sign up with an email address and a password. You choose the nickname other players will see, and you can change it later. An account can be deleted at any time from your profile."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I play offline?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. After a first visit with a connection, the whole game is kept on your device: two players on one screen, the computer opponent and the review of a finished game all work offline, since the computer runs in your browser. Online games, the lobby and the leaderboard need a connection."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I install it on my phone?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Hexaequo runs in the browser on phones, tablets and computers, with nothing to download from a store. Choose “Install the app” in the settings, or “Add to home screen” in your browser's menu, and it opens in its own window like any other app — and plays offline."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I play online with a friend?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Choose “Online” from the menu, then “Start a game”, with or without a clock, and share the link or the QR code. Whoever opens it takes the free seat, and neither of you needs an account. If you are both signed in and chose a clock, the game is rated; without a clock it is a friendly. A game nobody touches for two hours is forgotten, and its link stops working."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do rated games work?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A game counts for the rating when its two seats are held by two different signed-in players and it is played on a clock, whether they met through quick match, a challenge or a link. Quick match looks for someone close to your rating at the time control you pick — bullet (2 minutes plus 1 second a move), blitz (5 + 3), rapid (10 + 5) or classic (20 + 10) — and widens the search the longer you wait. Ratings follow the Elo system and start at 1000; your first thirty rated games move yours faster, and a longer time control is worth more points. A game is lost by resigning, by running out of time, or by leaving and not coming back before the countdown ends. Everyone with at least one rated game is on the leaderboard."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is an ExAequo?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Hexaequo's word for a drawn game, from the Latin <i>ex aequo<\/i>, on equal terms. A game ends ExAequo when the player to move has no legal move, when the same position occurs for the third time, or after fifty moves each with no capture, no tile laid and no piece placed. Online, either player can also offer an ExAequo, and it is agreed when the other accepts. In a rated game it scores half a point each. The <a href=\"https://hexaequo.com/rules/\">rules<\/a> explain why a capture, a tile laid or a piece placed starts that count again."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I play against the computer?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, at four levels — Beginner, Easy, Medium and Strong — with Black or White. It plays on your device, so it needs no connection. The <a href=\"https://hexaequo.com/guide/\">beginner's guide<\/a> explains what changes from one level to the next."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How is Hexaequo spelled?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "In one word: <i>hex<\/i> for the hexagons it is played on, and <i>aequo<\/i> from the Latin <i>ex aequo<\/i>, on equal terms — what a drawn game is called here. It is often typed hexeko, hexaco, hexeco, hexequo, hexaquo, exako or exeko; all of those mean this game."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What languages can I play in?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "English and French. It opens in the language your browser prefers, if it is one of the two, and you can switch in the settings."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Who made Hexaequo?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Hexaequo was created by Piero Barrette. Questions and suggestions are welcome at <a href=\"mailto:info@hexaequo.com\">info@hexaequo.com<\/a>."
+      }
+    }
+  ]
+}
+</script>
+<!-- /page:data -->
+</head>
+<body>
+
+<!--
+  The opening position, laying itself out.
+
+  Not a spinner: the four tiles of the mark are the four tiles a game of
+  Hexaequo starts from, and they arrive the way they are played — black, white,
+  black, white — each piece dropping onto its tile after the tile has landed.
+  It says what the site is while it waits, which is more than a rotating arc
+  can do.
+
+  It sits over the copy below rather than replacing it: that text is what a
+  crawler reads, and it has to stay in the document.
+-->
+<div id="loader" class="loader" aria-hidden="true">
+  <svg class="loader-mark" viewBox="-145.1 -166.5 705.8 573.0" xmlns="http://www.w3.org/2000/svg">
+  <g class="ld-cell" style="--i:0">
+    <path class="ld-tile" d="M138.56 -80.00 L138.56 80.00 L0.00 160.00 L-138.56 80.00 L-138.56 -80.00 L-0.00 -160.00Z" fill="var(--tile-dark)" stroke="var(--tile-dark)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="0.00" cy="0.00" r="60.80" fill="var(--piece-light)"/></g>
+  </g>
+  <g class="ld-cell" style="--i:1">
+    <path class="ld-tile" d="M415.69 -80.00 L415.69 80.00 L277.13 160.00 L138.56 80.00 L138.56 -80.00 L277.13 -160.00Z" fill="var(--tile-light)" stroke="var(--tile-dark-edge)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="277.13" cy="0.00" r="80.80" fill="none" stroke="var(--piece-dark)" stroke-width="40.00"/></g>
+  </g>
+  <g class="ld-cell" style="--i:3">
+    <path class="ld-tile" d="M277.13 160.00 L277.13 320.00 L138.56 400.00 L-0.00 320.00 L0.00 160.00 L138.56 80.00Z" fill="var(--tile-light)" stroke="var(--tile-dark-edge)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="138.56" cy="240.00" r="60.80" fill="var(--piece-dark)"/></g>
+  </g>
+  <g class="ld-cell" style="--i:2">
+    <path class="ld-tile" d="M554.26 160.00 L554.26 320.00 L415.69 400.00 L277.13 320.00 L277.13 160.00 L415.69 80.00Z" fill="var(--tile-dark)" stroke="var(--tile-dark)" stroke-width="11" stroke-linejoin="round"/>
+    <g class="ld-piece"><circle cx="415.69" cy="240.00" r="80.80" fill="none" stroke="var(--piece-light)" stroke-width="40.00"/></g>
+  </g>
+  </svg>
+  <span class="loader-word">HEXAEQUO</span>
+</div>
+
+<header class="site-header">
+  <!-- The way back to the menu, on every page but the menu itself. A chevron,
+       the mark, and the word: the logo alone read as decoration, not as a
+       button, and nothing about it said where it went. -->
+  <button class="btn" id="brand" data-go="home" data-route-link="home"
+          data-i18n-attr="aria-label:nav.backToMenu,title:nav.backToMenu"></button>
+  <span class="spacer"></span>
+  <nav id="site-nav">
+    <button class="btn" id="account-chip" data-go="account"></button>
+    <button class="btn btn--icon" data-go="rules" data-route-link="rules" data-i18n-attr="title:nav.rules">?</button>
+    <button class="btn btn--icon" data-go="settings" data-route-link="settings" data-i18n-attr="title:nav.settings">⚙</button>
+  </nav>
+</header>
+
+<!--
+  The app replaces this the moment it boots. It exists because anything that
+  reads the page without running JavaScript — link previews, search crawlers,
+  the assistants people ask instead of searching — would otherwise find an
+  empty document, and could neither confirm the site is called Hexaequo nor
+  tell what it is for.
+
+  It says what the home view says once the app has drawn it (home.about and
+  home.ways in the English locale), so that a crawler reading the page before
+  the script runs and one reading it after find the same description. On a
+  page's own copy of this file, it is that page, in full.
+-->
+<main id="view">
+  <!-- page:view -->
+  <div class="boot-copy boot-page">
+    <p class="boot-crumbs"><a href="/">Hexaequo</a> · <a href="/fr/faq/" hreflang="fr">Français</a></p>
+    <article class="page-text"><h1>Frequently asked questions</h1>
+      <p class="lede">Short answers about the game, the site and playing online. The <a href="/rules/" data-panel="rules">rules</a> have a page of their own, and the <a href="/guide/" data-panel="guide">beginner's guide</a> covers the first games.</p>
+      <h3>Is Hexaequo free?</h3>
+      <p>Yes, entirely. Playing on one screen, against the computer and online — rated games included — costs nothing. There are no advertisements, nothing to buy and no third-party analytics.</p>
+      <h3>Do I need an account?</h3>
+      <p>No. Two players on one screen, games against the computer and online games through a link all work without one. An account is what you need for rated games, quick match and challenges included, and to keep a rating, a profile with your past games and a place on the leaderboard.</p>
+      <h3>How do I create an account?</h3>
+      <p>Open the Account page in the app and sign up with an email address and a password. You choose the nickname other players will see, and you can change it later. An account can be deleted at any time from your profile.</p>
+      <h3>Can I play offline?</h3>
+      <p>Yes. After a first visit with a connection, the whole game is kept on your device: two players on one screen, the computer opponent and the review of a finished game all work offline, since the computer runs in your browser. Online games, the lobby and the leaderboard need a connection.</p>
+      <h3>Can I install it on my phone?</h3>
+      <p>Yes. Hexaequo runs in the browser on phones, tablets and computers, with nothing to download from a store. Choose “Install the app” in the settings, or “Add to home screen” in your browser's menu, and it opens in its own window like any other app — and plays offline.</p>
+      <h3>How do I play online with a friend?</h3>
+      <p>Choose “Online” from the menu, then “Start a game”, with or without a clock, and share the link or the QR code. Whoever opens it takes the free seat, and neither of you needs an account. If you are both signed in and chose a clock, the game is rated; without a clock it is a friendly. A game nobody touches for two hours is forgotten, and its link stops working.</p>
+      <h3>How do rated games work?</h3>
+      <p>A game counts for the rating when its two seats are held by two different signed-in players and it is played on a clock, whether they met through quick match, a challenge or a link. Quick match looks for someone close to your rating at the time control you pick — bullet (2 minutes plus 1 second a move), blitz (5 + 3), rapid (10 + 5) or classic (20 + 10) — and widens the search the longer you wait. Ratings follow the Elo system and start at 1000; your first thirty rated games move yours faster, and a longer time control is worth more points. A game is lost by resigning, by running out of time, or by leaving and not coming back before the countdown ends. Everyone with at least one rated game is on the leaderboard.</p>
+      <h3>What is an ExAequo?</h3>
+      <p>Hexaequo's word for a drawn game, from the Latin <i>ex aequo</i>, on equal terms. A game ends ExAequo when the player to move has no legal move, when the same position occurs for the third time, or after fifty moves each with no capture, no tile laid and no piece placed. Online, either player can also offer an ExAequo, and it is agreed when the other accepts. In a rated game it scores half a point each. The <a href="/rules/" data-panel="rules">rules</a> explain why a capture, a tile laid or a piece placed starts that count again.</p>
+      <h3>Can I play against the computer?</h3>
+      <p>Yes, at four levels — Beginner, Easy, Medium and Strong — with Black or White. It plays on your device, so it needs no connection. The <a href="/guide/" data-panel="guide">beginner's guide</a> explains what changes from one level to the next.</p>
+      <h3>How is Hexaequo spelled?</h3>
+      <p>In one word: <i>hex</i> for the hexagons it is played on, and <i>aequo</i> from the Latin <i>ex aequo</i>, on equal terms — what a drawn game is called here. It is often typed hexeko, hexaco, hexeco, hexequo, hexaquo, exako or exeko; all of those mean this game.</p>
+      <h3>What languages can I play in?</h3>
+      <p>English and French. It opens in the language your browser prefers, if it is one of the two, and you can switch in the settings.</p>
+      <h3>Who made Hexaequo?</h3>
+      <p>Hexaequo was created by Piero Barrette. Questions and suggestions are welcome at <a href="mailto:info@hexaequo.com">info@hexaequo.com</a>.</p>
+    </article>
+    <p class="boot-crumbs"><a href="/#/play">Play</a> · <a href="/">Hexaequo</a></p>
+  </div>
+<!-- /page:view -->
+</main>
+
+<noscript>
+  <style>.loader { display: none !important; }</style>
+  Hexaequo needs JavaScript to play, but everything above describes the game.
+</noscript>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

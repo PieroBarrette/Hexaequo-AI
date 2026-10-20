@@ -4,33 +4,42 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0e1015">
+<!--
+  This file is the shell of every page of the site. The home page is this
+  file; each page with an address of its own (web/src/pages.js — /rules/,
+  /fr/regles/ and the rest) is a copy of it written by
+  backend/scripts/makePages.js, with what lies between the page:head markers
+  and between the page:view markers replaced by that page's own. The same
+  shell is served at /fr/regles/ as at /, so every path in it is absolute.
+-->
+<!-- page:head -->
+<title>Hexaequo — a free abstract strategy game for two</title>
 <meta name="description" content="Hexaequo is a free abstract strategy board game for two players. There is no fixed board: you build it as you play, laying hexagonal tiles and moving disks and rings. Play locally, against the computer, or online with a friend.">
-<!-- Exactly the OAuth application name: Google's branding review checks that the
-     name on the consent screen matches the one on the home page. -->
-<title>Hexaequo</title>
 <link rel="canonical" href="https://hexaequo.com/">
 
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Hexaequo">
-<meta property="og:title" content="Hexaequo">
+<meta property="og:title" content="Hexaequo — a free abstract strategy game for two">
 <meta property="og:url" content="https://hexaequo.com/">
 <meta property="og:description" content="A free abstract strategy board game for two. Build the board as you play.">
 <meta property="og:image" content="https://hexaequo.com/assets/icons/icon-512x512.png">
 <meta name="twitter:card" content="summary">
+<!-- /page:head -->
 
-<link rel="manifest" href="./manifest.webmanifest">
-<link rel="icon" href="./assets/icons/icon-192x192.png" sizes="192x192">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/assets/icons/icon-192x192.png" sizes="192x192">
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
 
-<script src="./src/bootTheme.js"></script>
+<script src="/src/bootTheme.js"></script>
 
-<link rel="stylesheet" href="./styles/tokens.css">
-<link rel="stylesheet" href="./styles/app.css">
+<link rel="stylesheet" href="/styles/tokens.css">
+<link rel="stylesheet" href="/styles/app.css">
 
+<!-- page:data -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -62,6 +71,7 @@
   "publisher": { "@type": "Person", "name": "Piero Barrette" }
 }
 </script>
+<!-- /page:data -->
 </head>
 <body>
 
@@ -115,16 +125,18 @@
 
 <!--
   The app replaces this the moment it boots. It exists because anything that
-  reads the page without running JavaScript — Google's OAuth branding review,
-  link previews, search crawlers, the assistants people ask instead of
-  searching — would otherwise find an empty document, and could neither
-  confirm the site is called Hexaequo nor tell what it is for.
+  reads the page without running JavaScript — link previews, search crawlers,
+  the assistants people ask instead of searching — would otherwise find an
+  empty document, and could neither confirm the site is called Hexaequo nor
+  tell what it is for.
 
   It says what the home view says once the app has drawn it (home.about and
   home.ways in the English locale), so that a crawler reading the page before
-  the script runs and one reading it after find the same description.
+  the script runs and one reading it after find the same description. On a
+  page's own copy of this file, it is that page, in full.
 -->
 <main id="view">
+  <!-- page:view -->
   <div class="boot-copy">
     <h1>Hexaequo</h1>
     <p>An abstract strategy game for two</p>
@@ -143,19 +155,22 @@
     <p>
       <a href="/#/play">Play</a> ·
       <a href="/#/online">Play online</a> ·
-      <a href="/rules/">Complete rules</a> ·
+      <a href="/rules/">Rules</a> ·
       <a href="/play/">More about Hexaequo</a> ·
+      <a href="/guide/">Beginner's guide</a> ·
+      <a href="/faq/">FAQ</a> ·
       <a href="/fr/jouer/" hreflang="fr">Français</a> ·
       <a href="/privacy/">Privacy policy</a> ·
       <a href="/terms/">Terms of service</a>
     </p>
   </div>
+  <!-- /page:view -->
 </main>
 
 <noscript>
   <style>.loader { display: none !important; }</style>
   Hexaequo needs JavaScript to play, but everything above describes the game.
 </noscript>
-<script type="module" src="./src/main.js"></script>
+<script type="module" src="/src/main.js"></script>
 </body>
 </html>

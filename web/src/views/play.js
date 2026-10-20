@@ -2888,8 +2888,8 @@ export function mountPlay(outlet, params) {
 
   async function shareGame(button) {
     if (!net) return;
-    // Built the way an invitation is (see inviteLink): this page, another hash.
-    const url = new URL(location.href);
+    // Built the way an invitation is (see inviteLink): the root, another hash.
+    const url = new URL('/', location.href);
     url.hash = net.gameId
       ? `#/play?game=${encodeURIComponent(net.gameId)}`
       : `#/play?watch=1&code=${encodeURIComponent(net.code)}`;

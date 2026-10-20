@@ -1,282 +1,91 @@
 /**
- * Build the pages a search engine can actually read.
+ * Write the documents behind the pages that have an address of their own.
  *
- * Usage: node scripts/makePages.js
+ * Usage:
+ *   node scripts/makePages.js           write them into web/
+ *   node scripts/makePages.js <dir>     write them into <dir> instead
+ *   node scripts/makePages.js --check   write nothing; exit 1 if web/ is stale
  *
- * The app is one URL behind a hash router, which means every screen after the
- * home page is invisible to a crawler: fragments are not addresses, and a site
- * with one page has almost nothing to rank. These are real files at real paths,
- * with the words already in the source rather than assembled by script.
+ * Every page of the site is the game. The rules, the page about the game, the
+ * guide, the FAQ and the two policies are panels of the app (web/src/pages.js),
+ * and each has a path in each language — /rules/ and /fr/regles/, and so on.
+ * Opened at its path, the app starts with the panel drawn over the home
+ * screen. The document at that path is web/index.html with three parts
+ * replaced, between its page:head, page:data and page:view markers:
  *
- * Every string comes from the same locale files the app uses, so the published
- * rules cannot drift from the rules people play by. Run this whenever the
- * locales change; the output is committed.
+ *   - what a search result is made of: the title, the description, the
+ *     canonical address and its other language, and whether to list it;
+ *   - the structured data that says what kind of page it is;
+ *   - the copy shown before the app starts, which is the page itself, words
+ *     and diagrams, for whatever reads the document without running it.
+ *
+ * The words come from web/src/content/, the very functions the app's panels
+ * draw with, reading the same locale files — so what a crawler indexes and
+ * what a player opens cannot say different things. Run this whenever a locale,
+ * a page in content/, or web/index.html changes; the output is committed, and
+ * tests/pages.test.js fails when it has fallen behind.
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
+const { pathToFileURL } = require('url');
 
 const ROOT = path.join(__dirname, '..', '..');
 const WEB = path.join(ROOT, 'web');
 const SITE = 'https://hexaequo.com';
-/* Kept beside the app's own copy in views/legal.js; both must say the same. */
-const CONTACT_EMAIL = 'info@hexaequo.com';
+const LANGUAGES = ['en', 'fr'];
 
-const locales = {
-    en: JSON.parse(fs.readFileSync(path.join(WEB, 'src/locales/en.json'), 'utf8')),
-    fr: JSON.parse(fs.readFileSync(path.join(WEB, 'src/locales/fr.json'), 'utf8')),
-};
+const CHECK = process.argv[2] === '--check';
+const OUT = CHECK
+    ? fs.mkdtempSync(path.join(os.tmpdir(), 'hexaequo-pages-'))
+    : (process.argv[2] ? path.resolve(process.argv[2]) : WEB);
 
-/** Look a dotted key up in a bundle, falling back to English. */
-function text(lang, dotted) {
-    const walk = (bundle) => dotted.split('.').reduce(
-        (node, part) => (node && typeof node === 'object' ? node[part] : undefined), bundle);
-    const found = walk(locales[lang]);
-    return typeof found === 'string' ? found : (walk(locales.en) || dotted);
+const locales = Object.fromEntries(LANGUAGES.map((lang) =>
+    [lang, JSON.parse(fs.readFileSync(path.join(WEB, 'src/locales', `${lang}.json`), 'utf8'))]));
+
+function walk(bundle, dotted) {
+    let node = bundle;
+    for (const part of dotted.split('.')) {
+        if (node == null || typeof node !== 'object') return undefined;
+        node = node[part];
+    }
+    return node;
+}
+
+/** What content/ reads the locale with — the app's t() and raw(), in Node. */
+function reader(lang) {
+    const raw = (dotted) => {
+        const own = walk(locales[lang], dotted);
+        return own !== undefined ? own : walk(locales.en, dotted);
+    };
+    const t = (dotted, vars) => {
+        const found = raw(dotted);
+        if (typeof found !== 'string') return dotted;
+        return vars
+            ? found.replace(/\{(\w+)\}/g, (whole, name) => (name in vars ? String(vars[name]) : whole))
+            : found;
+    };
+    return { t, raw, language: lang };
 }
 
 const escape = (value) => String(value).replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-/*
- * Where each page lives, in each language.
- *
- * Separate addresses rather than one page that switches: a crawler indexes an
- * address, and two languages sharing one cannot both be found.
- */
-const PAGES = {
-    rules: { en: 'rules/', fr: 'fr/regles/' },
-    privacy: { en: 'privacy/', fr: 'fr/confidentialite/' },
-    terms: { en: 'terms/', fr: 'fr/conditions/' },
-    play: { en: 'play/', fr: 'fr/jouer/' },
-};
+/** Words alone: a description is text, and some of the sources are HTML. */
+const plain = (html) => String(html).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
 
-const OTHER = { en: 'fr', fr: 'en' };
-
-/** The mark, inline, so a content page needs nothing but itself. */
-const logo = fs.readFileSync(path.join(WEB, 'assets/logo.svg'), 'utf8')
-    .replace(/<\?xml[^>]*\?>/, '')
-    .replace('<svg', '<svg class="mark" aria-hidden="true"')
-    .trim();
-
-/**
- * One page.
- *
- * `appRoute` is where the same thing lives inside the app, so a reader who
- * arrives from a search can step straight into it.
- */
-function page({ lang, slug, title, description, appRoute, body, schema, noindex }) {
-    const here = `${SITE}/${PAGES[slug][lang]}`;
-    const there = `${SITE}/${PAGES[slug][OTHER[lang]]}`;
-    const label = { en: 'Play Hexaequo', fr: 'Jouer à Hexaequo' }[lang];
-    const otherLabel = { en: 'Français', fr: 'English' }[lang];
-    const home = { en: 'Home', fr: 'Accueil' }[lang];
-
-    return `<!doctype html>
-<html lang="${lang}" data-theme="dark" data-board-style="modern">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0e1015">
-<title>${escape(title)}</title>
-<meta name="description" content="${escape(description)}">
-${noindex ? '<meta name="robots" content="noindex, follow">\n' : ''}<link rel="canonical" href="${here}">
-<link rel="alternate" hreflang="${lang}" href="${here}">
-<link rel="alternate" hreflang="${OTHER[lang]}" href="${there}">
-<link rel="alternate" hreflang="x-default" href="${SITE}/${PAGES[slug].en}">
-
-<meta property="og:type" content="article">
-<meta property="og:site_name" content="Hexaequo">
-<meta property="og:title" content="${escape(title)}">
-<meta property="og:url" content="${here}">
-<meta property="og:description" content="${escape(description)}">
-<meta property="og:image" content="${SITE}/assets/icons/icon-512x512.png">
-<meta name="twitter:card" content="summary">
-
-<link rel="icon" href="/assets/icons/icon-192x192.png" sizes="192x192">
-<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="/styles/tokens.css">
-<link rel="stylesheet" href="/styles/page.css">
-${schema ? `<script type="application/ld+json">\n${JSON.stringify(schema, null, 2)}\n</script>` : ''}
-</head>
-<body>
-<header class="doc-head">
-  <a class="doc-brand" href="/">${logo}<span>HEXAEQUO</span></a>
-  <nav class="doc-nav">
-    <a href="/">${home}</a>
-    <a href="/${PAGES.rules[lang]}">${text(lang, 'rules.title')}</a>
-    <a href="/${PAGES[slug][OTHER[lang]]}" hreflang="${OTHER[lang]}">${otherLabel}</a>
-  </nav>
-</header>
-
-<main class="doc">
-${body}
-  <p class="doc-cta"><a class="doc-button" href="/#/${appRoute}">${label}</a></p>
-</main>
-
-<footer class="doc-foot">
-  <p>${escape(text(lang, 'home.credit'))}</p>
-  <p>
-    <a href="/${PAGES.privacy[lang]}">${escape(text(lang, 'nav.privacy'))}</a> ·
-    <a href="/${PAGES.terms[lang]}">${escape(text(lang, 'nav.terms'))}</a> ·
-    <a href="/${PAGES.rules[lang]}">${escape(text(lang, 'rules.title'))}</a>
-  </p>
-</footer>
-</body>
-</html>
-`;
+/** Replace what lies between <!-- name --> and <!-- /name -->. */
+function fill(template, name, contents) {
+    const open = `<!-- ${name} -->`;
+    const close = `<!-- /${name} -->`;
+    const start = template.indexOf(open);
+    const end = template.indexOf(close);
+    if (start < 0 || end < start) throw new Error(`web/index.html has no ${name} markers`);
+    return template.slice(0, start + open.length) + '\n' + contents + '\n' + template.slice(end);
 }
 
-/* ── The rules, in full ─────────────────────────────────────────────────── */
-
-function rulesBody(lang) {
-    const p = (key) => `  <p>${text(lang, key)}</p>`;
-    const h = (key) => `  <h2>${escape(text(lang, key))}</h2>`;
-    const section = (titleKey, textKey, captionKey) =>
-        `${h(titleKey)}\n${p(textKey)}\n  <p class="doc-caption">${text(lang, captionKey)}</p>`;
-
-    return `  <h1>${escape(text(lang, 'rules.title'))} — Hexaequo</h1>
-  <p class="doc-lede">${text(lang, 'rules.lede')}</p>
-
-${h('rules.goalTitle')}
-${p('rules.goalIntro')}
-  <ul>
-    <li>${text(lang, 'rules.goalDisks')}</li>
-    <li>${text(lang, 'rules.goalRings')}</li>
-    <li>${text(lang, 'rules.goalCleared')}</li>
-  </ul>
-
-${h('rules.materialTitle')}
-${p('rules.materialText')}
-
-${section('rules.setupTitle', 'rules.setupText', 'rules.setupCaption')}
-
-${h('rules.turnTitle')}
-${p('rules.turnText')}
-
-${section('rules.tileTitle', 'rules.tileText', 'rules.tileCaption')}
-${section('rules.placeTitle', 'rules.placeText', 'rules.placeCaption')}
-${section('rules.diskTitle', 'rules.diskText', 'rules.diskCaption')}
-${p('rules.diskLoop')}
-${section('rules.ringTitle', 'rules.ringText', 'rules.ringCaption')}
-
-${h('rules.finePrintTitle')}
-  <ul>
-    <li>${text(lang, 'rules.finePrint1')}</li>
-    <li>${text(lang, 'rules.finePrint2')}</li>
-    <li>${text(lang, 'rules.finePrint3')}</li>
-    <li>${text(lang, 'rules.finePrint4')}</li>
-  </ul>
-
-${h('rules.drawTitle')}
-${p('rules.drawText')}`;
-}
-
-/* ── The page that explains what the game is ────────────────────────────── */
-
-const PLAY_COPY = {
-    en: {
-        title: 'Play Hexaequo — a free abstract strategy game for two',
-        description: 'Hexaequo is a free two-player abstract strategy game with no hidden '
-            + 'information and no dice. There is no fixed board: you build it as you play. '
-            + 'Play locally, against the computer, or online.',
-        intro: 'Hexaequo is an abstract strategy game for two players. There is no luck in it, '
-            + 'nothing is hidden, and there is no board in the box — you build the board as you '
-            + 'play, laying hexagonal tiles and moving disks and rings across them.',
-        waysTitle: 'Four ways to play',
-        ways: [
-            ['Two players, one screen', 'Pass the device back and forth. Nothing to install and no account needed.'],
-            ['Against the computer', 'Four strengths, from a beginner that overlooks captures to an opponent that searches seven moves ahead.'],
-            ['Online with a friend', 'Open a game and send the link. Whoever holds it takes the free seat.'],
-            ['Rated games online', 'Sign in and be matched with someone near your rating, with clocks and a world leaderboard.'],
-        ],
-        whyTitle: 'What makes it different',
-        why: [
-            ['The board is not given', 'Every game starts with four tiles. Where the board goes is itself a move, and a game played wide is nothing like one played tight.'],
-            ['Three ways to win', 'Take six disks, take three rings, or leave your opponent with nothing on the board. Each pulls play in a different direction.'],
-            ['No hidden information, no dice', 'Everything either player knows is on the table. A loss is always something you could have seen.'],
-            ['Five minutes to learn', 'Two kinds of piece, one kind of tile, and a turn is a single choice.'],
-        ],
-        freeTitle: 'Free, and it stays free',
-        freeText: 'Hexaequo runs in a browser with nothing to install. It can be added to a phone '
-            + 'home screen and played offline. There are no advertisements, no purchases and no '
-            + 'tracking beyond what an account you choose to create requires.',
-        rulesLink: 'Read the full rules',
-    },
-    fr: {
-        title: 'Jouer à Hexaequo — un jeu de stratégie abstrait gratuit pour deux',
-        description: 'Hexaequo est un jeu de stratégie abstrait gratuit pour deux joueurs, sans '
-            + 'hasard ni information cachée. Il n’y a pas de plateau fixe : on le construit en '
-            + 'jouant. En local, contre l’ordinateur, ou en ligne.',
-        intro: 'Hexaequo est un jeu de stratégie abstrait pour deux joueurs. Aucun hasard, rien de '
-            + 'caché, et pas de plateau dans la boîte — le plateau se construit en jouant, en posant '
-            + 'des tuiles hexagonales et en y déplaçant des disques et des anneaux.',
-        waysTitle: 'Quatre façons de jouer',
-        ways: [
-            ['À deux sur un même écran', 'On se passe l’appareil. Rien à installer, aucun compte requis.'],
-            ['Contre l’ordinateur', 'Quatre niveaux, du débutant qui laisse passer des captures à un adversaire qui calcule sept coups d’avance.'],
-            ['En ligne avec un ami', 'Créez une partie et transmettez le lien. Celui qui l’a prend la place libre.'],
-            ['Parties classées en ligne', 'Connectez-vous et affrontez quelqu’un de votre force, avec pendules et classement mondial.'],
-        ],
-        whyTitle: 'Ce qui le distingue',
-        why: [
-            ['Le plateau n’est pas donné', 'Chaque partie commence avec quatre tuiles. L’endroit où le plateau s’étend est lui-même un coup, et une partie jouée large ne ressemble en rien à une partie jouée serrée.'],
-            ['Trois façons de gagner', 'Prendre six disques, prendre trois anneaux, ou ne laisser à l’adversaire aucune pièce sur le plateau. Chacune tire le jeu dans une direction différente.'],
-            ['Sans hasard ni information cachée', 'Tout ce que les deux joueurs savent est sur la table. Une défaite est toujours quelque chose qu’on aurait pu voir venir.'],
-            ['Cinq minutes pour apprendre', 'Deux sortes de pièces, une sorte de tuile, et un tour se résume à un seul choix.'],
-        ],
-        freeTitle: 'Gratuit, et ça le restera',
-        freeText: 'Hexaequo fonctionne dans un navigateur, sans rien installer. On peut l’ajouter '
-            + 'à l’écran d’accueil d’un téléphone et y jouer hors ligne. Aucune publicité, aucun '
-            + 'achat, et aucun suivi au-delà de ce qu’exige un compte que vous choisissez de créer.',
-        rulesLink: 'Lire les règles complètes',
-    },
-};
-
-function playBody(lang) {
-    const c = PLAY_COPY[lang];
-    const list = (items) => items.map(([name, detail]) =>
-        `    <li><b>${escape(name)}</b> — ${escape(detail)}</li>`).join('\n');
-    return `  <h1>Hexaequo</h1>
-  <p class="doc-lede">${escape(c.intro)}</p>
-
-  <h2>${escape(c.waysTitle)}</h2>
-  <ul>
-${list(c.ways)}
-  </ul>
-
-  <h2>${escape(c.whyTitle)}</h2>
-  <ul>
-${list(c.why)}
-  </ul>
-
-  <h2>${escape(c.freeTitle)}</h2>
-  <p>${escape(c.freeText)}</p>
-  <p><a href="/${PAGES.rules[lang]}">${escape(c.rulesLink)}</a></p>`;
-}
-
-/* ── Legal ──────────────────────────────────────────────────────────────── */
-
-function legalBody(lang, which) {
-    /* Privacy sections are keyed p1..p7 and terms t1..t6, which is what the
-       app renders; walking the numbers keeps the two in step without a list
-       to maintain in a second place. */
-    const letter = which === 'privacy' ? 'p' : 't';
-    const out = [
-        `  <h1>${escape(text(lang, 'legal.' + which + 'Title'))}</h1>`,
-        `  <p class="doc-caption">${escape(text(lang, 'legal.updated'))}</p>`,
-        `  <p class="doc-lede">${text(lang, 'legal.' + which + 'Intro')}</p>`,
-    ];
-    for (let i = 1; i <= 9; i++) {
-        const bundle = locales[lang].legal || {};
-        if (!bundle[`${letter}${i}Title`]) continue;
-        out.push(`  <h2>${escape(bundle[`${letter}${i}Title`])}</h2>`);
-        out.push(`  <p>${bundle[`${letter}${i}Body`] || ''}</p>`);
-    }
-    out.push(`  <h2>${escape(text(lang, 'legal.contactHeading'))}</h2>`);
-    out.push(`  <p>${text(lang, 'legal.contactBody').replace('{email}', CONTACT_EMAIL)}</p>`);
-    return out.join(String.fromCharCode(10));
-}
+const SPELLINGS = ['hexeko', 'hexaco', 'hexeco', 'hexequo', 'hexaquo', 'exako', 'exeko'];
 
 /* ── Structured data ────────────────────────────────────────────────────── */
 
@@ -285,22 +94,21 @@ function legalBody(lang, which) {
  *
  * Search engines use this for rich results, and the assistants that now answer
  * "what board games can I play in a browser" read the same thing. Left out of
- * the legal pages, which describe no product.
+ * the policies, which describe no product.
  */
-function gameSchema(lang) {
-    const c = PLAY_COPY[lang];
+function gameSchema(tr) {
     return {
         '@context': 'https://schema.org',
         '@type': 'VideoGame',
         name: 'Hexaequo',
-        alternateName: 'Hexaequo — abstract strategy game',
-        url: SITE,
-        description: c.description,
-        inLanguage: ['en', 'fr'],
+        alternateName: ['Hexæquo', 'Hex aequo', ...SPELLINGS],
+        url: `${SITE}/`,
+        description: plain(tr.t('about.description')),
+        inLanguage: LANGUAGES,
         image: `${SITE}/assets/icons/icon-512x512.png`,
         genre: ['Abstract strategy', 'Board game', 'Strategy'],
         gamePlatform: ['Web browser', 'Progressive Web App'],
-        playMode: ['SinglePlayer', 'MultiPlayer', 'CoOp'],
+        playMode: ['SinglePlayer', 'MultiPlayer'],
         numberOfPlayers: { '@type': 'QuantitativeValue', minValue: 1, maxValue: 2 },
         applicationCategory: 'GameApplication',
         operatingSystem: 'Any',
@@ -311,97 +119,177 @@ function gameSchema(lang) {
     };
 }
 
-function rulesSchema(lang) {
+function rulesSchema(tr) {
+    const step = (name, text) => ({ '@type': 'HowToStep', name: plain(tr.t(name)), text: plain(tr.t(text)) });
     return {
         '@context': 'https://schema.org',
         '@type': 'HowTo',
-        name: `${text(lang, 'rules.title')} — Hexaequo`,
-        description: text(lang, 'rules.lede'),
-        inLanguage: lang,
+        name: `${tr.t('rules.title')} — Hexaequo`,
+        description: plain(tr.t('rules.lede')),
+        inLanguage: tr.language,
         totalTime: 'PT5M',
         step: [
-            { '@type': 'HowToStep', name: text(lang, 'rules.setupTitle'), text: text(lang, 'rules.setupText') },
-            { '@type': 'HowToStep', name: text(lang, 'rules.turnTitle'), text: text(lang, 'rules.turnText') },
-            { '@type': 'HowToStep', name: text(lang, 'rules.tileTitle'), text: text(lang, 'rules.tileText') },
-            { '@type': 'HowToStep', name: text(lang, 'rules.placeTitle'), text: text(lang, 'rules.placeText') },
-            { '@type': 'HowToStep', name: text(lang, 'rules.diskTitle'), text: text(lang, 'rules.diskText') },
-            { '@type': 'HowToStep', name: text(lang, 'rules.ringTitle'), text: text(lang, 'rules.ringText') },
-            { '@type': 'HowToStep', name: text(lang, 'rules.goalTitle'), text: text(lang, 'rules.goalIntro') },
+            step('rules.setupTitle', 'rules.setupText'),
+            step('rules.turnTitle', 'rules.turnText'),
+            step('rules.tileTitle', 'rules.tileText'),
+            step('rules.placeTitle', 'rules.placeText'),
+            step('rules.diskTitle', 'rules.diskText'),
+            step('rules.ringTitle', 'rules.ringText'),
+            step('rules.goalTitle', 'rules.goalIntro'),
         ],
     };
 }
 
-/* ── Writing it out ─────────────────────────────────────────────────────── */
-
-function write(relative, contents) {
-    const target = path.join(WEB, relative, 'index.html');
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.writeFileSync(target, contents);
-    return `${relative.padEnd(24)} ${(contents.length / 1024).toFixed(1)} KB`;
+/* The guide is an article about the game rather than the game itself. */
+function guideSchema(tr, url) {
+    return {
+        '@context': 'https://schema.org',
+        '@type': 'Article',
+        headline: tr.t('guide.docTitle'),
+        description: plain(tr.t('guide.description')),
+        inLanguage: tr.language,
+        url,
+        image: `${SITE}/assets/icons/icon-512x512.png`,
+        about: { '@type': 'VideoGame', name: 'Hexaequo', url: `${SITE}/` },
+        author: { '@type': 'Person', name: 'Piero Barrette' },
+    };
 }
 
-function build() {
+/*
+ * The questions as FAQPage data. The answers are the page's own, links and
+ * all; only the links are made absolute, since an answer quoted in a search
+ * result is read away from the page it came from.
+ */
+function faqSchema(tr, faqItems) {
+    return {
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        inLanguage: tr.language,
+        mainEntity: faqItems(tr).map(([question, answer]) => ({
+            '@type': 'Question',
+            name: plain(question),
+            acceptedAnswer: {
+                '@type': 'Answer',
+                text: answer.replace(/ data-panel="[^"]*"/g, '').replace(/href="\//g, `href="${SITE}/`),
+            },
+        })),
+    };
+}
+
+function jsonLd(schema) {
+    /* "</" cannot be allowed to end the script element early, and a JSON
+       string can say it in a way HTML will not mistake. */
+    return `<script type="application/ld+json">\n${JSON.stringify(schema, null, 2).replace(/<\//g, '<\\/')}\n</script>`;
+}
+
+/* ── One page ───────────────────────────────────────────────────────────── */
+
+function pageDocument(template, { name, lang, content, pathOf, unlisted, schema }) {
+    const tr = reader(lang);
+    const page = content[name];
+    const other = lang === 'en' ? 'fr' : 'en';
+    const here = `${SITE}${pathOf(name, lang)}`;
+    const title = page.docTitle(tr);
+    const description = plain(page.description(tr));
+
+    const head = [
+        `<title>${escape(title)}</title>`,
+        `<meta name="description" content="${escape(description)}">`,
+        `<link rel="canonical" href="${here}">`,
+        ...LANGUAGES.map((l) => `<link rel="alternate" hreflang="${l}" href="${SITE}${pathOf(name, l)}">`),
+        `<link rel="alternate" hreflang="x-default" href="${SITE}${pathOf(name, 'en')}">`,
+        /* The policies are for the people who go looking for them, not for
+           search results they would only dilute. */
+        ...(unlisted ? ['<meta name="robots" content="noindex, follow">'] : []),
+        '',
+        `<meta property="og:type" content="${name === 'about' ? 'website' : 'article'}">`,
+        '<meta property="og:site_name" content="Hexaequo">',
+        `<meta property="og:title" content="${escape(title)}">`,
+        `<meta property="og:url" content="${here}">`,
+        `<meta property="og:description" content="${escape(description)}">`,
+        `<meta property="og:locale" content="${lang === 'fr' ? 'fr_CA' : 'en_US'}">`,
+        `<meta property="og:image" content="${SITE}/assets/icons/icon-512x512.png">`,
+        '<meta name="twitter:card" content="summary">',
+    ].join('\n');
+
+    /* The page itself, as the panel draws it, for whatever does not run the
+       app. A way home, and the same page in the other language, around it. */
+    const view = `  <div class="boot-copy boot-page">
+    <p class="boot-crumbs"><a href="/">Hexaequo</a> · <a href="${pathOf(name, other)}" hreflang="${other}">${other === 'fr' ? 'Français' : 'English'}</a></p>
+    <article class="page-text">${page.html(tr)}
+    </article>
+    <p class="boot-crumbs"><a href="/#/play">${escape(tr.t('home.play'))}</a> · <a href="/">Hexaequo</a></p>
+  </div>`;
+
+    let html = template.replace(/<html lang="[a-z]+"/, `<html lang="${lang}"`);
+    if (lang === 'fr') {
+        html = html.replace('Hexaequo needs JavaScript to play, but everything above describes the game.',
+            'Hexaequo a besoin de JavaScript pour jouer, mais tout ce qui précède décrit le jeu.');
+    }
+    html = fill(html, 'page:head', head);
+    html = fill(html, 'page:data', schema ? jsonLd(schema) : '');
+    html = fill(html, 'page:view', view);
+    return html;
+}
+
+/* ── All of them ────────────────────────────────────────────────────────── */
+
+async function load(relative) {
+    return import(pathToFileURL(path.join(WEB, 'src', relative)).href);
+}
+
+async function build() {
+    const { PAGES, UNLISTED, pathOf } = await load('pages.js');
+    const { CONTENT } = await load('content/index.js');
+    const { faqItems } = await load('content/faq.js');
+    const template = fs.readFileSync(path.join(WEB, 'index.html'), 'utf8');
+
+    const schemaFor = (name, tr) => ({
+        about: () => gameSchema(tr),
+        rules: () => rulesSchema(tr),
+        guide: () => guideSchema(tr, `${SITE}${pathOf('guide', tr.language)}`),
+        faq: () => faqSchema(tr, faqItems),
+    }[name] || (() => null))();
+
     const written = [];
-
-    for (const lang of ['en', 'fr']) {
-        written.push(write(PAGES.play[lang], page({
-            lang,
-            slug: 'play',
-            title: PLAY_COPY[lang].title,
-            description: PLAY_COPY[lang].description,
-            appRoute: 'play',
-            body: playBody(lang),
-            schema: gameSchema(lang),
-        })));
-
-        written.push(write(PAGES.rules[lang], page({
-            lang,
-            slug: 'rules',
-            title: `${text(lang, 'rules.title')} — Hexaequo`,
-            description: text(lang, 'rules.lede'),
-            appRoute: 'rules',
-            body: rulesBody(lang),
-            schema: rulesSchema(lang),
-        })));
-
-        for (const which of ['privacy', 'terms']) {
-            written.push(write(PAGES[which][lang], page({
-                lang,
-                slug: which,
-                title: `${text(lang, 'nav.' + which)} — Hexaequo`,
-                description: text(lang, 'nav.' + which),
-                appRoute: which,
-                body: legalBody(lang, which),
-                // Policy pages are for the people who look for them, not for
-                // search results; they would only dilute what is worth finding.
-                noindex: true,
-            })));
+    for (const name of Object.keys(PAGES)) {
+        for (const lang of LANGUAGES) {
+            const at = pathOf(name, lang);
+            const html = pageDocument(template, {
+                name, lang, pathOf,
+                content: CONTENT,
+                unlisted: UNLISTED.has(name),
+                schema: schemaFor(name, reader(lang)),
+            });
+            const target = path.join(OUT, at, 'index.html');
+            fs.mkdirSync(path.dirname(target), { recursive: true });
+            fs.writeFileSync(target, html);
+            written.push([at, html.length]);
         }
     }
 
     /* robots.txt and the sitemap describe what was just written, so they are
-       built from the same list rather than kept in step by hand. */
-    const indexed = [
-        { loc: `${SITE}/`, priority: '1.0', changefreq: 'weekly' },
-        ...['play', 'rules'].flatMap((slug) => ['en', 'fr'].map((lang) => ({
-            loc: `${SITE}/${PAGES[slug][lang]}`,
-            priority: slug === 'play' ? '0.9' : '0.8',
-            changefreq: 'monthly',
-        }))),
-    ];
-    const today = new Date().toISOString().slice(0, 10);
+       built from the same list rather than kept in step by hand. No dates and
+       no priorities: Google ignores priorities, and a date that changes on
+       every run would make the output stale every day. */
+    const listed = Object.keys(PAGES).filter((name) => !UNLISTED.has(name));
+    const entry = (loc, alternates) => `  <url>
+    <loc>${loc}</loc>${alternates.map(([l, href]) => `
+    <xhtml:link rel="alternate" hreflang="${l}" href="${href}"/>`).join('')}
+  </url>`;
     const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
-${indexed.map((entry) => `  <url>
-    <loc>${entry.loc}</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>${entry.changefreq}</changefreq>
-    <priority>${entry.priority}</priority>
-  </url>`).join('\n')}
+${[
+        entry(`${SITE}/`, []),
+        ...listed.flatMap((name) => LANGUAGES.map((lang) => entry(
+            `${SITE}${pathOf(name, lang)}`,
+            [...LANGUAGES.map((l) => [l, `${SITE}${pathOf(name, l)}`]), ['x-default', `${SITE}${pathOf(name, 'en')}`]],
+        ))),
+    ].join('\n')}
 </urlset>
 `;
-    fs.writeFileSync(path.join(WEB, 'sitemap.xml'), sitemap);
+    fs.writeFileSync(path.join(OUT, 'sitemap.xml'), sitemap);
 
     const robots = `# Hexaequo — https://hexaequo.com
 User-agent: *
@@ -414,13 +302,33 @@ Disallow: /socket.io/
 
 Sitemap: ${SITE}/sitemap.xml
 `;
-    fs.writeFileSync(path.join(WEB, 'robots.txt'), robots);
+    fs.writeFileSync(path.join(OUT, 'robots.txt'), robots);
+
+    const files = [...written.map(([at]) => path.join(at, 'index.html')), 'sitemap.xml', 'robots.txt'];
+    if (CHECK) {
+        const stale = files.filter((file) => {
+            const fresh = fs.readFileSync(path.join(OUT, file), 'utf8');
+            let committed = null;
+            try { committed = fs.readFileSync(path.join(WEB, file), 'utf8'); } catch { /* missing */ }
+            return committed === null || committed.replace(/\r\n/g, '\n') !== fresh.replace(/\r\n/g, '\n');
+        });
+        fs.rmSync(OUT, { recursive: true, force: true });
+        if (stale.length) {
+            console.log('Out of date — run node scripts/makePages.js:\n  ' + stale.join('\n  '));
+            process.exit(1);
+        }
+        console.log(`All ${files.length} generated files are up to date.`);
+        return;
+    }
 
     console.log('\nPages written:\n');
-    for (const line of written) console.log('  ' + line);
-    console.log('\n  sitemap.xml              ' + indexed.length + ' urls');
+    for (const [at, size] of written) console.log(`  ${at.padEnd(24)} ${(size / 1024).toFixed(1)} KB`);
+    console.log(`\n  sitemap.xml              ${1 + listed.length * LANGUAGES.length} urls`);
     console.log('  robots.txt');
     console.log(`\n✅ ${written.length} pages\n`);
 }
 
-build();
+build().catch((error) => {
+    console.error(error);
+    process.exit(1);
+});

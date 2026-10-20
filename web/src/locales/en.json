@@ -1,7 +1,8 @@
 {
   "meta": {
     "title": "Hexaequo",
-    "tagline": "An abstract strategy game for two"
+    "tagline": "An abstract strategy game for two",
+    "homeTitle": "Hexaequo — a free abstract strategy game for two"
   },
   "nav": {
     "home": "Home",
@@ -24,8 +25,9 @@
     "settings": "Settings",
     "about": "There is no fixed board: you build it as you play, one hexagonal tile at a time, and move two kinds of piece across it — disks, which step and jump, and rings, which leap. You win by capturing six disks or three rings, or by leaving your opponent nothing on the board.",
     "ways": "Play face to face on one device, against the computer at four strengths, or online — with a friend through a link, or against someone of your level. It is free, carries no advertising, and needs no account unless you want a rating.",
-    "fullRules": "Complete rules",
     "more": "More about Hexaequo",
+    "guide": "Beginner's guide",
+    "faq": "FAQ",
     "leaderboard": "Leaderboard",
     "profile": "My profile",
     "credit": "A game created by Piero Barrette",
@@ -354,6 +356,7 @@
     "finePrint4": "<b>The board tops out at 18 tiles</b>, nine from each player.",
     "drawTitle": "ExAequo",
     "drawText": "The game is a draw — ExAequo — if the player to move has no legal move at all, if the same position occurs three times, or if fifty moves pass for each player with no capture and nothing placed on the board.",
+    "drawReset": "Any capture, any tile laid and any piece placed set that count of fifty back to zero. Those are the moves a game cannot take back: the board only ever grows, and a captured piece only ever returns as the single disk handed over to pay for a ring. Once both players have stopped making them, nothing that happens can be undone or repeated into a win, and the game is level.",
     "figureLegend": "Black tile, white tile, disk, ring."
   },
   "a11y": {
@@ -707,5 +710,206 @@
       "title": "Hexaequo",
       "body": "Notifications work on this device."
     }
+  },
+  "pages": {
+    "furtherTitle": "Going further",
+    "furtherText": "The <a href=\"/guide/\">beginner's guide</a> walks through the first moves, the mistakes that are easiest to make and the computer's four levels, and the <a href=\"/faq/\">FAQ</a> answers questions about accounts, rated games and playing offline."
+  },
+  "about": {
+    "title": "About Hexaequo",
+    "docTitle": "Play Hexaequo — a free abstract strategy game for two",
+    "description": "Hexaequo is a free two-player abstract strategy game with no hidden information and no dice. There is no fixed board: you build it as you play. Play locally, against the computer, or online.",
+    "intro": "Hexaequo is an abstract strategy game for two players. There is no luck in it, nothing is hidden, and there is no board in the box — you build the board as you play, laying hexagonal tiles and moving disks and rings across them.",
+    "waysTitle": "Four ways to play",
+    "ways": [
+      [
+        "Two players, one screen",
+        "Pass the device back and forth. Nothing to install and no account needed."
+      ],
+      [
+        "Against the computer",
+        "Four strengths, from a beginner that overlooks captures to an opponent that searches seven moves ahead."
+      ],
+      [
+        "Online with a friend",
+        "Open a game and send the link. Whoever holds it takes the free seat."
+      ],
+      [
+        "Rated games online",
+        "Sign in and be matched with someone near your rating, with clocks and a world leaderboard."
+      ]
+    ],
+    "whyTitle": "What makes it different",
+    "why": [
+      [
+        "The board is not given",
+        "Every game starts with four tiles. Where the board goes is itself a move, and a game played wide is nothing like one played tight."
+      ],
+      [
+        "Three ways to win",
+        "Take six disks, take three rings, or leave your opponent with nothing on the board. Each pulls play in a different direction."
+      ],
+      [
+        "No hidden information, no dice",
+        "Everything either player knows is on the table. A loss is always something you could have seen."
+      ],
+      [
+        "Five minutes to learn",
+        "Two kinds of piece, one kind of tile, and a turn is a single choice."
+      ]
+    ],
+    "freeTitle": "Free, and it stays free",
+    "freeText": "Hexaequo runs in a browser with nothing to install. It can be added to a phone home screen and played offline. There are no advertisements, no purchases and no tracking beyond what an account you choose to create requires.",
+    "nameTitle": "How the name is spelled",
+    "nameText": "Hexaequo is one word: <i>hex</i> for the hexagons it is played on, and <i>aequo</i> from the Latin <i>ex aequo</i> — on equal footing, which is what a drawn game is called here. It is an odd word to spell from memory, and people reach for it as hexeko, hexaco, hexeco, hexequo, hexaquo, exako or exeko. They all mean this game, and they all end up here.",
+    "rulesLink": "Read the full rules"
+  },
+  "guide": {
+    "title": "Beginner's guide",
+    "docTitle": "Beginner's guide to Hexaequo — first moves and common mistakes",
+    "description": "How to begin at Hexaequo: the seven first moves, why a lone piece is in danger, the mistakes that are easiest to make, and what changes between the computer's four levels.",
+    "heading": "Beginner's guide",
+    "lede": "The rules take five minutes to learn; the first few games take a little longer. This page covers what to watch in the opening turns, the mistakes that are easiest to make, and how the computer's four levels differ, so you know which one to play next.",
+    "sections": [
+      {
+        "title": "Your first moves",
+        "intro": "Black moves first. The board is four tiles; each side has one disk on it, and 7 tiles, 5 disks and 3 rings in reserve. Black's first turn offers exactly seven moves: lay a tile on one of four cells, place a disk on the one empty black tile, or step the disk onto either empty tile beside it. None of them is a mistake in itself — the strongest computer level rates all seven as close to even. What matters is what comes next.",
+        "tips": [
+          [
+            "A lone piece is the whole game.",
+            "Until you have a second piece on the board, your first disk is all that stands between you and defeat: a player left with nothing on the board has lost, whatever is still in reserve. It can come quickly. If Black's disk steps next to White's and White lays the tile just behind it, five of Black's ten possible replies lose on the spot. Before every move, ask whether your disk can be jumped next turn."
+          ],
+          [
+            "Your tiles are your way in.",
+            "A piece from the reserve can only be placed on an empty tile of your own colour, and at the start you have just one. Each tile of your colour that you lay is one more place to bring a piece in — and an empty one can be shut by an enemy piece standing on it, since colour does not limit where pieces move."
+          ],
+          [
+            "Every tile is also a landing.",
+            "A jump needs an empty tile beyond the piece it crosses, so a tile you lay may be the very landing an enemy disk was waiting for. The reverse is a defence: a piece at the edge of the board cannot be jumped towards the edge."
+          ],
+          [
+            "Rings come later, and cost a disk.",
+            "You cannot place a ring before you have captured a disk, and placing one hands that disk back to its owner's reserve, to be placed again. Weigh the trade: a ring reaches up to twelve tiles in a single leap, over anything in between, but the disk you give back comes off your count of six."
+          ]
+        ]
+      },
+      {
+        "title": "Common mistakes",
+        "tips": [
+          [
+            "Counting only one jump.",
+            "A disk can chain jumps, and it may hop over its own side's pieces as freely as over yours — only yours are captured. A piece two hops from an enemy disk is not out of reach."
+          ],
+          [
+            "Standing two tiles from a ring.",
+            "A ring captures on any tile exactly two steps away, and nothing in between stops it. Next to a ring is safer than two steps from it: a ring cannot take a piece that stands beside it."
+          ],
+          [
+            "Taking because you can.",
+            "A capture is never compulsory, and a chain may stop after any jump. If taking leaves your disk where it will be taken back, a quiet move may be worth more."
+          ],
+          [
+            "Paying for a ring at five.",
+            "One disk short of six, placing a ring puts you two short: the disk you hand back no longer counts."
+          ],
+          [
+            "Treating colour as territory.",
+            "Tile colour only decides where a piece from the reserve can be placed. Once on the board, any piece may move onto any empty tile, whichever colour it is."
+          ],
+          [
+            "Going round in circles when ahead.",
+            "The same position three times is an ExAequo, and so are fifty moves each with no capture, no tile laid and no piece placed. A lead only counts once it becomes a win."
+          ],
+          [
+            "Forgetting the reserves at the end.",
+            "Once a player has no disks left in reserve, their last disk on the board is your sixth; once they have no rings left in reserve, their last ring is your third. Late in a game, a single capture can decide it."
+          ]
+        ]
+      },
+      {
+        "title": "The computer's four levels",
+        "intro": "Pick the level from the menu during a game, or set the one new games start at in the settings; a first visit starts at Beginner. All four levels use the same search, which weighs captures, the pieces on the board and in reserve, and the threats against each side. What changes is how far ahead it looks, how long it thinks, and whether it always plays the best move it found.",
+        "levels": [
+          [
+            "Beginner",
+            "looks at its own move and your reply, and stops there, even in the middle of an exchange of captures. About one move in three, it does not hold to the best move it found and picks at random from the better half of its options. It overlooks captures and leaves pieces loose: the level to learn the rules against."
+          ],
+          [
+            "Easy",
+            "looks just as far, but plays out the exchanges of captures it sees coming before judging a position, and always plays the best move it found."
+          ],
+          [
+            "Medium",
+            "looks up to five moves ahead, yours and its own counted separately, and thinks for up to a little over a second per move."
+          ],
+          [
+            "Strong",
+            "looks up to seven moves ahead and thinks for up to three and a half seconds per move: the strongest opponent the game has."
+          ]
+        ],
+        "outro": "Each level also adds a little chance to how it scores a position, so that games vary: nearly a disk's worth at Beginner, almost none at Strong. All four know the draw rules: ahead, the computer avoids repeating a position or letting the fifty-move count run out; behind, it plays for the ExAequo. Move up a level once you win more often than you lose — and to see what changes, set two levels against each other in AI vs AI mode and watch."
+      },
+      {
+        "title": "Going further",
+        "intro": "The <a href=\"/rules/\">complete rules</a> fit on one page, and the <a href=\"/faq/\">FAQ</a> answers questions about accounts, rated games and playing offline."
+      }
+    ]
+  },
+  "faq": {
+    "title": "Frequently asked questions",
+    "docTitle": "Hexaequo FAQ — free play, offline, accounts and rated games",
+    "description": "Is Hexaequo free, can it be played offline, do you need an account, how do rated games and draws work, and how is the name spelled? Short answers to each.",
+    "heading": "Frequently asked questions",
+    "lede": "Short answers about the game, the site and playing online. The <a href=\"/rules/\">rules</a> have a page of their own, and the <a href=\"/guide/\">beginner's guide</a> covers the first games.",
+    "items": [
+      [
+        "Is Hexaequo free?",
+        "Yes, entirely. Playing on one screen, against the computer and online — rated games included — costs nothing. There are no advertisements, nothing to buy and no third-party analytics."
+      ],
+      [
+        "Do I need an account?",
+        "No. Two players on one screen, games against the computer and online games through a link all work without one. An account is what you need for rated games, quick match and challenges included, and to keep a rating, a profile with your past games and a place on the leaderboard."
+      ],
+      [
+        "How do I create an account?",
+        "Open the Account page in the app and sign up with an email address and a password. You choose the nickname other players will see, and you can change it later. An account can be deleted at any time from your profile."
+      ],
+      [
+        "Can I play offline?",
+        "Yes. After a first visit with a connection, the whole game is kept on your device: two players on one screen, the computer opponent and the review of a finished game all work offline, since the computer runs in your browser. Online games, the lobby and the leaderboard need a connection."
+      ],
+      [
+        "Can I install it on my phone?",
+        "Yes. Hexaequo runs in the browser on phones, tablets and computers, with nothing to download from a store. Choose “Install the app” in the settings, or “Add to home screen” in your browser's menu, and it opens in its own window like any other app — and plays offline."
+      ],
+      [
+        "How do I play online with a friend?",
+        "Choose “Online” from the menu, then “Start a game”, with or without a clock, and share the link or the QR code. Whoever opens it takes the free seat, and neither of you needs an account. If you are both signed in and chose a clock, the game is rated; without a clock it is a friendly. A game nobody touches for two hours is forgotten, and its link stops working."
+      ],
+      [
+        "How do rated games work?",
+        "A game counts for the rating when its two seats are held by two different signed-in players and it is played on a clock, whether they met through quick match, a challenge or a link. Quick match looks for someone close to your rating at the time control you pick — bullet (2 minutes plus 1 second a move), blitz (5 + 3), rapid (10 + 5) or classic (20 + 10) — and widens the search the longer you wait. Ratings follow the Elo system and start at 1000; your first thirty rated games move yours faster, and a longer time control is worth more points. A game is lost by resigning, by running out of time, or by leaving and not coming back before the countdown ends. Everyone with at least one rated game is on the leaderboard."
+      ],
+      [
+        "What is an ExAequo?",
+        "Hexaequo's word for a drawn game, from the Latin <i>ex aequo</i>, on equal terms. A game ends ExAequo when the player to move has no legal move, when the same position occurs for the third time, or after fifty moves each with no capture, no tile laid and no piece placed. Online, either player can also offer an ExAequo, and it is agreed when the other accepts. In a rated game it scores half a point each. The <a href=\"/rules/\">rules</a> explain why a capture, a tile laid or a piece placed starts that count again."
+      ],
+      [
+        "Can I play against the computer?",
+        "Yes, at four levels — Beginner, Easy, Medium and Strong — with Black or White. It plays on your device, so it needs no connection. The <a href=\"/guide/\">beginner's guide</a> explains what changes from one level to the next."
+      ],
+      [
+        "How is Hexaequo spelled?",
+        "In one word: <i>hex</i> for the hexagons it is played on, and <i>aequo</i> from the Latin <i>ex aequo</i>, on equal terms — what a drawn game is called here. It is often typed hexeko, hexaco, hexeco, hexequo, hexaquo, exako or exeko; all of those mean this game."
+      ],
+      [
+        "What languages can I play in?",
+        "English and French. It opens in the language your browser prefers, if it is one of the two, and you can switch in the settings."
+      ],
+      [
+        "Who made Hexaequo?",
+        "Hexaequo was created by Piero Barrette. Questions and suggestions are welcome at <a href=\"mailto:info@hexaequo.com\">info@hexaequo.com</a>."
+      ]
+    ]
   }
 }

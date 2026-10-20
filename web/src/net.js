@@ -264,9 +264,15 @@ export function rejoinKey() {
   return seatKey;
 }
 
-/** A shareable link that drops the recipient straight into the room. */
+/**
+ * A shareable link that drops the recipient straight into the room.
+ *
+ * From the root rather than from this page: a page with an address of its
+ * own (/fr/regles/) opens with its panel drawn over the screen, and the
+ * person invited should land on the board, not on the rules.
+ */
 export function inviteLink(code) {
-  const url = new URL(location.href);
+  const url = new URL('/', location.href);
   url.hash = `#/play?online=1&code=${encodeURIComponent(code)}`;
   return url.toString();
 }
