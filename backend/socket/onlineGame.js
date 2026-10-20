@@ -555,6 +555,36 @@ function touch(room) {
 }
 
 /**
+ * Ratings that have just moved, into every copy of them the server keeps.
+ *
+ * A connection reads its player's rating once, when it says who it is, and a
+ * seat is a copy of the connection's. Left as they were, the rematch, or the
+ * next game sat down to on the same connection, was shown with the rating from
+ * before this game, and so was the lobby. The rating itself is worked out from
+ * the database (ratedGameService); this keeps what people are shown in step.
+ *
+ * The game just finished and the ones not over yet -- a rematch agreed before
+ * the result was written was seated from the old copy. Older finished games
+ * keep the ratings they were played at.
+ */
+function adoptRatings(io, finished, ratings) {
+    for (const { userId, after } of ratings) {
+        for (const socket of io.sockets.sockets.values()) {
+            const user = socket.data && socket.data.user;
+            if (user && user.userId === userId) user.elo = after;
+        }
+        const entry = online.get(userId);
+        if (entry) entry.elo = after;
+        for (const room of rooms.values()) {
+            if (room.result && room !== finished) continue;
+            for (const player of room.players) {
+                if (player && player.userId === userId) player.elo = after;
+            }
+        }
+    }
+}
+
+/**
  * Finish a room and tell both seats why.
  *
  * The result is announced first and recorded afterwards: the players should
@@ -594,6 +624,7 @@ function finish(io, room, result) {
             io.to(room.code).emit('hx:recorded', { code: room.code });
             if (!record.rated) return;
             room.ratings = record.ratings;
+            adoptRatings(io, room, record.ratings);
             io.to(room.code).emit('hx:rated', {
                 code: room.code, gameId: record.gameId, ratings: record.ratings,
             });

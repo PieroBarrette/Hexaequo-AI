@@ -20,21 +20,74 @@ require('./database').none();
  * of what an anonymous socket may do, and no use for the ones about what two
  * signed-in players do to each other: a rematch between members, a member
  * coming back to a game on a new connection. So the one query identify makes
- * is answered here, for two names and nobody else. Every other query still
- * fails by name, so nothing in this file can write a row anywhere.
+ * is answered here, for the names in KNOWN and nobody else. Every other query
+ * still fails by name, so nothing in this file can write a row anywhere.
  */
 const database = require('../config/database');
 const KNOWN = new Map([
     ['acct-amelie', { id: 'acct-amelie', pseudo: 'Amelie', elo: 1200, games_played: 4 }],
     ['acct-bertrand', { id: 'acct-bertrand', pseudo: 'Bertrand', elo: 1180, games_played: 9 }],
 ]);
+
+/** An account with this rating on record, for the tests about ratings. */
+function account(id, pseudo, elo, gamesPlayed) {
+    KNOWN.set(id, { id, pseudo, elo, games_played: gamesPlayed, wins: 0, losses: 0, draws: 0 });
+}
+
+/*
+ * What a rated game reads and writes, for the tests about ratings.
+ *
+ * Off unless a test turns it on, so every other game in this file ends with
+ * nothing recorded, as it always has. Turned on, a rating is read from and
+ * written to the rows in KNOWN, and the game's own row is kept in GAMES --
+ * in this process and nowhere else. A statement this does not know fails.
+ */
+const GAMES = new Map();
+let recording = false;
+database.hasDatabase = () => recording;
+
 const realQuery = database.query;
 database.query = (sql, params) => {
     if (/FROM users WHERE id = \$1/.test(sql) && KNOWN.has(params && params[0])) {
-        return Promise.resolve({ rows: [KNOWN.get(params[0])] });
+        return Promise.resolve({ rows: [{ ...KNOWN.get(params[0]) }] });
+    }
+    if (recording && /^\s*INSERT INTO games \(/.test(sql)) {
+        const columns = sql.match(/\(([^)]*)\)/)[1].split(',').map((c) => c.trim());
+        const id = `game-${GAMES.size + 1}`;
+        GAMES.set(id, Object.fromEntries(params.map((value, i) => [columns[i], value])));
+        return Promise.resolve({ rows: [{ id }] });
     }
     return realQuery(sql, params);
 };
+
+const realTransaction = database.transaction;
+database.transaction = (work) => (recording ? work({ query: inTransaction }) : realTransaction(work));
+
+/** The statements a rating is written with, answered from KNOWN and GAMES. */
+async function inTransaction(sql, params) {
+    let match;
+    if (/FROM users WHERE id = \$1/.test(sql)) {
+        const row = KNOWN.get(params[0]);
+        return { rows: row ? [{ ...row }] : [] };
+    }
+    if (/^UPDATE users SET elo = \$1 WHERE id = \$2$/.test(sql)) {
+        KNOWN.get(params[1]).elo = params[0];
+        return { rows: [] };
+    }
+    if ((match = sql.match(/^UPDATE users SET games_played = games_played \+ 1, (\w+) = \1 \+ 1 WHERE id = \$1$/))) {
+        const row = KNOWN.get(params[0]);
+        row.games_played += 1;
+        row[match[1]] += 1;
+        return { rows: [] };
+    }
+    if (/^\s*INSERT INTO elo_history /.test(sql)) return { rows: [] };
+    if ((match = sql.match(/^\s*UPDATE games SET ([\s\S]+) WHERE id = \$1\s*$/))) {
+        const game = GAMES.get(params[0]);
+        for (const [, column, n] of match[1].matchAll(/(\w+) = \$(\d+)/g)) game[column] = params[n - 1];
+        return { rows: [] };
+    }
+    throw new Error(`not answered in this test: ${sql.trim().split('\n')[0]}`);
+}
 
 const assert = require('assert');
 const http = require('http');
@@ -1464,6 +1517,133 @@ async function run() {
         passerBy.disconnect();
         a.disconnect();
         b.disconnect();
+    });
+
+    /* -- What a rated game leaves behind -------------------------------- */
+
+    /*
+     * Two rated games in a row on the same two connections.
+     *
+     * A connection reads its player's rating once, when it first says who it
+     * is, and every seat it takes is a copy of that. The rating used to be
+     * worked out from the seat and written back whole, so the rematch started
+     * from the rating before the first game and wrote over what the first
+     * game had done. Both players here are one game short of thirty, where K
+     * drops from 40 to 20, because the count of games was the same old copy.
+     */
+    await test('a rematch on the same connection starts from the rating the last game left', async () => {
+        account('acct-celine', 'Celine', 1500, 29);
+        account('acct-damien', 'Damien', 1500, 29);
+        const a = await open();
+        const b = await open();
+        recording = true;
+        try {
+            await Promise.all([signIn(a, 'acct-celine'), signIn(b, 'acct-damien')]);
+            const first = (await ask(a, 'hx:create', {})).code;        // Celine has Black
+            await ask(b, 'hx:join', { code: first });
+            let rated = waitFor(b, 'hx:rated');
+            await ask(a, 'hx:resign', { code: first });
+            const one = (await rated).ratings;
+            assert.deepStrictEqual(one.map((r) => [r.before, r.after]), [[1500, 1480], [1500, 1520]],
+                'level, and K still 40: twenty either way');
+
+            const second = await agreeRematch(a, b, first);             // Damien has Black now
+            await ask(b, 'hx:join', { code: second });
+            await ask(a, 'hx:join', { code: second });
+            rated = waitFor(a, 'hx:rated');
+            await ask(b, 'hx:resign', { code: second });
+            const two = (await rated).ratings;
+            assert.deepStrictEqual(two.map((r) => [r.pseudo, r.before]), [['Damien', 1520], ['Celine', 1480]],
+                'each starts from where the first game left them');
+            assert.deepStrictEqual(two.map((r) => r.change), [-11, 11],
+                'forty points apart, and K 20 from the thirtieth game on');
+            assert.deepStrictEqual(
+                ['acct-celine', 'acct-damien'].map((id) => [KNOWN.get(id).elo, KNOWN.get(id).games_played]),
+                [[1491, 31], [1509, 31]], 'and both games are in what is stored');
+        } finally {
+            recording = false;
+            a.disconnect();
+            b.disconnect();
+        }
+    });
+
+    /*
+     * And what the two are shown afterwards. The rating had moved in the
+     * database and nowhere else: the connection kept answering with the old
+     * number, the lobby listed it, and the next game was seated with it --
+     * the rematch, or any game the same connection sat down to next, which
+     * is how quick match seats a player too.
+     */
+    await test('after a rated game, the next board and the lobby show the rating it left', async () => {
+        account('acct-edith', 'Edith', 1500, 29);
+        account('acct-fabien', 'Fabien', 1500, 29);
+        const a = await open();
+        const b = await open();
+        recording = true;
+        try {
+            await Promise.all([signIn(a, 'acct-edith'), signIn(b, 'acct-fabien')]);
+            const first = (await ask(a, 'hx:create', {})).code;        // Edith has Black
+            await ask(b, 'hx:join', { code: first });
+            const rated = waitFor(b, 'hx:rated');
+            await ask(a, 'hx:resign', { code: first });                 // Fabien wins, 1520 to 1480
+            await rated;
+
+            assert.strictEqual((await signIn(a, 'acct-edith')).user.elo, 1480,
+                'the connection answers with the new rating');
+            const lobby = await ask(a, 'hx:lobby:enter', {});
+            assert.strictEqual(lobby.players.find((p) => p.userId === 'acct-fabien').elo, 1520,
+                'the lobby lists it, before Fabien has asked for anything');
+            const next = await agreeRematch(a, b, first);
+            const seen = await ask(a, 'hx:sync', { code: next });
+            assert.deepStrictEqual(seen.players.map((p) => p.elo), [1520, 1480], 'the rematch is seated with it');
+            const opened = await ask(a, 'hx:create', {});
+            assert.strictEqual(opened.players[0].elo, 1480, 'and so is the next game opened on this connection');
+        } finally {
+            recording = false;
+            a.disconnect();
+            b.disconnect();
+        }
+    });
+
+    /*
+     * Whatever the seats were given, the rating moves from the one on record.
+     *
+     * A seat is a copy taken when its player sat down, and the rating can
+     * move before the game ends: another game finishing first, a result
+     * written late. Read under a lock in the transaction that writes it, the
+     * newer rating cannot be overwritten by a copy of an older one -- and the
+     * game's own row says the same before and after, since that is where the
+     * history reads each change from.
+     */
+    await test('a rating moves from the one on record, not the copy the seat was given', async () => {
+        const ratedGames = require('../services/ratedGameService');
+        account('acct-gaston', 'Gaston', 1480, 30);
+        account('acct-helene', 'Helene', 1520, 30);
+        const room = {
+            code: 'STALE1',
+            timeControl: 'none',
+            state: {},
+            moves: [],
+            players: [                                                 // what the seats were given, a game ago
+                { userId: 'acct-gaston', pseudo: 'Gaston', elo: 1500, gamesPlayed: 29 },
+                { userId: 'acct-helene', pseudo: 'Helene', elo: 1500, gamesPlayed: 29 },
+            ],
+        };
+        recording = true;
+        let record;
+        try {
+            record = await ratedGames.recordGame(room, { winner: 0, reason: 'resigned' });
+        } finally {
+            recording = false;
+        }
+        assert.deepStrictEqual(record.ratings.map((r) => [r.before, r.after]), [[1480, 1491], [1520, 1509]],
+            'from 1480 and 1520 with K 20, not from 1500 with K 40');
+        assert.deepStrictEqual(['acct-gaston', 'acct-helene'].map((id) => KNOWN.get(id).elo), [1491, 1509],
+            'and that is what is stored');
+        const row = GAMES.get(record.gameId);
+        assert.deepStrictEqual(
+            [row.black_elo_before, row.black_elo_after, row.white_elo_before, row.white_elo_after],
+            [1480, 1491, 1520, 1509], 'the game records the change that was made');
     });
 
     black.disconnect();

@@ -129,7 +129,15 @@ function intentCell(intent) {
     return intent.path[intent.path.length - 1];
 }
 
-/** Move both ratings, record the history, and update the win/loss tallies. */
+/**
+ * Move both ratings, record the history, and update the win/loss tallies.
+ *
+ * Worked out from the ratings on record, read under a lock in the transaction
+ * that writes them, and never from the seats. A seat holds a copy taken when
+ * its player sat down, and the rating may have moved since -- the game before
+ * a rematch, any game that finished first. The new rating is written whole,
+ * so one worked out from an older copy wrote over that game's change.
+ */
 async function applyRatings(gameId, black, white, result, timeControl) {
     const isDraw = result.winner === null || result.winner === undefined;
     const blackWon = result.winner === 0;
@@ -137,17 +145,35 @@ async function applyRatings(gameId, black, white, result, timeControl) {
     const winnerSeat = isDraw || blackWon ? black : white;
     const loserSeat = isDraw || blackWon ? white : black;
 
-    const outcome = elo.processGameResult(
-        { id: winnerSeat.userId, rating: winnerSeat.elo, gamesPlayed: winnerSeat.gamesPlayed || 0 },
-        { id: loserSeat.userId, rating: loserSeat.elo, gamesPlayed: loserSeat.gamesPlayed || 0 },
-        timeControl === 'none' ? 'rapid' : timeControl,
-        isDraw
-    );
-
     // Never let a rating fall through the floor, however long a losing streak.
     const floor = (value) => Math.max(100, value);
 
+    let outcome;
     await transaction(async (client) => {
+        /* In the same order whichever seat each is in, so two games between
+           the same two players ending together wait for each other instead
+           of deadlocking. NO KEY: the lock the UPDATEs below take anyway,
+           which leaves a row that only refers to the account -- the next
+           game's -- free to be written meanwhile. */
+        const onRecord = new Map();
+        for (const userId of [black.userId, white.userId].sort()) {
+            const { rows } = await client.query(
+                'SELECT elo, games_played FROM users WHERE id = $1 FOR NO KEY UPDATE', [userId]);
+            if (!rows.length) throw new Error(`no account ${userId} to rate`);
+            onRecord.set(userId, rows[0]);
+        }
+        const player = (seat) => ({
+            id: seat.userId,
+            rating: onRecord.get(seat.userId).elo,
+            gamesPlayed: onRecord.get(seat.userId).games_played || 0,
+        });
+        outcome = elo.processGameResult(
+            player(winnerSeat),
+            player(loserSeat),
+            timeControl === 'none' ? 'rapid' : timeControl,
+            isDraw
+        );
+
         for (const [side, seat] of [[outcome.winner, winnerSeat], [outcome.loser, loserSeat]]) {
             const newRating = floor(side.newRating);
             await client.query('UPDATE users SET elo = $1 WHERE id = $2', [newRating, seat.userId]);
@@ -170,12 +196,19 @@ async function applyRatings(gameId, black, white, result, timeControl) {
             await tally(loserSeat.userId, 'losses');
         }
 
+        /* The before as well as the after: the row was written with the
+           seats' copies, and the history reads each change as one minus the
+           other. */
+        const [blackSide, whiteSide] = blackWon || isDraw
+            ? [outcome.winner, outcome.loser]
+            : [outcome.loser, outcome.winner];
         await client.query(
-            `UPDATE games SET black_elo_after = $2, white_elo_after = $3 WHERE id = $1`,
+            `UPDATE games SET black_elo_before = $2, black_elo_after = $3,
+                              white_elo_before = $4, white_elo_after = $5 WHERE id = $1`,
             [
                 gameId,
-                floor(blackWon || isDraw ? outcome.winner.newRating : outcome.loser.newRating),
-                floor(blackWon || isDraw ? outcome.loser.newRating : outcome.winner.newRating),
+                blackSide.oldRating, floor(blackSide.newRating),
+                whiteSide.oldRating, floor(whiteSide.newRating),
             ]
         );
     });
