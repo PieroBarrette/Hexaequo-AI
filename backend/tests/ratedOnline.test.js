@@ -135,7 +135,7 @@ async function run() {
         await ask(a, 'hx:identify', { token: black.token });
         await ask(b, 'hx:identify', { token: white.token });
 
-        const created = await ask(a, 'hx:create', {});
+        const created = await ask(a, 'hx:create', { timeControl: 'rapid' });
         assert.strictEqual(created.rated, false, 'alone in the room, nothing counts yet');
         // Waiting alone, the creator must learn the opponent's name and that the
         // game has become rated — without it the panel sits on "unrated" for the
@@ -232,7 +232,7 @@ async function run() {
         const a = await open();
         const b = await open();
         await ask(a, 'hx:identify', { token: black.token });
-        const created = await ask(a, 'hx:create', {});
+        const created = await ask(a, 'hx:create', { timeControl: 'rapid' });
         await ask(b, 'hx:join', { code: created.code });          // still a guest
 
         const heard = waitFor(a, 'hx:seats');
@@ -255,7 +255,7 @@ async function run() {
         const a = await open();
         const b = await open();
         await ask(a, 'hx:identify', { token: black.token });
-        const created = await ask(a, 'hx:create', { timeControl: 'none' });
+        const created = await ask(a, 'hx:create', { timeControl: 'rapid' });
         const joined = await ask(b, 'hx:join', { code: created.code });   // a guest
         assert.deepStrictEqual(joined.settled, [false, false], 'nobody has played yet');
 
@@ -280,7 +280,7 @@ async function run() {
         const a = await open();
         const b = await open();
         await ask(a, 'hx:identify', { token: black.token });
-        const created = await ask(a, 'hx:create', { timeControl: 'none' });
+        const created = await ask(a, 'hx:create', { timeControl: 'rapid' });
         await ask(b, 'hx:join', { code: created.code });
 
         // Black, then white — both seats have now played.
@@ -373,7 +373,7 @@ async function run() {
         await ask(a, 'hx:identify', { token: black.token });
         await ask(b, 'hx:identify', { token: white.token });
 
-        const created = await ask(a, 'hx:create', { timeControl: 'none' });
+        const created = await ask(a, 'hx:create', { timeControl: 'rapid' });
         await ask(b, 'hx:join', { code: created.code });
 
         /* Catch the event whenever it lands. A random game can run to a few
@@ -433,7 +433,7 @@ async function run() {
         const b = await open();
         await ask(a, 'hx:identify', { token: black.token });
         await ask(b, 'hx:identify', { token: white.token });
-        const created = await ask(a, 'hx:create', {});
+        const created = await ask(a, 'hx:create', { timeControl: 'rapid' });
         await ask(b, 'hx:join', { code: created.code });
 
         const ratedEvent = waitFor(b, 'hx:rated', 10000);

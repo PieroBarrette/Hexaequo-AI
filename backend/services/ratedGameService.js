@@ -2,8 +2,9 @@
  * Turning a finished online game into a record and a rating change.
  *
  * A game counts for the rating only when both seats were held by two different
- * signed-in players. Guest games and games against yourself are recorded as
- * unrated, so a link shared with a friend never moves anyone's rating.
+ * signed-in players, and it was played on a clock. Guest games, games against
+ * yourself and untimed games are recorded as unrated, so a link shared with a
+ * friend never moves anyone's rating unless the two of them chose a cadence.
  *
  * Elo here is strictly symmetric: whatever a win is worth, the same loss costs.
  * The time control scales both sides by the same factor, so no cadence is a
@@ -15,6 +16,24 @@ const elo = require('./eloService');
 
 /** Winner as the schema stores it. */
 const WINNER_LABEL = { 0: 'black', 1: 'white' };
+
+/**
+ * Whether a room's game moves the ratings.
+ *
+ * Two different signed-in players, and a clock. Without one, nothing ends a
+ * game the other side has stopped playing, so an untimed game is a friendly
+ * whoever is seated in it: the setting is for people who know each other.
+ * The room asks this too, to tell the players before they start; it lives
+ * here so that what they are told and what is written cannot disagree.
+ */
+function isRatedRoom(room) {
+    const black = room.players && room.players[0];
+    const white = room.players && room.players[1];
+    return Boolean(
+        room.timeControl && room.timeControl !== 'none'
+        && black && white && black.userId && white.userId && black.userId !== white.userId
+    );
+}
 
 /**
  * @param {object} room  a room from socket/onlineGame.js
@@ -32,9 +51,7 @@ async function recordGame(room, result) {
     const black = room.players && room.players[0];
     const white = room.players && room.players[1];
 
-    const rated = Boolean(
-        black && white && black.userId && white.userId && black.userId !== white.userId
-    );
+    const rated = isRatedRoom(room);
 
     let saved;
     try {
@@ -167,12 +184,7 @@ async function applyRatings(gameId, black, white, result, timeControl) {
             rating: onRecord.get(seat.userId).elo,
             gamesPlayed: onRecord.get(seat.userId).games_played || 0,
         });
-        outcome = elo.processGameResult(
-            player(winnerSeat),
-            player(loserSeat),
-            timeControl === 'none' ? 'rapid' : timeControl,
-            isDraw
-        );
+        outcome = elo.processGameResult(player(winnerSeat), player(loserSeat), timeControl, isDraw);
 
         for (const [side, seat] of [[outcome.winner, winnerSeat], [outcome.loser, loserSeat]]) {
             const newRating = floor(side.newRating);
@@ -226,4 +238,4 @@ async function applyRatings(gameId, black, white, result, timeControl) {
         : [bySeat(black, outcome.loser), bySeat(white, outcome.winner)];
 }
 
-module.exports = { recordGame };
+module.exports = { recordGame, isRatedRoom };

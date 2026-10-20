@@ -4,14 +4,14 @@
  * Two ways in rather than three. Quick match finds an opponent near your
  * rating and needs an account, because the pairing is done on one. A private
  * room does not: whoever holds the link takes the free seat, and the game is
- * rated only if both seats turn out to hold signed-in players. The six-letter
- * code is gone — it was a second way of saying what the link already says, and
- * a thing to mistype.
+ * rated only if both seats turn out to hold signed-in players and it has a
+ * clock. The six-letter code is gone — it was a second way of saying what the
+ * link already says, and a thing to mistype.
  *
  * The cadence is chosen once, at the top, for whichever of the two is used.
  * Without a clock there is nothing to stop a rated game hanging on somebody
- * who walked away, so quick match is closed at that setting; a private game
- * between people who know each other is fine without one.
+ * who walked away, so quick match is closed at that setting, and a private
+ * game without one is a friendly whoever sits down to it.
  *
  * The lobby is not a second tab. It is the rest of this page — mounted once
  * and left alone while the block above it redraws, because it holds a

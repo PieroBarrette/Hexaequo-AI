@@ -1539,7 +1539,7 @@ async function run() {
         recording = true;
         try {
             await Promise.all([signIn(a, 'acct-celine'), signIn(b, 'acct-damien')]);
-            const first = (await ask(a, 'hx:create', {})).code;        // Celine has Black
+            const first = (await ask(a, 'hx:create', { timeControl: 'rapid' })).code;   // Celine has Black
             await ask(b, 'hx:join', { code: first });
             let rated = waitFor(b, 'hx:rated');
             await ask(a, 'hx:resign', { code: first });
@@ -1582,7 +1582,7 @@ async function run() {
         recording = true;
         try {
             await Promise.all([signIn(a, 'acct-edith'), signIn(b, 'acct-fabien')]);
-            const first = (await ask(a, 'hx:create', {})).code;        // Edith has Black
+            const first = (await ask(a, 'hx:create', { timeControl: 'rapid' })).code;   // Edith has Black
             await ask(b, 'hx:join', { code: first });
             const rated = waitFor(b, 'hx:rated');
             await ask(a, 'hx:resign', { code: first });                 // Fabien wins, 1520 to 1480
@@ -1621,7 +1621,7 @@ async function run() {
         account('acct-helene', 'Helene', 1520, 30);
         const room = {
             code: 'STALE1',
-            timeControl: 'none',
+            timeControl: 'rapid',
             state: {},
             moves: [],
             players: [                                                 // what the seats were given, a game ago
@@ -1644,6 +1644,43 @@ async function run() {
         assert.deepStrictEqual(
             [row.black_elo_before, row.black_elo_after, row.white_elo_before, row.white_elo_after],
             [1480, 1491, 1520, 1509], 'the game records the change that was made');
+    });
+
+    /*
+     * Without a clock, a game is a friendly whoever is seated.
+     *
+     * Nothing ends an untimed game that one side has stopped playing, so a
+     * rating at stake in one could be held hostage by whoever walks away. Two
+     * members who choose no clock are told so before they start, and their
+     * game is written as unrated, with no rating touched.
+     */
+    await test('an untimed game between two members is a friendly', async () => {
+        account('acct-ines', 'Ines', 1500, 10);
+        account('acct-jules', 'Jules', 1500, 10);
+        const a = await open();
+        const b = await open();
+        recording = true;
+        try {
+            await Promise.all([signIn(a, 'acct-ines'), signIn(b, 'acct-jules')]);
+            const code = (await ask(a, 'hx:create', { timeControl: 'none' })).code;
+            const joined = await ask(b, 'hx:join', { code });
+            assert.strictEqual(joined.rated, false, 'two members, but no clock');
+            const recorded = waitFor(b, 'hx:recorded');
+            const ended = waitFor(b, 'hx:ended');
+            await ask(a, 'hx:resign', { code });
+            assert.strictEqual((await ended).rated, false, 'and the result says so');
+            await recorded;
+            const row = [...GAMES.values()].find((g) => g.room_code === code);
+            assert.ok(row, 'the game is written');
+            assert.deepStrictEqual([row.black_elo_before, row.white_elo_before], [null, null],
+                'as a friendly, with no rating before it');
+            assert.deepStrictEqual(['acct-ines', 'acct-jules'].map((id) => KNOWN.get(id).elo), [1500, 1500],
+                'and nobody\'s rating moved');
+        } finally {
+            recording = false;
+            a.disconnect();
+            b.disconnect();
+        }
     });
 
     black.disconnect();

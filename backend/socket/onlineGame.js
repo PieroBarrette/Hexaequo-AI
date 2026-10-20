@@ -79,12 +79,12 @@ function makeCode() {
 
 /**
  * A game counts for the rating only when two different signed-in players hold
- * the seats. Anything else — a guest, a link shared with yourself — is a
- * friendly.
+ * the seats and it is played on a clock. Anything else — a guest, a link
+ * shared with yourself, an untimed game between friends — is a friendly. The
+ * rule is the one the result is recorded by (ratedGameService).
  */
 function isRated(room) {
-    const [black, white] = room.players;
-    return Boolean(black && white && black.userId && white.userId && black.userId !== white.userId);
+    return ratedGames.isRatedRoom(room);
 }
 
 /** What each side may know about the other: a name and a rating, never an email. */
