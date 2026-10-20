@@ -36,6 +36,9 @@ function parseExpiry(expiryString) {
 
 /**
  * Generate JWT tokens
+ *
+ * Exported for Google sign-in too: it finds or creates its own account, then
+ * needs the same session a password sign-in gets.
  */
 async function generateTokens(user) {
     const accessToken = jwt.sign(
@@ -53,6 +56,7 @@ async function generateTokens(user) {
 
     return { accessToken, refreshToken };
 }
+exports.generateTokens = generateTokens;
 
 /**
  * Create a new user
