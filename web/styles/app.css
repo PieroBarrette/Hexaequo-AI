@@ -1691,8 +1691,6 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
    an answer, and not an invitation either. */
 #account-chip.is-pending { color: var(--muted); }
 .account-head { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
-.account-head .avatar { width: 56px; height: 56px; border-radius: 50%; border: 1px solid var(--line); }
-.google-button { display: flex; justify-content: center; margin: 22px 0 8px; min-height: 44px; }
 .nickname-input { font-size: 16px; width: 14em; }
 .nickname-hint.is-bad { color: var(--danger); }
 
@@ -1768,14 +1766,9 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
   padding: 4px; text-decoration: underline; align-self: flex-start; min-height: 0;
 }
 .btn--link:hover { color: var(--text); }
-/* A rule with the word "or" sitting in it, between the two doors. */
-.auth-or {
-  display: flex; align-items: center; gap: 12px;
-  color: var(--muted); font-size: 12px; margin: 18px 0 14px;
-}
-.auth-or::before, .auth-or::after {
-  content: ''; flex: 1; height: 1px; background: var(--line);
-}
+/* The way past "this account has no password yet", right under the words. */
+.auth-link-button { width: 100%; margin: 2px 0 6px; }
+.auth-privacy { font-size: 12px; margin-top: 18px; }
 
 /* A player's name, wherever it appears, leads to their page. Underlined only
    on approach, so a roster of twenty does not read as a wall of links. */

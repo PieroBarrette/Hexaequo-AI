@@ -3,9 +3,10 @@
  *
  * Run with: node tests/emailAccount.test.js
  *
- * Google sign-in is not the only door any more, so the two have to agree: the
- * session a password login issues must be the same kind of session Google's
- * issues, or an email account could sign in and then fail to play.
+ * The only door there is, since Google sign-in went on 2026-10-20. The same
+ * flows run without a database in accountFlows.test.js; this suite runs them
+ * against a real one, and adds what only a real one can show: the session a
+ * password login issues is one the game itself accepts.
  */
 
 // Before anything else: a database of its own, or nothing at all.
@@ -120,7 +121,6 @@ async function run() {
         assert.strictEqual(rows.length, 1);
         assert.ok(rows[0].password_hash, 'the password is stored hashed');
         assert.notStrictEqual(rows[0].password_hash, 'chevalDeBois42', 'and not in the clear');
-        assert.strictEqual(rows[0].google_id, null, 'no Google account is involved');
         assert.ok(rows[0].verification_token, 'and a verification token is waiting');
     });
 
@@ -216,7 +216,7 @@ async function run() {
         assert.strictEqual(rows.length, 0, 'and no account is left behind');
     });
 
-    await test('an account that only knows Google says so', async () => {
+    await test('an older account with no password says so', async () => {
         await forget('d');
         await query(
             `INSERT INTO users (email, pseudo, google_id, elo, email_verified, pseudo_chosen)
@@ -225,9 +225,9 @@ async function run() {
         );
         const response = await post('/login', { email: address('d'), password: 'anything at all' });
         assert.strictEqual(response.status, 401, JSON.stringify(response.body));
-        // The message must not confirm the address exists, but must not send
-        // the player round in circles either.
-        assert.ok(response.body.message, 'there is something to show the player');
+        // Not "wrong password", which would send the player round in circles:
+        // the app answers this one with the link that sets a password.
+        assert.strictEqual(response.body.error, 'NO_PASSWORD');
     });
 
     await test('confirming an address marks it confirmed', async () => {
@@ -263,6 +263,7 @@ async function run() {
             token: rows[0].reset_token, newPassword: 'unNouveauMotDePasse9',
         });
         assert.strictEqual(reset.status, 200, JSON.stringify(reset.body));
+        assert.ok(reset.body.accessToken, 'and following the link signs you in');
 
         const withNew = await post('/login', { email: address('a'), password: 'unNouveauMotDePasse9' });
         assert.strictEqual(withNew.status, 200, 'the new password works');
@@ -273,10 +274,9 @@ async function run() {
         assert.strictEqual(spent.rows[0].reset_token, null, 'and the token is spent');
     });
 
-    await test('a Google account can be given a password and keep both doors', async () => {
-        /* The two kinds of account are not separate species: one address, one
-           person, and either way in. A Google-only account has no password, and
-           the reset flow is how it gets one — after which both doors open the
+    await test('an older account gets its first password from the reset link', async () => {
+        /* Rows made by the Google sign-in the site no longer has carry no
+           password. The reset flow is how their owners get in now, onto the
            same account, with the same games behind it. */
         await forget('e');
         const { rows } = await query(
@@ -300,9 +300,8 @@ async function run() {
         assert.strictEqual(signedIn.status, 200, 'the password door now opens');
         assert.strictEqual(signedIn.body.user.id, id, 'onto the same account');
 
-        const linked = await query('SELECT google_id, password_hash FROM users WHERE id = $1', [id]);
-        assert.ok(linked.rows[0].google_id, 'and Google still opens it too');
-        assert.ok(linked.rows[0].password_hash);
+        const stored = await query('SELECT password_hash FROM users WHERE id = $1', [id]);
+        assert.ok(stored.rows[0].password_hash, 'which now has a password');
 
         const me = await get('/me', signedIn.body.accessToken);
         assert.strictEqual(me.body.needsPseudo, false, 'nothing is asked for twice');

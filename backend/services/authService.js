@@ -11,9 +11,24 @@ const {
     JWT_EXPIRES_IN, 
     JWT_REFRESH_EXPIRES_IN
 } = require('../config/env');
-const { AppError, conflict, unauthorized, notFound } = require('../middleware/errorHandler');
+const { AppError, unauthorized, notFound } = require('../middleware/errorHandler');
 const emailService = require('./emailService');
 const { User, RefreshToken } = require('../models');
+const { normaliseEmail, normalisePseudo } = require('./accountService');
+
+/*
+ * Every refusal here carries a code the app can say in the reader's language;
+ * the message is for logs and for anybody calling the API by hand.
+ *
+ * A wrong password is a 403, not a 401. The app reads a 401 as "your session
+ * is over" -- it spends the refresh token, asks again, and signs out -- so a
+ * mistyped current password on the change-password form used to sign the
+ * player out. Only the session decides whether they are signed in.
+ */
+const invalidCredentials = () => new AppError('Invalid email or password', 401, 'INVALID_CREDENTIALS');
+const noPassword = () => new AppError('This account has no password yet', 401, 'NO_PASSWORD');
+const wrongPassword = () => new AppError('Current password is incorrect', 403, 'WRONG_PASSWORD');
+const weakPassword = () => new AppError('Password must be at least 8 characters', 400, 'WEAK_PASSWORD');
 
 /**
  * Parse time string to milliseconds
@@ -36,9 +51,6 @@ function parseExpiry(expiryString) {
 
 /**
  * Generate JWT tokens
- *
- * Exported for Google sign-in too: it finds or creates its own account, then
- * needs the same session a password sign-in gets.
  */
 async function generateTokens(user) {
     const accessToken = jwt.sign(
@@ -56,82 +68,77 @@ async function generateTokens(user) {
 
     return { accessToken, refreshToken };
 }
-exports.generateTokens = generateTokens;
 
 /**
  * Create a new user
+ *
+ * The nickname follows the same rules as renaming one later, so nothing the
+ * sign-up form accepts can be refused by the profile, or the other way round.
  */
 exports.createUser = async ({ email, pseudo, password }) => {
-    /* An address already signed up with Google is not a duplicate to argue
-       with — it is the same person at the wrong door. Point them at the right
-       one instead of a flat refusal. */
-    const existing = await User.findByEmail(email);
+    const address = normaliseEmail(email);
+    const name = normalisePseudo(pseudo);
+    if (String(password || '').length < 8) throw weakPassword();
+
+    /* An address with an account but no password is an older account, made
+       through the Google sign-in this site no longer has: the same person at
+       a door that is gone. Saying so, rather than "taken", lets the app offer
+       the link that sets a password -- which is how that person gets in. */
+    const existing = await User.findByEmail(address);
     if (existing) {
-        throw conflict(existing.google_id && !existing.password_hash
-            ? 'This address already has an account through Google'
-            : 'Email already registered');
+        throw existing.password_hash
+            ? new AppError('Email already registered', 409, 'EMAIL_TAKEN')
+            : new AppError('This address has an account with no password yet', 409, 'NO_PASSWORD');
     }
-    
-    if (await User.pseudoExists(pseudo)) {
-        throw conflict('Pseudo already taken');
+    if (await User.pseudoExists(name)) {
+        throw new AppError('That nickname is taken', 409, 'PSEUDO_TAKEN');
     }
 
-    // Create user (password is hashed in model)
-    const user = await User.create({ email, pseudo, password });
+    let user;
+    try {
+        user = await User.create({ email: address, pseudo: name, password });
+    } catch (error) {
+        /* Two sign-ups racing for the same address or nickname: the checks
+           above both passed, and the unique index settled it. Answer as they
+           would have, not with a 500. */
+        if (error && error.code === '23505') {
+            throw /email/i.test(error.constraint || error.detail || '')
+                ? new AppError('Email already registered', 409, 'EMAIL_TAKEN')
+                : new AppError('That nickname is taken', 409, 'PSEUDO_TAKEN');
+        }
+        throw error;
+    }
 
-    // Generate verification token
     const verificationToken = crypto.randomBytes(32).toString('hex');
     await User.setVerificationToken(user.id, verificationToken);
 
-    // Send verification email (async, don't wait)
-    emailService.sendVerificationEmail(email, verificationToken).catch(console.error);
+    // Sent in the background: a mail server being slow must not hold up the
+    // account, which works without the address being confirmed.
+    emailService.sendVerificationEmail(address, verificationToken).catch(console.error);
 
-    // Generate tokens so user is auto-logged-in after registration
+    // Signed in at once.
     const tokens = await generateTokens(user);
-
-    return { userId: user.id, email: user.email, pseudo: user.pseudo, ...tokens };
+    return { userId: user.id, ...tokens };
 };
 
 /**
  * Login user
  */
 exports.loginUser = async ({ email, password }) => {
-    // Find user by email
-    const user = await User.findByEmail(email);
-    
-    if (!user) {
-        throw unauthorized('Invalid email or password');
-    }
+    const user = await User.findByEmail(String(email || '').trim());
+    if (!user) throw invalidCredentials();
 
-    /* An account created through Google has no password. Saying so is worth
-       the small disclosure: sign-up already answers "taken" for an address
-       that exists, and the alternative is sending someone round a loop they
-       cannot get out of. */
-    if (!user.password_hash) {
-        throw unauthorized('This account signs in with Google');
-    }
+    /* An older account may have no password. Saying so is worth the small
+       disclosure -- sign-up already answers "taken" for an address that
+       exists -- because the alternative is sending someone round a loop they
+       cannot get out of. The app answers it with the link that sets one. */
+    if (!user.password_hash) throw noPassword();
 
-    // Check password
-    const isValidPassword = await User.verifyPassword(user, password);
-    if (!isValidPassword) {
-        throw unauthorized('Invalid email or password');
-    }
+    if (!await User.verifyPassword(user, password)) throw invalidCredentials();
 
-    // Update last seen
     await User.updateLastSeen(user.id);
-
-    // Generate tokens
     const tokens = await generateTokens(user);
-
-    return {
-        ...tokens,
-        user: {
-            id: user.id,
-            pseudo: user.pseudo,
-            email: user.email,
-            elo: user.elo ?? 1000
-        }
-    };
+    return { userId: user.id, ...tokens };
 };
 
 /**
@@ -208,28 +215,37 @@ exports.resendVerification = async (email) => {
 
 /**
  * Request password reset
+ *
+ * Also how an account with no password gets its first one: the link proves
+ * the address, which is all a password would have proved.
  */
 exports.requestPasswordReset = async (email) => {
-    // Generate reset token
+    const address = String(email || '').trim().toLowerCase();
+    if (!address) return;
     const resetToken = crypto.randomBytes(32).toString('hex');
-    const success = await User.setResetToken(email, resetToken);
-    
-    if (success) {
-        // Send reset email
-        await emailService.sendPasswordResetEmail(email, resetToken);
+    if (await User.setResetToken(address, resetToken)) {
+        await emailService.sendPasswordResetEmail(address, resetToken);
     }
     // Don't reveal if email exists - same response either way
 };
 
 /**
  * Reset password
+ *
+ * Answers with the account, so that following the link signs the player in
+ * rather than sending them round to the sign-in form to type what they have
+ * just chosen. Every other session of the account is ended: a reset is often
+ * the answer to somebody else having had the old password.
  */
 exports.resetPassword = async (token, newPassword) => {
-    const success = await User.resetPassword(token, newPassword);
-    
-    if (!success) {
+    if (String(newPassword || '').length < 8) throw weakPassword();
+    const userId = await User.resetPassword(token, newPassword);
+    if (!userId) {
         throw new AppError('Invalid or expired reset token', 400, 'INVALID_TOKEN');
     }
+    await RefreshToken.deleteAllForUser(userId);
+    const tokens = await generateTokens(await User.findById(userId));
+    return { userId, ...tokens };
 };
 
 /**
@@ -240,21 +256,16 @@ exports.changePassword = async (userId, currentPassword, newPassword) => {
     if (!user) {
         throw notFound('User');
     }
-    
+    if (String(newPassword || '').length < 8) throw weakPassword();
+
     // Get full user with password hash
     const fullUser = await User.findByEmail(user.email);
-
-    // Verify current password
-    const isValidPassword = await User.verifyPassword(fullUser, currentPassword);
-    if (!isValidPassword) {
-        throw unauthorized('Current password is incorrect');
+    if (!fullUser || !fullUser.password_hash) {
+        throw new AppError('This account has no password yet', 400, 'NO_PASSWORD');
     }
+    if (!await User.verifyPassword(fullUser, currentPassword)) throw wrongPassword();
 
-    // Update password
     await User.updatePassword(userId, newPassword);
-    
-    // Optionally invalidate all other sessions
-    // await RefreshToken.deleteAllForUser(userId);
 };
 
 /**

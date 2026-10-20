@@ -11,7 +11,7 @@ import { t } from '../i18n.js';
 import { navigate } from '../router.js';
 import { play as playSound } from '../audio.js';
 import { confirmEmail, resetPassword } from '../auth.js';
-import { openPanel } from '../ui/panels.js';
+import { describeAuthError } from '../ui/authErrors.js';
 
 const escapeText = (value) => String(value).replace(/[&<>"']/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -60,12 +60,18 @@ export function mountVerify(outlet, params) {
   if (token) {
     confirmEmail(token)
       .then(() => { state = 'done'; })
-      .catch((error) => { state = 'failed'; message = error.message; })
+      .catch((error) => { state = 'failed'; message = describeAuthError(error); })
       .finally(render);
   }
 }
 
-/** #/reset?token=… — set a new password. */
+/**
+ * #/reset?token=… — set a new password, and be signed in by it.
+ *
+ * Also how an account with no password gets its first one: those were made
+ * by the Google sign-in the site used to offer. If such an account never
+ * chose its nickname, being signed in is what makes the app ask for one.
+ */
 export function mountReset(outlet, params) {
   const token = params && params.get('token');
   let busy = false;
@@ -82,7 +88,7 @@ export function mountReset(outlet, params) {
     if (done) {
       outlet.innerHTML = shell(t('mail.resetTitle'),
         `<p class="lobby-notice">${t('mail.resetDone')}</p>`
-        + `<button class="btn btn--primary" data-action="sign-in">${t('account.signIn')}</button>`);
+        + `<button class="btn btn--primary" data-action="home">${t('mail.startPlaying')}</button>`);
       return;
     }
     outlet.innerHTML = shell(t('mail.resetTitle'),
@@ -112,10 +118,10 @@ export function mountReset(outlet, params) {
     error = null;
     render();
     try {
-      await resetPassword(token, password);
+      await resetPassword(token, password);    // which signs in, too
       done = true;
     } catch (e) {
-      error = e.message;
+      error = describeAuthError(e);
     } finally {
       busy = false;
       render();
@@ -123,18 +129,9 @@ export function mountReset(outlet, params) {
   });
 
   outlet.addEventListener('click', (event) => {
-    const button = event.target.closest('[data-action]');
-    if (!button) return;
+    if (!event.target.closest('[data-action="home"]')) return;
     playSound('ui');
-    if (button.getAttribute('data-action') === 'sign-in') {
-      /* Wait for the route to settle before opening the panel. A route change
-         closes any open panel, and setting the hash resolves asynchronously —
-         so opening first would have the navigation shut it again. Listening
-         before navigating covers the case where the hash is already correct
-         and the route resolves at once. */
-      window.addEventListener('routechange', () => openPanel('account'), { once: true });
-      navigate('home');
-    } else navigate('home');
+    navigate('home');
   });
 
   render();

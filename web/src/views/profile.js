@@ -11,8 +11,9 @@ import { t, currentLanguage } from '../i18n.js';
 import { navigate } from '../router.js';
 import {
   api, isSignedIn, sessionReady, onAuthChange, currentUser, signOut,
-  chooseNickname, nicknameAvailable,
+  chooseNickname, nicknameAvailable, requestPasswordReset,
 } from '../auth.js';
+import { describeAuthError } from '../ui/authErrors.js';
 import { play as playSound } from '../audio.js';
 import { openPanel } from '../ui/panels.js';
 import { request, connect } from '../net.js';
@@ -202,7 +203,13 @@ export function mountProfile(outlet, params) {
            style="min-height:1.4em;margin:-4px 0 0">${
   escapeText(nickHint || t('account.nicknameRules'))}</p>
 
-        ${user.hasPassword === false ? '' : `
+        ${user.hasPassword === false ? `
+        <h3 style="margin-top:16px">${t('account.changePassword')}</h3>
+        <p class="lede">${t('account.noPasswordYet')}</p>
+        <div class="row-actions">
+          <button class="btn btn--primary" data-action="send-link" ${busy ? 'disabled' : ''}>
+            ${t('account.sendLink')}</button>
+        </div>` : `
         <h3 style="margin-top:16px">${t('account.changePassword')}</h3>
         <div class="manage-grid">
           <input class="btn" type="password" data-input="current" autocomplete="current-password"
@@ -234,9 +241,9 @@ export function mountProfile(outlet, params) {
    * stay under a neutral name. Somebody deleting an account to erase a bad run
    * should learn that before, not after.
    *
-   * The password is asked for where there is one. An account that signs in
-   * with Google has none, and the field is simply not shown -- the same test
-   * the password section above already makes.
+   * The password is asked for where there is one. An older account may have
+   * none yet -- the Google sign-in the site used to offer made them -- and the
+   * field is simply not shown, the same test the password section above makes.
    */
   function closeAccountHtml(user) {
     if (!closing) {
@@ -274,9 +281,9 @@ export function mountProfile(outlet, params) {
       await api('/users/me', { method: 'DELETE', body: JSON.stringify({ password }) });
     } catch (error) {
       busy = false;
-      manageError = error.status === 401
+      manageError = error.code === 'WRONG_PASSWORD'
         ? t('account.closeWrongPassword')
-        : (error.message || t('account.closeFailed'));
+        : (error.status ? t('account.closeFailed') : describeAuthError(error));
       render();
       return;
     }
@@ -300,7 +307,7 @@ export function mountProfile(outlet, params) {
       manageDone = t('account.nicknameSaved');
       await load();                      // the page is titled with it
     } catch (error) {
-      manageError = error.message;
+      manageError = describeAuthError(error);
     }
     busy = false;
     render();
@@ -318,9 +325,21 @@ export function mountProfile(outlet, params) {
       });
       manageDone = t('account.passwordSaved');
     } catch (error) {
-      manageError = error.message;
+      manageError = describeAuthError(error);
     }
     busy = false;
+    render();
+  }
+
+  /* An account with no password yet gets one the way a forgotten one is
+     replaced: a link to its own address, which proves it is theirs. */
+  async function sendPasswordLink() {
+    const user = currentUser();
+    if (!user || !user.email) return;
+    busy = true; manageError = null; manageDone = null; render();
+    await requestPasswordReset(user.email);
+    busy = false;
+    manageDone = t('account.resetSent');
     render();
   }
 
@@ -574,6 +593,7 @@ export function mountProfile(outlet, params) {
     if (what === 'close-do') { closeAccount(); return; }
     if (what === 'save-pseudo') { playSound('ui'); savePseudo(); return; }
     if (what === 'save-password') { playSound('ui'); savePassword(); return; }
+    if (what === 'send-link') { playSound('ui'); sendPasswordLink(); return; }
     if (what === 'signout') { playSound('ui'); signOut(); navigate('home'); }
   });
 

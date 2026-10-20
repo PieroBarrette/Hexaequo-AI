@@ -364,14 +364,14 @@
   "legal": {
     "privacyTitle": "Politique de confidentialité",
     "termsTitle": "Conditions d'utilisation",
-    "updated": "Dernière mise à jour : 14 août 2026",
+    "updated": "Dernière mise à jour : 20 octobre 2026",
     "contactHeading": "Nous joindre",
     "contactBody": "Pour toute question, demande d'accès ou de suppression, écrivez à {email}.",
     "privacyIntro": "Hexaequo est un jeu de plateau en ligne. Cette page explique quelles données nous recueillons, pourquoi, et ce que vous pouvez en faire. Nous n'affichons aucune publicité et ne vendons aucune donnée.",
     "p1Title": "Ce que nous recueillons",
-    "p1Body": "Sans compte, rien n'est envoyé à nos serveurs à votre sujet : vos préférences (langue, thème, sons, aide de jeu) restent dans le stockage local de votre navigateur. Si vous ouvrez une session avec Google, nous recevons votre identifiant Google, votre adresse courriel et votre nom d'affichage, et nous conservons le pseudonyme que vous choisissez sur Hexaequo. Nous enregistrons aussi vos parties : les coups joués, le résultat, la cadence et votre classement.",
+    "p1Body": "Sans compte, rien n'est envoyé à nos serveurs à votre sujet : vos préférences (langue, thème, sons, aide de jeu) restent dans le stockage local de votre navigateur. Si vous créez un compte, nous recevons votre adresse courriel, et nous conservons le pseudonyme que vous choisissez ainsi qu’une empreinte de votre mot de passe — jamais le mot de passe lui-même. Nous enregistrons aussi vos parties : les coups joués, le résultat, la cadence et votre classement.",
     "p2Title": "Pourquoi",
-    "p2Body": "Votre identifiant Google sert uniquement à vous reconnaître d'une visite à l'autre. Le courriel sert à vous joindre au sujet de votre compte. Les parties et le classement font fonctionner le jeu et le tableau des scores. Nous ne faisons ni profilage, ni publicité ciblée.",
+    "p2Body": "Votre adresse courriel sert à vous reconnaître quand vous vous connectez et à vous joindre au sujet de votre compte : pour le confirmer, ou pour vous envoyer un lien si vous oubliez votre mot de passe. Les parties et le classement font fonctionner le jeu et le tableau des scores. Nous ne faisons ni profilage, ni publicité ciblée.",
     "p3Title": "Où sont conservées les données",
     "p3Body": "Nos serveurs et notre base de données sont hébergés chez Render, aux États-Unis. Vos données sont donc traitées hors du Canada et peuvent être soumises aux lois du pays hôte.",
     "p4Title": "Ce que nous partageons",
@@ -398,9 +398,8 @@
   },
   "account": {
     "title": "Compte",
-    "signedOutLede": "Créez un compte pour jouer des parties classées, garder votre historique et apparaître au classement. Par courriel ou avec Google, comme vous préférez.",
-    "whyGoogle": "Votre nom sur Hexaequo est le pseudonyme que vous choisissez, et votre adresse courriel n’est jamais visible des autres joueurs.",
-    "googleUnavailable": "Impossible de joindre Google pour le moment.",
+    "signedOutLede": "Créez un compte pour jouer des parties classées, garder votre historique et apparaître au classement. Il suffit d’une adresse courriel.",
+    "privacyNote": "Votre nom sur Hexaequo est le pseudonyme que vous choisissez, et votre adresse courriel n’est jamais visible des autres joueurs.",
     "pickNicknameLede": "Choisissez le pseudonyme sous lequel les autres joueurs vous verront.",
     "nicknamePlaceholder": "Votre pseudonyme",
     "nicknameRules": "De 3 à 20 caractères : lettres, chiffres, espaces, traits d'union et soulignés.",
@@ -427,7 +426,9 @@
     "sendResetLink": "Envoyer le lien",
     "backToSignIn": "Retour à la connexion",
     "resetSent": "Si cette adresse a un compte, le lien est parti. Vérifiez vos courriels.",
-    "or": "ou",
+    "sendLink": "M’envoyer le lien",
+    "sendLinkTo": "Envoyer le lien à {email}",
+    "noPasswordYet": "Votre compte n’a pas encore de mot de passe. Nous pouvons envoyer à votre adresse un lien pour en choisir un.",
     "seeProfile": "Voir mon profil",
     "manage": "Gérer mon compte",
     "changePassword": "Changer le mot de passe",
@@ -444,7 +445,18 @@
     "closeConfirm": "Supprimer définitivement",
     "closing": "Suppression…",
     "closeWrongPassword": "Mot de passe incorrect.",
-    "closeFailed": "La suppression n'a pas abouti."
+    "closeFailed": "La suppression n'a pas abouti.",
+    "errors": {
+      "credentials": "Adresse courriel ou mot de passe incorrect.",
+      "noPassword": "Ce compte n’a pas encore de mot de passe : il a été créé avec la connexion Google, qu’Hexaequo n’offre plus. Recevez par courriel un lien pour en choisir un ; votre pseudonyme et votre classement sont conservés.",
+      "emailTaken": "Cette adresse a déjà un compte. Connectez-vous, ou utilisez « Mot de passe oublié ? ».",
+      "badEmail": "Cette adresse courriel ne semble pas valide.",
+      "weakPassword": "Le mot de passe doit compter au moins 8 caractères.",
+      "wrongPassword": "Le mot de passe actuel n’est pas le bon.",
+      "tooMany": "Trop de tentatives. Attendez quelques minutes, puis réessayez.",
+      "offline": "Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.",
+      "generic": "Quelque chose n’a pas fonctionné. Veuillez réessayer."
+    }
   },
   "leaderboard": {
     "title": "Classement",
@@ -608,7 +620,8 @@
     "passwordAgain": "Répétez le mot de passe",
     "passwordMismatch": "Les deux mots de passe ne correspondent pas.",
     "setPassword": "Enregistrer",
-    "resetDone": "C’est fait. Vous pouvez vous connecter avec votre nouveau mot de passe."
+    "resetDone": "C’est fait : votre mot de passe est enregistré, et vous êtes connecté.",
+    "linkExpired": "Ce lien a expiré ou a déjà servi. Demandez-en un nouveau depuis le panneau de connexion."
   },
   "update": {
     "ready": "Une nouvelle version est prête.",

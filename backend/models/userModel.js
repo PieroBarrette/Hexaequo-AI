@@ -15,10 +15,10 @@ async function create({ email, pseudo, password }) {
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
     /* pseudo_chosen matters: it is what tells the app whether to stop and ask
-       for a nickname. Someone signing up with an address typed theirs into the
-       form, unlike a Google sign-up where one is invented from their name — so
-       it is chosen, and leaving it false reopened the account panel demanding a
-       nickname on every single visit. */
+       for a nickname. Someone signing up typed theirs into the form, so it is
+       chosen, and leaving it false reopened the account panel demanding a
+       nickname on every single visit. (It is false only on the older rows the
+       Google sign-in invented a nickname for.) */
     const result = await query(
         `INSERT INTO users (email, pseudo, password_hash, pseudo_chosen)
          VALUES ($1, $2, $3, TRUE)
@@ -140,8 +140,8 @@ async function updatePassword(id, newPassword) {
  * Verify password
  */
 async function verifyPassword(user, password) {
-    // An account that only signs in with Google has no hash to compare
-    // against, and bcrypt throws rather than returning false when handed one.
+    // An older account may have no hash to compare against yet, and bcrypt
+    // throws rather than returning false when handed none.
     if (!user || !user.password_hash) return false;
     return bcrypt.compare(password, user.password_hash);
 }
@@ -198,20 +198,25 @@ async function setResetToken(email, token, ttl = '1 hour') {
 }
 
 /**
- * Reset password with token
+ * Reset password with token. Returns the account's id, or null when the token
+ * is unknown or has expired.
+ *
+ * The link was opened from the mailbox it was sent to, which confirms the
+ * address as surely as the confirmation mail would have.
  */
 async function resetPassword(token, newPassword) {
+    if (!token) return null;
     const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
-    
+
     const result = await query(
-        `UPDATE users 
-         SET password_hash = $1, reset_token = NULL, reset_expires = NULL
+        `UPDATE users
+         SET password_hash = $1, reset_token = NULL, reset_expires = NULL, email_verified = TRUE
          WHERE reset_token = $2 AND reset_expires > NOW()
          RETURNING id`,
         [passwordHash, token]
     );
-    
-    return result.rowCount > 0;
+
+    return result.rows[0] ? result.rows[0].id : null;
 }
 
 /**

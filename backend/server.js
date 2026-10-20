@@ -67,21 +67,21 @@ const ALLOWED_ORIGINS = [
  * off in production, so it no longer gets a vote.
  *
  * script-src carries no 'unsafe-inline': every script is a file this server
- * serves, or the Google sign-in client, and nothing runs from an attribute or
- * a <script> smuggled into a name. style-src has to allow inline, since the
- * views set style="" through innerHTML in many places; a style is a far smaller
- * thing to hand an attacker than a script. The Google origins are what the
- * sign-in button loads and the frame it opens in. Everything else the app talks
- * to is itself — in production one origin serves both the page and the socket.
+ * serves, and nothing runs from an attribute or a <script> smuggled into a
+ * name. style-src has to allow inline, since the views set style="" through
+ * innerHTML in many places; a style is a far smaller thing to hand an attacker
+ * than a script. Nothing is loaded from anywhere else: since Google sign-in
+ * went, the app talks only to itself — in production one origin serves both
+ * the page and the socket.
  */
 const CSP = {
     defaultSrc: ["'self'"],
-    scriptSrc: ["'self'", 'https://accounts.google.com', 'https://apis.google.com'],
+    scriptSrc: ["'self'"],
     styleSrc: ["'self'", "'unsafe-inline'"],
-    imgSrc: ["'self'", 'data:', 'https://*.googleusercontent.com', 'https://accounts.google.com'],
+    imgSrc: ["'self'", 'data:'],
     fontSrc: ["'self'", 'data:'],
-    connectSrc: ["'self'", 'https://accounts.google.com'],
-    frameSrc: ["'self'", 'https://accounts.google.com'],
+    connectSrc: ["'self'"],
+    frameSrc: ["'self'"],
     frameAncestors: ["'self'"],
     baseUri: ["'self'"],
     formAction: ["'self'"],
@@ -92,7 +92,8 @@ const CSP = {
 // Security middleware
 app.use(helmet({
     contentSecurityPolicy: { useDefaults: true, directives: CSP },
-    crossOriginEmbedderPolicy: false, // GIS loads cross-origin; COEP would block it
+    // As it has always been; nothing here asks for cross-origin isolation.
+    crossOriginEmbedderPolicy: false,
 }));
 app.use(cors({
     origin: ALLOWED_ORIGINS,

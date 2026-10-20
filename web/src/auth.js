@@ -1,9 +1,10 @@
 /**
  * Player session.
  *
- * Google Identity Services hands the browser a signed ID token; we pass it to
- * our own server, which verifies it and answers with a Hexaequo session. From
- * then on Google is out of the picture — the app talks to its own API.
+ * An address and a password are the only way in: signing up, signing in, and
+ * following the link a forgotten password sends all answer with a Hexaequo
+ * session, adopted in one place below. (Google sign-in was offered until
+ * 2026-10-20; the accounts it made get a password through that same link.)
  *
  * The access token lives in localStorage rather than a cookie because the API
  * and the app may be served from different origins in development, and because
@@ -14,7 +15,6 @@ import { serverOrigin, identify, isConnected, useSessionToken, forgetIdentity } 
 
 const TOKEN_KEY = 'hexaequo.token';
 const REFRESH_KEY = 'hexaequo.refresh';
-const GSI_SRC = 'https://accounts.google.com/gsi/client';
 
 /** Filled from the server the first time we ask; null when signed out. */
 let account = null;
@@ -327,72 +327,6 @@ async function restore() {
   return account;
 }
 
-let gsiLoad = null;
-
-/** Load Google's script once. It is the only third-party code on the site. */
-function loadGoogleScript() {
-  if (gsiLoad) return gsiLoad;
-  gsiLoad = new Promise((resolve, reject) => {
-    if (window.google && window.google.accounts) return resolve(window.google);
-    const script = document.createElement('script');
-    script.src = GSI_SRC;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => (window.google ? resolve(window.google) : reject(new Error('Google script did not initialise')));
-    script.onerror = () => reject(new Error('Google is unreachable'));
-    document.head.appendChild(script);
-  }).catch((error) => { gsiLoad = null; throw error; });
-  return gsiLoad;
-}
-
-let clientId = null;
-let gsiReady = false;
-
-/** The client id is public; the server is the only thing that verifies tokens. */
-export async function googleClientId() {
-  if (clientId) return clientId;
-  const body = await api('/auth/config').catch(() => null);
-  clientId = (body && body.googleClientId) || null;
-  return clientId;
-}
-
-/**
- * Draw Google's own sign-in button into `container`.
- * Google requires its rendered button rather than a look-alike.
- */
-export async function renderGoogleButton(container, { theme = 'outline', text = 'signin_with' } = {}) {
-  const [google, id] = await Promise.all([loadGoogleScript(), googleClientId()]);
-  if (!id) throw new Error('Google sign-in is not configured');
-
-  /* Configure Google's client once and only once.
-   *
-   * The panel redraws whenever the session changes or a tab is switched, and
-   * calling initialize() each time made Google warn that only the last
-   * instance would be used — a real hazard, since the callback that completes
-   * a sign-in belongs to whichever call ran last. Nothing in the configuration
-   * depends on the container, so it never needs repeating. */
-  if (!gsiReady) {
-    google.accounts.id.initialize({
-      client_id: id,
-      callback: async (response) => {
-        try {
-          await completeSignIn(response.credential);
-        } catch (error) {
-          document.dispatchEvent(new CustomEvent('auth-error', { bubbles: true, detail: error }));
-        }
-      },
-      auto_select: false,
-      cancel_on_tap_outside: true,
-    });
-    gsiReady = true;
-  }
-
-  container.innerHTML = '';
-  google.accounts.id.renderButton(container, {
-    theme, text, size: 'large', shape: 'pill', logo_alignment: 'left',
-  });
-}
-
 /**
  * Adopt a session the API just issued.
  *
@@ -435,23 +369,21 @@ export async function requestPasswordReset(email) {
   return true;
 }
 
+/**
+ * Choose a new password from the link in the mail, and be signed in by it.
+ *
+ * The link has already proved the address, so asking for the password again
+ * on the sign-in form proved nothing; the server answers with a session.
+ */
 export async function resetPassword(token, newPassword) {
-  return api('/auth/reset-password', {
+  return adoptSession(await api('/auth/reset-password', {
     method: 'POST',
     body: JSON.stringify({ token, newPassword }),
-  });
+  }));
 }
 
 export async function confirmEmail(token) {
   return api('/auth/verify-email', { method: 'POST', body: JSON.stringify({ token }) });
-}
-
-/** Exchange Google's credential for our session. */
-export async function completeSignIn(credential) {
-  return adoptSession(await api('/auth/google', {
-    method: 'POST',
-    body: JSON.stringify({ credential }),
-  }));
 }
 
 export async function chooseNickname(pseudo) {
@@ -474,8 +406,5 @@ export function signOut() {
   writeRefresh(null);
   account = null;
   needsPseudo = false;
-  if (window.google && window.google.accounts && window.google.accounts.id) {
-    window.google.accounts.id.disableAutoSelect();
-  }
   announce();
 }

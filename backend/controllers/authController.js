@@ -1,12 +1,15 @@
 /**
  * Authentication Controller
- * 
- * Handles user registration, login, logout, and password management.
+ *
+ * An address and a password are the only way in. Every door that ends signed
+ * in -- signing up, signing in, following a reset link -- answers in the same
+ * shape (accountService.sessionAnswer), so the app has one way to adopt a
+ * session.
  */
 
 const authService = require('../services/authService');
-const { publicUser } = require('../services/googleAuthService');
-const { User } = require('../models');
+const accounts = require('../services/accountService');
+const { query } = require('../config/database');
 
 /**
  * Register a new user
@@ -15,36 +18,13 @@ const { User } = require('../models');
  */
 exports.signup = async (req, res, next) => {
     try {
-        // Support both email/username for registration - pseudo is same as username
-        const email = req.body.email || req.body.username;
-        const pseudo = req.body.pseudo || req.body.username;
-        const { password } = req.body;
-
-        // Validate required fields
-        if (!email || !pseudo || !password) {
-            return res.status(400).json({
-                success: false,
-                error: 'Username and password are required'
-            });
-        }
-
-        if (password.length < 8) {
-            return res.status(400).json({
-                error: 'WEAK_PASSWORD',
-                message: 'Password must be at least 8 characters',
-            });
-        }
-
-        const result = await authService.createUser({ email, pseudo, password });
-        const created = await User.findById(result.userId);
-
-        res.status(201).json({
-            accessToken: result.accessToken,
-            refreshToken: result.refreshToken || null,
-            user: publicUser(created),
-            // The nickname was chosen in the form, unlike a Google sign-up.
-            needsPseudo: false,
+        const body = req.body || {};
+        const result = await authService.createUser({
+            email: body.email || body.username,
+            pseudo: body.pseudo || body.username,
+            password: body.password,
         });
+        res.status(201).json(await accounts.sessionAnswer(result.userId, result));
     } catch (error) {
         next(error);
     }
@@ -56,26 +36,12 @@ exports.signup = async (req, res, next) => {
  */
 exports.login = async (req, res, next) => {
     try {
-        // Support both email and username for frontend compatibility
-        const email = req.body.email || req.body.username;
-        const { password } = req.body;
-
-        if (!email || !password) {
-            return res.status(400).json({
-                success: false,
-                error: 'Email/username and password are required'
-            });
-        }
-
-        const result = await authService.loginUser({ email, password });
-        const account = await User.findById(result.user.id);
-
-        res.json({
-            accessToken: result.accessToken,
-            refreshToken: result.refreshToken || null,
-            user: publicUser(account),
-            needsPseudo: account.pseudo_chosen === false,
+        const body = req.body || {};
+        const result = await authService.loginUser({
+            email: body.email || body.username,
+            password: body.password,
         });
+        res.json(await accounts.sessionAnswer(result.userId, result));
     } catch (error) {
         next(error);
     }
@@ -147,48 +113,34 @@ exports.verifyEmail = async (req, res, next) => {
 /**
  * Request password reset
  * POST /api/auth/forgot-password
+ *
+ * The same answer whether or not the address has an account, so this cannot
+ * be used to find out who plays here. A failure to send is logged, not shown,
+ * for the same reason.
  */
-exports.forgotPassword = async (req, res, next) => {
+exports.forgotPassword = async (req, res) => {
     try {
-        const { email } = req.body;
-
-        await authService.requestPasswordReset(email);
-
-        // Always return success to prevent email enumeration
-        res.json({
-            data: null,
-            meta: {
-                message: 'If an account exists with this email, a password reset link will be sent.'
-            }
-        });
+        await authService.requestPasswordReset(req.body && req.body.email);
     } catch (error) {
-        // Log error but return generic response
         console.error('Password reset error:', error);
-        res.json({
-            data: null,
-            meta: {
-                message: 'If an account exists with this email, a password reset link will be sent.'
-            }
-        });
     }
+    res.json({
+        data: null,
+        meta: {
+            message: 'If an account exists with this email, a password reset link will be sent.'
+        }
+    });
 };
 
 /**
- * Reset password
+ * Reset password, and sign in with it
  * POST /api/auth/reset-password
  */
 exports.resetPassword = async (req, res, next) => {
     try {
         const { token, newPassword } = req.body;
-
-        await authService.resetPassword(token, newPassword);
-
-        res.json({
-            data: null,
-            meta: {
-                message: 'Password reset successfully'
-            }
-        });
+        const result = await authService.resetPassword(token, newPassword);
+        res.json(await accounts.sessionAnswer(result.userId, result));
     } catch (error) {
         next(error);
     }
@@ -212,6 +164,59 @@ exports.changePassword = async (req, res, next) => {
             }
         });
     } catch (error) {
+        next(error);
+    }
+};
+
+/** GET /api/auth/me — the signed-in account, or 401. */
+exports.me = async (req, res, next) => {
+    try {
+        const row = await accounts.loadAccount(req.user.id);
+        await query('UPDATE users SET last_seen = CURRENT_TIMESTAMP WHERE id = $1', [req.user.id]);
+        res.json({ user: accounts.publicUser(row), needsPseudo: row.pseudo_chosen !== true });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/** PUT /api/auth/pseudo  { pseudo } */
+exports.setPseudo = async (req, res, next) => {
+    try {
+        const user = await accounts.setPseudo(req.user.id, req.body && req.body.pseudo);
+        res.json({ user: accounts.publicUser(user), needsPseudo: false });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * GET /api/auth/pseudo-available?pseudo=… — so the form can react as you type
+ * rather than only on submit.
+ *
+ * Answers signed out too, because that is when it matters most: the sign-up
+ * form asks while the nickname is being typed, and there is no account yet to
+ * ask on behalf of. It tells a stranger only whether a nickname is taken,
+ * which the leaderboard and the lobby say out loud anyway, and the general
+ * rate limit still applies.
+ *
+ * Signed in, your own nickname is not counted against you, so re-saving the
+ * one you already have does not come back as unavailable.
+ */
+exports.pseudoAvailable = async (req, res, next) => {
+    try {
+        const pseudo = accounts.normalisePseudo(req.query.pseudo);
+        const me = req.user ? req.user.id : null;
+        const { rows } = await query(
+            `SELECT 1 FROM users
+             WHERE lower(pseudo) = lower($1) AND ($2::uuid IS NULL OR id <> $2::uuid) LIMIT 1`,
+            [pseudo, me]
+        );
+        res.json({ pseudo, available: rows.length === 0 });
+    } catch (error) {
+        // A malformed nickname is an answer, not a failure: report why.
+        if (error && error.statusCode === 400) {
+            return res.json({ available: false, reason: error.message });
+        }
         next(error);
     }
 };

@@ -4,7 +4,7 @@
  * Business logic for user operations using PostgreSQL database.
  */
 
-const { notFound, unauthorized } = require('../middleware/errorHandler');
+const { AppError, notFound } = require('../middleware/errorHandler');
 const { User, Game } = require('../models');
 
 /**
@@ -139,16 +139,17 @@ exports.deleteUser = async (userId, password) => {
     const fullUser = await User.findByEmail(user.email);
     /*
      * The password is a second proof, not the only one: being signed in is
-     * already the first. An account that signs in with Google has no password
-     * to give, and asking for one anyway locked those accounts out of ever
-     * closing themselves -- verifyPassword answers false to a hash that does
-     * not exist, so the answer was always "incorrect password" and there was
-     * no password that would have been correct.
+     * already the first. An older account with no password yet has none to
+     * give, and asking for one anyway locked it out of ever closing itself --
+     * verifyPassword answers false to a hash that does not exist.
+     *
+     * A wrong one is a 403: the app reads a 401 as the session being over,
+     * and signed the player out for a typo.
      */
     if (fullUser && fullUser.password_hash) {
         const isValidPassword = await User.verifyPassword(fullUser, password);
         if (!isValidPassword) {
-            throw unauthorized('Incorrect password');
+            throw new AppError('Incorrect password', 403, 'WRONG_PASSWORD');
         }
     }
 

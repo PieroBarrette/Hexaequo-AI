@@ -1,9 +1,5 @@
 /**
- * The account panel: two ways in, a nickname, and your record.
- *
- * Google and an address-and-password are equal doors, not a main one and a
- * fallback — some people will not use a Google account, and a game site that
- * insists on one loses them at the front step.
+ * The account panel: an address and a password, a nickname, and your record.
  *
  * It opens over whatever is on screen like the other panels, so signing in
  * never costs you a game in progress.
@@ -13,8 +9,9 @@ import { t } from '../i18n.js';
 import { navigate } from '../router.js';
 import { closeOverlay } from '../ui/overlay.js';
 import { play as playSound } from '../audio.js';
+import { describeAuthError } from '../ui/authErrors.js';
 import {
-  currentUser, isSignedIn, mustChoosePseudo, renderGoogleButton,
+  currentUser, isSignedIn, mustChoosePseudo,
   chooseNickname, nicknameAvailable, signOut, onAuthChange, sessionReady, sessionToken,
   signUpWithEmail, signInWithEmail, requestPasswordReset,
   staySignedIn, setStaySignedIn,
@@ -28,9 +25,16 @@ export function mountAccount(outlet) {
   let hint = null;
   /** 'in' | 'up' | 'forgot' — which form the signed-out panel is showing. */
   let door = 'in';
-  /* Remembered so a Google outage is reported once rather than retried on
-     every redraw. The address-and-password form is unaffected either way. */
-  let googleFailed = false;
+  /*
+   * The address of an account that has no password yet, when the last answer
+   * said so.
+   *
+   * Accounts made by the Google sign-in the site used to have carry none. The
+   * way in is the link a forgotten password gets, so the refusal comes with
+   * the button that sends it, to the address already typed -- rather than a
+   * dead end, or a trip to the "forgot" form to type it again.
+   */
+  let needsLink = null;
 
   /*
    * The panel is a door, and a door that stays open is in the way.
@@ -120,24 +124,14 @@ export function mountAccount(outlet) {
         <p class="lede">${t('account.signedOutLede')}</p>
         ${door === 'forgot' ? '' : doorTabs()}
         ${error ? `<p class="net-error">${error}</p>` : ''}
+        ${needsLink ? `<button class="btn btn--primary auth-link-button" data-action="send-link"
+                         ${busy ? 'disabled' : ''}>${t('account.sendLinkTo', { email: escapeHtml(needsLink) })}</button>` : ''}
         ${notice ? `<p class="lobby-notice">${notice}</p>` : ''}
         ${emailForm()}
-        <div class="auth-or"><span>${t('account.or')}</span></div>
-        <div class="google-button" id="google-button"></div>
-        <p class="lede" style="font-size:12px;margin-top:18px">${t('account.whyGoogle')}</p>
+        <p class="lede auth-privacy">${t('account.privacyNote')}</p>
       </div></div>`;
 
     restoreTyped();
-    const host = outlet.querySelector('#google-button');
-    if (googleFailed) {
-      host.innerHTML = `<p class="lede">${t('account.googleUnavailable')}</p>`;
-      return;
-    }
-    renderGoogleButton(host).catch((e) => {
-      googleFailed = true;
-      host.innerHTML = `<p class="lede">${t('account.googleUnavailable')}</p>`;
-      console.warn('[auth] Google sign-in unavailable:', e.message);
-    });
   }
 
   /* ── Rendering ────────────────────────────────────────────────────────── */
@@ -203,7 +197,6 @@ export function mountAccount(outlet) {
     outlet.innerHTML = `
       <div class="page"><div class="page-inner">
         <div class="account-head">
-          ${user.avatarUrl ? `<img class="avatar" src="${escapeAttr(user.avatarUrl)}" alt="" referrerpolicy="no-referrer">` : ''}
           <div>
             <h2 style="margin:0">${escapeHtml(user.pseudo)}</h2>
             <p class="lede" style="margin:2px 0 0">${escapeHtml(user.email)}</p>
@@ -238,7 +231,7 @@ export function mountAccount(outlet) {
       await chooseNickname(field.value);
       hint = null;
     } catch (e) {
-      error = e.message;
+      error = describeAuthError(e);
     } finally {
       busy = false;
       render();
@@ -267,6 +260,7 @@ export function mountAccount(outlet) {
     busy = true;
     error = null;
     notice = null;
+    needsLink = null;
     render();
     try {
       if (which === 'up') {
@@ -283,7 +277,8 @@ export function mountAccount(outlet) {
         notice = t('account.resetSent');
       }
     } catch (e) {
-      error = e.message;
+      error = describeAuthError(e);
+      if (e.code === 'NO_PASSWORD') needsLink = value('email');
     } finally {
       busy = false;
       render();
@@ -296,6 +291,7 @@ export function mountAccount(outlet) {
       door = doorButton.getAttribute('data-door');
       error = null;
       notice = null;
+      needsLink = null;
       playSound('ui');
       render();
       return;
@@ -305,6 +301,19 @@ export function mountAccount(outlet) {
     if (!button) return;
     const action = button.getAttribute('data-action');
     playSound('ui');
+    if (action === 'send-link') {
+      if (busy || !needsLink) return;
+      busy = true;
+      render();
+      await requestPasswordReset(needsLink);
+      busy = false;
+      error = null;
+      needsLink = null;
+      door = 'in';
+      notice = t('account.resetSent');
+      render();
+      return;
+    }
     if (action === 'signout') { signOut(); return; }
     if (action === 'save') { await save(); return; }
     if (action === 'profile') { navigate('profile'); return; }

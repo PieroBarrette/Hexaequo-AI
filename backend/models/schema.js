@@ -18,8 +18,8 @@ CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) UNIQUE NOT NULL,
     pseudo VARCHAR(30) UNIQUE NOT NULL,
-    password_hash VARCHAR(255),                 -- null for accounts that only sign in with Google
-    google_id VARCHAR(64) UNIQUE,               -- Google's stable subject identifier
+    password_hash VARCHAR(255),                 -- null on older rows made by Google sign-in, until a reset link sets one
+    google_id VARCHAR(64) UNIQUE,               -- from the Google sign-in the site no longer offers; kept, never read
     pseudo_chosen BOOLEAN DEFAULT FALSE,        -- false until the player picks their own
     email_verified BOOLEAN DEFAULT FALSE,
     verification_token VARCHAR(255),
@@ -52,8 +52,8 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_pseudo ON users(pseudo);
 CREATE INDEX IF NOT EXISTS idx_users_elo ON users(elo DESC);
--- Every sign-in looks the account up by Google subject; only rows that have one
--- are indexed, since most may not.
+-- From the Google sign-in, which looked accounts up by Google subject. Nothing
+-- reads it now; it stays because dropping it would be a change to the live data.
 CREATE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id) WHERE google_id IS NOT NULL;
 
 -- ============================================

@@ -85,12 +85,15 @@ const validate = (schema, source = 'body') => {
 // Common validation schemas
 const schemas = {
     signup: {
-        // No required fields - validation done in controller to support aliases
+        /* Types and sizes only. The address and the nickname are checked by
+           accountService, with the same rules the profile renames by, and the
+           answers carry codes the app can put into words. A pattern here used
+           to refuse accents and spaces that a rename then allowed. */
         fields: {
             email: { type: 'string', maxLength: 255 },
-            username: { type: 'string', minLength: 3, maxLength: 30 },
-            pseudo: { type: 'string', minLength: 3, maxLength: 30, pattern: /^[a-zA-Z0-9_-]+$/ },
-            password: { type: 'string', minLength: 8, maxLength: 128 }
+            username: { type: 'string', maxLength: 255 },
+            pseudo: { type: 'string', maxLength: 60 },
+            password: { type: 'string', maxLength: 128 }
         }
     },
     login: {
@@ -112,18 +115,19 @@ const schemas = {
             allowSpectators: { type: 'boolean' }
         }
     },
+    // The eight-character minimum is authService's, answered as WEAK_PASSWORD.
     changePassword: {
         required: ['currentPassword', 'newPassword'],
         fields: {
             currentPassword: { type: 'string' },
-            newPassword: { type: 'string', minLength: 8, maxLength: 128 }
+            newPassword: { type: 'string', maxLength: 128 }
         }
     },
     resetPassword: {
         required: ['token', 'newPassword'],
         fields: {
             token: { type: 'string' },
-            newPassword: { type: 'string', minLength: 8, maxLength: 128 }
+            newPassword: { type: 'string', maxLength: 128 }
         }
     },
     updatePreferences: {

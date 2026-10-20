@@ -364,14 +364,14 @@
   "legal": {
     "privacyTitle": "Privacy policy",
     "termsTitle": "Terms of service",
-    "updated": "Last updated: 14 August 2026",
+    "updated": "Last updated: 20 October 2026",
     "contactHeading": "Contact us",
     "contactBody": "For any question, or to request access to or deletion of your data, write to {email}.",
     "privacyIntro": "Hexaequo is an online board game. This page explains what we collect, why, and what you can do about it. We show no advertising and sell no data.",
     "p1Title": "What we collect",
-    "p1Body": "Without an account, nothing about you reaches our servers: your preferences (language, theme, sound, move aid) stay in your browser’s local storage. If you sign in with Google we receive your Google account identifier, your email address and your display name, and we keep the nickname you choose on Hexaequo. We also record your games: the moves played, the result, the time control and your rating.",
+    "p1Body": "Without an account, nothing about you reaches our servers: your preferences (language, theme, sound, move aid) stay in your browser’s local storage. If you create an account we receive your email address, and we keep the nickname you choose and a hash of your password — never the password itself. We also record your games: the moves played, the result, the time control and your rating.",
     "p2Title": "Why",
-    "p2Body": "Your Google identifier only lets us recognise you from one visit to the next. The email address lets us reach you about your account. Games and ratings are what make the game and the leaderboard work. We do no profiling and no targeted advertising.",
+    "p2Body": "Your email address lets us recognise you when you sign in, and reach you about your account: to confirm it, or to send a link when a password is forgotten. Games and ratings are what make the game and the leaderboard work. We do no profiling and no targeted advertising.",
     "p3Title": "Where the data lives",
     "p3Body": "Our servers and database are hosted by Render, in the United States. Your data is therefore processed outside Canada and may be subject to the laws of the hosting country.",
     "p4Title": "What we share",
@@ -398,9 +398,8 @@
   },
   "account": {
     "title": "Account",
-    "signedOutLede": "Create an account to play rated games, keep your history and appear on the leaderboard. By email or with Google, whichever you prefer.",
-    "whyGoogle": "Your name on Hexaequo is the nickname you choose, and your address is never shown to other players.",
-    "googleUnavailable": "Cannot reach Google right now.",
+    "signedOutLede": "Create an account to play rated games, keep your history and appear on the leaderboard. All it takes is an email address.",
+    "privacyNote": "Your name on Hexaequo is the nickname you choose, and your address is never shown to other players.",
     "pickNicknameLede": "Choose the nickname other players will see.",
     "nicknamePlaceholder": "Your nickname",
     "nicknameRules": "3 to 20 characters: letters, digits, spaces, hyphens and underscores.",
@@ -427,7 +426,9 @@
     "sendResetLink": "Send the link",
     "backToSignIn": "Back to signing in",
     "resetSent": "If that address has an account, the link is on its way. Check your mail.",
-    "or": "or",
+    "sendLink": "Send me the link",
+    "sendLinkTo": "Send the link to {email}",
+    "noPasswordYet": "Your account has no password yet. We can send a link to your address to choose one.",
     "seeProfile": "See my profile",
     "manage": "Manage my account",
     "changePassword": "Change password",
@@ -444,7 +445,18 @@
     "closeConfirm": "Delete permanently",
     "closing": "Deleting…",
     "closeWrongPassword": "Incorrect password.",
-    "closeFailed": "The account could not be deleted."
+    "closeFailed": "The account could not be deleted.",
+    "errors": {
+      "credentials": "Wrong email address or password.",
+      "noPassword": "This account has no password yet: it was made with Google sign-in, which Hexaequo no longer offers. Get a link by email to choose one; your nickname and rating stay.",
+      "emailTaken": "That address already has an account. Sign in, or use “Forgotten your password?”.",
+      "badEmail": "That does not look like an email address.",
+      "weakPassword": "The password needs at least 8 characters.",
+      "wrongPassword": "The current password is not right.",
+      "tooMany": "Too many attempts. Wait a few minutes and try again.",
+      "offline": "Cannot reach the server. Check your connection and try again.",
+      "generic": "Something went wrong. Please try again."
+    }
   },
   "leaderboard": {
     "title": "Leaderboard",
@@ -608,7 +620,8 @@
     "passwordAgain": "Repeat the password",
     "passwordMismatch": "The two passwords do not match.",
     "setPassword": "Save",
-    "resetDone": "Done. You can sign in with your new password."
+    "resetDone": "Done: your password is saved, and you are signed in.",
+    "linkExpired": "This link has expired or has already been used. Ask for a new one from the sign-in panel."
   },
   "update": {
     "ready": "A new version is ready.",
