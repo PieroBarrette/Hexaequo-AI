@@ -294,7 +294,8 @@ function outgoingChip() {
   return `
     <div class="hail hail--sent">
       <div class="hail-lede">
-        ${t('challenge.waitingOn', { name: escapeText(outgoing.to.pseudo) })}
+        ${t(outgoing.away ? 'challenge.waitingOnAway' : 'challenge.waitingOn',
+    { name: escapeText(outgoing.to.pseudo) })}
         · ${cadenceLabel(outgoing.timeControl)}
       </div>
       <div class="hail-actions">
@@ -307,7 +308,8 @@ function agreedChip() {
   return `
     <div class="hail hail--deal">
       <div class="hail-lede">
-        ${t('challenge.agreedWith', { name: escapeText(agreed.opponent.pseudo) })}
+        ${t(agreed.away ? 'challenge.agreedAway' : 'challenge.agreedWith',
+    { name: escapeText(agreed.opponent.pseudo) })}
       </div>
       <div class="hail-actions">
         ${agreed.watchCode
@@ -506,7 +508,29 @@ async function catchUp() {
     outgoing = response.outgoing || null;
     agreed = response.agreed || null;
     render();
+    sayIfGone();
   } catch { /* the next connection tries again */ }
+}
+
+/*
+ * Arriving from a challenge's notification, to find it no longer there.
+ *
+ * Ten minutes is long, but a notification can sit unread for longer, and the
+ * one who asked can take it back. Opening the app onto nothing would read as a
+ * notification that lied; saying what happened does not. Said once per
+ * challenge, however many times the page catches up while it is on screen.
+ */
+let goneSaidFor = null;
+
+function sayIfGone() {
+  const [name, query] = (window.location.hash || '').replace(/^#\/?/, '').split('?');
+  if (name !== 'online') return;
+  const id = new URLSearchParams(query || '').get('challenge');
+  if (!id || id === goneSaidFor) return;
+  goneSaidFor = id;
+  if (incoming && incoming.id === id) return;
+  if (agreed && agreed.id === id) return;
+  say(t('challenge.gone'));
 }
 
 /** Mount once, at start-up. */

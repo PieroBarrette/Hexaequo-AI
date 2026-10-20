@@ -23,6 +23,7 @@ import {
 } from './auth.js';
 import { watchForUpdates } from './update.js';
 import { startSettingsSync } from './settingsSync.js';
+import { startPush } from './push.js';
 
 /**
  * The header chip: your nickname and rating, or an invitation to sign in.
@@ -116,6 +117,9 @@ async function boot() {
      signed out they stay where they are. Wired before the session is restored
      so the first answer about who is here is not missed. */
   startSettingsSync(onSettingsChange);
+  /* Notifications on this device follow the session in the same way:
+     registered for the account at sign-in, forgotten at sign-out. */
+  startPush();
   startRouter();
   dismissLoader();
 
@@ -204,19 +208,31 @@ async function boot() {
   });
 
   /* The service worker is cache-first, which is right in production and a trap
-     in development: it keeps serving the previous copy of every module until
-     CACHE_VERSION changes. Skip it on localhost, and tear down anything a
-     previous session left registered there. */
-  const isLocal = ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
+     in development: it would keep serving the previous copy of every module.
+     On a development machine it caches nothing (see sw.js) and is there only
+     because notifications cannot arrive without one; anything an older worker
+     cached there is cleared out. */
+  const isLocal = /^(localhost|127\.\d+\.\d+\.\d+|\[::1\])$/.test(location.hostname);
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     if (isLocal) {
-      navigator.serviceWorker.getRegistrations()
-        .then((all) => all.forEach((r) => r.unregister()))
-        .catch(() => {});
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
       if (window.caches) caches.keys().then((keys) => keys.forEach((k) => caches.delete(k))).catch(() => {});
     } else {
       window.addEventListener('load', watchForUpdates);
     }
+    /* A notification tapped while the app is already open: the worker brings
+       it forward and says where to go, and the app goes there itself rather
+       than being reloaded out from under whatever it was doing. */
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      const data = event.data || {};
+      if (data.type !== 'hx:open' || typeof data.url !== 'string') return;
+      let target;
+      try { target = new URL(data.url, location.href); } catch { return; }
+      if (target.origin !== location.origin) return;
+      const [name, query] = target.hash.replace(/^#\/?/, '').split('?');
+      closeOverlay();
+      navigate(name || 'home', query ? Object.fromEntries(new URLSearchParams(query)) : undefined);
+    });
   }
 }
 

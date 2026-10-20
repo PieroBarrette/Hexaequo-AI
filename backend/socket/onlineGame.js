@@ -17,6 +17,8 @@ const engine = require('../game/engine');
 const { query } = require('../config/database');
 const { JWT_SECRET } = require('../config/env');
 const ratedGames = require('../services/ratedGameService');
+const push = require('../services/pushService');
+const { tell } = require('./notify');
 
 /* Codes a person has to read aloud: no O/0, I/1, S/5, B/8, Z/2. */
 const CODE_ALPHABET = 'ACDEFGHJKLMNPQRTUVWXY34679';
@@ -636,6 +638,57 @@ function startGrace(io, room, seat) {
     return { seat, deadline, graceMs };
 }
 
+/* ── Telling a player who has looked away ──────────────────────────────── */
+
+/** A duration as a clock shows it: 4:05, 0:30. */
+function clockText(ms) {
+    const seconds = Math.max(0, Math.round(ms / 1000));
+    return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+}
+
+const gameUrl = (room) => `/#/play?online=1&code=${room.code}`;
+
+/**
+ * The other player has moved, and the one whose turn it now is has looked
+ * away: say so, with what is left on their clock when there is one. Replaces
+ * the last such notice rather than stacking, and never more than one every
+ * fifteen seconds for a room — a run of taken-back moves is not news.
+ */
+function tellTurn(io, room, mover) {
+    const turn = room.state && room.state.turn;
+    if (!room.everFull || room.result || (turn !== 0 && turn !== 1) || turn === mover) return;
+    const next = room.players[turn];
+    if (!next || !next.userId) return;
+    if (!push.allow(`turn:${room.code}:${next.userId}`, 1, 15000)) return;
+    const name = room.names[mover] || '';
+    const left = room.clock ? liveRemaining(room)[turn] : null;
+    tell(io, next.userId, 'turn', { name, time: left === null ? '' : clockText(left) }, {
+        url: gameUrl(room),
+        tag: `game-${room.code}`,
+        topic: `turn${room.code}`,
+        bodyKey: left === null ? 'body' : 'bodyClock',
+    });
+}
+
+/**
+ * A player's connection dropped in the middle of a game: the countdown to
+ * losing by abandonment has started, and the person it is running against may
+ * not know — their phone went to sleep, the app was swiped away. Tell them how
+ * long they have. The notice outlives the countdown by nothing: past it, the
+ * game is lost and the message would only say so late.
+ */
+function tellComeBack(io, room, seat, grace) {
+    const player = room.players[seat];
+    if (!grace || !player || !player.userId) return;
+    if (!push.allow(`comeback:${room.code}:${player.userId}`, 1, 60 * 1000)) return;
+    tell(io, player.userId, 'comeBack', { name: room.names[1 - seat] || '', time: clockText(grace.graceMs) }, {
+        url: gameUrl(room),
+        tag: `game-${room.code}`,
+        topic: `game${room.code}`,
+        ttl: grace.graceMs / 1000,
+    });
+}
+
 function attachOnlineGames(io) {
     // Warm the engine so the first move of the first game is not slowed by the
     // dynamic import.
@@ -1011,6 +1064,7 @@ function attachOnlineGames(io) {
             reply(callback, { ok: true, ...broadcast });
 
             if (result) finish(io, room, result);
+            else tellTurn(io, room, seat);
         });
 
         /** Give up; the opponent wins. */
@@ -1461,6 +1515,7 @@ function attachOnlineGames(io) {
                     graceMs: grace ? grace.graceMs : null,
                     msLeft: grace ? Math.max(0, grace.deadline - Date.now()) : null,
                 });
+                tellComeBack(io, room, seat, grace);
             }
         });
     });

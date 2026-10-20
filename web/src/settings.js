@@ -45,6 +45,14 @@ export const DEFAULTS = {
      away in the bar for anyone who wants more. */
   aiLevel: 0,             // see AI_LEVELS_VERSION below
   aiLevelsVersion: 0,
+  /* Which notifications, once they are on. Whether they are on at all is a
+     fact about each device — its permission, its subscription — and lives in
+     push.js; which kinds is a preference, kept with the account like the rest,
+     and read by the server before it sends anything. */
+  notifyChallenges: true,
+  notifyGames: true,
+  notifyMentions: true,
+  notifyReminders: true,
 };
 
 /*

@@ -27,6 +27,7 @@ const aiRoutes = require('./routes/aiRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const matchmakingRoutes = require('./routes/matchmakingRoutes');
 const profileRoutes = require('./routes/profileRoutes');
+const pushRoutes = require('./routes/pushRoutes');
 
 // Initialize Express
 const app = express();
@@ -146,6 +147,8 @@ if (adminEnabled) {
 app.use('/api/matchmaking', matchmakingRoutes);
 // Records, game history and replays.
 app.use('/api/profile', profileRoutes);
+// Notifications: the key browsers subscribe with, and their subscriptions.
+app.use('/api/push', pushRoutes);
 
 // Create HTTP server with Express app FIRST
 const httpServer = createServer(app);
@@ -167,6 +170,11 @@ attachMatchmaking(io);
 // The lobby: presence, chat and challenges by name (hx:lobby*, hx:challenge*).
 const { attachLobby } = require('./socket/lobby');
 attachLobby(io);
+
+// Whether each connection's page is on screen, which decides whether news
+// goes to it or to the person's phone.
+const { attachNotifications } = require('./socket/notify');
+attachNotifications(io);
 
 console.log('✅ Socket.IO initialized on server');
 
@@ -353,6 +361,11 @@ const startServer = () => {
             } else {
                 console.log('⚠️  Database not connected (running in memory mode)');
             }
+            /* Notifications, once the database has answered: their table is
+               made here if this database has never had one, and the
+               reminders start looking at the clock. */
+            await require('./services/pushService').init();
+            require('./services/reminderService').start();
         } catch (dbError) {
             console.log('⚠️  Database not configured (running in memory mode)');
         }

@@ -44,7 +44,15 @@ module.exports = {
        Automated mail is sent from an address nobody reads; a person who hits
        reply should still reach somebody. Empty means "reply to the sender". */
     EMAIL_REPLY_TO: process.env.EMAIL_REPLY_TO || '',
-    
+
+    /* Push notifications. The VAPID pair signs every message so that a push
+       service can tell it came from us; without both halves the feature is
+       simply off, and the settings say so. Generated once and never changed —
+       a new pair silently cuts off every device that has subscribed. */
+    VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY || '',
+    VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY || '',
+    VAPID_SUBJECT: process.env.VAPID_SUBJECT || 'https://hexaequo.com',
+
     // Rate limiting
     RATE_LIMIT_WINDOW_MS: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
     RATE_LIMIT_MAX_REQUESTS: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,

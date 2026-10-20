@@ -591,6 +591,74 @@ Get estimated AI rating.
 
 ---
 
+### Push notifications
+
+Web Push to the installed app. Off — `/key` answers `enabled: false` and every
+other route `503 UNAVAILABLE` — unless the host sets `VAPID_PUBLIC_KEY` and
+`VAPID_PRIVATE_KEY` (and optionally `VAPID_SUBJECT`, default
+`https://hexaequo.com`). The pair is generated once and never changed: a new
+pair silently cuts off every device already subscribed. The table
+`push_subscriptions` is created at start-up when the keys are set.
+
+What is sent, and the account setting that can turn each off: `challenge`,
+`accepted`, `ready` (`notifyChallenges`); `turn`, `comeBack` (`notifyGames`);
+`mention` (`notifyMentions`); `reminder` (`notifyReminders`, production only,
+early evening in the device's time zone, after 3, 7, 14 and 30 days away).
+Nothing is pushed to an account while one of its pages reports itself on
+screen through the socket event `hx:visible`.
+
+#### GET `/api/push/key`
+The public key a browser subscribes with.
+
+**Response (200):**
+```json
+{ "enabled": true, "publicKey": "B…" }
+```
+
+---
+
+#### POST `/api/push/subscribe` 🔒
+Register this browser for the signed-in account. The endpoint must belong to a
+browser vendor's push service (Google, Mozilla, Apple, Microsoft).
+
+**Request Body:**
+```json
+{
+    "subscription": { "endpoint": "https://fcm.googleapis.com/fcm/send/…", "keys": { "p256dh": "…", "auth": "…" } },
+    "timeZone": "America/Toronto",
+    "language": "fr"
+}
+```
+
+**Response (200):** `{ "ok": true }` — or `400 BAD_SUBSCRIPTION`.
+
+---
+
+#### POST `/api/push/unsubscribe`
+Forget a browser. No session needed: the endpoint is the browser's own secret.
+
+**Request Body:** `{ "endpoint": "https://…" }`
+
+---
+
+#### POST `/api/push/renew`
+Sent by the service worker when the push service replaces a browser's address;
+the old endpoint vouches for the new subscription.
+
+**Request Body:** `{ "oldEndpoint": "https://…", "subscription": { … } }`
+
+---
+
+#### POST `/api/push/test` 🔒
+A test notification to one of the account's devices, four seconds later.
+Five per ten minutes.
+
+**Request Body:** `{ "endpoint": "https://…" }`
+
+**Response (200):** `{ "ok": true, "delayMs": 4000 }` — or `404 NOT_REGISTERED`.
+
+---
+
 ## Error Codes
 
 | Code | HTTP Status | Description |

@@ -306,6 +306,27 @@ CREATE INDEX IF NOT EXISTS idx_invitations_creator ON invitations(creator_user_i
 CREATE INDEX IF NOT EXISTS idx_invitations_expires ON invitations(expires_at);
 
 -- ============================================
+-- Push Subscriptions (one per device that asked for notifications)
+-- ============================================
+-- The server also makes this itself at start-up when notifications are on
+-- (models/pushSubscriptionModel.js), so it is listed here for a full build.
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id BIGSERIAL PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    endpoint TEXT UNIQUE NOT NULL,
+    p256dh VARCHAR(200) NOT NULL,
+    auth VARCHAR(100) NOT NULL,
+    user_agent VARCHAR(300),
+    time_zone VARCHAR(64),
+    language VARCHAR(8),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    visited_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    reminded_at TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
+
+-- ============================================
 -- Helper Functions
 -- ============================================
 
@@ -409,6 +430,7 @@ async function dropSchema() {
     console.log('Dropping database schema...');
     
     const dropStatements = `
+        DROP TABLE IF EXISTS push_subscriptions CASCADE;
         DROP TABLE IF EXISTS invitations CASCADE;
         DROP TABLE IF EXISTS matchmaking_queue CASCADE;
         DROP TABLE IF EXISTS user_preferences CASCADE;

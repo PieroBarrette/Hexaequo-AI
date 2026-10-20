@@ -13,10 +13,28 @@
 const {
     createRoom, rooms, online, statusOf, isPlaying, roomOf, onGameFinished, onPresenceChange,
 } = require('./onlineGame');
-const { query } = require('../config/database');
+const database = require('../config/database');
+const { query } = database;
+const push = require('../services/pushService');
+const { tell, attentive } = require('./notify');
 
 const PUSH_MS = 1000;                     // coalesce presence updates
 const CHALLENGE_TTL_MS = 60 * 1000;
+/*
+ * A challenge that went to somebody's phone rather than to their screen.
+ *
+ * A minute is plenty for a person looking at the site and nowhere near enough
+ * for one who has to notice a notification, pick up the phone and open the
+ * app — so a question that had to be carried to them waits ten.
+ */
+const NOTIFIED_CHALLENGE_TTL_MS = 10 * 60 * 1000;
+/* A yes given to somebody who has since left, and who has been told: the game
+   waits this long for them to come back to it. */
+const RETURN_TTL_MS = 10 * 60 * 1000;
+/* Coming back is a reload, and a reloading page needs a moment to start
+   listening before the room it is being sent to is opened. */
+const RETURN_SETTLE_MS = 1500;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /* An invitation accepted by somebody mid-game waits for their board to clear.
    Long enough for a real game to finish, short enough that a forgotten
    agreement does not pull two people into a room an hour later. */
@@ -157,6 +175,70 @@ function mentioned(text, exceptUserId) {
     return found;
 }
 
+/* What can follow a name without being part of it. */
+const NAME_ENDS = /[^a-z0-9_-]/;
+
+/**
+ * Who a message names among the people who are not here.
+ *
+ * mentioned() can only match the names it can see, and somebody who is away is
+ * exactly who a notification is for. So every way the text after an "@" could
+ * end as a name — "@Jean", "@Jean Luc" — is looked up at once, and at each "@"
+ * the longest that belongs to an account wins, the same rule as above.
+ */
+async function mentionedAway(text, exceptUserId) {
+    const lower = text.toLowerCase();
+    const candidates = new Set();
+    for (let i = lower.indexOf('@'); i !== -1 && candidates.size < 60; i = lower.indexOf('@', i + 1)) {
+        const after = lower.slice(i + 1, i + 31);
+        for (let end = 1; end <= after.length; end++) {
+            if (end === after.length || NAME_ENDS.test(after[end])) {
+                const name = after.slice(0, end).trim();
+                if (name.length >= 3) candidates.add(name);
+            }
+        }
+    }
+    if (!candidates.size) return new Set();
+    let rows;
+    try {
+        ({ rows } = await query(
+            'SELECT id, pseudo FROM users WHERE LOWER(pseudo) = ANY($1::text[])', [[...candidates]]));
+    } catch {
+        return new Set();            // no database, or not now: nobody is told
+    }
+    const byName = rows.map((row) => ({ name: String(row.pseudo).toLowerCase(), id: row.id }))
+        .sort((a, b) => b.name.length - a.name.length);
+    const found = new Set();
+    for (let i = lower.indexOf('@'); i !== -1; i = lower.indexOf('@', i + 1)) {
+        const after = lower.slice(i + 1, i + 31);
+        const hit = byName.find(({ name }) => after.startsWith(name)
+            && (after.length === name.length || NAME_ENDS.test(after[name.length])));
+        if (hit && hit.id !== exceptUserId) found.add(hit.id);
+    }
+    return found;
+}
+
+/**
+ * Somebody not on the site who could still be asked, or null.
+ *
+ * Only those who have switched notifications on and left challenges on: for
+ * anyone else a challenge would sit in memory for ten minutes reaching nobody.
+ */
+async function reachableAccount(userId) {
+    if (!userId || (database.hasDatabase() && !UUID.test(userId))) return null;
+    if (!(await push.reachable(userId, 'challenge'))) return null;
+    try {
+        const { rows } = await query('SELECT id, pseudo, elo FROM users WHERE id = $1', [userId]);
+        if (!rows.length) return null;
+        return { userId: rows[0].id, pseudo: rows[0].pseudo, elo: rows[0].elo, socketId: null };
+    } catch {
+        return null;
+    }
+}
+
+/** A short line of chat, for a notification: the start of it is enough to decide. */
+const excerpt = (text) => (text.length > 120 ? `${text.slice(0, 117)}…` : text);
+
 /*
  * Who is here, and what each of them is doing.
  *
@@ -269,7 +351,48 @@ function attachLobby(io) {
         });
         send(black, 0, white);
         send(white, 1, black);
+        /* Whichever of the two is not looking has a board waiting with their
+           name on it — the one who asked, usually, gone to make a coffee. */
+        for (const [person, opponent] of [[black, white], [white, black]]) {
+            tell(io, person.userId, 'ready', { name: opponent.pseudo },
+                { url: `/#/play?online=1&code=${room.code}`, tag: 'challenge', topic: 'challenge' });
+        }
         return { room, black, white };
+    }
+
+    /**
+     * Carry a challenge to somebody's phone.
+     *
+     * Another person's button pulls this one, so it is rationed: one per pair
+     * every five minutes, six an hour for anybody being asked, and past that
+     * the challenge still stands but nothing more buzzes.
+     */
+    function tellChallenge(challenge) {
+        const { from, to } = challenge;
+        if (!push.allow(`challenge:${from.userId}:${to.userId}`, 1, 5 * 60 * 1000)) return;
+        if (!push.allow(`challenged:${to.userId}`, 6, 60 * 60 * 1000)) return;
+        tell(io, to.userId, 'challenge', (language) => ({
+            name: from.pseudo,
+            elo: from.elo,
+            cadence: push.cadenceName(language, challenge.timeControl),
+        }), { url: `/#/online?challenge=${challenge.id}`, tag: 'challenge', topic: 'challenge' });
+    }
+
+    /**
+     * A call in the chat, carried to a phone: to whoever is named and not
+     * looking, here or not. One per pair every two minutes, so a conversation
+     * that keeps saying somebody's name does not keep ringing their pocket.
+     */
+    async function tellMentioned(message, named) {
+        if (!push.enabled() || !message.text.includes('@')) return;
+        const everyone = new Set(named);
+        for (const userId of await mentionedAway(message.text, message.userId)) everyone.add(userId);
+        for (const userId of everyone) {
+            if (!push.allow(`mention:${message.userId}:${userId}`, 1, 2 * 60 * 1000)) continue;
+            if (!push.allow(`mentioned:${userId}`, 10, 60 * 60 * 1000)) continue;
+            tell(io, userId, 'mention', { name: message.pseudo, text: excerpt(message.text) },
+                { url: '/#/online', tag: 'mention', topic: 'mention' });
+        }
     }
 
     /* A finished game frees two people; any agreement waiting on either of
@@ -280,8 +403,21 @@ function attachLobby(io) {
     });
 
     /* Signing in, signing out, sitting down at a board: the list is who is here
-       and what they are doing, so it is redrawn whenever either moves. */
-    onPresenceChange(() => announce());
+       and what they are doing, so it is redrawn whenever either moves.
+
+       And somebody arriving may be the one a game is waiting for: the person
+       who asked, told by notification that their challenge was accepted while
+       they were away. Their page is still loading, so the room opens a moment
+       later rather than before it can hear about it. */
+    onPresenceChange((userId, status) => {
+        announce();
+        if (status !== 'free') return;
+        for (const [id, deal] of agreements) {
+            if (deal.from.userId !== userId && deal.to.userId !== userId) continue;
+            const timer = setTimeout(() => tryStartAgreement(id), RETURN_SETTLE_MS);
+            if (timer.unref) timer.unref();
+        }
+    });
 
     io.on('connection', (socket) => {
         const reply = (callback, payload) => {
@@ -369,20 +505,33 @@ function attachLobby(io) {
                them: the lobby is a room people are mostly not looking at. Sent
                through toUser rather than to the lobby, so it reaches a player
                in the middle of a local game. */
-            for (const userId of mentioned(text, user.userId)) {
+            const named = mentioned(text, user.userId);
+            for (const userId of named) {
                 toUser(userId, 'hx:mention', { message });
             }
             reply(callback, { ok: true });
+            tellMentioned(message, named);        // not awaited: the chat does not wait on phones
         });
 
         /** Invite one named player to a game at a cadence you choose. */
-        socket.on('hx:challenge', (payload, callback) => {
+        socket.on('hx:challenge', async (payload, callback) => {
             const user = socket.data.user;
             if (!user) return reply(callback, { ok: false, error: 'SIGN_IN_REQUIRED' });
             const targetId = String((payload && payload.userId) || '');
             if (targetId === user.userId) return reply(callback, { ok: false, error: 'NOT_YOURSELF' });
-            const target = online.get(targetId);
-            if (!target) return reply(callback, { ok: false, error: 'NOT_HERE' });
+            /*
+             * Somebody not on the site can still be asked, if they have said
+             * they want to be told: the question goes to their phone. Anybody
+             * else is not here, as before.
+             */
+            let target = online.get(targetId);
+            if (!target) {
+                const account = await reachableAccount(targetId);
+                if (!account) return reply(callback, { ok: false, error: 'NOT_HERE' });
+                // They may have arrived while we looked them up.
+                target = online.get(targetId) || account;
+            }
+            const away = !target.socketId;
 
             /*
              * One at a time, in both directions. A repeated click resends
@@ -405,6 +554,9 @@ function attachLobby(io) {
 
             const id = String(nextChallengeId++);
             const timeControl = String((payload && payload.timeControl) || 'rapid');
+            /* Looking at the site, they answer within the minute or not at
+               all. Anywhere else the question has to reach them first. */
+            const looking = !away && attentive(io, target.userId);
             const challenge = {
                 id,
                 from: { userId: user.userId, pseudo: user.pseudo, elo: user.elo },
@@ -412,25 +564,30 @@ function attachLobby(io) {
                 timeControl,
                 at: Date.now(),
                 timer: null,
+                notified: !looking,
             };
-            challenge.timer = setTimeout(
-                () => dropChallenge(id, 'hx:challenge:expired'), CHALLENGE_TTL_MS);
+            challenge.timer = setTimeout(() => dropChallenge(id, 'hx:challenge:expired'),
+                looking ? CHALLENGE_TTL_MS : NOTIFIED_CHALLENGE_TTL_MS);
             if (challenge.timer.unref) challenge.timer.unref();
             challenges.set(id, challenge);
 
-            io.to(target.socketId).emit('hx:challenge:incoming', {
-                id, from: challenge.from, timeControl,
-                // Said plainly, so the answer can be an informed yes: accepting
-                // while at another board schedules the game rather than
-                // starting it.
-                busy: isPlaying(target.userId),
-            });
+            if (!away) {
+                io.to(target.socketId).emit('hx:challenge:incoming', {
+                    id, from: challenge.from, timeControl,
+                    // Said plainly, so the answer can be an informed yes: accepting
+                    // while at another board schedules the game rather than
+                    // starting it.
+                    busy: isPlaying(target.userId),
+                });
+            }
+            if (!looking) tellChallenge(challenge);
             toUser(user.userId, 'hx:challenge:sent', {
                 id,
                 to: { pseudo: challenge.to.pseudo, elo: challenge.to.elo },
                 timeControl,
+                away,
             });
-            reply(callback, { ok: true, id, busy: isPlaying(target.userId) });
+            reply(callback, { ok: true, id, busy: !away && isPlaying(target.userId), away });
         });
 
         socket.on('hx:challenge:accept', async (payload, callback) => {
@@ -440,9 +597,43 @@ function attachLobby(io) {
             if (!challenge) return reply(callback, { ok: false, error: 'NO_SUCH_CHALLENGE' });
             if (challenge.to.userId !== user.userId) return reply(callback, { ok: false, error: 'NOT_YOURS' });
 
+            /*
+             * The one who asked has left. If they can be told, the yes is
+             * kept and carried to their phone, and the game opens the moment
+             * they are back — the person who answered a notification should
+             * not be the one told "too late". If they cannot be told, it is
+             * over, as before.
+             */
             if (!online.has(challenge.from.userId)) {
-                dropChallenge(challenge.id, null);
-                return reply(callback, { ok: false, error: 'NOT_HERE' });
+                const canTell = await push.reachable(challenge.from.userId, 'accepted');
+                if (!challenges.has(challenge.id)) {
+                    return reply(callback, { ok: false, error: 'NO_SUCH_CHALLENGE' });
+                }
+                if (!canTell) {
+                    dropChallenge(challenge.id, null);
+                    return reply(callback, { ok: false, error: 'NOT_HERE' });
+                }
+                if (!online.has(challenge.from.userId)) {
+                    clearTimeout(challenge.timer);
+                    challenges.delete(challenge.id);
+                    const deal = { ...challenge, timer: null, agreedAt: Date.now(), notified: true };
+                    deal.timer = setTimeout(
+                        () => dropChallenge(deal.id, 'hx:challenge:expired'), RETURN_TTL_MS);
+                    if (deal.timer.unref) deal.timer.unref();
+                    agreements.set(deal.id, deal);
+                    toUser(user.userId, 'hx:challenge:agreed', {
+                        id: deal.id,
+                        timeControl: deal.timeControl,
+                        opponent: { pseudo: deal.from.pseudo, elo: deal.from.elo },
+                        youAccepted: true,
+                        away: true,
+                        watchCode: null,
+                    });
+                    tell(io, deal.from.userId, 'accepted', { name: user.pseudo },
+                        { url: '/#/online', tag: 'challenge', topic: 'challenge' });
+                    return reply(callback, { ok: true, deferred: true, away: true, id: deal.id });
+                }
+                // Back while we asked: carry on as if they had never left.
             }
 
             clearTimeout(challenge.timer);
@@ -509,6 +700,7 @@ function attachLobby(io) {
                         id: challenge.id,
                         to: { pseudo: challenge.to.pseudo, elo: challenge.to.elo },
                         timeControl: challenge.timeControl,
+                        away: !online.has(challenge.to.userId),
                     };
                 }
             }
@@ -522,6 +714,8 @@ function attachLobby(io) {
                     timeControl: deal.timeControl,
                     opponent: { pseudo: mine.pseudo, elo: mine.elo },
                     youAccepted: true,      // nothing new happened; say nothing about it
+                    // Waiting on somebody who is not on the site, and has been told.
+                    away: !online.has(mine.userId),
                     watchCode: theirs && !roomOf(user.userId) ? theirs.code : null,
                 };
             }
@@ -560,6 +754,10 @@ function attachLobby(io) {
             if (!entry || entry.socketId !== socket.id) return;   // another tab holds it
             present.delete(user.userId);
             for (const challenge of [...challenges.values(), ...agreements.values()]) {
+                /* One carried to a phone keeps its own ten minutes: closing
+                   the lobby is not taking it back, and accepting it copes with
+                   whoever asked having gone. */
+                if (challenge.notified) continue;
                 if (challenge.from.userId === user.userId || challenge.to.userId === user.userId) {
                     dropChallenge(challenge.id, 'hx:challenge:expired');
                 }
@@ -574,5 +772,5 @@ function attachLobby(io) {
 module.exports = {
     attachLobby, present, challenges, agreements, chat, roster, liveGames, loadChat,
     pruneChat, CHAT_LIFETIME_MS,
-    CHALLENGE_TTL_MS, PUSH_MS,
+    CHALLENGE_TTL_MS, NOTIFIED_CHALLENGE_TTL_MS, RETURN_TTL_MS, PUSH_MS, mentionedAway,
 };

@@ -288,7 +288,31 @@
     "textSize": "Taille du texte",
     "textSizeHint": "Plus grand pour les étiquettes, les compteurs et l'historique.",
     "textNormal": "Normale",
-    "textLarge": "Grande"
+    "textLarge": "Grande",
+    "notifications": "Notifications",
+    "notifyDevice": "Notifications sur cet appareil",
+    "notifyDeviceHint": "Un mot quand on vous défie ou que c’est à vous de jouer, même quand Hexaequo est fermé.",
+    "notifyOnHint": "Activées. Le son, la bannière et la pastille se règlent dans les réglages de l’appareil.",
+    "notifyAsking": "Répondez à la question de votre appareil…",
+    "notifyDenied": "Bloquées pour ce site. Autorisez-les dans les réglages du navigateur ou du téléphone, puis revenez ici.",
+    "notifyInstall": "Sur iPhone et iPad, ajoutez d’abord Hexaequo à l’écran d’accueil (Partager → Sur l’écran d’accueil), puis ouvrez-le depuis son icône.",
+    "notifyUnsupported": "Ce navigateur ne reçoit pas de notifications.",
+    "notifySignIn": "Connectez-vous pour en recevoir : elles sont adressées à votre compte.",
+    "notifyUnavailable": "Indisponibles pour le moment.",
+    "notifyFailed": "L’activation n’a pas abouti. Réessayez dans un instant.",
+    "notifyChallenges": "Défis",
+    "notifyChallengesHint": "Quand quelqu’un vous défie, même si vous n’êtes pas en ligne, ou qu’une partie convenue commence.",
+    "notifyGames": "Parties en cours",
+    "notifyGamesHint": "À vous de jouer, et le compte à rebours si vous quittez une partie.",
+    "notifyMentions": "Mentions",
+    "notifyMentionsHint": "Quand quelqu’un écrit votre @pseudo dans le salon.",
+    "notifyReminders": "Rappels",
+    "notifyRemindersHint": "Un mot après quelques jours sans venir, en début de soirée. Jamais la nuit.",
+    "notifyTest": "Essayer",
+    "notifyTestHint": "Une notification d’essai arrive quelques secondes après : fermez l’app pour la voir comme une vraie.",
+    "notifyTestAction": "Envoyer un essai",
+    "notifyTestSent": "Envoyée. Elle arrive dans quelques secondes.",
+    "notifyTestFailed": "L’essai n’a pas pu partir."
   },
   "rules": {
     "title": "Règles",
@@ -558,7 +582,8 @@
     "theirRecord": "Son bilan",
     "mine": "Mon profil",
     "gamesOne": "{n} partie",
-    "pliesOne": "{n} coup"
+    "pliesOne": "{n} coup",
+    "notifiable": "Pas en ligne, mais recevra votre défi par notification."
   },
   "mail": {
     "verifyTitle": "Confirmation de votre adresse",
@@ -603,7 +628,11 @@
     "seeInvite": "Voir l'invitation",
     "withdrawn": "Le défi a été annulé.",
     "seekIdle": "Personne pour l'instant — la recherche continue.",
-    "seekComputer": "Jouer contre l'ordinateur en attendant"
+    "seekComputer": "Jouer contre l'ordinateur en attendant",
+    "sentAway": "{name} n’est pas en ligne : une notification lui a été envoyée. Le défi tient 10 minutes.",
+    "waitingOnAway": "Défi envoyé à {name} par notification, en attente de sa réponse",
+    "agreedAway": "{name} a reçu une notification : la partie s’ouvrira dès son retour.",
+    "gone": "Ce défi n’est plus valable : il a expiré ou a été retiré."
   },
   "watch": {
     "badge": "SPECTATEUR",
@@ -614,5 +643,40 @@
     "liveTitle": "Parties en cours",
     "liveCount": "{n} parties",
     "liveCountOne": "{n} partie"
+  },
+  "push": {
+    "challenge": {
+      "title": "{name} ({elo}) vous défie",
+      "body": "{cadence}. Le défi tient 10 minutes."
+    },
+    "accepted": {
+      "title": "{name} a accepté votre défi",
+      "body": "La partie vous attend : revenez dans les 10 minutes pour la commencer."
+    },
+    "ready": {
+      "title": "Votre partie commence",
+      "body": "{name} est au plateau. Rejoignez la partie."
+    },
+    "turn": {
+      "title": "À vous de jouer",
+      "body": "{name} a joué.",
+      "bodyClock": "{name} a joué. Il vous reste {time} à la pendule."
+    },
+    "comeBack": {
+      "title": "Votre partie vous attend",
+      "body": "Il vous reste {time} pour revenir, sinon la partie contre {name} est perdue par abandon."
+    },
+    "mention": {
+      "title": "{name} parle de vous dans le salon",
+      "body": "{text}"
+    },
+    "reminder": {
+      "title": "Une partie ?",
+      "body": "Cela fait {n} jours. Quelqu’un au salon, ou l’ordinateur : le plateau vous attend."
+    },
+    "test": {
+      "title": "Hexaequo",
+      "body": "Les notifications fonctionnent sur cet appareil."
+    }
   }
 }

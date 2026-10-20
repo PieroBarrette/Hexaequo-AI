@@ -288,7 +288,31 @@
     "textSize": "Text size",
     "textSizeHint": "Larger labels, counts and move list.",
     "textNormal": "Normal",
-    "textLarge": "Large"
+    "textLarge": "Large",
+    "notifications": "Notifications",
+    "notifyDevice": "Notifications on this device",
+    "notifyDeviceHint": "A word when someone challenges you or it is your move, even with Hexaequo closed.",
+    "notifyOnHint": "On. Sound, banner and badge are set in the device’s own settings.",
+    "notifyAsking": "Answer your device’s question…",
+    "notifyDenied": "Blocked for this site. Allow them in your browser or phone settings, then come back here.",
+    "notifyInstall": "On iPhone and iPad, first add Hexaequo to your Home Screen (Share → Add to Home Screen), then open it from its icon.",
+    "notifyUnsupported": "This browser cannot receive notifications.",
+    "notifySignIn": "Sign in to receive them: they are addressed to your account.",
+    "notifyUnavailable": "Unavailable for now.",
+    "notifyFailed": "Turning them on did not work. Try again in a moment.",
+    "notifyChallenges": "Challenges",
+    "notifyChallengesHint": "When someone challenges you, even while you are offline, or an agreed game starts.",
+    "notifyGames": "Games in progress",
+    "notifyGamesHint": "Your move, and the countdown if you leave a game.",
+    "notifyMentions": "Mentions",
+    "notifyMentionsHint": "When someone writes your @name in the lobby.",
+    "notifyReminders": "Reminders",
+    "notifyRemindersHint": "A word after a few days away, in the early evening. Never at night.",
+    "notifyTest": "Try it",
+    "notifyTestHint": "A test notification arrives a few seconds later: close the app to see it as a real one.",
+    "notifyTestAction": "Send a test",
+    "notifyTestSent": "Sent. It arrives in a few seconds.",
+    "notifyTestFailed": "The test could not be sent."
   },
   "rules": {
     "title": "Rules",
@@ -558,7 +582,8 @@
     "theirRecord": "Their record",
     "mine": "My profile",
     "gamesOne": "{n} game",
-    "pliesOne": "{n} move"
+    "pliesOne": "{n} move",
+    "notifiable": "Not online, but will get your challenge as a notification."
   },
   "mail": {
     "verifyTitle": "Confirming your address",
@@ -603,7 +628,11 @@
     "seeInvite": "See the invitation",
     "withdrawn": "The challenge was withdrawn.",
     "seekIdle": "Nobody yet — the search goes on.",
-    "seekComputer": "Play the computer while you wait"
+    "seekComputer": "Play the computer while you wait",
+    "sentAway": "{name} is not online: a notification has been sent. The challenge stands for 10 minutes.",
+    "waitingOnAway": "Challenge sent to {name} by notification, waiting for an answer",
+    "agreedAway": "{name} has been notified: the game opens as soon as they are back.",
+    "gone": "This challenge no longer stands: it expired or was withdrawn."
   },
   "watch": {
     "badge": "WATCHING",
@@ -614,5 +643,40 @@
     "liveTitle": "Games in progress",
     "liveCount": "{n} games",
     "liveCountOne": "{n} game"
+  },
+  "push": {
+    "challenge": {
+      "title": "{name} ({elo}) challenges you",
+      "body": "{cadence}. The challenge stands for 10 minutes."
+    },
+    "accepted": {
+      "title": "{name} accepted your challenge",
+      "body": "The game is waiting: come back within 10 minutes to start it."
+    },
+    "ready": {
+      "title": "Your game is starting",
+      "body": "{name} is at the board. Join the game."
+    },
+    "turn": {
+      "title": "Your move",
+      "body": "{name} has played.",
+      "bodyClock": "{name} has played. You have {time} on the clock."
+    },
+    "comeBack": {
+      "title": "Your game is waiting",
+      "body": "You have {time} to come back, or the game against {name} is lost by abandonment."
+    },
+    "mention": {
+      "title": "{name} mentioned you in the lobby",
+      "body": "{text}"
+    },
+    "reminder": {
+      "title": "Fancy a game?",
+      "body": "It has been {n} days. Someone in the lobby, or the computer: the board is waiting."
+    },
+    "test": {
+      "title": "Hexaequo",
+      "body": "Notifications work on this device."
+    }
   }
 }

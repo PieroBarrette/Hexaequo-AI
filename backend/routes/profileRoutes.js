@@ -12,6 +12,7 @@ const express = require('express');
 const router = express.Router();
 const { authenticate, optionalAuth } = require('../middleware/authMiddleware');
 const profile = require('../services/profileService');
+const push = require('../services/pushService');
 
 const fail = (res, code, message) => res.status(code).json({ error: message });
 
@@ -58,6 +59,10 @@ router.get('/:id', optionalAuth, async (req, res, next) => {
         // person looking and they have met.
         data.versus = req.user ? await profile.versus(req.user.id, req.params.id) : null;
         data.isYou = Boolean(req.user && req.user.id === req.params.id);
+        /* Whether a challenge would reach them when they are not on the site:
+           only somebody signed in can send one, so only they are told. */
+        data.notifiable = Boolean(req.user && !data.isYou)
+            && await push.reachable(req.params.id, 'challenge');
         res.json(data);
     } catch (error) { next(error); }
 });

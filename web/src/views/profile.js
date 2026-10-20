@@ -115,12 +115,14 @@ export function mountProfile(outlet, params) {
   /**
    * Whether there is anybody here to ask.
    *
-   * Offline is not a maybe: an invitation lives in memory and expires in a
-   * minute, so there is nobody for it to reach. Amber is fine — somebody at a
-   * board can agree to the game after this one.
+   * Amber is fine — somebody at a board can agree to the game after this one.
+   * Offline used to be a closed door, the invitation having nobody to reach;
+   * it still is, unless they have notifications on, in which case the question
+   * goes to their phone and waits ten minutes for them.
    */
+  const reachableAway = () => Boolean(stats && stats.notifiable) && presenceOf(who) === 'offline';
   const canChallenge = () =>
-    someoneElse() && isSignedIn() && presenceOf(who) !== 'offline';
+    someoneElse() && isSignedIn() && (presenceOf(who) !== 'offline' || reachableAway());
 
   /** The cadences a challenge can be played at: every one with a clock. */
   function cadenceChoice() {
@@ -154,6 +156,9 @@ export function mountProfile(outlet, params) {
     : ''}
         </div>
         ${canChallenge() && choosing ? cadenceChoice() : ''}
+        ${reachableAway() && isSignedIn() && !notice
+    ? `<p class="muted-small" style="margin:8px 0 0">${t('profile.notifiable')}</p>`
+    : ''}
         ${notice ? `<p class="lede" style="margin:8px 0 0">${escapeText(notice)}</p>` : ''}
       </div>`;
   }
@@ -438,8 +443,9 @@ export function mountProfile(outlet, params) {
   /**
    * Ask this player for a game.
    *
-   * A challenge is delivered to somebody who is in the lobby; if they are not
-   * there, say so plainly rather than pretending it went.
+   * A challenge is delivered to somebody on the site, or to the phone of
+   * somebody away who has notifications on; anybody else is not there, and
+   * that is said plainly rather than pretending it went.
    */
   async function challenge(timeControl) {
     if (!who || !isSignedIn()) return;
@@ -448,11 +454,14 @@ export function mountProfile(outlet, params) {
     try {
       await connect();
       const response = await request('hx:challenge', { userId: who, timeControl });
+      const name = stats ? stats.pseudo : '';
       notice = !response.ok
         ? t('online.errors.' + response.error)
-        : (presenceOf(who) === 'playing'
-          ? t('challenge.sentToBusy', { name: stats ? stats.pseudo : '' })
-          : t('lobby.challengeSent', { name: stats ? stats.pseudo : '' }));
+        : (response.away
+          ? t('challenge.sentAway', { name })
+          : (presenceOf(who) === 'playing'
+            ? t('challenge.sentToBusy', { name })
+            : t('lobby.challengeSent', { name })));
     } catch {
       notice = t('online.errors.OFFLINE');
     }

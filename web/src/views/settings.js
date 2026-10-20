@@ -6,6 +6,13 @@ import { play, setVolume } from '../audio.js';
 import { miniBoardSvg } from '../ui/miniBoard.js';
 import { checkNow, serverBuild } from '../update.js';
 import { BLACK, WHITE, DISK, RING } from '../game/state.js';
+import {
+  deviceState, enable as enablePush, disable as disablePush, sendTest as sendPushTest,
+} from '../push.js';
+import { onAuthChange } from '../auth.js';
+
+const escapeText = (value) => String(value).replace(/[&<>"']/g, (c) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 /** Deferred install prompt, captured in main.js. */
 let installPrompt = null;
@@ -70,6 +77,73 @@ function row(titleKey, hintKey, control) {
 }
 
 export function mountSettings(outlet) {
+  /* What this device says about notifications, asked once and again after
+     anything that could change the answer. Null until the first answer. */
+  let device = null;
+  let pushBusy = false;
+  let pushNote = '';
+
+  async function refreshDevice() {
+    device = await deviceState().catch(() => null);
+    render();
+  }
+
+  /**
+   * The notifications section.
+   *
+   * One switch for this device, and under it — once it is on — one per kind
+   * of notification. Where the switch cannot work, the row says why and what
+   * to do instead, rather than offering something that would do nothing: an
+   * iPhone in a Safari tab, a browser that cannot, a refusal already given.
+   */
+  function notificationRows() {
+    const say = (hintKey, control = '') => row('settings.notifyDevice', hintKey, control);
+    if (!device) return say('settings.notifyDeviceHint', '<span class="setting-label"><small>…</small></span>');
+    if (device.support === 'install') return say('settings.notifyInstall');
+    if (device.support !== 'ok') return say('settings.notifyUnsupported');
+    if (!device.available) return say('settings.notifyUnavailable');
+    if (!device.signedIn) {
+      return say('settings.notifySignIn', `<button class="btn" data-action="sign-in">${t('account.signIn')}</button>`);
+    }
+    if (device.permission === 'denied') return say('settings.notifyDenied');
+
+    const hint = pushBusy ? 'settings.notifyAsking'
+      : (device.on ? 'settings.notifyOnHint' : 'settings.notifyDeviceHint');
+    let out = say(hint, `<button class="switch" role="switch" data-toggle="notifications"`
+      + ` aria-checked="${device.on ? 'true' : 'false'}" aria-label="${t('settings.notifyDevice')}"`
+      + `${pushBusy ? ' aria-busy="true"' : ''}></button>`);
+    if (device.on) {
+      for (const name of ['notifyChallenges', 'notifyGames', 'notifyMentions', 'notifyReminders']) {
+        out += row(`settings.${name}`, `settings.${name}Hint`, toggle(name, getSetting(name)));
+      }
+      out += row('settings.notifyTest', 'settings.notifyTestHint',
+        `<button class="btn" data-action="push-test">${t('settings.notifyTestAction')}</button>`);
+    }
+    if (pushNote) {
+      out += `<p class="lede push-note" style="font-size:12px;margin-top:-4px">${escapeText(pushNote)}</p>`;
+    }
+    return out;
+  }
+
+  /*
+   * Called straight from the tap, with nothing awaited first: the permission
+   * question only appears inside the gesture that asked for it.
+   */
+  function togglePush() {
+    if (pushBusy || !device) return;
+    const job = device.on ? disablePush() : enablePush();
+    pushBusy = true;
+    pushNote = '';
+    render();
+    job.then((answer) => {
+      pushBusy = false;
+      if (answer && !answer.ok && !['DENIED', 'DISMISSED'].includes(answer.error)) {
+        pushNote = t('settings.notifyFailed');
+      }
+      return refreshDevice();
+    });
+  }
+
   function render() {
     const installable = !!installPrompt;
     const standalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
@@ -130,6 +204,9 @@ export function mountSettings(outlet) {
           { value: 2, label: t('game.levelMedium') },
           { value: 3, label: t('game.levelStrong') }]))}
 
+        <h2>${t('settings.notifications')}</h2>
+        ${notificationRows()}
+
         <h2>${t('update.heading')}</h2>
         ${row('update.heading', 'update.hint',
           `<button class="btn" data-action="check-update">${t('update.check')}</button>`)}
@@ -146,6 +223,13 @@ export function mountSettings(outlet) {
   }
 
   render();
+  refreshDevice();
+
+  /* Signing in or out changes what the switch can be; so does coming back from
+     the system's settings, where the permission may just have been granted. */
+  const stopAuth = onAuthChange(() => refreshDevice());
+  const onReturn = () => { if (document.visibilityState === 'visible') refreshDevice(); };
+  document.addEventListener('visibilitychange', onReturn);
 
   /* The build the server is on. Useful when someone reports a problem that was
      fixed a week ago: the number says whether they are actually running it. */
@@ -172,12 +256,27 @@ export function mountSettings(outlet) {
       || (switchRow ? switchRow.querySelector('[data-toggle]') : null);
     if (sw) {
       const name = sw.getAttribute('data-toggle');
-      setSetting(name, !getSetting(name));
       play('ui');
+      // Not a setting: the device itself, its permission and subscription.
+      if (name === 'notifications') { togglePush(); return; }
+      setSetting(name, !getSetting(name));
       render();
       return;
     }
     const action = event.target.closest('[data-action]');
+    if (action && action.getAttribute('data-action') === 'sign-in') {
+      /* Imported when pressed: the panels module imports this view, and
+         importing it back at load would tie the two in a circle. */
+      import('../ui/panels.js').then(({ openPanel }) => openPanel('account'));
+      return;
+    }
+    if (action && action.getAttribute('data-action') === 'push-test') {
+      action.disabled = true;
+      const answer = await sendPushTest();
+      pushNote = answer.ok ? t('settings.notifyTestSent') : t('settings.notifyTestFailed');
+      render();
+      return;
+    }
     if (action && action.getAttribute('data-action') === 'check-update') {
       const line = outlet.querySelector('.version-line');
       const button = action;
@@ -222,4 +321,9 @@ export function mountSettings(outlet) {
   outlet.addEventListener('change', (event) => {
     if (event.target.closest('[data-range]')) play('ui');
   });
+
+  return () => {
+    stopAuth();
+    document.removeEventListener('visibilitychange', onReturn);
+  };
 }
