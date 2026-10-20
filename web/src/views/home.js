@@ -1,4 +1,4 @@
-/** Home screen: the mark, and the four ways into the site. */
+/** Home screen: the mark, the ways into the site, and what the game is. */
 
 import { t } from '../i18n.js';
 import { isSignedIn, onAuthChange } from '../auth.js';
@@ -17,12 +17,27 @@ export function mountHome(outlet) {
       node.hidden = !isSignedIn();
     }
   };
+  /*
+   * What the game is, under the menu rather than above it.
+   *
+   * Search engines run this script and index what it leaves, not the copy in
+   * index.html, so this is the description they read — and it needs real
+   * addresses to follow, the published pages in the language on screen. The
+   * menu comes first because a returning player wants the buttons; the
+   * tagline over it already says what the game is in one line, so the text
+   * below goes on from there rather than saying it again.
+   *
+   * The links in the footer are addresses for the same reason. In the app
+   * they still switch the language and open the policies in place; only a
+   * click meant for a new tab follows the href.
+   */
+  const fr = getSetting('language') === 'fr';
+  const page = (en, french) => (fr ? french : en);
   outlet.innerHTML = `
     <div class="home">
       <div class="home-inner">
-      ${logoLockupHtml('lg')}
+      ${logoLockupHtml('lg', 'h1')}
       <p class="lede">${t('meta.tagline')}</p>
-      <p class="home-purpose">${t('home.purpose')}</p>
       <nav class="home-menu">
         <p class="home-heading">${t('home.play')}</p>
         <div class="home-pair">
@@ -36,10 +51,19 @@ export function mountHome(outlet) {
         <button class="btn" data-panel="rules">${t('home.rules')}</button>
         <button class="btn" data-panel="settings">${t('home.settings')}</button>
       </nav>
+      <section class="home-about">
+        <p>${t('home.about')}</p>
+        <p>${t('home.ways')}</p>
+        <p class="home-links">
+          <a href="${page('/rules/', '/fr/regles/')}" data-panel="rules">${t('home.fullRules')}</a>
+          <a href="${page('/play/', '/fr/jouer/')}">${t('home.more')}</a>
+        </p>
+      </section>
       <div class="home-foot">
-        <button data-action="lang">${getSetting('language') === 'fr' ? 'English' : 'Français'}</button>
-        <button data-go="privacy">${t('nav.privacy')}</button>
-        <button data-go="terms">${t('nav.terms')}</button>
+        <a href="${page('/fr/jouer/', '/play/')}" hreflang="${page('fr', 'en')}"
+           data-action="lang">${page('Français', 'English')}</a>
+        <a href="${page('/privacy/', '/fr/confidentialite/')}" data-go="privacy">${t('nav.privacy')}</a>
+        <a href="${page('/terms/', '/fr/conditions/')}" data-go="terms">${t('nav.terms')}</a>
         <button data-action="theme">${resolvedTheme() === 'dark' ? '☀' : '☾'}</button>
       </div>
       <p class="home-credit">${t('home.credit')}</p>
@@ -58,22 +82,22 @@ export function mountHome(outlet) {
  */
 
   outlet.addEventListener('click', (event) => {
-    const panel = event.target.closest('[data-panel]');
-    if (panel) {
-      play('ui');
-      openPanel(panel.getAttribute('data-panel'));
-      return;
+    const hit = event.target.closest('[data-panel], [data-go], [data-action]');
+    if (!hit) return;
+    if (hit.tagName === 'A') {
+      if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
     }
-    const go = event.target.closest('[data-go]');
-    if (go) {
-      play('ui');
-      navigate(go.getAttribute('data-go'));
-      return;
-    }
-    const action = event.target.closest('[data-action]');
-    if (!action) return;
     play('ui');
-    if (action.getAttribute('data-action') === 'lang') {
+    if (hit.hasAttribute('data-panel')) {
+      openPanel(hit.getAttribute('data-panel'));
+      return;
+    }
+    if (hit.hasAttribute('data-go')) {
+      navigate(hit.getAttribute('data-go'));
+      return;
+    }
+    if (hit.getAttribute('data-action') === 'lang') {
       setSetting('language', getSetting('language') === 'fr' ? 'en' : 'fr');
     } else {
       setSetting('theme', resolvedTheme() === 'dark' ? 'light' : 'dark');

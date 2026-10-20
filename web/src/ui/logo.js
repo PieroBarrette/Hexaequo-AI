@@ -34,6 +34,8 @@ const CELLS = [
  * @param {object} [options]
  * @param {boolean} [options.solid] use literal black and white instead of theme
  *        tokens — for the favicon and social previews
+ * @param {boolean} [options.decorative] hide the mark from assistive
+ *        technology, for when the name is written out beside it
  */
 export function logoMarkSvg(options = {}) {
   const dark = options.solid ? '#000000' : 'var(--tile-dark)';
@@ -66,13 +68,22 @@ export function logoMarkSvg(options = {}) {
   const minY = cy(0, 0) - SIZE - pad;
   const maxY = cy(0, 1) + SIZE + pad;
 
+  const label = options.decorative ? 'aria-hidden="true"' : 'role="img" aria-label="Hexaequo"';
   return `<svg class="logo-mark" viewBox="${minX.toFixed(1)} ${minY.toFixed(1)}`
        + ` ${(maxX - minX).toFixed(1)} ${(maxY - minY).toFixed(1)}"`
-       + ` xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Hexaequo">${body}</svg>`;
+       + ` xmlns="http://www.w3.org/2000/svg" ${label}>${body}</svg>`;
 }
 
-/** Mark plus wordmark, for the home page and the site header. */
-export function logoLockupHtml(size = 'lg') {
-  return `<div class="logo logo--${size}">${logoMarkSvg()}`
-       + `<span class="logo-word">HEXAEQUO</span></div>`;
+/**
+ * Mark plus wordmark, for the home page.
+ *
+ * The word is written as a name and drawn in capitals by the stylesheet, so
+ * that a reader taking the text — a crawler, a screen reader — finds
+ * "Hexaequo" rather than eight letters to spell out. The home page passes
+ * 'h1': once the app has replaced the pre-boot copy, the mark is the only
+ * thing left on that page to say what it is called.
+ */
+export function logoLockupHtml(size = 'lg', tag = 'div') {
+  return `<${tag} class="logo logo--${size}">${logoMarkSvg({ decorative: true })}`
+       + `<span class="logo-word">Hexaequo</span></${tag}>`;
 }

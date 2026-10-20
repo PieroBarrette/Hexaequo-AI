@@ -116,29 +116,35 @@
 <!--
   The app replaces this the moment it boots. It exists because anything that
   reads the page without running JavaScript — Google's OAuth branding review,
-  link previews, search crawlers — would otherwise find an empty document, and
-  could neither confirm the site is called Hexaequo nor tell what it is for.
+  link previews, search crawlers, the assistants people ask instead of
+  searching — would otherwise find an empty document, and could neither
+  confirm the site is called Hexaequo nor tell what it is for.
+
+  It says what the home view says once the app has drawn it (home.about and
+  home.ways in the English locale), so that a crawler reading the page before
+  the script runs and one reading it after find the same description.
 -->
 <main id="view">
   <div class="boot-copy">
     <h1>Hexaequo</h1>
+    <p>An abstract strategy game for two</p>
     <p>
-      Hexaequo is a free abstract strategy board game for two players. There is no
-      fixed board: the players build it as they go, laying hexagonal tiles and
-      moving two kinds of piece — disks, which step and jump, and rings, which
-      leap. You win by capturing six enemy disks, three enemy rings, or every
-      enemy piece left on the board.
+      There is no fixed board: you build it as you play, one hexagonal tile at a
+      time, and move two kinds of piece across it — disks, which step and jump,
+      and rings, which leap. You win by capturing six disks or three rings, or by
+      leaving your opponent nothing on the board.
     </p>
     <p>
-      Play against another person on the same device, against the computer, or
-      online with a friend through a shared link. Hexaequo is free, carries no
-      advertising, and needs no account unless you want a rating.
+      Play face to face on one device, against the computer at four strengths, or
+      online — with a friend through a link, or against someone of your level.
+      It is free, carries no advertising, and needs no account unless you want
+      a rating.
     </p>
     <p>
       <a href="/#/play">Play</a> ·
       <a href="/#/online">Play online</a> ·
-      <a href="/rules/">Rules</a> ·
-      <a href="/play/">About the game</a> ·
+      <a href="/rules/">Complete rules</a> ·
+      <a href="/play/">More about Hexaequo</a> ·
       <a href="/fr/jouer/" hreflang="fr">Français</a> ·
       <a href="/privacy/">Privacy policy</a> ·
       <a href="/terms/">Terms of service</a>

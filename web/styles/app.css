@@ -175,10 +175,11 @@ select.btn option {
 
 /* ── Logo ────────────────────────────────────────────────────────────────── */
 
-.logo { display: flex; align-items: center; gap: .7em; }
+.logo { display: flex; align-items: center; gap: .7em; margin: 0; }
 .logo-mark { display: block; height: 1.9em; width: auto; }
 .logo-word {
   font-weight: 300;
+  text-transform: uppercase;
   letter-spacing: .27em;
   text-indent: .27em;      /* balance the trailing letter-space */
   white-space: nowrap;
@@ -284,10 +285,27 @@ select.btn option {
   display: flex; align-items: center; justify-content: center; gap: 10px;
 }
 .home-foot { color: var(--muted); font-size: 12px; display: flex; gap: 14px; align-items: center; }
-.home-foot button {
+.home-foot button, .home-foot a {
   background: none; border: 0; color: var(--muted); text-decoration: underline;
   text-underline-offset: 3px; padding: 6px;
 }
+
+/* What the game is, for whoever arrives not knowing: quieter than the menu
+   above it, and closed by the two published pages it summarises. Text meant
+   to be read, so it takes a little of the text colour into the muted one, and
+   the links a little into the accent: plain --muted and --accent fall short
+   of 4.5:1 on the light background. */
+.home-about {
+  max-width: 52ch; font-size: 13.5px; line-height: 1.65;
+  color: color-mix(in srgb, var(--muted) 85%, var(--text));
+}
+.home-about p { margin: 0 0 10px; text-wrap: balance; }
+.home-about .home-links {
+  display: flex; justify-content: center; flex-wrap: wrap; gap: 6px 22px;
+  margin: 14px 0 0;
+}
+.home-links a { color: color-mix(in srgb, var(--accent) 70%, var(--text)); text-decoration: none; }
+.home-links a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 /* ── Game ────────────────────────────────────────────────────────────────── */
 
@@ -1696,10 +1714,6 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
 }
 .boot-copy a { color: var(--accent); text-decoration: none; }
 .boot-copy a:hover { text-decoration: underline; }
-.home-purpose {
-  color: var(--muted); font-size: 13.5px; line-height: 1.6;
-  max-width: 46ch; margin: -8px auto 0;
-}
 
 /* ── Leaderboard ─────────────────────────────────────────────────────────── */
 
