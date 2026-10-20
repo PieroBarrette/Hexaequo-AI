@@ -17,6 +17,7 @@ import { play as playSound } from '../audio.js';
 import { openPanel } from '../ui/panels.js';
 import { request, connect } from '../net.js';
 import { watchPresence, onPresence, presenceOf } from '../presence.js';
+import { withZone, profileStreakHtml } from '../streak.js';
 
 const escapeText = (value) => String(value).replace(/[&<>"']/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -384,6 +385,9 @@ export function mountProfile(outlet, params) {
 
     const cadences = Object.entries(stats.byCadence || {})
       .sort((a, b) => b[1].played - a[1].played);
+    /* Days in a row are yours to see and nobody else's: the server only
+       counts them for the account asking about itself. */
+    const streak = someoneElse() ? '' : profileStreakHtml(stats.streak);
 
     outlet.innerHTML = `
       <div class="page"><div class="page-inner">
@@ -393,6 +397,7 @@ export function mountProfile(outlet, params) {
               ${someoneElse() ? presencePip() : ''}${escapeText(stats.pseudo)}</h1>
             <p class="lede" style="margin:2px 0 0">
               ${t('profile.since', { date: shortDate(stats.memberSince) })}</p>
+            ${streak ? `<p class="streak-line">${streak}</p>` : ''}
           </div>
           <div class="profile-elo">
             <b>${stats.elo}</b>
@@ -474,7 +479,8 @@ export function mountProfile(outlet, params) {
     try {
       const base = who ? `/profile/${encodeURIComponent(who)}` : '/profile/me';
       const [record, list] = await Promise.all([
-        api(base),
+        // The zone, for the streak: the server counts it only for your own page.
+        api(withZone(base)),
         api(`${base}/games?page=${page}`),
       ]);
       stats = record;

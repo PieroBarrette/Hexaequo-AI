@@ -72,6 +72,7 @@ const SHELL = [
   './src/progress.js',
   './src/push.js',
   './src/settingsSync.js',
+  './src/streak.js',
   './src/ui/challenge.js',
   './src/ui/emoji.js',
   './src/ui/qr.js',

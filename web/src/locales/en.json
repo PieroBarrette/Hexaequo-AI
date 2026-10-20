@@ -215,6 +215,8 @@
     "rank": "{rank} on the leaderboard",
     "rankNew": "You enter the leaderboard at {rank}",
     "personalBest": "New personal best!",
+    "streak": "🔥 {n}-day streak",
+    "streakOne": "🔥 Day one: play again tomorrow to make it two",
     "guestWon": "With an account, this win would have counted on the leaderboard.",
     "guestOther": "With an account, your games count on the leaderboard.",
     "createAccount": "Create an account",
@@ -307,7 +309,7 @@
     "notifyMentions": "Mentions",
     "notifyMentionsHint": "When someone writes your @name in the lobby.",
     "notifyReminders": "Reminders",
-    "notifyRemindersHint": "A word after a few days away, in the early evening. Never at night.",
+    "notifyRemindersHint": "A word after a few days away, or before your streak ends at midnight. Always in the evening, never at night.",
     "notifyTest": "Try it",
     "notifyTestHint": "A test notification arrives a few seconds later: close the app to see it as a real one.",
     "notifyTestAction": "Send a test",
@@ -583,7 +585,14 @@
     "mine": "My profile",
     "gamesOne": "{n} game",
     "pliesOne": "{n} move",
-    "notifiable": "Not online, but will get your challenge as a notification."
+    "notifiable": "Not online, but will get your challenge as a notification.",
+    "streak": "🔥 {n}-day streak",
+    "streakOne": "🔥 Day one",
+    "streakToday": "today already counts",
+    "streakKeep": "one game today keeps it going",
+    "streakNone": "No streak going",
+    "streakBest": "best: {n} days",
+    "streakBestOne": "best: {n} day"
   },
   "mail": {
     "verifyTitle": "Confirming your address",
@@ -673,6 +682,10 @@
     "reminder": {
       "title": "Fancy a game?",
       "body": "It has been {n} days. Someone in the lobby, or the computer: the board is waiting."
+    },
+    "streak": {
+      "title": "Your {n}-day streak ends at midnight",
+      "body": "One game before midnight keeps it going."
     },
     "test": {
       "title": "Hexaequo",

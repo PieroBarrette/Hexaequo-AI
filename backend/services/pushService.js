@@ -39,6 +39,10 @@ const KINDS = {
     comeBack: { pref: 'notifyGames', ttl: 2 * 60, urgency: 'high' },
     mention: { pref: 'notifyMentions', ttl: 6 * 60 * 60, urgency: 'normal' },
     reminder: { pref: 'notifyReminders', ttl: 3 * 60 * 60, urgency: 'low' },
+    /* Until midnight where they are, which the reminder works out and sends as
+       its own ttl; this one is only the fallback. Not low: a deadline tonight
+       should not wait for the phone to wake on its own. */
+    streak: { pref: 'notifyReminders', ttl: 3 * 60 * 60, urgency: 'normal' },
     test: { pref: null, ttl: 2 * 60, urgency: 'high' },
 };
 

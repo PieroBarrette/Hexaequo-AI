@@ -13,8 +13,15 @@ const router = express.Router();
 const { authenticate, optionalAuth } = require('../middleware/authMiddleware');
 const profile = require('../services/profileService');
 const push = require('../services/pushService');
+const streaks = require('../services/streakService');
 
 const fail = (res, code, message) => res.status(code).json({ error: message });
+
+/* Days in a row, counted in the zone the browser asking says it is in
+   (?tz=Europe/Paris): a player's day ends at their own midnight. Only ever
+   the player's own; nobody else's page shows it. A count that fails leaves
+   the rest of the page standing. */
+const streakOf = (req) => streaks.forUser(req.user.id, req.query.tz).catch(() => null);
 
 /* Account and game ids are UUIDs. Anything else is not a record that is
    missing, it is not an id at all — and handing it to Postgres would come
@@ -27,7 +34,16 @@ router.get('/me', authenticate, async (req, res, next) => {
     try {
         const data = await profile.stats(req.user.id);
         if (!data) return fail(res, 404, 'No such account');
+        data.streak = await streakOf(req);
         res.json(data);
+    } catch (error) { next(error); }
+});
+
+/* The streak alone: what the card at the end of a game asks for, once the
+   server has said the game is written. */
+router.get('/me/streak', authenticate, async (req, res, next) => {
+    try {
+        res.json(await streaks.forUser(req.user.id, req.query.tz));
     } catch (error) { next(error); }
 });
 
@@ -59,6 +75,7 @@ router.get('/:id', optionalAuth, async (req, res, next) => {
         // person looking and they have met.
         data.versus = req.user ? await profile.versus(req.user.id, req.params.id) : null;
         data.isYou = Boolean(req.user && req.user.id === req.params.id);
+        if (data.isYou) data.streak = await streakOf(req);
         /* Whether a challenge would reach them when they are not on the site:
            only somebody signed in can send one, so only they are told. */
         data.notifiable = Boolean(req.user && !data.isYou)

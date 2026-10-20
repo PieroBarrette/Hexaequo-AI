@@ -22,6 +22,7 @@ const { pool, query } = require('../config/database');
 const { JWT_SECRET, JWT_EXPIRES_IN } = require('../config/env');
 const { attachOnlineGames } = require('../socket/onlineGame');
 const profile = require('../services/profileService');
+const streaks = require('../services/streakService');
 
 let passed = 0;
 let failed = 0;
@@ -366,6 +367,41 @@ async function run() {
     await test('an id nobody owns finds nothing', async () => {
         assert.strictEqual(await profile.stats('00000000-0000-0000-0000-000000000000'), null);
         assert.strictEqual(await profile.replay('00000000-0000-0000-0000-000000000000', null), null);
+    });
+
+    /* Last, because it adds games of its own and everything above counts them. */
+    await test('days in a row count the games that were played, as the instants they ended', async () => {
+        /* So far: the rated game, played out, and the friendly, resigned
+           before a move — a room given up before anything happened is not a
+           day played. */
+        const before = await streaks.playedTimes(black.user.id);
+        assert.strictEqual(before.length, 1, 'the game played counts; the one resigned at once does not');
+        assert.ok(Math.abs(before[0] - Date.now()) < 10 * 60 * 1000,
+            'read as the moment it ended, whatever zone this process is in');
+
+        /* A game against yourself, with a move in it, and a real one the day
+           before, both written the way the server writes a finished game. */
+        const add = async (whiteId, finishedAt) => {
+            const { rows } = await query(
+                `INSERT INTO games (room_code, black_player_id, black_pseudo, white_player_id, white_pseudo,
+                                    time_mode, winner, result_reason, finished_at)
+                 VALUES ('STREAK', $1, $2, $3, $4, 'none', 'black', 'resigned', ${finishedAt}) RETURNING id`,
+                [black.user.id, black.user.pseudo, whiteId, whiteId === white.user.id ? white.user.pseudo : black.user.pseudo]
+            );
+            await query(
+                `INSERT INTO moves (game_id, move_number, player, move_type, to_q, to_r)
+                 VALUES ($1, 1, 'black', 'tile', 0, 0)`,
+                [rows[0].id]
+            );
+        };
+        await add(black.user.id, 'CURRENT_TIMESTAMP');
+        await add(white.user.id, "CURRENT_TIMESTAMP - INTERVAL '1 day'");
+
+        const times = await streaks.playedTimes(black.user.id);
+        assert.strictEqual(times.length, 2, 'yesterday\'s counts; the game against yourself does not');
+        const latest = Math.max(...times);
+        const streak = await streaks.forUser(black.user.id, 'UTC', latest);
+        assert.deepStrictEqual([streak.current, streak.best, streak.playedToday], [2, 2, true]);
     });
 
     for (const id of users) await query('DELETE FROM users WHERE id = $1', [id]).catch(() => {});

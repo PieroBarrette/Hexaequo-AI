@@ -45,6 +45,7 @@ const { io: connect } = require('socket.io-client');
 const push = require('../services/pushService');
 const Subscriptions = require('../models/pushSubscriptionModel');
 const reminders = require('../services/reminderService');
+const streaks = require('../services/streakService');
 const { attachOnlineGames } = require('../socket/onlineGame');
 const { attachLobby, NOTIFIED_CHALLENGE_TTL_MS, CHALLENGE_TTL_MS } = require('../socket/lobby');
 const { attachNotifications, unseen } = require('../socket/notify');
@@ -340,6 +341,77 @@ async function run() {
         assert.match(message.body, /3/);
         assert.strictEqual(await reminders.tick(evening + 15 * 60 * 1000), 0, 'not again a quarter of an hour later');
         await silence('amelie-phone', 200);
+    });
+
+    /* ── A streak about to end ──────────────────────────────────────────── */
+
+    const HOUR = 60 * 60 * 1000;
+    const lateEvening = Date.UTC(2026, 9, 19, 20, 0);      // 20:00 in UTC: a streak's evening
+
+    await test('a streak about to end is owed once, that evening', () => {
+        const keeping = (extra = {}) => ({
+            settings: {}, time_zone: 'UTC', reminded_at: null,
+            played: [lateEvening - DAY, lateEvening - 2 * DAY, lateEvening - 3 * DAY], ...extra,
+        });
+        assert.deepStrictEqual(reminders.streakDue(keeping(), lateEvening), { days: 3, ttl: 4 * 60 * 60 },
+            'three days behind them, and four hours left to keep it');
+        assert.strictEqual(reminders.streakDue(keeping(), evening), null,
+            'not at half past six: the evening has not had its chance yet');
+        assert.strictEqual(reminders.streakDue(keeping(), Date.UTC(2026, 9, 19, 22, 0)), null, 'nor from ten');
+        assert.strictEqual(reminders.streakDue(keeping({ played: [lateEvening - DAY] }), lateEvening), null,
+            'one day is not yet a streak');
+        assert.strictEqual(reminders.streakDue(keeping({ played: [lateEvening - DAY, lateEvening - 2 * DAY] }),
+            lateEvening).days, 2, 'two is');
+        assert.strictEqual(reminders.streakDue(keeping({ played: [lateEvening - HOUR, lateEvening - DAY,
+            lateEvening - 2 * DAY] }), lateEvening), null, 'played today: nothing to say');
+        assert.strictEqual(reminders.streakDue(keeping({ played: [lateEvening - 2 * DAY, lateEvening - 3 * DAY] }),
+            lateEvening), null, 'missed yesterday: already over, and not mourned');
+        assert.strictEqual(reminders.streakDue(keeping({ reminded_at: new Date(lateEvening - HOUR) }), lateEvening),
+            null, 'once a day');
+        assert.strictEqual(reminders.streakDue(keeping({ reminded_at: new Date(lateEvening - DAY) }), lateEvening).days,
+            3, "yesterday's reminder was yesterday's");
+        assert.strictEqual(reminders.streakDue(keeping({ settings: { notifyReminders: false } }), lateEvening), null,
+            'the Reminders switch answers for it');
+    });
+
+    await test('the evening and the days are both the player\'s own', () => {
+        /* Saturday and Sunday nights at ten in Montréal, which UTC calls
+           Sunday and Monday. */
+        const games = [Date.UTC(2026, 9, 18, 2), Date.UTC(2026, 9, 19, 2)];
+        const montreal = { settings: {}, time_zone: 'America/Montreal', reminded_at: null, played: games };
+        assert.strictEqual(reminders.streakDue(montreal, lateEvening), null, 'four in the afternoon there');
+        assert.deepStrictEqual(reminders.streakDue(montreal, Date.UTC(2026, 9, 19, 23, 30)),
+            { days: 2, ttl: 4.5 * 60 * 60 }, 'half past seven on Monday, with Monday still to play');
+        assert.strictEqual(reminders.streakDue({ ...montreal, time_zone: 'UTC' }, lateEvening), null,
+            'read in UTC, the Sunday-night game would already be today\'s');
+    });
+
+    await test('the scheduler says a streak is ending, once that evening', async () => {
+        for (const row of Subscriptions.memory.rows.values()) {
+            row.time_zone = 'UTC';
+            row.visited_at = new Date(lateEvening - HOUR);      // here lately: nothing to come back to
+            row.reminded_at = null;
+        }
+        streaks.testing.usePlayed('acct-amelie', [lateEvening - DAY, lateEvening - 2 * DAY]);
+        assert.strictEqual(await reminders.tick(lateEvening - 2 * HOUR), 0, 'not before its evening');
+
+        assert.strictEqual(await reminders.tick(lateEvening), 1);
+        const entry = await nextPush('amelie-phone');
+        const message = read(entry);
+        assert.strictEqual(message.kind, 'streak');
+        assert.strictEqual(message.title, 'Votre série de 2 jours s’arrête à minuit', 'in her language');
+        assert.strictEqual(message.body, 'Une partie avant minuit suffit à la prolonger.');
+        assert.strictEqual(message.url, '/#/online');
+        assert.strictEqual(entry.headers.ttl, String(4 * 60 * 60), 'worth delivering until midnight, and not after');
+        assert.strictEqual(entry.headers.urgency, 'normal');
+        assert.strictEqual(await reminders.tick(lateEvening + 15 * 60 * 1000), 0, 'not again that evening');
+        await silence('amelie-phone', 200);
+
+        // The next evening she had already played that afternoon.
+        streaks.testing.usePlayed('acct-amelie', [lateEvening + DAY - 3 * HOUR, lateEvening - DAY, lateEvening - 2 * DAY]);
+        assert.strictEqual(await reminders.tick(lateEvening + DAY), 0, 'today is in: nothing to say');
+        await silence('amelie-phone', 200);
+        streaks.testing.forget();
     });
 
     /* ── Through the sockets ────────────────────────────────────────────── */

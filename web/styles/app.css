@@ -524,6 +524,11 @@ select.btn option {
 .result-progress .is-down { color: var(--danger); font-weight: 600; }
 .result-best { color: var(--accent); font-weight: 600; }
 
+/* Days in a row, with this game among them; +1 when it carried them into today. */
+.result-streak { font-size: calc(12.5px * var(--text-scale)); color: var(--muted); }
+.result-streak:empty { display: none; }
+.result-streak .is-up { color: var(--green, #5cba7d); font-weight: 600; }
+
 /* The report, in brief: running, then the two accuracies and the way to the
    move the game turned on. */
 .result-report {
@@ -1782,6 +1787,9 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
   gap: 16px; flex-wrap: wrap; margin-bottom: 16px;
 }
 .profile-elo { text-align: right; }
+/* Days in a row, under your name: only ever on your own page. */
+.streak-line { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
+.streak-line b { color: var(--accent); font-weight: 600; }
 .profile-elo b {
   display: block; font: 600 30px/1 var(--font-mono);
   color: var(--accent); font-variant-numeric: tabular-nums;

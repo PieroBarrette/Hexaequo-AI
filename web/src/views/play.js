@@ -32,6 +32,7 @@ import {
 import { openPanel } from '../ui/panels.js';
 import { startSeeking, stopSeeking, isSeeking, onSeekChange } from '../ui/challenge.js';
 import { leaderboardPlace, isPersonalBest, ordinal } from '../progress.js';
+import { withZone, cardStreakHtml } from '../streak.js';
 import { emojiRowHtml } from '../ui/emoji.js';
 import { icon } from '../ui/icons.js';
 
@@ -307,6 +308,7 @@ export function mountPlay(outlet, params) {
             <div class="result-stats" hidden>
               <div class="result-rating"></div>
               <div class="result-progress"></div>
+              <div class="result-streak"></div>
               <div class="result-report"></div>
               <div class="result-guest"></div>
               <div class="result-share"></div>
@@ -1570,6 +1572,12 @@ export function mountPlay(outlet, params) {
       refresh();                 // and the rails, which print it too
       loadProgress();            // and what it did for their place
     }));
+    /* Written, rated or not: the days in a row can now be counted with this
+       game among them. */
+    net.unsubscribe.push(listen('hx:recorded', (payload) => {
+      if (!net || payload.code !== net.code) return;
+      loadStreak();
+    }));
     net.unsubscribe.push(listen('hx:chat', (payload) => {
       if (!net || payload.code !== net.code) return;
       net.chat.push(payload.message);
@@ -2605,6 +2613,7 @@ export function mountPlay(outlet, params) {
       stake.className = `result-rating ${mine.change > 0 ? 'is-up' : (mine.change < 0 ? 'is-down' : '')}`;
     }
     renderProgress();
+    renderStreak();
     renderCardReport();
     renderGuestPrompt();
     renderShare();
@@ -2767,6 +2776,29 @@ export function mountPlay(outlet, params) {
     }
     if (progress.best) parts.push(`<span class="result-best">${escapeText(t('result.personalBest'))}</span>`);
     el.innerHTML = parts.join(' · ');
+  }
+
+  /**
+   * Days in a row, with this game among them.
+   *
+   * Asked once the server says the game is written (hx:recorded), so the
+   * count includes it — rated or friendly, both count. Only for a signed-in
+   * player who sat at the board, and nothing at all if the question fails:
+   * the card has said what happened without it.
+   */
+  async function loadStreak() {
+    if (!net || net.watching || net.colour === null || !currentUser()) return;
+    const code = net.code;
+    try {
+      const streak = await api(withZone('/profile/me/streak'));
+      if (!net || net.code !== code) return;
+      net.streak = streak;
+      renderResult();
+    } catch { /* the card can do without it */ }
+  }
+
+  function renderStreak() {
+    overlay.querySelector('.result-streak').innerHTML = net && net.streak ? cardStreakHtml(net.streak) : '';
   }
 
   /*

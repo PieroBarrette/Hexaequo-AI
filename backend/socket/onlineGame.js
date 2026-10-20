@@ -588,7 +588,11 @@ function finish(io, room, result) {
 
     ratedGames.recordGame(room, result)
         .then((record) => {
-            if (!record || !record.rated) return;
+            if (!record) return;
+            /* Written, rated or not: anything counted from the games table —
+               the streak the card shows — now includes this one. */
+            io.to(room.code).emit('hx:recorded', { code: room.code });
+            if (!record.rated) return;
             room.ratings = record.ratings;
             io.to(room.code).emit('hx:rated', {
                 code: room.code, gameId: record.gameId, ratings: record.ratings,

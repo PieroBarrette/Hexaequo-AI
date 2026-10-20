@@ -215,6 +215,8 @@
     "rank": "{rank} au classement",
     "rankNew": "Vous entrez au classement : {rank}",
     "personalBest": "Nouveau record personnel !",
+    "streak": "🔥 {n} jours d’affilée",
+    "streakOne": "🔥 Premier jour : rejouez demain pour en faire deux",
     "guestWon": "Avec un compte, cette victoire aurait compté au classement.",
     "guestOther": "Avec un compte, vos parties comptent au classement.",
     "createAccount": "Créer un compte",
@@ -307,7 +309,7 @@
     "notifyMentions": "Mentions",
     "notifyMentionsHint": "Quand quelqu’un écrit votre @pseudo dans le salon.",
     "notifyReminders": "Rappels",
-    "notifyRemindersHint": "Un mot après quelques jours sans venir, en début de soirée. Jamais la nuit.",
+    "notifyRemindersHint": "Un mot après quelques jours sans venir, ou avant que votre série ne s’arrête à minuit. Toujours en soirée, jamais la nuit.",
     "notifyTest": "Essayer",
     "notifyTestHint": "Une notification d’essai arrive quelques secondes après : fermez l’app pour la voir comme une vraie.",
     "notifyTestAction": "Envoyer un essai",
@@ -583,7 +585,14 @@
     "mine": "Mon profil",
     "gamesOne": "{n} partie",
     "pliesOne": "{n} coup",
-    "notifiable": "Pas en ligne, mais recevra votre défi par notification."
+    "notifiable": "Pas en ligne, mais recevra votre défi par notification.",
+    "streak": "🔥 {n} jours d’affilée",
+    "streakOne": "🔥 Premier jour",
+    "streakToday": "aujourd’hui compte déjà",
+    "streakKeep": "une partie aujourd’hui pour la garder",
+    "streakNone": "Aucune série en cours",
+    "streakBest": "record : {n} jours",
+    "streakBestOne": "record : {n} jour"
   },
   "mail": {
     "verifyTitle": "Confirmation de votre adresse",
@@ -673,6 +682,10 @@
     "reminder": {
       "title": "Une partie ?",
       "body": "Cela fait {n} jours. Quelqu’un au salon, ou l’ordinateur : le plateau vous attend."
+    },
+    "streak": {
+      "title": "Votre série de {n} jours s’arrête à minuit",
+      "body": "Une partie avant minuit suffit à la prolonger."
     },
     "test": {
       "title": "Hexaequo",
