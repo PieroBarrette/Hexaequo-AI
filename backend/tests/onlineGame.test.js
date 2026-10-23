@@ -808,11 +808,11 @@ async function run() {
         const a = await open();
         let b = await open();
         const created = await ask(a, 'hx:create', {});
-        await ask(b, 'hx:join', { code: created.code });
+        await ask(b, 'hx:join', { code: created.code, key: 'tab-of-b' });
         b.disconnect();
         await new Promise((r) => setTimeout(r, 120));
         b = await open();
-        const back = await ask(b, 'hx:join', { code: created.code });
+        const back = await ask(b, 'hx:join', { code: created.code, key: 'tab-of-b' });
         assert.ok(back.ok, back.error);
         assert.strictEqual(back.awaitingReturn, null, 'no countdown left running');
         // And the game is still playable, not awarded away.
@@ -866,14 +866,14 @@ async function run() {
         const a = await open();
         let b = await open();
         const created = await ask(a, 'hx:create', {});
-        await ask(b, 'hx:join', { code: created.code });
+        await ask(b, 'hx:join', { code: created.code, key: 'tab-of-b' });
         const heard = waitFor(a, 'hx:opponent');
         b.disconnect();
         const event = await heard;
         assert.strictEqual(event.joined, false);
         assert.strictEqual(event.seat, 1);
         b = await open();
-        const back = await ask(b, 'hx:join', { code: created.code });
+        const back = await ask(b, 'hx:join', { code: created.code, key: 'tab-of-b' });
         assert.ok(back.ok, back.error);
         assert.strictEqual(back.colour, 1, 'the same seat is available again');
         assert.deepStrictEqual(back.state, created.state, 'the position survived');
@@ -1175,7 +1175,7 @@ async function run() {
            silence: the opponent was left waiting for somebody who had gone. */
         const a = await open();
         const b = await open();
-        const room = await ask(a, 'hx:create', { timeControl: 'bullet' });
+        const room = await ask(a, 'hx:create', { timeControl: 'bullet', key: 'tab-of-a' });
         await ask(b, 'hx:join', { code: room.code });
 
         const told = waitFor(b, 'hx:opponent');
@@ -1186,7 +1186,7 @@ async function run() {
 
         // Coming back calls it off, and the seat is theirs again.
         const back = waitFor(b, 'hx:opponent');
-        const rejoined = await ask(a, 'hx:join', { code: room.code });
+        const rejoined = await ask(a, 'hx:join', { code: room.code, key: 'tab-of-a' });
         assert.strictEqual(rejoined.colour, 0, 'the same seat');
         assert.strictEqual((await back).joined, true, 'and the other side is told');
 
@@ -1400,6 +1400,90 @@ async function run() {
         b.disconnect();
         again.disconnect();
         stranger.disconnect();
+    });
+
+    /*
+     * An empty seat is not a free one.
+     *
+     * A seat left by a dropped connection, or by stepping away, went to
+     * whoever asked for it next, in the middle of the game: the newcomer's
+     * name replaced the absent player's, the countdown was called off, and the
+     * player on their way back was told the room was full. Games between two
+     * members are listed for anybody to watch, so the code was no secret.
+     */
+    await test('a seat kept for a player who is away is not given to anyone else', async () => {
+        account('acct-karim', 'Karim', 1300, 12);
+        const a = await open();
+        let b = await open();
+        await Promise.all([signIn(a, 'acct-amelie'), signIn(b, 'acct-bertrand')]);
+        const created = await ask(a, 'hx:create', { timeControl: 'blitz', key: 'tab-of-amelie' });
+        await ask(b, 'hx:join', { code: created.code, key: 'tab-of-bertrand' });
+        const gone = waitFor(a, 'hx:opponent');
+        b.disconnect();
+        await gone;
+
+        const guest = await open();
+        const member = await open();
+        await signIn(member, 'acct-karim');
+        for (const [who, socket] of [['a guest', guest], ['another member', member]]) {
+            const refused = await ask(socket, 'hx:join', { code: created.code, key: `tab-of-${who}` });
+            assert.strictEqual(refused.error, 'ROOM_FULL', `${who} is turned away`);
+        }
+        const view = await ask(a, 'hx:sync', { code: created.code });
+        assert.strictEqual(view.awaitingReturn && view.awaitingReturn.seat, 1,
+            'the countdown still runs for the player who is away');
+        assert.strictEqual(view.players[1].pseudo, 'Bertrand', 'and the seat still has their name on it');
+
+        b = await open();
+        await signIn(b, 'acct-bertrand');
+        const back = await ask(b, 'hx:join', { code: created.code, key: 'tab-of-bertrand' });
+        assert.ok(back.ok, 'the player is let back in: ' + back.error);
+        assert.strictEqual(back.colour, 1, 'to their own seat');
+        assert.strictEqual(back.awaitingReturn, null, 'in time');
+        for (const socket of [a, b, guest, member]) socket.disconnect();
+    });
+
+    await test('a room whose opener has stepped out keeps their seat for them', async () => {
+        /* Before the game too: the first to follow the link sat down in the
+           opener's chair, taking the key it carried, and the opener came back
+           a stranger to their own invitation. */
+        const a = await open();
+        const b = await open();
+        const created = await ask(a, 'hx:create', { key: 'tab-of-opener' });
+        await ask(a, 'hx:leave', { code: created.code });
+        const followed = await ask(b, 'hx:join', { code: created.code, key: 'tab-of-friend' });
+        assert.ok(followed.ok, followed.error);
+        assert.strictEqual(followed.colour, 1, 'the friend takes the seat nobody has had');
+        const back = await ask(a, 'hx:join', { code: created.code, key: 'tab-of-opener' });
+        assert.strictEqual(back.colour, 0, 'and the opener comes back to Black');
+        assert.deepStrictEqual(back.seats, [true, true], 'where the game can begin');
+        a.disconnect();
+        b.disconnect();
+    });
+
+    await test('somebody watching cannot sit down in the rematch', async () => {
+        /* Both players are carried into the room that replaces theirs, and
+           whoever was watching hears of it with them. A player who dropped on
+           the way there left a seat for the first spectator to ask. */
+        const a = await open();
+        const b = await open();
+        const eye = await open();
+        const created = await ask(a, 'hx:create', { key: 'tab-of-a' });
+        await ask(b, 'hx:join', { code: created.code, key: 'tab-of-b' });
+        await ask(eye, 'hx:watch', { code: created.code });
+        await ask(a, 'hx:resign', { code: created.code });
+        const told = waitFor(eye, 'hx:rematch:ready');
+        const next = await agreeRematch(a, b, created.code);
+        assert.strictEqual((await told).next, next, 'the spectator is told of the rematch');
+        b.disconnect();
+        await new Promise((r) => setTimeout(r, 150));
+
+        const refused = await ask(eye, 'hx:join', { code: next, key: 'tab-of-eye' });
+        assert.strictEqual(refused.error, 'ROOM_FULL', 'but has no seat in it');
+        const again = await open();
+        const back = await ask(again, 'hx:join', { code: next, key: 'tab-of-b' });
+        assert.strictEqual(back.colour, 0, 'that seat waits for its player: White last time, Black now');
+        for (const socket of [a, eye, again]) socket.disconnect();
     });
 
     await test('finished games do not use up the rooms a connection may open', async () => {

@@ -200,7 +200,7 @@ The server only learns that a connection has gone when it closes, or when the he
 
 **Room codes** are six characters from `ACDEFGHJKLMNPQRTUVWXY34679` (no O/0, I/1, S/5, B/8, Z/2). The web client shares a room as `/#/play?online=1&code=CODE` and watches one as `/#/play?watch=1&code=CODE`.
 
-**Rejoin key.** A string of 1 to 64 characters sent as `key` with `hx:create` and `hx:join` (the client also sends it with `hx:watch`, where it is ignored). The web client makes one per tab with `crypto.randomUUID()` and keeps it in `sessionStorage['hexaequo.seatKey']`. A seat remembers the latest key it was taken with, and a new connection presenting that key gets the seat back. It is what a guest has instead of an account.
+**Rejoin key.** A string of 1 to 64 characters sent as `key` with `hx:create` and `hx:join` (the client also sends it with `hx:watch`, where it is ignored). The web client makes one per tab with `crypto.randomUUID()` and keeps it in `sessionStorage['hexaequo.seatKey']`. A seat remembers the latest key it was taken with, and a new connection presenting that key gets the seat back. It is what a guest has instead of an account: a guest who sat down without a key, or comes back from another tab, cannot take the seat back on a new connection.
 
 **Player view.** `{ pseudo, elo, userId }`, or `null` for an empty seat or a guest. Never an email address.
 
@@ -291,7 +291,7 @@ Clients count `remaining[turn]` down locally while `running` is true, and take t
 **Seats.** `hx:create` puts its sender on Black. `hx:join` then finds a seat in this order:
 1. the seat this socket already holds;
 2. a seat carrying the sender's account, or whose rejoin key equals the `key` sent: that seat moves to this socket, whichever socket held it before (that one is no longer a player);
-3. otherwise the sender is a newcomer. In a reserved room (made by quick match, by an accepted challenge, or as the rematch of two accounts) only the two named accounts get in, each to its own seat; anyone else gets `ROOM_FULL`. In any other room the newcomer takes the first empty seat, Black first, and the seat takes the newcomer's account (or none) and name. That empty seat may belong to a player who is away in the middle of a game: see [Known issues](#9-known-issues).
+3. otherwise the sender is a newcomer. In a reserved room (made by quick match, by an accepted challenge, or as the rematch of two accounts) only the two named accounts get in, each to its own seat; anyone else gets `ROOM_FULL`. In any other room the newcomer takes a seat nobody has sat in yet (White, in a room opened with `hx:create`), and the seat takes the newcomer's account (or none) and name. A seat somebody has sat in stays theirs while it is empty, before the game, during it and after it: once both seats have had a player, every newcomer gets `ROOM_FULL`. A rematch room carries both seats over, so it never has one for a newcomer.
 
 **Starting.** The game starts when both seats are occupied for the first time: the clock starts, thinking times are measured from then, and both players' presence turns `playing`. Nothing else waits for the second player: Black may play a move before White has arrived (the clock is not running yet). `hx:draw` is refused until the game has started (`NOT_STARTED`); `hx:resign` and `hx:undo` are not.
 
@@ -335,7 +335,7 @@ Payload: `{ code, key?, name? }`. The web client sends `{ code, key }`.
 
 Ack: `{ ok: true, colour, ...room view }`. Errors: `NO_SUCH_ROOM`, `ROOM_FULL`.
 
-- Finds a seat as described under [Seats](#rules). It is also the way back: after a reconnection, after `hx:leave`, or from another tab or device of the same account.
+- Finds a seat as described under [Seats](#rules). It is also the way back, by account or rejoin key: after a reconnection, after `hx:leave`, or from another tab or device of the same account. Anyone else gets `ROOM_FULL` once both seats have had a player, even while one of them is empty.
 - Coming back to your own seat while signed in, before that seat has moved, puts your account on it.
 - `key`, when sent, becomes the seat's rejoin key.
 - Calls off a countdown on that seat, and starts the game if both seats are now occupied for the first time.
@@ -537,7 +537,7 @@ The new room:
 - has the same cadence, the colours swapped and `game` one higher;
 - carries the series score and the last 60 chat lines, turned to the new seats (each line keeps the number of the game it was said in);
 - is reserved for the two accounts when both players are signed in, and an ordinary room otherwise;
-- has both players seated already: the sockets seated in the old room are seated in the new one and receive its broadcasts, and accounts, names and rejoin keys are carried, so a player who has gone takes the seat back with `hx:join`;
+- has both players seated already: the sockets seated in the old room are seated in the new one and receive its broadcasts, and accounts, names and rejoin keys are carried, so a player who has gone takes the seat back with `hx:join`, and nobody else can;
 - starts its game, and its clock, when `hx:join` finds both seats occupied; the web client joins as soon as it hears of the new room.
 
 The old room's view shows `rematchCode` once agreed and `rematchOfferedBy` while an offer stands. An offer is withdrawn when either player leaves or disconnects from the finished game; the other player learns it from `hx:opponent { joined: false }`.
@@ -890,7 +890,7 @@ They open `/#/play?online=1&code=CODE` (turn, comeBack, ready), `/#/online?chall
 | Code | Returned by | Meaning |
 |---|---|---|
 | `NO_SUCH_ROOM` | `hx:join`, `hx:watch`, `hx:sync`, `hx:move`, `hx:resign`, `hx:draw`, `hx:undo`, `hx:undo:decline`, `hx:rematch`, `hx:rematch:decline`, `hx:chat` | No room with that code: never existed, called off, swept or lost in a restart |
-| `ROOM_FULL` | `hx:join` | Both seats occupied, or a reserved room for other accounts |
+| `ROOM_FULL` | `hx:join` | Both seats belong to other players (occupied, or kept for a player who is away), or a reserved room for other accounts |
 | `ALREADY_PLAYING` | `hx:watch` | This socket, or its account, has a seat in that room |
 | `TOO_MANY_ROOMS` | `hx:create` | Five unfinished rooms on this connection already |
 | `ENGINE_UNAVAILABLE` | `hx:create`, `hx:rematch`, `hx:undo`, `hx:challenge:accept`, and in `hx:queue:update` | The rules engine could not load, or a room or replay could not be made |
@@ -928,11 +928,10 @@ Two codes come from the client, not the server: `OFFLINE` (a request failed or t
 
 Behaviour of the code as of 2026-10-23 that differs from what the code comments and the web client expect. Remove an entry once it is fixed.
 
-1. **An empty seat goes to whoever asks for it.** In a room without a reservation (any private-link room, including a game between two accounts), `hx:join` gives an empty seat to a newcomer even in the middle of a game, while its player is away or reconnecting. The newcomer's account replaces the absent player's on the seat (a game between accounts stays rated), the countdown is called off, and the player coming back gets `ROOM_FULL`, unless the newcomer sent no `key`, in which case the old key still opens the seat. Such games are listed by `hx:live`, so their codes are public.
-2. **`hx:sync` returns the players' chat to anyone.** `hx:watch` leaves `chat` out and `hx:chat` goes to the two seats only, but `hx:sync` returns the full room view to any socket with the code; the web client calls it for spectators after `hx:undo:done`.
-3. **Spectators follow a rematch.** `hx:rematch:ready` goes to the whole room, and its listener in `web/src/views/play.js` calls `goToRematch` without checking `net.watching` (unlike `adoptRoom`, which does). A spectator is sent into the new room as a would-be player; its `hx:join` either fails with `ROOM_FULL` or takes a seat left empty by a disconnected player.
-4. **Cadences are not checked for quick match and challenges.** `hx:queue` and `hx:challenge` accept any `timeControl`, including `none` (an untimed, unrated game) and unknown strings (their own queue pool, and a room created as `none`). The web client never sends these.
-5. **A stale queue slot disappears silently.** A slot older than 10 minutes is removed without an `hx:queue:update { inQueue: false }`, so the web client goes on showing a search that no longer exists.
+1. **`hx:sync` returns the players' chat to anyone.** `hx:watch` leaves `chat` out and `hx:chat` goes to the two seats only, but `hx:sync` returns the full room view to any socket with the code; the web client calls it for spectators after `hx:undo:done`.
+2. **Spectators follow a rematch.** `hx:rematch:ready` goes to the whole room, and its listener in `web/src/views/play.js` calls `goToRematch` without checking `net.watching` (unlike `adoptRoom`, which does). A spectator is sent into the new room as a would-be player, and its `hx:join` fails with `ROOM_FULL`.
+3. **Cadences are not checked for quick match and challenges.** `hx:queue` and `hx:challenge` accept any `timeControl`, including `none` (an untimed, unrated game) and unknown strings (their own queue pool, and a room created as `none`). The web client never sends these.
+4. **A stale queue slot disappears silently.** A slot older than 10 minutes is removed without an `hx:queue:update { inQueue: false }`, so the web client goes on showing a search that no longer exists.
 
 ---
 

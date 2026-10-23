@@ -395,6 +395,11 @@ async function createRoom({
         /* The key each seat was taken with: what a tab is known by when its
            connection is not the one that sat down. See seatByClaim. */
         keys: [null, null],
+        /* Whether anybody has sat in each seat yet. A seat somebody has sat in
+           is theirs, empty or not: held while they are away, and opened again
+           only by the account or the key on it. A newcomer gets a seat nobody
+           has had, or none. */
+        claimed: [false, false],
         chat: chat || [],
         rematch: null,          // { seat } while one side has offered
         /*
@@ -527,6 +532,7 @@ function seatTheRematch(io, room, next) {
         next.players[seat] = room.players[was] ? { ...room.players[was] } : null;
         next.names[seat] = room.names[was];
         next.keys[seat] = room.keys[was];
+        next.claimed[seat] = room.claimed[was];
         const socketId = room.seats[was];
         const live = socketId ? io.sockets.sockets.get(socketId) : null;
         if (!live) continue;
@@ -926,6 +932,7 @@ function attachOnlineGames(io) {
                 return reply(callback, { ok: false, error: 'ENGINE_UNAVAILABLE' });
             }
             room.seats[0] = socket.id;
+            room.claimed[0] = true;
             room.players[0] = socket.data.user ? { ...socket.data.user } : null;
             room.names[0] = (socket.data.user && socket.data.user.pseudo)
                 || String(options.name || '').slice(0, 24) || null;
@@ -935,7 +942,7 @@ function attachOnlineGames(io) {
             reply(callback, { ok: true, colour: 0, ...publicView(room) });
         });
 
-        /** Take the free seat in an existing room, or rejoin one's own. */
+        /** Take a seat nobody has had in an existing room, or rejoin one's own. */
         socket.on('hx:join', async (payload, callback) => {
             const code = String((payload && payload.code) || '').toUpperCase().trim();
             const room = rooms.get(code);
@@ -961,10 +968,16 @@ function attachOnlineGames(io) {
                     if (mine === -1) return reply(callback, { ok: false, error: 'ROOM_FULL' });
                     seat = mine;
                 } else {
-                    seat = room.seats[0] === null ? 0 : (room.seats[1] === null ? 1 : -1);
+                    /* A seat nobody has sat in. An empty one was not that: it
+                       went to whoever asked, the game half played, and the
+                       player on their way back to it was told the room was
+                       full -- a room whose code anybody can read off the list
+                       of games to watch. */
+                    seat = !room.claimed[0] ? 0 : (!room.claimed[1] ? 1 : -1);
                 }
                 if (seat === -1) return reply(callback, { ok: false, error: 'ROOM_FULL' });
                 room.seats[seat] = socket.id;
+                room.claimed[seat] = true;
                 room.players[seat] = socket.data.user ? { ...socket.data.user } : null;
                 const name = (socket.data.user && socket.data.user.pseudo)
                     || String((payload && payload.name) || '').slice(0, 24);
