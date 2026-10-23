@@ -2,7 +2,9 @@
   "meta": {
     "title": "Hexaequo",
     "tagline": "An abstract strategy game for two",
-    "homeTitle": "Hexaequo — a free abstract strategy game for two"
+    "homeTitle": "Hexaequo — a free abstract strategy game for two",
+    "shareHook": "Build the board as you play.",
+    "shareAlt": "The Hexaequo logo and name beside the opening position: four hexagonal tiles, a disk on two of them, and the cells where the next tile may go."
   },
   "nav": {
     "home": "Home",

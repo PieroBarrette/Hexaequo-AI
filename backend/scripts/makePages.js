@@ -193,6 +193,23 @@ function jsonLd(schema) {
 
 /* ── One page ───────────────────────────────────────────────────────────── */
 
+/*
+ * The picture a shared link is previewed with: the card makeShareImage.js
+ * draws for each language, at the size the large preview layouts are made
+ * for, so it is shown whole rather than cropped from an icon.
+ */
+const SHARE = { width: 1200, height: 630 };
+
+function shareCard(tr) {
+    return [
+        `<meta property="og:image" content="${SITE}/assets/share-${tr.language}.png">`,
+        `<meta property="og:image:width" content="${SHARE.width}">`,
+        `<meta property="og:image:height" content="${SHARE.height}">`,
+        `<meta property="og:image:alt" content="${escape(tr.t('meta.shareAlt'))}">`,
+        '<meta name="twitter:card" content="summary_large_image">',
+    ];
+}
+
 function pageDocument(template, { name, lang, content, pathOf, unlisted, schema }) {
     const tr = reader(lang);
     const page = content[name];
@@ -217,8 +234,7 @@ function pageDocument(template, { name, lang, content, pathOf, unlisted, schema 
         `<meta property="og:url" content="${here}">`,
         `<meta property="og:description" content="${escape(description)}">`,
         `<meta property="og:locale" content="${lang === 'fr' ? 'fr_CA' : 'en_US'}">`,
-        `<meta property="og:image" content="${SITE}/assets/icons/icon-512x512.png">`,
-        '<meta name="twitter:card" content="summary">',
+        ...shareCard(tr),
     ].join('\n');
 
     /* The page itself, as the panel draws it, for whatever does not run the

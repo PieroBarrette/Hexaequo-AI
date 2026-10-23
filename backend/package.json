@@ -23,6 +23,7 @@
         "test:elo": "node tests/eloService.test.js",
         "db:dump": "node scripts/dumpDb.js",
         "icons": "node scripts/makeIcons.js",
+        "share-image": "node scripts/makeShareImage.js",
         "test:db": "node tests/ratedGame.test.js && node tests/ratedOnline.test.js && node tests/profile.test.js && node tests/emailAccount.test.js && node tests/lobby.test.js && node tests/matchmaking.test.js",
         "test:rated": "node tests/ratedGame.test.js",
         "test:online-rated": "node tests/ratedOnline.test.js",

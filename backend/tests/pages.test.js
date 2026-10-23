@@ -113,6 +113,31 @@ async function run() {
         }
     });
 
+    await test('a shared link is previewed with the large card, in the language of its page', () => {
+        const unescape = (text) => text.replace(/&(amp|lt|gt|quot|#39);/g, (whole, name) =>
+            ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" }[name]));
+        const shared = [['index.html', 'en'], ...names.flatMap((name) => ['en', 'fr']
+            .map((lang) => [path.join(pathOf(name, lang), 'index.html'), lang]))];
+        for (const [file, lang] of shared) {
+            const html = fs.readFileSync(path.join(WEB, file), 'utf8');
+            const meta = (name) => {
+                const found = html.match(new RegExp(`<meta (?:property|name)="${name}" content="([^"]*)">`));
+                return found ? unescape(found[1]) : undefined;
+            };
+            assert.strictEqual(meta('twitter:card'), 'summary_large_image', `${file}: the large card`);
+            assert.strictEqual(meta('og:locale'), lang === 'fr' ? 'fr_CA' : 'en_US', `${file}: its locale`);
+            assert.strictEqual(meta('og:image'), `${SITE}/assets/share-${lang}.png`, `${file}: the card in ${lang}`);
+            assert.strictEqual(meta('og:image:alt'), locale(lang).meta.shareAlt, `${file}: described in ${lang}`);
+            const png = fs.readFileSync(path.join(WEB, 'assets', `share-${lang}.png`));
+            assert.strictEqual(png.toString('latin1', 12, 16), 'IHDR', `share-${lang}.png is a PNG`);
+            assert.deepStrictEqual(
+                [png.readUInt32BE(16), png.readUInt32BE(20)],
+                [Number(meta('og:image:width')), Number(meta('og:image:height'))],
+                `${file}: the size it gives is the card's`);
+            assert.deepStrictEqual([png.readUInt32BE(16), png.readUInt32BE(20)], [1200, 630], 'the size the large cards are made for');
+        }
+    });
+
     await test('every page can be zoomed', () => {
         for (const file of [...documents, ...names.map((name) => path.join(pathOf(name, 'en'), 'index.html'))]) {
             const html = fs.readFileSync(path.join(WEB, file), 'utf8');

@@ -2,7 +2,9 @@
   "meta": {
     "title": "Hexaequo",
     "tagline": "Un jeu de stratégie abstrait à deux",
-    "homeTitle": "Hexaequo — un jeu de stratégie abstrait gratuit pour deux"
+    "homeTitle": "Hexaequo — un jeu de stratégie abstrait gratuit pour deux",
+    "shareHook": "Le plateau se construit en jouant.",
+    "shareAlt": "Le logo et le nom de Hexaequo à côté de la position de départ : quatre tuiles hexagonales, un disque sur deux d’entre elles, et les cases où peut aller la prochaine tuile."
   },
   "nav": {
     "home": "Accueil",

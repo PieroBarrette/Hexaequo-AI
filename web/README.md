@@ -29,6 +29,7 @@ web/
   assets/
     logo.svg              the mark, as exact hexagon geometry
     icons/                drawn from logo.svg by backend/scripts/makeIcons.js
+    share-{en,fr}.png     link-preview cards, by backend/scripts/makeShareImage.js
   src/
     main.js               entry point
     router.js             hash router
