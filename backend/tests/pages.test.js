@@ -132,6 +132,24 @@ async function run() {
         }
     });
 
+    await test('the rules data says how to win, and no step stops at a colon', () => {
+        const plain = (html) => html.replace(/<[^>]+>/g, '');
+        for (const lang of ['en', 'fr']) {
+            const html = read(pathOf('rules', lang));
+            const data = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
+            const words = locale(lang).rules;
+            assert.strictEqual(data['@type'], 'HowTo');
+            for (const step of data.step) {
+                assert.ok(!/:\s*$/.test(step.text), `${lang}: "${step.name}" ends where its list should begin`);
+            }
+            const winning = data.step.find((step) => step.name === plain(words.goalTitle));
+            assert.ok(winning, `${lang}: a step says how to win`);
+            for (const key of ['goalDisks', 'goalRings', 'goalCleared']) {
+                assert.ok(winning.text.includes(plain(words[key])), `${lang}: winning names ${key}`);
+            }
+        }
+    });
+
     await test('the sitemap lists the home and every listed page, in both languages', () => {
         const sitemap = fs.readFileSync(path.join(WEB, 'sitemap.xml'), 'utf8');
         const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);

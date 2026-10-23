@@ -120,7 +120,11 @@ function gameSchema(tr) {
 }
 
 function rulesSchema(tr) {
-    const step = (name, text) => ({ '@type': 'HowToStep', name: plain(tr.t(name)), text: plain(tr.t(text)) });
+    const step = (name, ...texts) => ({
+        '@type': 'HowToStep',
+        name: plain(tr.t(name)),
+        text: texts.map((text) => plain(tr.t(text))).join(' '),
+    });
     return {
         '@context': 'https://schema.org',
         '@type': 'HowTo',
@@ -135,7 +139,10 @@ function rulesSchema(tr) {
             step('rules.placeTitle', 'rules.placeText'),
             step('rules.diskTitle', 'rules.diskText'),
             step('rules.ringTitle', 'rules.ringText'),
-            step('rules.goalTitle', 'rules.goalIntro'),
+            /* The way to win is a sentence ending in a colon and the list it
+               introduces. The page shows both; the step has to carry both
+               too, or it says there are conditions and stops. */
+            step('rules.goalTitle', 'rules.goalIntro', 'rules.goalDisks', 'rules.goalRings', 'rules.goalCleared'),
         ],
     };
 }
