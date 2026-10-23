@@ -20,7 +20,7 @@ There are several ways to play:
 
 A game is rated (Elo) only when two different signed-in players play on a clock. Untimed games are friendlies.
 
-The previous front end and its shared game module were deleted in commit 7f3483e (August 2026), when `web/` replaced them. Any reference to them, for example in `TO_DO.md`, `FUTURE_IMPLEMENTATION.md` or old docs, is out of date.
+The previous front end and its shared game module were deleted in commit 7f3483e (August 2026), when `web/` replaced them. Any reference to them, for example in the plans under `docs/archive/` or old docs, is out of date.
 
 ## Repository layout
 
@@ -28,11 +28,11 @@ The previous front end and its shared game module were deleted in commit 7f3483e
 web/                  front end: plain ES modules, no build step (see web/README.md)
 backend/              Express + Socket.IO + PostgreSQL; also serves web/
 docs/                 API.md (REST), SOCKET_EVENTS.md (socket protocol)
+docs/archive/         TO_DO.md, FUTURE_IMPLEMENTATION.md: plans from January 2026, in French, for the previous front end; history, not current
 serve.py              dev static server for web/ on :8001, caching disabled
 dev-local.ps1 / .sh   start the backend (:3001) and serve.py together
 .claude/launch.json   preview configurations
 index.html            forwards to web/index.html if something serves the repo root (never in production)
-TO_DO.md, FUTURE_IMPLEMENTATION.md   historical plans (January 2026, in French); not current
 node-portable/        local portable Node (gitignored), used by dev-local.ps1 and launch.json
 ```
 
