@@ -224,18 +224,19 @@ async function boot() {
     setInstallPrompt(event);
   });
 
-  /* The service worker is cache-first, which is right in production and a trap
-     in development: it would keep serving the previous copy of every module.
-     On a development machine it caches nothing (see sw.js) and is there only
-     because notifications cannot arrive without one; anything an older worker
-     cached there is cleared out. */
+  /* The service worker answers the app's own files from its cache, which is
+     right in production and a trap in development: it would keep serving the
+     previous copy of every module. On a development machine it caches nothing
+     (see sw.js) and is there only because notifications cannot arrive without
+     one; anything an older worker cached there is cleared out. Elsewhere
+     update.js registers it, once the page has finished loading. */
   const isLocal = /^(localhost|127\.\d+\.\d+\.\d+|\[::1\])$/.test(location.hostname);
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     if (isLocal) {
       navigator.serviceWorker.register('/sw.js').catch(() => {});
       if (window.caches) caches.keys().then((keys) => keys.forEach((k) => caches.delete(k))).catch(() => {});
     } else {
-      window.addEventListener('load', watchForUpdates);
+      watchForUpdates();
     }
     /* A notification tapped while the app is already open: the worker brings
        it forward and says where to go, and the app goes there itself rather

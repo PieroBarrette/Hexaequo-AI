@@ -1,7 +1,9 @@
 /**
  * Service worker: precache the whole app so Hexaequo works offline.
  *
- * The bundle is small and entirely static, so a cache-first strategy is safe.
+ * The app's files are small and entirely static, so they are served
+ * cache-first. Nothing else is: the API and the socket go to the network as if
+ * the worker were not there (see the fetch handler).
  *
  * The version is not written here. The server computes it from the contents of
  * the files being cached and substitutes it on the way out, so a deploy that
@@ -92,6 +94,11 @@ const SHELL = [
   // Sound is synthesised in audio.js; there is nothing left to download.
 ];
 
+/* The app's own files: the list above, and anything else in the folders where
+   it keeps its code, styles and pictures. The only answers this worker keeps. */
+const OWN = new Set(SHELL.map((entry) => new URL(entry, self.location.href).pathname));
+const isOwnFile = (url) => OWN.has(url.pathname) || /^\/(src|styles|assets)\//.test(url.pathname);
+
 self.addEventListener('install', (event) => {
   if (DEVELOPMENT) {
     self.skipWaiting();
@@ -140,6 +147,18 @@ self.addEventListener('fetch', (event) => {
     );
     return;
   }
+
+  /*
+   * Anything that is not one of the app's files goes to the network,
+   * untouched. It used to be every GET to this origin, and the API and the
+   * socket are GETs too: a rating, a leaderboard or /api/version gave their
+   * first answer until the next release, /api/auth/me kept for one account
+   * was handed to the next on a shared computer, and every request socket.io
+   * made while polling left an entry behind. Even the socket.io client, which
+   * the server hands out so that the two cannot drift apart, was kept until
+   * the app's next release, whatever the server had moved to since.
+   */
+  if (!isOwnFile(url)) return;
 
   event.respondWith(
     caches.match(request).then((cached) => {

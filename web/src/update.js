@@ -95,13 +95,34 @@ function watchWorker(worker) {
 export function watchForUpdates() {
   if (!('serviceWorker' in navigator)) return;
 
+  /*
+   * A change of worker reloads the page onto the new version — when it is
+   * one. The first worker to take charge of a page that had none is not:
+   * sw.js claims every open page as soon as it is active, and a page that
+   * arrived without a worker came from the network and is already current.
+   * Reloading it would cost a new visitor whatever they had started in their
+   * first seconds. Such a page reloads only for a version offered to it since.
+   */
+  const arrivedWithWorker = Boolean(navigator.serviceWorker.controller);
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     // Guard: Chrome can fire this more than once for a single takeover.
-    if (reloading) return;
+    if (reloading || (!arrivedWithWorker && !waiting)) return;
     reloading = true;
     window.location.reload();
   });
 
+  /*
+   * After the page has loaded, so that the worker's downloads do not compete
+   * with the first screen's. Not by waiting for the load event: the app waits
+   * for its words before it gets here, and by then the event has nearly always
+   * been and gone. Waiting for it left the worker unregistered for nearly
+   * everybody — and playing offline, this offer and notifications with it.
+   */
+  if (document.readyState === 'complete') registerWorker();
+  else window.addEventListener('load', registerWorker, { once: true });
+}
+
+function registerWorker() {
   navigator.serviceWorker.register('/sw.js').then((reg) => {
     registration = reg;
 

@@ -94,10 +94,13 @@ web/
 When a page is opened in the app, its path replaces the one in the address bar; nothing is pushed to history. Arriving at a page's path opens the app with that panel over the home screen. `backend/scripts/makePages.js` writes a copy of `index.html` at each path, carrying the page's title, canonical and hreflang links, JSON-LD and the page text from `content/`. It also writes `sitemap.xml`, `robots.txt` and `404.html`. Note that `/play/` is the about page, while `#/play` is the game.
 
 **Service worker and updates.**
-- `sw.js` precaches its `SHELL` list and serves cache-first.
+- `sw.js` precaches its `SHELL` list. Only the app's own files are answered from its cache, cache-first: the `SHELL` entries and anything under `/src/`, `/styles/` or `/assets/`. `/api/`, `/socket.io/` and every other address go to the network untouched. Navigations go to the network and fall back to the cached shell when offline.
 - The server replaces `__BUILD__` with a hash of `web/src`, `web/styles`, `index.html`, the manifest and `sw.js`. Any change therefore makes a new cache, and there is no version to bump.
-- `update.js` looks for a new worker at start-up, on return to the foreground and every 30 minutes, and offers it to the player (`SKIP_WAITING`). `/api/version` only shows the server's build in the settings.
+- `main.js` calls `watchForUpdates()` in `update.js`, which registers the worker once the page has loaded: at once if `document.readyState` is already `complete`, otherwise on `load`. Do not wait for `load` alone: boot awaits the locale first, and by then the event has usually fired.
+- `update.js` looks for a new worker at start-up, on return to the foreground and every 30 minutes, and offers it to the player (`SKIP_WAITING`). The takeover that follows reloads the page. The first worker to claim a page that had none does not: that page came from the network and is current. `/api/version` only shows the server's build in the settings.
 - On localhost the worker caches nothing; it is registered only for notifications. `main.js` also clears any old caches there.
+- To see the production behaviour locally, open the backend at `http://hexaequo.localhost:3001`. Chrome treats `*.localhost` as a secure context, and the localhost check in `sw.js` and `main.js` does not match it.
+- `tests/serviceWorker.test.js` runs `sw.js` and `update.js` under Node, with stand-ins for the browser.
 
 **Session and network.**
 - `auth.js` keeps the JWT access and refresh tokens in localStorage (`hexaequo.token`, `hexaequo.refresh`). Its `api(path)` calls `/api…` with the bearer token and refreshes the token once on a 401. `signOut()` sends the refresh token to `/api/auth/logout`, so the server deletes it, before forgetting both tokens.
@@ -172,7 +175,7 @@ REST errors go through the helpers in `middleware/errorHandler.js` and come back
 
 Run these in `backend/`.
 
-- **`npm test`** runs engine, judge, onlineGame, push, streak, accountFlows, api and pages. It needs no database. Each suite first calls `require('./database').none()`, which sets `DATABASE_URL=memory`; `config/database.js` then builds no pool, and every query throws `NO_DATABASE`.
+- **`npm test`** runs engine, judge, onlineGame, push, streak, accountFlows, api, pages and serviceWorker. It needs no database. Each suite first calls `require('./database').none()`, which sets `DATABASE_URL=memory`; `config/database.js` then builds no pool, and every query throws `NO_DATABASE`.
 - **`api.test.js` starts `server.js` itself** on a free port, where the other suites mount a single router. It is the suite that catches a route the server should not mount, a file the server requires that has gone, or a wrong `/api` 404.
 - **`npm run test:db`** runs ratedGame, ratedOnline, profile, emailAccount, lobby and matchmaking. These suites write rows, so they run only when `TEST_DATABASE_URL` names a throwaway database. Without it they print SKIPPED and exit 0.
 - **Other suites:** `npm run test:elo` needs no database. `node tests/settings.test.js` needs a throwaway database and has no npm script. `test:jest` and `test:integration` are leftover scripts; there are no Jest suites.
