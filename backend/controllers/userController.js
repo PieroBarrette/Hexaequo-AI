@@ -113,7 +113,8 @@ exports.getMatchHistory = async (req, res, next) => {
             dateTo: dateTo || undefined
         };
 
-        const matchResult = await userService.getUserMatchHistory(id, filters);
+        const viewerId = req.user ? req.user.id : null;
+        const matchResult = await userService.getUserMatchHistory(id, filters, viewerId);
 
         res.json({
             data: matchResult.matches,

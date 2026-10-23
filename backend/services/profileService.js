@@ -55,6 +55,8 @@ const GAME_COLUMNS = `
  * "Rated" is not a column — it is what the two elo columns being filled means,
  * the same test asSeenBy makes in JavaScript. Written once so the list and the
  * count it is paged against can never disagree about what they are counting.
+ * Exported for the same reason: GET /api/users/:id/matches draws its line for
+ * visitors with this, not with a copy (models/gameModel.js).
  */
 const RATED_FOR = (p) => `
     (CASE WHEN g.black_player_id = ${p} THEN g.black_elo_before ELSE g.white_elo_before END) IS NOT NULL
@@ -264,4 +266,4 @@ async function versus(userId, otherId) {
     return record.played ? record : null;
 }
 
-module.exports = { stats, history, replay, versus, PAGE_SIZE };
+module.exports = { stats, history, replay, versus, PAGE_SIZE, RATED_FOR };

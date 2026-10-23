@@ -401,7 +401,31 @@ export async function nicknameAvailable(pseudo) {
   return api(`/auth/pseudo-available?pseudo=${encodeURIComponent(pseudo)}`);
 }
 
+/*
+ * Signing out ends the session on the server, not only in this browser.
+ *
+ * Forgetting the tokens here used to be all of it, and the refresh token went
+ * on working for its thirty days: whoever had a copy of it could keep trading
+ * it for fresh sessions long after its owner had signed out. Now the server
+ * is told to delete it.
+ *
+ * Sent as it is rather than through api(), which may first spend this very
+ * token on a new pair when the access token has run out -- and the new one
+ * would be left alive. Not awaited: signing out never waits on the network.
+ * Offline, the message is lost and the token just runs its course. The access
+ * token cannot be taken back by anyone; it expires on its own within a week.
+ */
+function endSessionOnServer(refreshToken) {
+  if (!refreshToken) return;
+  fetch(`${serverOrigin()}/api/auth/logout`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken }),
+  }).catch(() => { /* offline: nothing more to be done from here */ });
+}
+
 export function signOut() {
+  endSessionOnServer(readRefresh());
   writeToken(null);
   writeRefresh(null);
   account = null;

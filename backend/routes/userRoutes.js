@@ -5,7 +5,7 @@
 const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
-const { authenticate } = require('../middleware/authMiddleware');
+const { authenticate, optionalAuth } = require('../middleware/authMiddleware');
 const { validate, schemas } = require('../middleware/validationMiddleware');
 
 // Protected routes - current user
@@ -25,6 +25,8 @@ router.put('/me/preferences', authenticate, validate(schemas.updatePreferences),
 // Must come before /:id, or "leaderboard" would be taken for an account id.
 router.get('/leaderboard', userController.getLeaderboard);
 router.get('/:id', userController.getUserById);
-router.get('/:id/matches', userController.getMatchHistory);
+// optionalAuth so the history can tell who is reading it: the player sees
+// every game, anyone else the rated ones, as on /api/profile/:id/games.
+router.get('/:id/matches', optionalAuth, userController.getMatchHistory);
 
 module.exports = router;

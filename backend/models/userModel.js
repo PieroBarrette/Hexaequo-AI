@@ -220,40 +220,6 @@ async function resetPassword(token, newPassword) {
 }
 
 /**
- * Update ELO rating
- */
-async function updateElo(id, newElo, eloChange, gameId) {
-    return transaction(async (client) => {
-        // Update user ELO
-        await client.query(
-            `UPDATE users SET elo = $1 WHERE id = $2`,
-            [newElo, id]
-        );
-        
-        // Record in history
-        await client.query(
-            `INSERT INTO elo_history (user_id, game_id, elo_before, elo_after, elo_change)
-             VALUES ($1, $2, $3, $4, $5)`,
-            [id, gameId, newElo - eloChange, newElo, eloChange]
-        );
-    });
-}
-
-/**
- * Update game statistics
- */
-async function updateStats(id, result) {
-    const field = result === 'win' ? 'wins' : result === 'loss' ? 'losses' : 'draws';
-    
-    await query(
-        `UPDATE users 
-         SET games_played = games_played + 1, ${field} = ${field} + 1
-         WHERE id = $1`,
-        [id]
-    );
-}
-
-/**
  * Update last seen timestamp
  */
 async function updateLastSeen(id) {
@@ -414,8 +380,6 @@ module.exports = {
     verifyEmail,
     setResetToken,
     resetPassword,
-    updateElo,
-    updateStats,
     updateLastSeen,
     deleteUser,
     getLeaderboard,

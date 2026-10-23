@@ -100,7 +100,7 @@ When a page is opened in the app, its path replaces the one in the address bar; 
 - On localhost the worker caches nothing; it is registered only for notifications. `main.js` also clears any old caches there.
 
 **Session and network.**
-- `auth.js` keeps the JWT access and refresh tokens in localStorage (`hexaequo.token`, `hexaequo.refresh`). Its `api(path)` calls `/api…` with the bearer token and refreshes the token once on a 401.
+- `auth.js` keeps the JWT access and refresh tokens in localStorage (`hexaequo.token`, `hexaequo.refresh`). Its `api(path)` calls `/api…` with the bearer token and refreshes the token once on a 401. `signOut()` sends the refresh token to `/api/auth/logout`, so the server deletes it, before forgetting both tokens.
 - `net.js` opens the socket. In production it uses the same origin. Pages served on :8001 or :8765 use the backend on :3001, which `?api=http://host:port` overrides.
 - `net.js` identifies the socket with `hx:identify`, and `request(event, payload)` resolves to the server's acknowledgement.
 - Guests keep a per-tab seat key in sessionStorage to get their seat back after a reconnection.
@@ -172,7 +172,8 @@ REST errors go through the helpers in `middleware/errorHandler.js` and come back
 
 Run these in `backend/`.
 
-- **`npm test`** runs engine, judge, onlineGame, push, streak, accountFlows and pages. It needs no database. Each suite first calls `require('./database').none()`, which sets `DATABASE_URL=memory`; `config/database.js` then builds no pool, and every query throws `NO_DATABASE`.
+- **`npm test`** runs engine, judge, onlineGame, push, streak, accountFlows, api and pages. It needs no database. Each suite first calls `require('./database').none()`, which sets `DATABASE_URL=memory`; `config/database.js` then builds no pool, and every query throws `NO_DATABASE`.
+- **`api.test.js` starts `server.js` itself** on a free port, where the other suites mount a single router. It is the suite that catches a route the server should not mount, a file the server requires that has gone, or a wrong `/api` 404.
 - **`npm run test:db`** runs ratedGame, ratedOnline, profile, emailAccount, lobby and matchmaking. These suites write rows, so they run only when `TEST_DATABASE_URL` names a throwaway database. Without it they print SKIPPED and exit 0.
 - **Other suites:** `npm run test:elo` needs no database. `node tests/settings.test.js` needs a throwaway database and has no npm script. `test:jest` and `test:integration` are leftover scripts; there are no Jest suites.
 - **How a suite works:** each file is a plain Node script with a small `test()` helper built on `assert`. It prints `N passed, M failed` and exits 1 on failure. To run one: `node tests/<name>.test.js`.
@@ -223,12 +224,9 @@ Run these in `backend/`.
 7. **Engine positions are changed in place.** Call `cloneState()` before keeping one. Repetitions and the idle counter belong to the game's history, not to the position: the room or the view tracks them and passes them in.
 8. **In-memory state.** Rooms, the queue, presence and challenges live in memory, so every deploy or restart ends the games in progress.
 9. **Schema changes** go in both the `CREATE TABLE` statement and the `migrations` block of `models/schema.js`, and must then be applied with `npm run db:init`.
-10. **Leftovers from the previous front end** that `web/` does not use:
-    - `/api/rooms`, `/api/matchmaking`, `/api/games` and `/api/ai` (a placeholder);
-    - the services behind them: `roomService`, `invitationService`, `matchmakingService`, and `gameService` with its `withFallback` in-memory stores;
-    - `chatController` and `replayController`, which are not mounted.
-
-    Build online features on the socket modules instead.
+10. **Online play has no REST routes.** Rooms, quick match, the lobby and challenges are the socket modules' (`hx:*` events); build online features there. The routes the previous front end used, `/api/rooms`, `/api/matchmaking`, `/api/games` and `/api/ai`, were removed on 2026-10-23 with their controllers, services and in-memory stores. Their tables (`rooms`, `spectators`, `matchmaking_queue`, `invitations`, `saved_replays`) are still in `models/schema.js`; dropping them would be a migration of its own.
+    - Still mounted, though `web/` does not call them: `GET` and `PATCH /api/users/me`, `/api/users/me/preferences` (nothing reads those preferences), `GET /api/users/:id` and `/api/users/:id/matches`.
+    - `/api/users/:id/matches` shows a visitor only the rated games, like `/api/profile`, with the same SQL (`RATED_FOR` from `services/profileService.js`). `PATCH /api/users/me` renames through `accountService.setPseudo`, the same rule as sign-up and `PUT /api/auth/pseudo`.
 11. **Accounts from the Google sign-in days.** `users.google_id` is kept but never read. These accounts may have no password until a reset link sets one.
 12. **Escape user text.** Views write HTML with `innerHTML`, so escape anything a user typed, such as chat messages and guest names.
 13. **No `package.json` in `web/`.** Node loads `web/` modules as ES modules by detecting their syntax. Do not add a `package.json` there.

@@ -113,6 +113,13 @@ const STATEMENTS = [
         }],
     [/^DELETE FROM refresh_tokens WHERE user_id = \$1$/,
         ([userId]) => { refreshTokens = refreshTokens.filter((t) => t.user_id !== userId); return []; }],
+    [/^DELETE FROM refresh_tokens WHERE token = \$1$/,
+        ([token]) => { refreshTokens = refreshTokens.filter((t) => t.token !== token); return []; }],
+    // refreshTokenModel.findValid: a token still kept, and not yet expired.
+    [/^SELECT rt\.\*, u\.id as user_id, u\.email, u\.pseudo FROM refresh_tokens rt JOIN users u ON u\.id = rt\.user_id WHERE rt\.token = \$1 AND rt\.expires_at > NOW\(\)$/,
+        ([token]) => refreshTokens
+            .filter((t) => t.token === token && t.expires_at > new Date() && users.has(t.user_id))
+            .map((t) => ({ ...t, email: users.get(t.user_id).email, pseudo: users.get(t.user_id).pseudo }))],
 ];
 
 const realQuery = database.query;
@@ -133,6 +140,8 @@ emailService.sendPasswordResetEmail = async (to, token) => { mail.push({ kind: '
 
 const assert = require('assert');
 const http = require('http');
+const path = require('path');
+const { pathToFileURL } = require('url');
 const express = require('express');
 
 let passed = 0;
@@ -148,6 +157,43 @@ async function test(name, fn) {
         console.log(`  FAIL  ${name}`);
         console.log(`        ${error.message}`);
     }
+}
+
+/*
+ * The app's own session module, web/src/auth.js, in this process.
+ *
+ * It reaches into the browser for two drawers to keep the tokens in, the
+ * address it was loaded from -- the API is on the same origin -- and fetch.
+ * The drawers are kept here and the address is this suite's server. fetch is
+ * the real one, counted, so a request the app sends without waiting for it
+ * can still be waited for.
+ */
+async function theApp(origin) {
+    const drawer = () => {
+        const items = new Map();
+        return {
+            getItem: (key) => (items.has(key) ? items.get(key) : null),
+            setItem: (key, value) => { items.set(key, String(value)); },
+            removeItem: (key) => { items.delete(key); },
+        };
+    };
+    const browser = { localStorage: drawer(), sessionStorage: drawer(), location: new URL(`${origin}/`) };
+    for (const [name, value] of Object.entries(browser)) {
+        Object.defineProperty(globalThis, name, { value, configurable: true, writable: true });
+    }
+    const sent = [];
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (...args) => {
+        const answer = realFetch(...args);
+        sent.push(answer.catch(() => null));
+        return answer;
+    };
+    const auth = await import(pathToFileURL(path.join(__dirname, '..', '..', 'web', 'src', 'auth.js')).href);
+    return {
+        auth,
+        stored: (key) => browser.localStorage.getItem(key) ?? browser.sessionStorage.getItem(key),
+        settled: () => Promise.all(sent),
+    };
 }
 
 async function run() {
@@ -304,6 +350,22 @@ async function run() {
         const malformed = await send('GET', '/pseudo-available?pseudo=' + encodeURIComponent('--'));
         assert.strictEqual(malformed.body.available, false);
         assert.ok(malformed.body.reason, 'with the reason');
+    });
+
+    await test('signing out of the app ends the session on the server, not only in the browser', async () => {
+        const app = await theApp(`http://127.0.0.1:${api.address().port}`);
+        await app.auth.signUpWithEmail({ email: 'margot@example.com', pseudo: 'Margot', password: 'long enough' });
+        const token = app.stored('hexaequo.refresh');
+        assert.ok(token, 'signed in through the app, with a refresh token in the browser');
+        assert.ok(refreshTokens.some((t) => t.token === token), 'that the server keeps');
+
+        app.auth.signOut();
+        await app.settled();
+        assert.strictEqual(app.stored('hexaequo.refresh'), null, 'forgotten in the browser');
+        assert.ok(!refreshTokens.some((t) => t.token === token),
+            'and deleted on the server -- it used to stay good for its thirty days');
+        const copied = await send('POST', '/refresh', { body: { refreshToken: token } });
+        assert.strictEqual(copied.status, 401, 'so a copy of it opens nothing');
     });
 
     await test('nothing of Google is left to call', async () => {

@@ -6,6 +6,7 @@
 
 const { AppError, notFound } = require('../middleware/errorHandler');
 const { User, Game } = require('../models');
+const accounts = require('./accountService');
 
 /**
  * Get user by ID
@@ -72,9 +73,19 @@ exports.getUserByPseudo = async (pseudo) => {
 
 /**
  * Update user profile
+ *
+ * The nickname goes through accountService, as at sign-up and on
+ * PUT /api/auth/pseudo: the same shape, the same check against the names
+ * already taken in any case, the same BAD_PSEUDO and PSEUDO_TAKEN. This door
+ * used to hold it to an older rule of its own (schemas.updateProfile: ASCII
+ * only, up to 30, no check for a clash in another case), so it refused names
+ * the others allowed and took some they refused. The other fields are
+ * written as before.
  */
-exports.updateUser = async (userId, updates) => {
-    const user = await User.update(userId, updates);
+exports.updateUser = async (userId, updates = {}) => {
+    const { pseudo, ...others } = updates;
+    const renamed = pseudo === undefined ? null : await accounts.setPseudo(userId, pseudo);
+    const user = (await User.update(userId, others)) || renamed;
     if (!user) {
         throw notFound('User');
     }
@@ -122,9 +133,15 @@ exports.updateUserSettings = async (userId, updates) => {
 
 /**
  * Get user match history
+ *
+ * All of it for the player, the rated games for anyone else, signed in or not:
+ * the line /api/profile draws. This history used to list every friendly to
+ * whoever asked, which made the profile's discretion a curtain rather than a
+ * door — the same games were one address away.
  */
-exports.getUserMatchHistory = async (userId, { page = 1, limit = 25, result, timeMode, opponentName, dateFrom, dateTo } = {}) => {
-    return await Game.getUserMatchHistory(userId, { page, limit, result, timeMode, opponentName, dateFrom, dateTo });
+exports.getUserMatchHistory = async (userId, { page = 1, limit = 25, result, timeMode, opponentName, dateFrom, dateTo } = {}, viewerId = null) => {
+    const ratedOnly = viewerId !== userId;
+    return await Game.getUserMatchHistory(userId, { page, limit, result, timeMode, opponentName, dateFrom, dateTo, ratedOnly });
 };
 
 /**

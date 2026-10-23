@@ -104,15 +104,11 @@ const schemas = {
             password: { type: 'string' }
         }
     },
+    /* Types and sizes only, as for signup: the nickname is accountService's
+       to judge (userService.updateUser), by the rule every other door uses. */
     updateProfile: {
         fields: {
-            pseudo: { type: 'string', minLength: 3, maxLength: 30, pattern: /^[a-zA-Z0-9_-]+$/ }
-        }
-    },
-    createRoom: {
-        fields: {
-            timeMode: { type: 'string', enum: ['none', 'classic', 'rapid', 'blitz'] },
-            allowSpectators: { type: 'boolean' }
+            pseudo: { type: 'string', maxLength: 60 }
         }
     },
     // The eight-character minimum is authService's, answered as WEAK_PASSWORD.

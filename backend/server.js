@@ -21,11 +21,7 @@ const { errorHandler } = require('./middleware/errorHandler');
 // Import routes
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
-const gameRoutes = require('./routes/gameRoutes');
-const roomRoutes = require('./routes/roomRoutes');
-const aiRoutes = require('./routes/aiRoutes');
 const adminRoutes = require('./routes/adminRoutes');
-const matchmakingRoutes = require('./routes/matchmakingRoutes');
 const profileRoutes = require('./routes/profileRoutes');
 const pushRoutes = require('./routes/pushRoutes');
 const { siteRoutes } = require('./routes/siteRoutes');
@@ -125,12 +121,19 @@ app.get('/healthz', (req, res) => {
     res.status(200).send('OK');
 });
 
-// API Routes
+/*
+ * API Routes
+ *
+ * Rooms, quick match, the lobby and challenges are not here: online play is
+ * the socket's (socket/*.js, the hx:* events). The REST routes the previous
+ * front end used for them -- /api/rooms, /api/matchmaking, /api/games and an
+ * /api/ai placeholder -- were removed on 2026-10-23, with the services behind
+ * them. Nothing called them any more, and they had come apart: one database
+ * error switched their services for good to an empty in-memory store, and the
+ * room links they handed out led to a 404.
+ */
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/games', gameRoutes);
-app.use('/api/rooms', roomRoutes);
-app.use('/api/ai', aiRoutes);
 /*
  * The admin console runs SQL and is off unless someone deliberately turns it
  * on. It is a database shell reachable over the public internet — the single
@@ -146,7 +149,6 @@ if (adminEnabled) {
 } else {
     console.log('🔒 Admin console disabled (set ENABLE_ADMIN=1 to enable)');
 }
-app.use('/api/matchmaking', matchmakingRoutes);
 // Records, game history and replays.
 app.use('/api/profile', profileRoutes);
 // Notifications: the key browsers subscribe with, and their subscriptions.
@@ -262,11 +264,14 @@ app.get('/api/version', (req, res) => {
     res.json({ build: BUILD });
 });
 
-// 404 handler for API routes only (before the site)
+/* 404 handler for API routes only (before the site). The address is read from
+   originalUrl, without its query: inside a handler mounted on '/api/*',
+   req.path is what is left after the mount, always "/", so every 404 used to
+   say "Route GET / not found" whatever had been asked for. */
 app.use('/api/*', (req, res, next) => {
     res.status(404).json({
         error: 'Not Found',
-        message: `Route ${req.method} ${req.path} not found`
+        message: `Route ${req.method} ${req.originalUrl.split('?')[0]} not found`
     });
 });
 

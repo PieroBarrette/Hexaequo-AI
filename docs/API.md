@@ -59,8 +59,9 @@ There are no cookies. Each endpoint below states its authentication:
 
 The access token is checked by its signature alone and cannot be revoked: it
 stays valid until it expires. Refresh tokens are deleted by
-`POST /api/auth/logout` (the one sent), by `POST /api/auth/reset-password` (all
-of the account's) and with the account.
+`POST /api/auth/logout` (the one sent, which the web app does when the player
+signs out), by `POST /api/auth/reset-password` (all of the account's) and with
+the account.
 
 The web app answers a `401` on a signed-in request by spending the refresh
 token once and retrying, then by signing out. That is why a refusal that is not
@@ -97,7 +98,7 @@ leaderboard `games_played` and the rest) move only for rated games.
 | `POST /api/auth/signup` | none | yes |
 | `POST /api/auth/register` (alias of `signup`) | none | no |
 | `POST /api/auth/login` | none | yes |
-| `POST /api/auth/logout` | none | no |
+| `POST /api/auth/logout` | none | yes (signing out) |
 | `POST /api/auth/refresh` | none | yes |
 | `POST /api/auth/verify-email` | none | yes |
 | `POST /api/auth/forgot-password` | none | yes |
@@ -115,7 +116,7 @@ leaderboard `games_played` and the rest) move only for rated games.
 | `PUT /api/users/me/preferences` | required | no |
 | `GET /api/users/leaderboard` | none | yes |
 | `GET /api/users/:id` | none | no |
-| `GET /api/users/:id/matches` | none | no |
+| `GET /api/users/:id/matches` | optional | no |
 | `GET /api/profile/me` | required | yes |
 | `GET /api/profile/me/streak` | required | yes |
 | `GET /api/profile/me/games` | required | yes |
@@ -129,24 +130,13 @@ leaderboard `games_played` and the rest) move only for rated games.
 | `POST /api/push/test` | required | yes |
 | `GET /api/version` | none | yes |
 | `GET /health`, `GET /healthz` | none | no (host checks) |
-| `GET /api/games` | none | no |
-| `GET /api/games/leaderboard` | none | no |
-| `GET /api/games/:id` | none | no |
-| `GET /api/games/:id/replay` | none | no |
-| `GET /api/rooms` | none | no |
-| `GET /api/rooms/:code` | none | no |
-| `POST /api/rooms` | optional | no |
-| `POST /api/rooms/:code/join` | optional | no |
-| `POST /api/rooms/:code/leave` | optional | no |
-| `GET /api/matchmaking/preferences` | optional | no |
-| `PUT /api/matchmaking/preferences` | required | no |
-| `POST /api/matchmaking/invitations` | optional | no |
-| `GET /api/matchmaking/invitations/:code` | none | no |
-| `POST /api/matchmaking/invitations/:code/accept` | optional | no |
-| `DELETE /api/matchmaking/invitations/:code` | optional | no |
-| `POST /api/ai/move` | none | no |
-| `GET /api/ai/rating` | none | no |
 | `/api/admin/*` | admin password | no; only mounted with `ENABLE_ADMIN=1` |
+
+Rooms, quick match, the lobby and challenges are not REST: they go over the
+socket (see [WebSocket Events](#websocket-events)). The REST routes an earlier
+front end used for them, `/api/rooms`, `/api/matchmaking`, `/api/games` and the
+`/api/ai` placeholder, were removed on 2026-10-23 and answer the JSON `404` of
+any unknown path.
 
 ---
 
@@ -230,9 +220,9 @@ in any case.
 ---
 
 #### POST `/api/auth/logout`
-Delete one refresh token. The access token stays valid until it expires. Not
-used by the current web app, whose sign-out only forgets the tokens in the
-browser.
+Delete one refresh token. The web app sends its own when the player signs out
+(`signOut` in `web/src/auth.js`), without waiting for the answer, and forgets
+both tokens in the browser. The access token stays valid until it expires.
 
 **Auth:** none.
 
@@ -494,9 +484,10 @@ Not used by the current web app, which reads `/api/auth/me` and
 
 #### PATCH `/api/users/me`
 Update `pseudo`, `avatar_url` or `country_code`. Not used by the current web
-app, which renames with `PUT /api/auth/pseudo`. The `pseudo` here is checked
-against an older rule (3 to 30 characters among `a-z`, `A-Z`, `0-9`, `_`, `-`)
-and not against the nicknames already taken in another case.
+app, which renames with `PUT /api/auth/pseudo`. The `pseudo` is held to the
+same rules by the same code as there and at sign-up (trimmed, 3 to 20 letters
+or digits with single separators, not taken in any case), and the nickname then
+counts as chosen.
 
 **Auth:** required.
 
@@ -520,8 +511,9 @@ and not against the nicknames already taken in another case.
 }
 ```
 
-**Errors:** `400 VALIDATION_ERROR`, `404 NOT_FOUND` (also when the body has
-none of the three fields).
+**Errors:** `400 VALIDATION_ERROR` (a `pseudo` that is not a string, or over 60
+characters), `400 BAD_PSEUDO`, `409 PSEUDO_TAKEN`, `404 NOT_FOUND` (also when
+the body has none of the three fields).
 
 ---
 
@@ -620,7 +612,7 @@ others are kept. Keys and values are not checked.
 Matchmaking preferences: the rating range to accept, relative to one's own,
 and whether to accept friendly games. Not used by the current web app, and not
 read by the current quick match, which widens its own rating band while a
-player waits. `/api/matchmaking/preferences` serves the same values.
+player waits.
 
 **Auth:** required.
 
@@ -747,10 +739,11 @@ A player's public summary. Not used by the current web app, which reads
 
 #### GET `/api/users/:id/matches`
 A player's finished games, most recent first. Not used by the current web app,
-which reads `/api/profile/:id/games`. Unlike `/api/profile`, it lists unrated
-games too, to anyone.
+which reads `/api/profile/:id/games`. It draws the same line as `/api/profile`:
+the player, signed in, gets every game; anyone else, signed in or not, gets the
+rated ones only, and `meta.total` counts those.
 
-**Auth:** none.
+**Auth:** optional.
 
 **Query Parameters:**
 - `page` (default: 1)
@@ -1148,484 +1141,6 @@ The same check for hosts that expect this path.
 
 ---
 
-### Games
-
-Recorded games, read straight from the `games` table. None of these endpoints
-is used by the current web app, which reads games through `/api/profile`.
-Unlike `/api/profile`, they list and serve unrated games to anyone. A game is
-written when it ends, so `status=playing` matches nothing the current server
-writes. After the first database error here, an id that is not a UUID being
-enough, these four endpoints answer from an empty in-memory store (empty lists,
-`404`) until the server restarts.
-
-#### GET `/api/games`
-
-**Auth:** none.
-
-**Query Parameters:**
-- `status`: `finished` or `playing` (anything else: all)
-- `timeMode`
-- `page` (default: 1)
-- `limit` (default: 20)
-
-**Response (200):**
-```json
-{
-    "data": [
-        {
-            "id": "game_uuid",
-            "room_code": "K7M3QX",
-            "black_player_id": "uuid",
-            "black_pseudo": "Player1",
-            "white_player_id": "uuid",
-            "white_pseudo": "Player2",
-            "time_mode": "rapid",
-            "winner": "black",
-            "result_reason": "disks",
-            "started_at": "2026-10-19T21:04:11.000Z",
-            "finished_at": "2026-10-19T21:04:11.000Z"
-        }
-    ],
-    "meta": {
-        "total": 120,
-        "page": 1,
-        "totalPages": 6
-    }
-}
-```
-
----
-
-#### GET `/api/games/leaderboard`
-The same ranking as [`/api/users/leaderboard`](#get-apiusersleaderboard), in the
-older envelope and without `waiting`. `timeMode` is accepted and ignored: there
-is one rating. An empty list if the database cannot be read.
-
-**Auth:** none.
-
-**Query Parameters:**
-- `page` (default: 1)
-- `limit` (default: 50)
-
-**Response (200):**
-```json
-{
-    "data": [
-        {
-            "rank": 1,
-            "id": "uuid",
-            "pseudo": "TopPlayer",
-            "elo": 1342,
-            "games_played": 58,
-            "wins": 37,
-            "losses": 19,
-            "draws": 2,
-            "win_rate": "63.8"
-        }
-    ],
-    "meta": {
-        "total": 41,
-        "page": 1,
-        "totalPages": 1
-    }
-}
-```
-
----
-
-#### GET `/api/games/:id`
-
-**Auth:** none.
-
-**Response (200):**
-```json
-{
-    "data": {
-        "id": "game_uuid",
-        "roomCode": "K7M3QX",
-        "players": {
-            "black": { "id": "uuid", "pseudo": "Player1", "eloBefore": 1012, "eloAfter": 1034 },
-            "white": { "id": "uuid", "pseudo": "Player2", "eloBefore": 1040, "eloAfter": 1018 }
-        },
-        "timeMode": "rapid",
-        "winner": "black",
-        "resultReason": "disks",
-        "moveCount": "87",
-        "startedAt": "2026-10-19T21:04:11.000Z",
-        "finishedAt": "2026-10-19T21:04:11.000Z"
-    }
-}
-```
-`moveCount` is a string (a PostgreSQL count). The ratings are null for an
-unrated game.
-
-**Errors:** `404 NOT_FOUND`.
-
----
-
-#### GET `/api/games/:id/replay`
-An older replay format. A game recorded by the current server keeps a position
-only after its last move, so `stateHistory` holds at most the final position;
-the review board replays from `/api/profile/games/:id` instead.
-
-**Auth:** none.
-
-**Response (200):**
-```json
-{
-    "data": {
-        "gameId": "game_uuid",
-        "players": {
-            "black": { "id": "uuid", "pseudo": "Player1", "eloBefore": 1012, "eloAfter": 1034 },
-            "white": { "id": "uuid", "pseudo": "Player2", "eloBefore": 1040, "eloAfter": 1018 }
-        },
-        "stateHistory": [
-            {
-                "gameState": { … },
-                "moveType": "disk",
-                "timeRemainingBlack": null,
-                "timeRemainingWhite": null
-            }
-        ],
-        "result": {
-            "winner": "black",
-            "reason": "disks"
-        },
-        "timeMode": "rapid",
-        "startedAt": "2026-10-19T21:04:11.000Z",
-        "finishedAt": "2026-10-19T21:04:11.000Z"
-    }
-}
-```
-
-**Errors:** `404 NOT_FOUND`.
-
----
-
-### Rooms
-
-Lobby rooms kept in the `rooms` table, from an earlier version of online play.
-None of these endpoints is used by the current web app: its online games are
-created and joined over Socket.IO (`hx:create`, `hx:join`) and live in the
-server's memory under 6-character codes. These rooms have 8-character codes and
-are deleted 24 hours after their last change. Codes are read in any case.
-
-#### GET `/api/rooms`
-
-**Auth:** none.
-
-**Query Parameters:**
-- `status` (default: `waiting`): `waiting`, `playing` or `finished`
-- `timeMode`
-- `allowSpectators`: `true` lists rooms that allow spectators; any other value,
-  or none, lists rooms that do not
-- `page` (default: 1)
-- `limit` (default: 20)
-
-**Response (200):**
-```json
-{
-    "data": [
-        {
-            "code": "A2B3C4D5",
-            "host_id": "uuid",
-            "host_pseudo": "Player1",
-            "time_mode": "rapid",
-            "allow_spectators": false,
-            "status": "waiting",
-            "created_at": "2026-10-19T20:30:00.000Z"
-        }
-    ],
-    "meta": {
-        "total": 5,
-        "page": 1,
-        "totalPages": 1
-    }
-}
-```
-
----
-
-#### GET `/api/rooms/:code`
-
-**Auth:** none.
-
-**Response (200):**
-```json
-{
-    "data": {
-        "code": "A2B3C4D5",
-        "host": { "id": "uuid", "pseudo": "Player1", "socketId": null, "color": "black" },
-        "white": null,
-        "timeMode": "rapid",
-        "allowSpectators": true,
-        "status": "waiting",
-        "gameState": { … },
-        "activePlayer": "black",
-        "createdAt": "2026-10-19T20:30:00.000Z"
-    }
-}
-```
-`white` takes the same shape as `host` once a second player is recorded.
-
-**Errors:** `404 NOT_FOUND`.
-
----
-
-#### POST `/api/rooms`
-Create a room. Signed in, the host's id is recorded, but not their nickname.
-
-**Auth:** optional.
-
-**Request Body:**
-```json
-{
-    "timeMode": "rapid",
-    "allowSpectators": true
-}
-```
-`timeMode`: `none` (default), `classic`, `rapid` or `blitz`. `allowSpectators`:
-a boolean (default true).
-
-**Response (201):**
-```json
-{
-    "data": {
-        "roomCode": "A2B3C4D5",
-        "url": "/game/A2B3C4D5"
-    }
-}
-```
-`url` is a path the current site does not serve.
-
-**Errors:** `400 VALIDATION_ERROR`.
-
----
-
-#### POST `/api/rooms/:code/join`
-Take the second seat of a waiting room. Signed out, the handler fails with a
-`500`. Signed in, the room is marked `playing` but the caller is not recorded
-in it (`white` stays null).
-
-**Auth:** optional.
-
-**Response (200):** the room, as for `GET /api/rooms/:code`, now `playing`.
-```json
-{
-    "data": { … }
-}
-```
-
-**Errors:** `404 NOT_FOUND`, `409 CONFLICT` (`Room is not available`: it is not
-waiting).
-
----
-
-#### POST `/api/rooms/:code/leave`
-The host leaving deletes the room; the second player leaving puts it back to
-`waiting`.
-
-**Auth:** optional.
-
-**Response (200)**, also when the room does not exist:
-```json
-{
-    "data": null,
-    "meta": {
-        "message": "Left room successfully"
-    }
-}
-```
-
----
-
-### Matchmaking
-
-Preferences and invitation links from an earlier version of online play. None
-of these endpoints is used by the current web app: quick match, challenges and
-game links now go through Socket.IO (`hx:queue*`, `hx:challenge*`, room codes).
-
-#### GET `/api/matchmaking/preferences`
-The values of [`/api/users/me/preferences`](#get-apiusersmepreferences);
-signed out, the defaults.
-
-**Auth:** optional.
-
-**Response (200):**
-```json
-{
-    "data": {
-        "elo_range_min": -200,
-        "elo_range_max": 200,
-        "allow_friendly_games": true
-    }
-}
-```
-
----
-
-#### PUT `/api/matchmaking/preferences`
-As `PUT /api/users/me/preferences`, except that out-of-range numbers are
-clamped rather than refused and no `meta` is sent.
-
-**Auth:** required.
-
-**Response (200):**
-```json
-{
-    "data": {
-        "elo_range_min": -300,
-        "elo_range_max": 150,
-        "allow_friendly_games": false
-    }
-}
-```
-
----
-
-#### POST `/api/matchmaking/invitations`
-Create a room and an invitation link to it, valid 24 hours. The body's settings
-are currently ignored: the controller passes them to the service in the wrong
-place, so the room is always untimed (`none`) with spectators allowed, and the
-invitation is kept in the server's memory rather than the database.
-
-**Auth:** optional.
-
-**Request Body:**
-```json
-{
-    "timeMode": "rapid",
-    "allowSpectators": true
-}
-```
-
-**Response (201):**
-```json
-{
-    "data": {
-        "code": "A2B3C4D5",
-        "url": "https://hexaequo.com/?invite=A2B3C4D5",
-        "expiresAt": "2026-10-24T18:00:00.000Z"
-    }
-}
-```
-The code is the room's code; `url` starts with `FRONTEND_URL`.
-
----
-
-#### GET `/api/matchmaking/invitations/:code`
-
-**Auth:** none.
-
-**Response (200):**
-```json
-{
-    "data": {
-        "creatorPseudo": "Player1",
-        "timeMode": "none",
-        "expiresAt": "2026-10-24T18:00:00.000Z"
-    }
-}
-```
-
-**Errors:** `404` `{ "error": "Invitation not found" }` (or
-`Invitation already used`, `Invitation expired`).
-
----
-
-#### POST `/api/matchmaking/invitations/:code/accept`
-Use the invitation: the caller takes the room's second seat. Signed out, a
-`pseudo` may be sent in the body.
-
-**Auth:** optional.
-
-**Response (200):**
-```json
-{
-    "data": {
-        "roomCode": "A2B3C4D5",
-        "timeMode": "none",
-        "creatorPseudo": "Player1"
-    }
-}
-```
-
-**Errors:** `400` `{ "error": "<reason>" }` (`Invitation not found`,
-`Invitation already used`, `Invitation expired`, or why the room could not be
-joined).
-
----
-
-#### DELETE `/api/matchmaking/invitations/:code`
-Cancel an invitation. The room behind a valid invitation is deleted whoever
-asks; the invitation itself only for its creator (anyone, for one made signed
-out).
-
-**Auth:** optional.
-
-**Response (200):**
-```json
-{
-    "data": {
-        "cancelled": true
-    }
-}
-```
-`cancelled` is false when the invitation was not removed.
-
----
-
-### AI
-
-Neither endpoint is used by the current web app: the computer opponent runs in
-the browser.
-
-#### POST `/api/ai/move`
-A placeholder: no move is computed.
-
-**Auth:** none.
-
-**Request Body:**
-```json
-{
-    "gameState": { … },
-    "difficulty": 3
-}
-```
-
-**Response (200):**
-```json
-{
-    "data": {
-        "message": "Server-side AI not yet implemented",
-        "difficulty": 3
-    }
-}
-```
-
----
-
-#### GET `/api/ai/rating`
-A fixed estimate per level: 0 → 400, 1 → 800, 2 → 1200, 3 → 1600, 4 → 2000;
-any other value → 1600.
-
-**Auth:** none.
-
-**Query Parameters:**
-- `difficulty` (default: 3)
-
-**Response (200):**
-```json
-{
-    "data": {
-        "difficulty": 3,
-        "estimatedRating": 1600
-    }
-}
-```
-
----
-
 ### Admin console
 
 A database console for maintenance, not part of the app's API. It is mounted
@@ -1652,11 +1167,10 @@ There is no single error format. What each source sends:
 |--------|--------|------|
 | A route's refusal, through the error handler | 4xx | `{ "error": "CODE", "message": "English text" }` |
 | No token, or a bad one, on a route that requires one | 401 | `{ "error": "Unauthorized", "message": "Authentication required" }` (or `"Invalid token"`, `"Token expired"`) |
-| A path under `/api/` that no route matches | 404 | `{ "error": "Not Found", "message": "Route GET / not found" }`: the method is the one used, but the path printed is always `/` |
+| A path under `/api/` that no route matches | 404 | `{ "error": "Not Found", "message": "Route GET /api/nothing-here not found" }`: the method and the path asked for, without the query string |
 | A rate limit | 429 | `{ "error": "Too Many Requests", "message": "…", "retryAfter": 900 }` |
 | `/api/profile` | 404 | `{ "error": "No such account" }`, `"No such game"` or `"No such record"` |
 | `/api/push` | 400, 404, 429, 503 | `{ "ok": false, "error": "CODE" }` |
-| `/api/matchmaking` invitations | 400, 404 | `{ "error": "Invitation not found" }` or another reason |
 | Anything unexpected | 500 | `{ "error": "INTERNAL_ERROR", "message": "…" }`; a database error carries PostgreSQL's code instead, e.g. `"22P02"` for an id that is not a UUID on `/api/users/:id` |
 
 The app puts the `error` code into words in the reader's language
@@ -1671,17 +1185,16 @@ Codes sent as `{ "error": "CODE", "message": "…" }`:
 |------|-------------|-------------|
 | `VALIDATION_ERROR` | 400 | A body field of the wrong type, too long, out of range or missing; `message` lists them, separated by `; ` |
 | `BAD_EMAIL` | 400 | Sign-up: not an address |
-| `BAD_PSEUDO` | 400 | Sign-up, `PUT /api/auth/pseudo`: a nickname outside the rules |
+| `BAD_PSEUDO` | 400 | Sign-up, `PUT /api/auth/pseudo`, `PATCH /api/users/me`: a nickname outside the rules |
 | `WEAK_PASSWORD` | 400 | Sign-up, reset, change: fewer than 8 characters |
 | `INVALID_TOKEN` | 400 | `verify-email`, `reset-password`: an unknown, used or expired link |
 | `NO_PASSWORD` | 401, 409, 400 | Sign-in (401), sign-up (409), change-password (400): an older account that has no password yet |
 | `INVALID_CREDENTIALS` | 401 | Sign-in: unknown address or wrong password |
 | `UNAUTHORIZED` | 401 | `refresh`: an unknown, used or expired refresh token |
 | `WRONG_PASSWORD` | 403 | `change-password`, `DELETE /api/users/me` |
-| `NOT_FOUND` | 404 | No such user, account, game or room |
+| `NOT_FOUND` | 404 | No such user or account |
 | `EMAIL_TAKEN` | 409 | Sign-up |
-| `PSEUDO_TAKEN` | 409 | Sign-up, `PUT /api/auth/pseudo` |
-| `CONFLICT` | 409 | `POST /api/rooms/:code/join`: the room is not waiting |
+| `PSEUDO_TAKEN` | 409 | Sign-up, `PUT /api/auth/pseudo`, `PATCH /api/users/me` |
 | `INTERNAL_ERROR` | 500 | Anything else |
 
 Codes sent by `/api/push` as `{ "ok": false, "error": "CODE" }`:
