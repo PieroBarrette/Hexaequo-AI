@@ -1052,6 +1052,31 @@ async function run() {
         eye.disconnect();
     });
 
+    await test('reading the room back does not hand over what the players said', async () => {
+        /* Kept out of the spectator's view and out of the broadcast, the
+           chat was still in the answer to hx:sync, which anyone holding the
+           code may send -- and the page sends it for a spectator after every
+           move taken back. */
+        const a = await open();
+        const b = await open();
+        const eye = await open();
+        const passerBy = await open();
+        const room = await ask(a, 'hx:create', {});
+        await ask(b, 'hx:join', { code: room.code });
+        await ask(eye, 'hx:watch', { code: room.code });
+        await ask(a, 'hx:chat', { code: room.code, text: 'entre nous' });
+
+        for (const [who, socket] of [['a spectator', eye], ['a passer-by', passerBy]]) {
+            const view = await ask(socket, 'hx:sync', { code: room.code });
+            assert.ok(view.ok, view.error);
+            assert.strictEqual(view.chat, undefined, `${who} reads the game without it`);
+        }
+        const seated = await ask(b, 'hx:sync', { code: room.code });
+        assert.deepStrictEqual(seated.chat.map((m) => m.text), ['entre nous'], 'the players still have it');
+
+        for (const socket of [a, b, eye, passerBy]) socket.disconnect();
+    });
+
     await test('leaving takes you off the count', async () => {
         const a = await open();
         const b = await open();

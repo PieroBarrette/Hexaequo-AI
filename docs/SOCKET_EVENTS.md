@@ -278,7 +278,7 @@ Clients count `remaining[turn]` down locally while `running` is true, and take t
 | `graceMs` | number | Reconnection grace for this cadence |
 | `awaitingReturn` | `{ seat, msLeft }` or `null` | An abandonment countdown in progress |
 | `watchers` | number | Spectators |
-| `chat` | message[] | The last 60 lines of game chat (left out by `hx:watch`) |
+| `chat` | message[] | The last 60 lines of game chat, for the players only: left out by `hx:watch`, and by `hx:sync` for a socket without a seat |
 | `game` | number | Which game of the series this is (1, 2, ...) |
 | `series` | `{ wins: [n, n], draws }` | Score of the series, by seat of this room |
 | `rematchCode` | string or `null` | The room that replaced this one, once a rematch is agreed |
@@ -299,7 +299,7 @@ Clients count `remaining[turn]` down locally while `running` is true, and take t
 
 **Leaving and abandonment.** A seated player who disconnects, or sends `hx:leave`, frees the seat but keeps the claim on it. In a game under way this starts a countdown of the cadence's grace time (table above); the opponent and spectators get `hx:opponent { joined: false, graceMs, msLeft }`, and room views carry `awaitingReturn`. Coming back with `hx:join` in time calls it off (`hx:opponent { joined: true }`). If it runs out with the seat still empty, the other seat wins (`abandoned`). A room runs one countdown at a time: if the second player leaves too, their countdown replaces the first one, and when it runs out the seat that left first is awarded the game. Nothing is counted down in a room that never filled, or once the game is over.
 
-**Spectators.** Any socket that knows a code may watch with `hx:watch`, unless its account is on one of the seats (`ALREADY_PLAYING`, even while away from it). A spectator receives everything sent to the room (see [Who receives server events](#who-receives-server-events)) except `hx:chat`, cannot act (`NOT_A_PLAYER` on every game action) and is counted in `watchers`. Games between two signed-in players with both seats occupied are listed publicly (`hx:live`, the lobby), so their codes are public.
+**Spectators.** Any socket that knows a code may watch with `hx:watch`, unless its account is on one of the seats (`ALREADY_PLAYING`, even while away from it). A spectator receives everything sent to the room (see [Who receives server events](#who-receives-server-events)) except `hx:chat`, is given room views without the chat, cannot act (`NOT_A_PLAYER` on every game action) and is counted in `watchers`. Games between two signed-in players with both seats occupied are listed publicly (`hx:live`, the lobby), so their codes are public.
 
 **Limits.** A socket may have at most 5 unfinished rooms that it created or joined and has not left (`TOO_MANY_ROOMS` on `hx:create`; finished rooms do not count). Moves: one per 150 ms per socket. Game chat: one line per 400 ms per socket, 300 characters, 60 lines kept. Rooms live in memory: a room untouched for 2 hours is deleted (checked every 10 minutes), a room called off with `hx:cancel` at once, a matchmade room nobody has sat down in after 60 s, and every room on a restart. Any request about a deleted room gets `NO_SUCH_ROOM`.
 
@@ -367,7 +367,7 @@ Removes the socket from the spectators and from the room's broadcasts (unless it
 
 Payload: `{ code }`. Ack: `{ ok: true, colour, ...room view }`, where `colour` is the seat this socket holds or `-1`. Error: `NO_SUCH_ROOM`.
 
-Changes nothing except keeping the room alive. The web client re-reads the room after a refused move and after `hx:undo:done`. The answer includes `chat`, whoever asks: see [Known issues](#9-known-issues).
+Changes nothing except keeping the room alive. The web client re-reads the room after a refused move and after `hx:undo:done`, spectators included. Only the socket holding a seat gets `chat`; anyone else reads the room without it, as with `hx:watch`.
 
 ### `hx:mygame`
 
@@ -928,10 +928,9 @@ Two codes come from the client, not the server: `OFFLINE` (a request failed or t
 
 Behaviour of the code as of 2026-10-23 that differs from what the code comments and the web client expect. Remove an entry once it is fixed.
 
-1. **`hx:sync` returns the players' chat to anyone.** `hx:watch` leaves `chat` out and `hx:chat` goes to the two seats only, but `hx:sync` returns the full room view to any socket with the code; the web client calls it for spectators after `hx:undo:done`.
-2. **Spectators follow a rematch.** `hx:rematch:ready` goes to the whole room, and its listener in `web/src/views/play.js` calls `goToRematch` without checking `net.watching` (unlike `adoptRoom`, which does). A spectator is sent into the new room as a would-be player, and its `hx:join` fails with `ROOM_FULL`.
-3. **Cadences are not checked for quick match and challenges.** `hx:queue` and `hx:challenge` accept any `timeControl`, including `none` (an untimed, unrated game) and unknown strings (their own queue pool, and a room created as `none`). The web client never sends these.
-4. **A stale queue slot disappears silently.** A slot older than 10 minutes is removed without an `hx:queue:update { inQueue: false }`, so the web client goes on showing a search that no longer exists.
+1. **Spectators follow a rematch.** `hx:rematch:ready` goes to the whole room, and its listener in `web/src/views/play.js` calls `goToRematch` without checking `net.watching` (unlike `adoptRoom`, which does). A spectator is sent into the new room as a would-be player, and its `hx:join` fails with `ROOM_FULL`.
+2. **Cadences are not checked for quick match and challenges.** `hx:queue` and `hx:challenge` accept any `timeControl`, including `none` (an untimed, unrated game) and unknown strings (their own queue pool, and a room created as `none`). The web client never sends these.
+3. **A stale queue slot disappears silently.** A slot older than 10 minutes is removed without an `hx:queue:update { inQueue: false }`, so the web client goes on showing a search that no longer exists.
 
 ---
 

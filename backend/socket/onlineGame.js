@@ -1537,7 +1537,12 @@ function attachOnlineGames(io) {
             const room = rooms.get(code);
             if (!room) return reply(callback, { ok: false, error: 'NO_SUCH_ROOM' });
             touch(room);
-            reply(callback, { ok: true, colour: seatOf(room, socket.id), ...publicView(room) });
+            const seat = seatOf(room, socket.id);
+            const view = publicView(room);
+            /* What the players say is between them, here as in hx:chat: anyone
+               else holding the code reads the room as a spectator does. */
+            if (seat === -1) delete view.chat;
+            reply(callback, { ok: true, colour: seat, ...view });
         });
 
         socket.on('disconnect', () => {
