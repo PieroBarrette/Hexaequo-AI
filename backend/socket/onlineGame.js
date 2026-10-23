@@ -127,15 +127,19 @@ const UNDO_CLOCK_FLOOR_MS = 10000;
 function forgetIdentity(io, socket) {
     const held = socket.data.user;
     socket.data.user = null;
-    /* By socket rather than by the account it claimed, so an entry cannot
-       outlive the identity that put it there whatever order things failed in.
-       Another tab may hold the entry; only its own socket clears it. */
+    leavePresence(io, socket);
+    return held;
+}
+
+/* By socket rather than by the account it claimed, so an entry cannot
+   outlive the identity that put it there whatever order things failed in.
+   Another tab may hold the entry; only its own socket clears it. */
+function leavePresence(io, socket) {
     for (const [userId, entry] of online) {
         if (entry.socketId !== socket.id) continue;
         online.delete(userId);
         announcePresence(io, userId);
     }
-    return held;
 }
 
 /** Whether this account is at a board right now. */
@@ -1530,7 +1534,16 @@ function attachOnlineGames(io) {
                 watched.watchers.delete(socket.id);
                 announceWatchers(io, watched);
             }
-            forgetIdentity(io, socket);
+            /*
+             * Off the list, but still known by name. The queue and the lobby
+             * clean up after a closed connection in disconnect handlers of
+             * their own, which run after this one and need the account to find
+             * what it left there. Forgetting it here, as hx:identify does, left
+             * them nobody to clean up after: a closed tab kept its place in
+             * the queue and was paired with the next player to arrive. A
+             * closed socket can ask for nothing, so the name grants nothing.
+             */
+            leavePresence(io, socket);
             for (const code of socket.data.hxRooms) {
                 const room = rooms.get(code);
                 if (!room) continue;

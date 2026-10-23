@@ -96,7 +96,11 @@ const { io: connect } = require('socket.io-client');
 const { attachOnlineGames, RECONNECT_GRACE_MS, TIME_CONTROLS } = require('../socket/onlineGame');
 /* The lobby too: what it answers a connection it does not recognise is
    part of the identity contract, and reading the roster writes nothing. */
-const { attachLobby } = require('../socket/lobby');
+const { attachLobby, present } = require('../socket/lobby');
+/* And the queue and page visibility, so that a closed connection is cleaned
+   up after by every module, in the order server.js attaches them. */
+const { attachMatchmaking } = require('../socket/matchmaking');
+const { attachNotifications } = require('../socket/notify');
 
 let passed = 0;
 let failed = 0;
@@ -212,7 +216,9 @@ async function run() {
     const server = http.createServer();
     const io = new Server(server, { cors: { origin: '*' } });
     attachOnlineGames(io);
+    attachMatchmaking(io);
     attachLobby(io);
+    attachNotifications(io);
     await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
     const url = `http://127.0.0.1:${server.address().port}`;
 
@@ -1681,6 +1687,54 @@ async function run() {
             a.disconnect();
             b.disconnect();
         }
+    });
+
+    /* -- A closed tab, everywhere it was -------------------------------- */
+
+    /*
+     * Each module cleans up after a connection that closes, in a disconnect
+     * handler of its own, and the handlers run in the order the modules were
+     * attached. The first one used to forget whose connection it was, so the
+     * two after it found nobody to clean up after: a closed tab kept its place
+     * in the queue, and the next player to queue was paired with it and sent to
+     * a room nobody would ever join.
+     */
+    await test('a closed tab gives up its place in the queue', async () => {
+        const a = await open();
+        await signIn(a, 'acct-amelie');
+        const queued = await ask(a, 'hx:queue', { timeControl: 'rapid' });
+        assert.ok(queued.ok, queued.error);
+        a.disconnect();
+        await new Promise((r) => setTimeout(r, 200));
+
+        const b = await open();
+        await signIn(b, 'acct-bertrand');
+        let paired = null;
+        b.on('hx:matched', (event) => { paired = event; });
+        const alone = await ask(b, 'hx:queue', { timeControl: 'rapid' });
+        assert.strictEqual(alone.queued, 1, 'nobody else is waiting at that cadence');
+        await new Promise((r) => setTimeout(r, 1500));       // a pass of the queue, and more
+        assert.strictEqual(paired, null, 'and nobody is paired with a tab that has gone');
+        await ask(b, 'hx:queue:leave', {});
+        b.disconnect();
+    });
+
+    await test('a closed tab leaves the lobby, and takes its challenge with it', async () => {
+        const a = await open();
+        const b = await open();
+        await Promise.all([signIn(a, 'acct-amelie'), signIn(b, 'acct-bertrand')]);
+        await ask(b, 'hx:visible', { visible: true });       // on screen: asked there, not by phone
+        await ask(a, 'hx:lobby:enter', {});
+        const sent = await ask(a, 'hx:challenge', { userId: 'acct-bertrand', timeControl: 'blitz' });
+        assert.ok(sent.ok, sent.error);
+
+        const expired = waitFor(b, 'hx:challenge:expired', 1500);
+        a.disconnect();
+        assert.strictEqual((await expired).id, sent.id, 'the person asked is told at once');
+        assert.strictEqual(present.has('acct-amelie'), false, 'and the lobby has let go of the name');
+        const pending = await ask(b, 'hx:challenge:pending', {});
+        assert.strictEqual(pending.incoming, null, 'with nothing left to answer');
+        b.disconnect();
     });
 
     black.disconnect();

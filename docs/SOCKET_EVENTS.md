@@ -165,7 +165,7 @@ Rules:
 - The token is verified locally. A socket already identified as the same account is answered without a database read; otherwise the account's pseudonym, rating and games played are read once and kept on the socket.
 - The account's presence entry is pointed at this socket; for a new identity its status is announced (`hx:presence`, `hx:lobby:update`).
 - Seats this socket holds in unfinished rooms take the account, as long as that seat has not played a move yet; each such room gets `hx:seats`. This is how signing in before your first move makes a game rated. A seat that has moved keeps whoever played from it.
-- Dropping the identity (no token, `BAD_TOKEN`, or a disconnection) also removes the account's presence entry if this socket held it.
+- Dropping the identity (no token or `BAD_TOKEN`) also removes the account's presence entry if this socket held it, and so does a disconnection.
 - The web client sends it once per connection, before the first request (`settleIdentity` in `net.js`), and again whenever the session changes (sign-in, sign-out, token refresh). A refusal other than `BAD_TOKEN` is asked again before the next request.
 
 ### Accounts, presence and several tabs
@@ -176,14 +176,14 @@ Rules:
 
 ### On disconnect
 
-When a socket disconnects, each module cleans up after it:
+When a socket disconnects, each module cleans up after it, in the order `server.js` attached them:
 
 1. `onlineGame.js`
    - removes it from every room it was watching (`hx:watchers` to those rooms);
-   - forgets its identity; if it held the account's presence entry, the account goes `offline` (`hx:presence`, `hx:lobby:update`);
+   - if it held the account's presence entry, the account goes `offline` (`hx:presence`, `hx:lobby:update`). The socket keeps its identity, so that the modules after this one can still find what the account left with them;
    - for every room where it held a seat: frees the seat (the account and rejoin key stay on it, so the player can come back with `hx:join`), withdraws a rematch offer in a finished game (either way round), starts the abandonment countdown if the game is under way, and sends `hx:opponent { joined: false, graceMs, msLeft }` to the room. When a countdown starts and the player is signed in, they also get a `comeBack` push notification, unless another of their connections is on screen. A draw offer is left standing (`hx:leave` withdraws it).
-2. `matchmaking.js` is meant to release the queue slot this socket holds, and
-3. `lobby.js` is meant to remove the account's lobby entry and expire its challenges and agreements that were shown on screen (those carried by a push notification keep their own lifetime). Neither currently runs: see [Known issues](#9-known-issues).
+2. `matchmaking.js` releases the queue slot this socket holds (a slot taken over by another tab of the account stays).
+3. `lobby.js`, if this socket put the account in the lobby, removes it from the lobby and expires the account's challenges and agreements that were shown on screen (`hx:challenge:expired` to both accounts; those carried by a push notification keep their own lifetime), then sends `hx:lobby:update`.
 4. `notify.js` keeps nothing: the visibility flag goes with the socket.
 
 The server only learns that a connection has gone when it closes, or when the heartbeat gives up: up to `pingInterval + pingTimeout` (25 s + 120 s) for a phone that went to sleep. Until then the seat still looks occupied; a player who comes back on a new connection takes it over with `hx:join`, by account or rejoin key.
@@ -619,7 +619,7 @@ Ratings are worked out from the values on record (read under a lock), not from t
 
 ### Pairing rules
 
-- One slot per account, held by the socket that sent `hx:queue`.
+- One slot per account, held by the socket that sent `hx:queue` and released when that socket disconnects.
 - Each player's tolerance (the "band") is ±100 rating points on arrival and widens by 50 every 5 s, up to ±1200.
 - Two players are paired only at the same cadence, as different accounts, and when the gap between their ratings is inside both bands.
 - The queue is scanned on every `hx:queue` and every second: whoever has waited longest is paired with the closest compatible rating, and pairing repeats until nothing else fits.
@@ -769,7 +769,7 @@ Replaces this socket's list (the first 200 ids are kept). `web/src/presence.js` 
 A challenge invites one account to a game at a chosen cadence. An account takes part in at most one challenge or agreement at a time, whether asking or being asked; an agreement is an accepted challenge whose game cannot start yet.
 
 1. A sends `hx:challenge` for B. B's socket gets `hx:challenge:incoming` (when B is connected) and A gets `hx:challenge:sent`. If B is not looking at the site, B also gets a `challenge` push notification.
-2. The challenge expires (`hx:challenge:expired` to both) after 60 s when B was looking at the site, and after 10 minutes otherwise.
+2. The challenge expires (`hx:challenge:expired` to both) after 60 s when B was looking at the site, and after 10 minutes otherwise. One shown on screen also expires at once when A or B disconnects from the lobby (the socket that sent `hx:lobby:enter` closes); one carried by a push notification keeps its 10 minutes.
 3. B accepts with `hx:challenge:accept`:
    - both free: the room opens at once, and both get `hx:challenge:ready`;
    - either of them at a board: an agreement, kept up to 20 minutes and opened as soon as both are free. Both get `hx:challenge:agreed`, then `hx:challenge:ready`;
@@ -852,7 +852,7 @@ Works on a challenge (the person asked declines it, the challenger withdraws it)
 
 ### `hx:challenge:expired`
 
-*S → C, to both accounts.* `{ id }`: a challenge or agreement ran out of time, or its room could not be created. Expiry when one of the two disconnects is intended but does not currently happen ([Known issues](#9-known-issues)).
+*S → C, to both accounts.* `{ id }`: a challenge or agreement ran out of time, its room could not be created, or one of the two disconnected from the lobby while it was shown on screen (see [On disconnect](#on-disconnect)).
 
 ---
 
@@ -928,12 +928,11 @@ Two codes come from the client, not the server: `OFFLINE` (a request failed or t
 
 Behaviour of the code as of 2026-10-23 that differs from what the code comments and the web client expect. Remove an entry once it is fixed.
 
-1. **Disconnect cleanup in `matchmaking.js` and `lobby.js` never runs.** `onlineGame.js` is attached first, and its `disconnect` handler clears `socket.data.user` (`forgetIdentity`) before the other two handlers read it. So when a signed-in socket disconnects, its quick-match slot stays (until it is paired or 10 minutes old; an opponent paired with it waits in a room nobody will join), its lobby entry stays, and challenges shown on screen are not expired (they run their 60 s). The roster and presence are still updated. `lobby.test.js` ("disconnecting takes you off it too") and `matchmaking.test.js` ("disconnecting takes you out of it too") assert the intended behaviour; they need a database (`npm run test:db`).
-2. **An empty seat goes to whoever asks for it.** In a room without a reservation (any private-link room, including a game between two accounts), `hx:join` gives an empty seat to a newcomer even in the middle of a game, while its player is away or reconnecting. The newcomer's account replaces the absent player's on the seat (a game between accounts stays rated), the countdown is called off, and the player coming back gets `ROOM_FULL`, unless the newcomer sent no `key`, in which case the old key still opens the seat. Such games are listed by `hx:live`, so their codes are public.
-3. **`hx:sync` returns the players' chat to anyone.** `hx:watch` leaves `chat` out and `hx:chat` goes to the two seats only, but `hx:sync` returns the full room view to any socket with the code; the web client calls it for spectators after `hx:undo:done`.
-4. **Spectators follow a rematch.** `hx:rematch:ready` goes to the whole room, and its listener in `web/src/views/play.js` calls `goToRematch` without checking `net.watching` (unlike `adoptRoom`, which does). A spectator is sent into the new room as a would-be player; its `hx:join` either fails with `ROOM_FULL` or takes a seat left empty by a disconnected player.
-5. **Cadences are not checked for quick match and challenges.** `hx:queue` and `hx:challenge` accept any `timeControl`, including `none` (an untimed, unrated game) and unknown strings (their own queue pool, and a room created as `none`). The web client never sends these.
-6. **A stale queue slot disappears silently.** A slot older than 10 minutes is removed without an `hx:queue:update { inQueue: false }`, so the web client goes on showing a search that no longer exists.
+1. **An empty seat goes to whoever asks for it.** In a room without a reservation (any private-link room, including a game between two accounts), `hx:join` gives an empty seat to a newcomer even in the middle of a game, while its player is away or reconnecting. The newcomer's account replaces the absent player's on the seat (a game between accounts stays rated), the countdown is called off, and the player coming back gets `ROOM_FULL`, unless the newcomer sent no `key`, in which case the old key still opens the seat. Such games are listed by `hx:live`, so their codes are public.
+2. **`hx:sync` returns the players' chat to anyone.** `hx:watch` leaves `chat` out and `hx:chat` goes to the two seats only, but `hx:sync` returns the full room view to any socket with the code; the web client calls it for spectators after `hx:undo:done`.
+3. **Spectators follow a rematch.** `hx:rematch:ready` goes to the whole room, and its listener in `web/src/views/play.js` calls `goToRematch` without checking `net.watching` (unlike `adoptRoom`, which does). A spectator is sent into the new room as a would-be player; its `hx:join` either fails with `ROOM_FULL` or takes a seat left empty by a disconnected player.
+4. **Cadences are not checked for quick match and challenges.** `hx:queue` and `hx:challenge` accept any `timeControl`, including `none` (an untimed, unrated game) and unknown strings (their own queue pool, and a room created as `none`). The web client never sends these.
+5. **A stale queue slot disappears silently.** A slot older than 10 minutes is removed without an `hx:queue:update { inQueue: false }`, so the web client goes on showing a search that no longer exists.
 
 ---
 
@@ -949,7 +948,7 @@ The protocol is defined by:
 - `backend/services/ratedGameService.js` (what is rated and recorded) and `backend/services/pushService.js` (notification kinds);
 - on the client: `web/src/net.js` (connection, `request`, `listen`, identity, rejoin key), `web/src/views/play.js`, `web/src/views/online.js`, `web/src/views/lobby.js`, `web/src/ui/challenge.js`, `web/src/presence.js`, `web/src/push.js` and `web/src/auth.js`.
 
-Real payloads and acknowledgements are exercised over real sockets in `backend/tests/onlineGame.test.js` and `push.test.js` (`npm test`, no database), and in `lobby.test.js`, `matchmaking.test.js` and `ratedOnline.test.js` (`npm run test:db`, which needs `TEST_DATABASE_URL`).
+Real payloads and acknowledgements are exercised over real sockets in `backend/tests/onlineGame.test.js` and `push.test.js` (`npm test`, no database; `onlineGame.test.js` attaches the four modules in `server.js` order, so it also covers what a closed connection leaves in the queue and the lobby), and in `lobby.test.js`, `matchmaking.test.js` and `ratedOnline.test.js` (`npm run test:db`, which needs `TEST_DATABASE_URL`).
 
 When an event is added, renamed or removed, update the quick reference and its section, then check that every name is still covered:
 
