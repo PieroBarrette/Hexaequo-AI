@@ -199,22 +199,25 @@ async function boot() {
   for (const kind of GESTURES) window.addEventListener(kind, unlock);
 
   /*
-   * Hold the page at its own scale.
+   * The page can be zoomed. It used to refuse every pinch and every double
+   * tap, so that the board, which sizes itself to the screen, could never end
+   * up pushed past the edge — and with them it refused anyone who needed a
+   * rule or a name larger to read it. The board looks after itself now
+   * (app.css): one finger there is for the pieces, a double tap means
+   * nothing, and a pinch can always zoom back out, even when the board is
+   * all there is on screen.
    *
-   * Safari ignores user-scalable=no on purpose, so a pinch has to be refused
-   * here — and a double tap, which iOS also reads as zoom. The board sizes
-   * itself to the screen, so a zoomed one only ever means pieces pushed off
-   * the edge with no obvious way back.
+   * What stays refused is the zoom nobody asked for. Safari enlarges the page
+   * by itself when a field under 16px takes the focus, and leaves it that
+   * way — and the fields here are smaller than that on purpose. maximum-scale
+   * stops it, and in WebKit that is all it does, since iOS 10 lets a pinch
+   * past it; Chrome on Android reads it as no zoom at all. So it is added
+   * only where GestureEvent, which only WebKit has, says this is WebKit.
    */
-  for (const kind of ['gesturestart', 'gesturechange', 'gestureend']) {
-    document.addEventListener(kind, (event) => event.preventDefault(), { passive: false });
+  if (typeof window.GestureEvent !== 'undefined') {
+    const viewport = document.querySelector('meta[name="viewport"]');
+    if (viewport) viewport.setAttribute('content', `${viewport.getAttribute('content')}, maximum-scale=1`);
   }
-  let lastTouchEnd = 0;
-  document.addEventListener('touchend', (event) => {
-    const now = Date.now();
-    if (now - lastTouchEnd < 300) event.preventDefault();
-    lastTouchEnd = now;
-  }, { passive: false });
 
   window.addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault();

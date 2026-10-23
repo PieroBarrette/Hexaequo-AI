@@ -315,7 +315,9 @@ select.btn option {
 
 /* ── Game ────────────────────────────────────────────────────────────────── */
 
-.game { flex: 1; display: flex; min-height: 0; position: relative; }
+/* Two quick taps anywhere in a game are two taps, never a zoom. A pinch
+   still zooms: the page may be enlarged, only not by accident. */
+.game { flex: 1; display: flex; min-height: 0; position: relative; touch-action: manipulation; }
 /* overflow:hidden matters: without it a panel parked outside this box by a
    transform stays visible and covers the reserve rail next to it. */
 .board-area { flex: 1; position: relative; min-width: 0; display: flex; overflow: hidden; }
@@ -336,7 +338,13 @@ select.btn option {
  */
 .board {
   flex: 1; width: 100%; height: 100%; display: block;
+  /* One finger belongs to the game: it picks a piece up and drags it, so the
+     browser may neither scroll with it nor take two taps for a zoom. Two
+     fingers are the reader's. Once the page has been zoomed the board can
+     fill the whole screen, and a pinch on it has to be able to zoom back out.
+     Where pinch-zoom is not understood, none. */
   touch-action: none;
+  touch-action: pinch-zoom;
   background:
     radial-gradient(120% 95% at 50% 42%,
       var(--board-lift) 0%, var(--board-bg) 55%, var(--board-sink) 100%);

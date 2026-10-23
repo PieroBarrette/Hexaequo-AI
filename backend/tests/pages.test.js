@@ -96,12 +96,23 @@ async function run() {
         }
     });
 
+    const documents = ['index.html', ...names.map((name) => path.join(pathOf(name, 'fr'), 'index.html'))];
+
     await test('the shell loads everything from the root, so it works at /fr/regles/ too', () => {
-        for (const at of ['', ...names.map((name) => pathOf(name, 'fr'))]) {
-            const html = fs.readFileSync(path.join(WEB, at, 'index.html'), 'utf8');
+        for (const file of documents) {
+            const html = fs.readFileSync(path.join(WEB, file), 'utf8');
             const relative = [...html.matchAll(/(?:src|href)="([^"]*)"/g)].map((m) => m[1])
                 .filter((value) => !/^(\/|https?:|#|mailto:|data:)/.test(value));
-            assert.deepStrictEqual(relative, [], `${at || '/'}: relative paths`);
+            assert.deepStrictEqual(relative, [], `${file}: relative paths`);
+        }
+    });
+
+    await test('every page can be zoomed', () => {
+        for (const file of [...documents, ...names.map((name) => path.join(pathOf(name, 'en'), 'index.html'))]) {
+            const html = fs.readFileSync(path.join(WEB, file), 'utf8');
+            const viewport = html.match(/<meta name="viewport" content="([^"]*)">/);
+            assert.ok(viewport, `${file}: a viewport`);
+            assert.ok(!/user-scalable|maximum-scale/.test(viewport[1]), `${file}: ${viewport[1]}`);
         }
     });
 
