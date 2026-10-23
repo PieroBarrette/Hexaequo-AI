@@ -1,5 +1,7 @@
 /**
- * Write the documents behind the pages that have an address of their own.
+ * Write the documents behind the pages that have an address of their own,
+ * the sitemap and robots.txt that list them, and 404.html for the addresses
+ * that are none of them.
  *
  * Usage:
  *   node scripts/makePages.js           write them into web/
@@ -239,6 +241,57 @@ function pageDocument(template, { name, lang, content, pathOf, unlisted, schema 
     return html;
 }
 
+/* ── An address with nothing behind it ──────────────────────────────────── */
+
+/*
+ * The page routes/siteRoutes.js sends, with a 404, for a path that is neither
+ * a file nor one of the pages above.
+ *
+ * Not a copy of the shell. The app would start, draw the home screen over the
+ * message and leave the visitor at the menu, at an address that does not
+ * exist and none the wiser. This is a page of its own, without the app: what
+ * happened, the way home, the way to the rules. In both languages, since a
+ * path that leads nowhere says nothing about who typed it. Every address in
+ * it is absolute, because it is served at whatever depth the bad path had.
+ */
+function notFoundDocument(pathOf, logoMarkSvg) {
+    const part = (lang, heading) => {
+        const { t } = reader(lang);
+        return `    <section lang="${lang}">
+      <${heading}>${escape(t('notFound.title'))}</${heading}>
+      <p>${escape(t('notFound.text'))}</p>
+      <p><a href="/">${escape(t('notFound.home'))}</a> · <a href="${pathOf('rules', lang)}">${escape(t('notFound.rules'))}</a></p>
+    </section>`;
+    };
+    return `<!doctype html>
+<html lang="en" data-theme="dark" data-board-style="modern">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e1015">
+<!-- Written by backend/scripts/makePages.js; edit it there. -->
+<title>${escape(reader('en').t('notFound.title'))} · ${escape(reader('fr').t('notFound.title'))} — Hexaequo</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/assets/icons/icon-192x192.png" sizes="192x192">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<script src="/src/bootTheme.js"></script>
+<link rel="stylesheet" href="/styles/tokens.css">
+<link rel="stylesheet" href="/styles/app.css">
+</head>
+<body>
+<main class="page not-found">
+  <div class="boot-copy">
+    <a class="not-found-mark" href="/">${logoMarkSvg()}</a>
+    <h1>Hexaequo</h1>
+${part('en', 'h2')}
+${part('fr', 'h2')}
+  </div>
+</main>
+</body>
+</html>
+`;
+}
+
 /* ── All of them ────────────────────────────────────────────────────────── */
 
 async function load(relative) {
@@ -249,6 +302,7 @@ async function build() {
     const { PAGES, UNLISTED, pathOf } = await load('pages.js');
     const { CONTENT } = await load('content/index.js');
     const { faqItems } = await load('content/faq.js');
+    const { logoMarkSvg } = await load('ui/logo.js');
     const template = fs.readFileSync(path.join(WEB, 'index.html'), 'utf8');
 
     const schemaFor = (name, tr) => ({
@@ -311,7 +365,9 @@ Sitemap: ${SITE}/sitemap.xml
 `;
     fs.writeFileSync(path.join(OUT, 'robots.txt'), robots);
 
-    const files = [...written.map(([at]) => path.join(at, 'index.html')), 'sitemap.xml', 'robots.txt'];
+    fs.writeFileSync(path.join(OUT, '404.html'), notFoundDocument(pathOf, logoMarkSvg));
+
+    const files = [...written.map(([at]) => path.join(at, 'index.html')), 'sitemap.xml', 'robots.txt', '404.html'];
     if (CHECK) {
         const stale = files.filter((file) => {
             const fresh = fs.readFileSync(path.join(OUT, file), 'utf8');
@@ -332,6 +388,7 @@ Sitemap: ${SITE}/sitemap.xml
     for (const [at, size] of written) console.log(`  ${at.padEnd(24)} ${(size / 1024).toFixed(1)} KB`);
     console.log(`\n  sitemap.xml              ${1 + listed.length * LANGUAGES.length} urls`);
     console.log('  robots.txt');
+    console.log('  404.html');
     console.log(`\n✅ ${written.length} pages\n`);
 }
 

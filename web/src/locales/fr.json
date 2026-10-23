@@ -911,5 +911,11 @@
         "Hexaequo a été créé par Piero Barrette. Questions et suggestions sont les bienvenues à <a href=\"mailto:info@hexaequo.com\">info@hexaequo.com</a>."
       ]
     ]
+  },
+  "notFound": {
+    "title": "Page introuvable",
+    "text": "Il n’y a rien à cette adresse. Elle a peut-être été mal saisie, ou la page qu’elle désignait a changé de place.",
+    "home": "Aller à l’accueil",
+    "rules": "Lire les règles"
   }
 }

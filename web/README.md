@@ -20,6 +20,7 @@ Then open <http://localhost:8765>.
 ```
 web/
   index.html              app shell: header, view outlet
+  404.html                the page for an address with nothing behind it
   manifest.webmanifest    PWA manifest
   sw.js                   service worker, precaches the whole app
   styles/
@@ -73,21 +74,26 @@ const M = await import('/src/game/moves.js');
 ## Deployment
 
 hexaequo.com is a Render **Web Service** with root directory `backend`. Express
-serves this folder statically and falls back to `web/index.html` for any
-non-API route, so the API, the websocket and the site all live behind one
-origin — no CORS, no second service, and invite links keep working.
+serves this folder statically, so the API, the websocket and the site all live
+behind one origin — no CORS, no second service. Every link the app hands out
+(invitations, shared games, mail, notifications) is a fragment of the root,
+`/#/…`, so it needs nothing from the server but `/`.
 
 ```
-backend/server.js
+backend/routes/siteRoutes.js
   express.static(path.join(__dirname, '../web'))
-  app.get('*') → ../web/index.html   (except /api, /socket.io, /health)
+  /fr, /fr/            → 301 to /fr/jouer/
+  a page in pages.js   → its document (or the shell, if it was never written)
+  anything else        → 404.html, with a 404   (except /api, /socket.io, /health)
 ```
 
 Because the front end has no build step, a deploy is just a `git push`: Render
-reinstalls the backend's dependencies and restarts. Nothing compiles.
+reinstalls the backend's dependencies and restarts. Nothing compiles. The
+documents of the pages with an address of their own, and `404.html`, are
+written by `npm run pages` in `backend/` and committed.
 
-Bump `CACHE_VERSION` in `sw.js` on every release, otherwise returning visitors
-keep the old cached bundle.
+There is no version to bump: the server names the service worker's cache after
+a hash of the files it caches, so a release that changes anything replaces it.
 
 ### Local development
 

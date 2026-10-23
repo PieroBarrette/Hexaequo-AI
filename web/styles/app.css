@@ -1739,6 +1739,16 @@ input[type="range"] { accent-color: var(--accent); width: 150px; }
 .boot-page { max-width: 72ch; }
 .boot-crumbs { font-size: 13px; }
 
+/* The page for an address with nothing behind it (makePages.js). It is served
+   without the app, so it borrows the boot copy's look, centred, with the mark
+   above it as one more way home. */
+.not-found { display: flex; text-align: center; }
+.not-found-mark { display: inline-block; margin-bottom: 14px; }
+.not-found-mark .logo-mark { height: 56px; }
+.not-found h2 { color: var(--text); font-size: 17px; font-weight: 600; margin: 0 0 6px; }
+.not-found p { margin: 0 0 10px; }
+.not-found section + section { margin-top: 22px; padding-top: 22px; border-top: 1px solid var(--line); }
+
 /* ── Leaderboard ─────────────────────────────────────────────────────────── */
 
 .board-table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 10px; }

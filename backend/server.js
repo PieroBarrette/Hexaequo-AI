@@ -28,6 +28,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const matchmakingRoutes = require('./routes/matchmakingRoutes');
 const profileRoutes = require('./routes/profileRoutes');
 const pushRoutes = require('./routes/pushRoutes');
+const { siteRoutes } = require('./routes/siteRoutes');
 
 // Initialize Express
 const app = express();
@@ -260,19 +261,8 @@ app.get('/api/version', (req, res) => {
     res.set('Cache-Control', 'no-store');
     res.json({ build: BUILD });
 });
-/* The French pages live under /fr/, but /fr/ itself is no page: it served the
-   home a second time, in English, under a second address. The French page
-   about the game is what somebody typing it is after. */
-app.get(['/fr', '/fr/'], (req, res) => res.redirect(301, '/fr/jouer/'));
 
-if (fs.existsSync(frontendPath)) {
-    console.log(`✅ Frontend folder found at: ${frontendPath}`);
-    app.use(express.static(frontendPath));
-} else {
-    console.log(`⚠️  Frontend folder NOT found at: ${frontendPath} (backend-only mode)`);
-}
-
-// 404 handler for API routes only (before SPA fallback)
+// 404 handler for API routes only (before the site)
 app.use('/api/*', (req, res, next) => {
     res.status(404).json({
         error: 'Not Found',
@@ -280,36 +270,15 @@ app.use('/api/*', (req, res, next) => {
     });
 });
 
-/*
- * Paths that only a scanner would ask for get a flat 404, not the app.
- *
- * A single-page app answers every unknown path with index.html, because the
- * path is a client-side route it has not seen yet. A request for /wp-login.php
- * or /.env is not that: it is a bot looking for a server this is not, and
- * handing it 200 and a page of HTML both wastes the bytes and tells it someone
- * is home. These extensions belong to stacks this app does not run; refusing
- * them by shape keeps the fallback for real routes and quiets the logs.
- */
-const SCANNER_PATH = /\.(php|asp|aspx|jsp|cgi|env|sql|bak|old|git|htaccess|ini)$|^\/(wp-|wordpress|phpmyadmin|\.git|\.env)/i;
-app.get('*', (req, res, next) => {
-    if (SCANNER_PATH.test(req.path)) return res.status(404).type('txt').send('Not found');
-    next();
-});
+if (fs.existsSync(frontendPath)) {
+    console.log(`✅ Frontend folder found at: ${frontendPath}`);
+} else {
+    console.log(`⚠️  Frontend folder NOT found at: ${frontendPath} (backend-only mode)`);
+}
 
-// SPA fallback - serve index.html for all non-API routes (LAST middleware)
-app.get('*', (req, res, next) => {
-    // Don't intercept API, socket.io, or health routes
-    if (req.path.startsWith('/api') || req.path.startsWith('/socket.io') || req.path === '/health' || req.path === '/healthz') {
-        return next();
-    }
-    const indexPath = path.join(__dirname, '../web/index.html');
-    if (fs.existsSync(indexPath)) {
-        res.sendFile(indexPath);
-    } else {
-        // Backend-only mode: no frontend to serve
-        res.status(404).json({ error: 'Frontend not deployed on this server', path: req.path });
-    }
-});
+/* The app, its files, the pages with an address of their own, and a real 404
+   for an address that is none of these (LAST, before the error handler). */
+app.use(siteRoutes(frontendPath));
 
 // Error handler middleware (must be after all routes)
 app.use(errorHandler);

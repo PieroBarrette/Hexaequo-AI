@@ -9,15 +9,19 @@
  * the panels draw with. What can go wrong is quiet: a locale changes and the
  * documents keep the old words, a path stops matching its page, a copy of
  * the shell loads its scripts from a relative path that breaks one folder
- * down. None of that shows in the app — it shows in a search result. So it
- * is checked here, with no database and no browser.
+ * down, an address with nothing behind it answers 200 and becomes a second
+ * copy of the home page. None of that shows in the app — it shows in a
+ * search result. So it is checked here, with no database and no browser.
  */
 
 require('./database').none();
 
 const assert = require('assert');
 const fs = require('fs');
+const http = require('http');
 const path = require('path');
+const express = require('express');
+const { siteRoutes } = require('../routes/siteRoutes');
 const { execFileSync } = require('child_process');
 const { pathToFileURL } = require('url');
 
@@ -96,7 +100,9 @@ async function run() {
         }
     });
 
-    const documents = ['index.html', ...names.map((name) => path.join(pathOf(name, 'fr'), 'index.html'))];
+    /* The page for a missing address too: it is served at whatever depth the
+       bad path had. */
+    const documents = ['index.html', ...names.map((name) => path.join(pathOf(name, 'fr'), 'index.html')), '404.html'];
 
     await test('the shell loads everything from the root, so it works at /fr/regles/ too', () => {
         for (const file of documents) {
@@ -176,6 +182,64 @@ async function run() {
             assert.ok(/clock|pendule/.test(locale(lang).faq.items[6][1]), `${lang}: rated games need a clock`);
         }
     });
+
+    /* The site as the server serves it: routes/siteRoutes.js, which is what
+       server.js mounts after the API, over the same web/ folder. */
+    const site = express();
+    site.use(siteRoutes(WEB));
+    const server = http.createServer(site);
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const get = (at) => fetch(`http://127.0.0.1:${server.address().port}${at}`, { redirect: 'manual' });
+
+    await test('every link the site hands out still lands somewhere', async () => {
+        const manifest = JSON.parse(fs.readFileSync(path.join(WEB, 'manifest.webmanifest'), 'utf8'));
+        const fromManifest = [manifest.start_url, ...manifest.shortcuts.map((shortcut) => shortcut.url)]
+            .map((url) => new URL(url, `${SITE}/manifest.webmanifest`))
+            .map((url) => url.pathname + url.search);
+        const landing = [
+            /* Invitations, shared games, mail and notifications are all
+               /#/…, and the fragment never reaches the server. */
+            '/',
+            '/?invite=ABCD1234',          // invitations from the app before this one
+            ...fromManifest,
+            ...names.flatMap((name) => ['en', 'fr'].map((lang) => pathOf(name, lang))),
+            '/manifest.webmanifest', '/sitemap.xml', '/robots.txt', '/llms.txt',
+        ];
+        for (const at of landing) {
+            assert.strictEqual((await get(at)).status, 200, at);
+        }
+        const moved = [
+            ['/fr', '/fr/jouer/'],
+            ['/fr/', '/fr/jouer/'],
+            ...names.map((name) => [pathOf(name, 'fr').slice(0, -1), pathOf(name, 'fr')]),
+        ];
+        for (const [from, to] of moved) {
+            const response = await get(from);
+            assert.strictEqual(response.status, 301, from);
+            assert.strictEqual(response.headers.get('location'), to, from);
+        }
+    });
+
+    await test('an address with nothing behind it is a 404, and a page that says so in both languages', async () => {
+        const nowhere = ['/nowhere', '/nowhere/', '/rules/nowhere/', '/fr/nulle-part/', '/fr/index.html',
+            '/game/ABC123', '/assets/nothing.png'];
+        for (const at of nowhere) {
+            const response = await get(at);
+            assert.strictEqual(response.status, 404, at);
+            const html = await response.text();
+            assert.ok(html.includes('<meta name="robots" content="noindex">'), `${at}: kept out of the index`);
+            for (const lang of ['en', 'fr']) {
+                assert.ok(html.includes(locale(lang).notFound.title), `${at}: says so in ${lang}`);
+                assert.ok(html.includes(`<a href="${pathOf('rules', lang)}">`), `${at}: the rules in ${lang}`);
+            }
+            assert.ok(html.includes('<a href="/">'), `${at}: the way home`);
+        }
+        const scanner = await get('/wp-login.php');
+        assert.strictEqual(scanner.status, 404);
+        assert.strictEqual(await scanner.text(), 'Not found', 'a scanner is not even given the page');
+    });
+
+    server.close();
 
     console.log(`\n${passed} passed, ${failed} failed\n`);
     process.exit(failed ? 1 : 0);
