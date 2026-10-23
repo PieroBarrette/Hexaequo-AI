@@ -1651,7 +1651,11 @@ export function mountPlay(outlet, params) {
       refresh();
     }));
     net.unsubscribe.push(listen('hx:rematch:ready', (payload) => {
-      if (!net || payload.code !== net.code) return;
+      /* Told to the whole room, spectators included, and a rematch is the two
+         players' next game: somebody watching stays with the game they
+         watched, as adoptRoom keeps them, rather than being sent to sit down
+         in a room with no seat for them. */
+      if (!net || payload.code !== net.code || net.watching) return;
       goToRematch(payload.next);
     }));
     net.unsubscribe.push(listen('hx:opponent', (payload) => {

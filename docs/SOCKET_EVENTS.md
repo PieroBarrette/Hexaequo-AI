@@ -560,7 +560,7 @@ Refuses the other player's offer and sends `hx:rematch:declined`; does nothing w
 
 ### `hx:rematch:ready`
 
-*S → C, to the whole old room, spectators included.* `{ code, next }`: `code` is the finished room, `next` the new one. The web client opens `next` and joins it.
+*S → C, to the whole old room, spectators included.* `{ code, next }`: `code` is the finished room, `next` the new one. A player's page opens `next` and joins it; a spectator's page ignores it and stays with the game it watched, as it ignores `rematchCode` in a room view.
 
 ### `hx:opponent`
 
@@ -928,9 +928,8 @@ Two codes come from the client, not the server: `OFFLINE` (a request failed or t
 
 Behaviour of the code as of 2026-10-23 that differs from what the code comments and the web client expect. Remove an entry once it is fixed.
 
-1. **Spectators follow a rematch.** `hx:rematch:ready` goes to the whole room, and its listener in `web/src/views/play.js` calls `goToRematch` without checking `net.watching` (unlike `adoptRoom`, which does). A spectator is sent into the new room as a would-be player, and its `hx:join` fails with `ROOM_FULL`.
-2. **Cadences are not checked for quick match and challenges.** `hx:queue` and `hx:challenge` accept any `timeControl`, including `none` (an untimed, unrated game) and unknown strings (their own queue pool, and a room created as `none`). The web client never sends these.
-3. **A stale queue slot disappears silently.** A slot older than 10 minutes is removed without an `hx:queue:update { inQueue: false }`, so the web client goes on showing a search that no longer exists.
+1. **Cadences are not checked for quick match and challenges.** `hx:queue` and `hx:challenge` accept any `timeControl`, including `none` (an untimed, unrated game) and unknown strings (their own queue pool, and a room created as `none`). The web client never sends these.
+2. **A stale queue slot disappears silently.** A slot older than 10 minutes is removed without an `hx:queue:update { inQueue: false }`, so the web client goes on showing a search that no longer exists.
 
 ---
 
