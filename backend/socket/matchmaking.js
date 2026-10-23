@@ -11,7 +11,7 @@
  * have invitation links.
  */
 
-const { createRoom, rooms } = require('./onlineGame');
+const { createRoom, rooms, isTimedControl } = require('./onlineGame');
 
 const START_BAND = 100;          // rating points either side, on arrival
 const WIDEN_PER_STEP = 50;
@@ -91,6 +91,13 @@ function attachMatchmaking(io) {
             if (!user) return reply(callback, { ok: false, error: 'SIGN_IN_REQUIRED' });
 
             const timeControl = String(payload.timeControl || 'rapid');
+            /* Paired by rating, for a game that moves the rating: only a game
+               on a clock does. "none" paired two players for an unrated game,
+               and a cadence that does not exist made a queue of its own whose
+               rooms opened untimed. */
+            if (!isTimedControl(timeControl)) {
+                return reply(callback, { ok: false, error: 'BAD_TIME_CONTROL' });
+            }
             // Re-queueing replaces the old slot rather than stacking; the wait
             // restarts, which is the honest reading of changing your mind.
             queue.set(user.userId, {

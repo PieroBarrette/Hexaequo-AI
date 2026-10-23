@@ -214,7 +214,7 @@ The server only learns that a connection has gone when it closes, or when the he
 | `rapid` | 10 min + 5 s | 60 s |
 | `classic` | 20 min + 10 s | 120 s |
 
-`hx:create` turns a missing or unknown value into `none`. The web client defaults to `rapid`, and offers `none` only for a private room.
+`hx:create` turns a missing or unknown value into `none`. Quick match and challenges are played on a clock only: `hx:queue` and `hx:challenge` take `rapid` for a missing value and refuse `none` or an unknown one (`BAD_TIME_CONTROL`). The web client defaults to `rapid`, and offers `none` only for a private room.
 
 **Position snapshot** (`state`):
 
@@ -623,9 +623,9 @@ Ratings are worked out from the values on record (read under a lock), not from t
 - Each player's tolerance (the "band") is ±100 rating points on arrival and widens by 50 every 5 s, up to ±1200.
 - Two players are paired only at the same cadence, as different accounts, and when the gap between their ratings is inside both bands.
 - The queue is scanned on every `hx:queue` and every second: whoever has waited longest is paired with the closest compatible rating, and pairing repeats until nothing else fits.
-- Colours are decided by coin toss. The room is created at the queued cadence and reserved for the two accounts; it is deleted after 60 s if neither of them has sat down. With a clock the game is rated, since both players are accounts.
+- Colours are decided by coin toss. The room is created at the queued cadence and reserved for the two accounts; it is deleted after 60 s if neither of them has sat down. The game is rated: it has a clock, and both players are accounts.
 - A slot older than 10 minutes is dropped without a message ([Known issues](#9-known-issues)).
-- The cadence is not checked: the web client never queues for `none`, which would give an untimed, unrated game.
+- Only a cadence with a clock can be queued for: `bullet`, `blitz`, `rapid` or `classic`.
 
 ### `hx:queue`
 
@@ -633,7 +633,7 @@ Ratings are worked out from the values on record (read under a lock), not from t
 
 Payload: `{ timeControl }`, `'rapid'` when missing.
 
-Ack: `{ ok: true, inQueue: true, timeControl, elo, band, waitingMs, queued }`. Error: `SIGN_IN_REQUIRED`.
+Ack: `{ ok: true, inQueue: true, timeControl, elo, band, waitingMs, queued }`. Errors: `SIGN_IN_REQUIRED`, `BAD_TIME_CONTROL` (`none`, or a cadence that does not exist).
 
 - `elo` is the rating the socket identified with, `band` the current tolerance in points either side, `waitingMs` the time since queueing, and `queued` the number of accounts waiting at this cadence.
 - Sending it again, from any tab of the account, replaces the slot and starts the wait again. The web client sends it again after a reconnection.
@@ -776,19 +776,19 @@ A challenge invites one account to a game at a chosen cadence. An account takes 
    - A has left the site but can be notified: an agreement kept 10 minutes; A gets an `accepted` push notification, and the room opens about 1.5 s after A is back, once both are free.
 4. Either of them may decline, withdraw, or cancel an agreement with `hx:challenge:decline`; both get `hx:challenge:declined`.
 
-The room is reserved for the two accounts, with colours by coin toss; a player not looking at the site gets a `ready` push notification. With a clock the game is rated. Challenges and agreements live in memory; their ids are strings from a counter (`'1'`, `'2'`, ...) that starts again with the server.
+The room is reserved for the two accounts, with colours by coin toss; a player not looking at the site gets a `ready` push notification. The game is rated: it has a clock, and both players are accounts. Challenges and agreements live in memory; their ids are strings from a counter (`'1'`, `'2'`, ...) that starts again with the server.
 
 ### `hx:challenge`
 
 *C → S, acknowledged. Account required.*
 
-Payload: `{ userId, timeControl }`; `timeControl` is `'rapid'` when missing and is not checked. The web client does not offer challenges at `none`.
+Payload: `{ userId, timeControl }`; `timeControl` is `'rapid'` when missing, and otherwise `bullet`, `blitz`, `rapid` or `classic`. The web client does not offer challenges at `none`.
 
 Ack:
 - `{ ok: true, id, busy, away }`: sent. `busy`: B is at a board, so accepting will schedule the game rather than start it. `away`: B is not on the site and is being asked through a push notification.
 - `{ ok: true, id, resent: true }`: you had already asked B; nothing new is sent.
 
-Errors: `SIGN_IN_REQUIRED`, `NOT_YOURSELF`, `NOT_HERE` (B is not on the site and cannot be notified), `ALREADY_ASKING` (you have another challenge or agreement out), `ALREADY_ASKED` (B is already asking or being asked, or you are being asked).
+Errors: `SIGN_IN_REQUIRED`, `BAD_TIME_CONTROL` (`none`, or a cadence that does not exist), `NOT_YOURSELF`, `NOT_HERE` (B is not on the site and cannot be notified), `ALREADY_ASKING` (you have another challenge or agreement out), `ALREADY_ASKED` (B is already asking or being asked, or you are being asked).
 
 - "On the site" means having a presence entry. An account that is not can still be asked if it has a device subscribed to push notifications, with challenge notifications on.
 - Push notifications for challenges are limited to one per pair every 5 minutes and six per hour for the person asked; past that the challenge still stands, silently.
@@ -912,6 +912,7 @@ They open `/#/play?online=1&code=CODE` (turn, comeBack, ready), `/#/online?chall
 | `BAD_TOKEN` | `hx:identify` | Invalid or expired token, or the account no longer exists |
 | `LOOKUP_FAILED` | `hx:identify` | Valid token, but the profile could not be read |
 | `SIGN_IN_REQUIRED` | `hx:queue`, `hx:lobby:chat`, `hx:challenge`, `hx:challenge:accept` | The socket is not identified |
+| `BAD_TIME_CONTROL` | `hx:queue`, `hx:challenge` | Not a cadence with a clock: `none`, or a name that does not exist |
 | `NOT_IN_LOBBY` | `hx:lobby:chat` | The account has not entered the lobby |
 | `NOT_YOURSELF` | `hx:challenge` | Challenging your own account |
 | `NOT_HERE` | `hx:challenge`, `hx:challenge:accept` | The other account is off the site and cannot be notified |
@@ -928,8 +929,7 @@ Two codes come from the client, not the server: `OFFLINE` (a request failed or t
 
 Behaviour of the code as of 2026-10-23 that differs from what the code comments and the web client expect. Remove an entry once it is fixed.
 
-1. **Cadences are not checked for quick match and challenges.** `hx:queue` and `hx:challenge` accept any `timeControl`, including `none` (an untimed, unrated game) and unknown strings (their own queue pool, and a room created as `none`). The web client never sends these.
-2. **A stale queue slot disappears silently.** A slot older than 10 minutes is removed without an `hx:queue:update { inQueue: false }`, so the web client goes on showing a search that no longer exists.
+1. **A stale queue slot disappears silently.** A slot older than 10 minutes is removed without an `hx:queue:update { inQueue: false }`, so the web client goes on showing a search that no longer exists.
 
 ---
 

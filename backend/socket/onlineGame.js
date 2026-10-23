@@ -64,6 +64,11 @@ const TIME_CONTROLS = {
     classic: { initialMs: 20 * 60000, incrementMs: 10000 },
 };
 
+/** A cadence with a clock: the only kind quick match and challenges are played at. */
+function isTimedControl(name) {
+    return Object.prototype.hasOwnProperty.call(TIME_CONTROLS, name) && TIME_CONTROLS[name].initialMs > 0;
+}
+
 const rooms = new Map();
 
 function makeCode() {
@@ -1590,5 +1595,5 @@ function attachOnlineGames(io) {
 module.exports = {
     attachOnlineGames, rooms, createRoom, publicView, isRated,
     online, statusOf, isPlaying, roomOf, announcePresence, onGameFinished, onPresenceChange,
-    RECONNECT_GRACE_MS, TIME_CONTROLS,
+    RECONNECT_GRACE_MS, TIME_CONTROLS, isTimedControl,
 };

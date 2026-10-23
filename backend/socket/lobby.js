@@ -12,6 +12,7 @@
 
 const {
     createRoom, rooms, online, statusOf, isPlaying, roomOf, onGameFinished, onPresenceChange,
+    isTimedControl,
 } = require('./onlineGame');
 const database = require('../config/database');
 const { query } = database;
@@ -517,6 +518,11 @@ function attachLobby(io) {
         socket.on('hx:challenge', async (payload, callback) => {
             const user = socket.data.user;
             if (!user) return reply(callback, { ok: false, error: 'SIGN_IN_REQUIRED' });
+            /* On a clock, as quick match is: the pages offer no other, and the
+               room a challenge opens took whatever it was sent -- "none", or a
+               name it did not know and so opened untimed. */
+            const timeControl = String((payload && payload.timeControl) || 'rapid');
+            if (!isTimedControl(timeControl)) return reply(callback, { ok: false, error: 'BAD_TIME_CONTROL' });
             const targetId = String((payload && payload.userId) || '');
             if (targetId === user.userId) return reply(callback, { ok: false, error: 'NOT_YOURSELF' });
             /*
@@ -553,7 +559,6 @@ function attachLobby(io) {
             }
 
             const id = String(nextChallengeId++);
-            const timeControl = String((payload && payload.timeControl) || 'rapid');
             /* Looking at the site, they answer within the minute or not at
                all. Anywhere else the question has to reach them first. */
             const looking = !away && attentive(io, target.userId);

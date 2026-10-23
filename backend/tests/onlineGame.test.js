@@ -1846,6 +1846,32 @@ async function run() {
         b.disconnect();
     });
 
+    /* -- Quick match and challenges ------------------------------------- */
+
+    await test('quick match and challenges are played on a clock the server knows', async () => {
+        /* The pages offer neither an untimed search nor an untimed challenge,
+           and the server took whatever cadence it was sent: "none" paired two
+           ratings for a game that could not move them, and a name it did not
+           know made a queue of its own, whose rooms opened untimed. */
+        const a = await open();
+        const b = await open();
+        await Promise.all([signIn(a, 'acct-amelie'), signIn(b, 'acct-bertrand')]);
+        for (const timeControl of ['none', 'lightning', 42]) {
+            const queued = await ask(a, 'hx:queue', { timeControl });
+            assert.strictEqual(queued.error, 'BAD_TIME_CONTROL', `no search at ${timeControl}`);
+            const asked = await ask(a, 'hx:challenge', { userId: 'acct-bertrand', timeControl });
+            assert.strictEqual(asked.error, 'BAD_TIME_CONTROL', `no challenge at ${timeControl}`);
+        }
+        assert.strictEqual((await ask(a, 'hx:queue:status', {})).inQueue, false, 'nobody was queued');
+        assert.strictEqual((await ask(b, 'hx:challenge:pending', {})).incoming, null, 'nor asked');
+
+        const left = await ask(a, 'hx:queue', {});
+        assert.strictEqual(left.timeControl, 'rapid', 'a cadence left out is still rapid');
+        await ask(a, 'hx:queue:leave', {});
+        a.disconnect();
+        b.disconnect();
+    });
+
     black.disconnect();
     white.disconnect();
     io.close();
