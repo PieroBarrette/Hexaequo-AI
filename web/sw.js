@@ -20,7 +20,7 @@ const CACHE_VERSION = '__BUILD__';
  * arrive without a worker, so now it is registered everywhere and, here, does
  * only that: every request goes to the network as if it were not there.
  */
-const DEVELOPMENT = /^(localhost|127.d+.d+.d+|[::1])$/.test(self.location.hostname);
+const DEVELOPMENT = /^(localhost|127\.\d+\.\d+\.\d+|\[::1\])$/.test(self.location.hostname);
 
 const SHELL = [
   './',
