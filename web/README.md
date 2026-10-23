@@ -27,7 +27,7 @@ web/
     app.css               layout and components
   assets/
     logo.svg              the mark, as exact hexagon geometry
-    icons/ sounds/        reused from hexaequo-v2
+    icons/                drawn from logo.svg by backend/scripts/makeIcons.js
   src/
     main.js               entry point
     router.js             hash router
