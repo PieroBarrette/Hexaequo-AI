@@ -157,7 +157,8 @@
       "NOT_YOUR_MOVE": "Vous ne pouvez reprendre que votre propre dernier coup.",
       "NOTHING_TO_UNDO": "Aucun coup n'a encore été joué.",
       "UNDO_REFUSED": "Votre adversaire a refusé. Ce coup ne peut plus être repris.",
-      "UNDO_TOO_LATE": "Trop peu de temps au compteur pour reprendre un coup."
+      "UNDO_TOO_LATE": "Trop peu de temps au compteur pour reprendre un coup.",
+      "QUEUE_EXPIRED": "Aucun adversaire ne s'est présenté. Relancez la recherche, ou créez une partie et transmettez le lien à quelqu'un."
     },
     "rated": "Partie classée",
     "unratedFriendly": "Partie amicale — le classement ne bouge pas",

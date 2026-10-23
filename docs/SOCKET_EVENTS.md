@@ -624,7 +624,7 @@ Ratings are worked out from the values on record (read under a lock), not from t
 - Two players are paired only at the same cadence, as different accounts, and when the gap between their ratings is inside both bands.
 - The queue is scanned on every `hx:queue` and every second: whoever has waited longest is paired with the closest compatible rating, and pairing repeats until nothing else fits.
 - Colours are decided by coin toss. The room is created at the queued cadence and reserved for the two accounts; it is deleted after 60 s if neither of them has sat down. The game is rated: it has a clock, and both players are accounts.
-- A slot older than 10 minutes is dropped without a message ([Known issues](#9-known-issues)).
+- A slot older than 10 minutes is dropped, and its socket is told with `hx:queue:update { inQueue: false, error: 'QUEUE_EXPIRED' }`.
 - Only a cadence with a clock can be queued for: `bullet`, `blitz`, `rapid` or `classic`.
 
 ### `hx:queue`
@@ -660,7 +660,11 @@ Payload: `{}`. Ack: `{ ok: true, inQueue: true, timeControl, elo, band, waitingM
 { inQueue: true, timeControl: 'rapid', elo: 1310, band: 150, waitingMs: 5012, queued: 2 }
 ```
 
-When a pairing's room cannot be created, both players are already out of the queue and get `{ inQueue: false, error: 'ENGINE_UNAVAILABLE' }`.
+A search can also end without a match, with `inQueue: false` and the reason in `error`:
+- `QUEUE_EXPIRED`: the slot was 10 minutes old and has been dropped;
+- `ENGINE_UNAVAILABLE`: a pairing's room could not be created, and both players are already out of the queue.
+
+The web client ends the search on either and shows `online.errors.<error>`.
 
 ### `hx:matched`
 
@@ -894,6 +898,7 @@ They open `/#/play?online=1&code=CODE` (turn, comeBack, ready), `/#/online?chall
 | `ALREADY_PLAYING` | `hx:watch` | This socket, or its account, has a seat in that room |
 | `TOO_MANY_ROOMS` | `hx:create` | Five unfinished rooms on this connection already |
 | `ENGINE_UNAVAILABLE` | `hx:create`, `hx:rematch`, `hx:undo`, `hx:challenge:accept`, and in `hx:queue:update` | The rules engine could not load, or a room or replay could not be made |
+| `QUEUE_EXPIRED` | in `hx:queue:update` | Ten minutes in the queue without an opponent: the slot was dropped |
 | `NOT_A_PLAYER` | `hx:move`, `hx:resign`, `hx:draw`, `hx:draw:decline`, `hx:undo`, `hx:undo:decline`, `hx:rematch`, `hx:rematch:decline`, `hx:chat`, `hx:cancel` | The socket holds no seat in that room (for `hx:cancel`: nor is its account on one) |
 | `GAME_OVER` | `hx:move`, `hx:resign`, `hx:draw`, `hx:undo` | The game already has a result |
 | `NOT_STARTED` | `hx:draw` | Both seats have never been occupied |
@@ -927,9 +932,9 @@ Two codes come from the client, not the server: `OFFLINE` (a request failed or t
 
 ## 9. Known issues
 
-Behaviour of the code as of 2026-10-23 that differs from what the code comments and the web client expect. Remove an entry once it is fixed.
+None known.
 
-1. **A stale queue slot disappears silently.** A slot older than 10 minutes is removed without an `hx:queue:update { inQueue: false }`, so the web client goes on showing a search that no longer exists.
+List here any behaviour of the code that differs from what the code comments and the web client expect, and remove the entry once it is fixed.
 
 ---
 

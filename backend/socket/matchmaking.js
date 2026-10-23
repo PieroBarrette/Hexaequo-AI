@@ -18,7 +18,7 @@ const WIDEN_PER_STEP = 50;
 const STEP_MS = 5000;            // how often the band opens up
 const MAX_BAND = 1200;           // beyond this, effectively anyone
 const TICK_MS = 1000;
-const STALE_MS = 10 * 60 * 1000; // give up on a queue nobody is watching
+const STALE_MS = 10 * 60 * 1000; // give up on a search, and say so
 
 /** userId → entry. One queue slot per account, however many tabs are open. */
 const queue = new Map();
@@ -141,7 +141,11 @@ async function tick(io) {
     const now = Date.now();
 
     for (const [userId, entry] of queue) {
-        if (now - entry.joinedAt > STALE_MS) queue.delete(userId);
+        if (now - entry.joinedAt <= STALE_MS) continue;
+        queue.delete(userId);
+        /* Said, or the page goes on showing a search that has stopped here,
+           its timer still counting, until somebody gives up on it. */
+        io.to(entry.socketId).emit('hx:queue:update', { inQueue: false, error: 'QUEUE_EXPIRED' });
     }
 
     let pair;

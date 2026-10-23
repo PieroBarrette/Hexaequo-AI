@@ -99,7 +99,7 @@ const { attachOnlineGames, RECONNECT_GRACE_MS, TIME_CONTROLS } = require('../soc
 const { attachLobby, present } = require('../socket/lobby');
 /* And the queue and page visibility, so that a closed connection is cleaned
    up after by every module, in the order server.js attaches them. */
-const { attachMatchmaking } = require('../socket/matchmaking');
+const { attachMatchmaking, queue } = require('../socket/matchmaking');
 const { attachNotifications } = require('../socket/notify');
 
 let passed = 0;
@@ -1870,6 +1870,27 @@ async function run() {
         await ask(a, 'hx:queue:leave', {});
         a.disconnect();
         b.disconnect();
+    });
+
+    await test('a search given up after ten minutes is called off out loud', async () => {
+        /* The slot was dropped without a word, and the page went on counting
+           the minutes of a search the server had already ended. */
+        const a = await open();
+        await signIn(a, 'acct-amelie');
+        await ask(a, 'hx:queue', { timeControl: 'classic' });
+        const called = new Promise((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error('no hx:queue:update saying so')), 2500);
+            a.on('hx:queue:update', (status) => {
+                if (status.inQueue) return;                  // the status of every second
+                clearTimeout(timer);
+                resolve(status);
+            });
+        });
+        queue.get('acct-amelie').joinedAt -= 11 * 60 * 1000;  // as if queued eleven minutes ago
+        const status = await called;
+        assert.strictEqual(status.error, 'QUEUE_EXPIRED', 'the page is told why');
+        assert.strictEqual((await ask(a, 'hx:queue:status', {})).inQueue, false, 'and the slot is gone');
+        a.disconnect();
     });
 
     black.disconnect();

@@ -157,7 +157,8 @@
       "NOT_YOUR_MOVE": "You may only take back your own last move.",
       "NOTHING_TO_UNDO": "No move has been played yet.",
       "UNDO_REFUSED": "Your opponent said no. That move cannot be taken back.",
-      "UNDO_TOO_LATE": "Too little time on the clock to take a move back."
+      "UNDO_TOO_LATE": "Too little time on the clock to take a move back.",
+      "QUEUE_EXPIRED": "No opponent turned up. Search again, or open a game and send the link to someone."
     },
     "rated": "Rated game",
     "unratedFriendly": "Friendly game — no rating at stake",
