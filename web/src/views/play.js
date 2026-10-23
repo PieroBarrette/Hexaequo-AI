@@ -1633,7 +1633,9 @@ export function mountPlay(outlet, params) {
       syncFromServer();
     }));
     net.unsubscribe.push(listen('hx:rematch:offer', (payload) => {
-      if (!net || payload.code !== net.code) return;
+      /* Between the two players: somebody watching has nothing to answer, and
+         was told "your opponent offers a rematch" as if they had one. */
+      if (!net || payload.code !== net.code || net.watching) return;
       net.rematchOffered = true;
       net.rematchDeclined = false;
       /* The chime a message gets, not the click a button does: this one is
@@ -1645,7 +1647,7 @@ export function mountPlay(outlet, params) {
       refresh();
     }));
     net.unsubscribe.push(listen('hx:rematch:declined', (payload) => {
-      if (!net || payload.code !== net.code) return;
+      if (!net || payload.code !== net.code || net.watching) return;
       net.rematchAsked = false;
       net.rematchDeclined = true;
       refresh();
@@ -2626,7 +2628,7 @@ export function mountPlay(outlet, params) {
     settleStats();
 
     const note = overlay.querySelector('.result-note');
-    note.textContent = !net ? ''
+    note.textContent = !net || net.watching ? ''
       : (net.rematchDeclined ? t('result.rematchDeclined')
         : (net.rematchAsked ? t('result.rematchWaiting')
           : (net.rematchOffered ? t('result.rematchOffered') : '')));
