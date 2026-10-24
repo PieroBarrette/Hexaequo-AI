@@ -18,13 +18,16 @@ function allowedOrigins() {
         'http://hexaequo.com',
         'http://www.hexaequo.com',
         'https://hexaequo-server.onrender.com',
-        // Local development: the app can also be served by serve.py.
+        // Local development: the app can also be served by serve.py (8001) or
+        // python -m http.server (8765), as server.js already lets them call the API.
         'http://localhost:8001',
         'http://localhost:8080',
+        'http://localhost:8765',
         'http://localhost:3000',
         'http://localhost:3001',
         'http://127.0.0.1:8001',
         'http://127.0.0.1:8080',
+        'http://127.0.0.1:8765',
         'http://127.0.0.1:3000',
         'http://127.0.0.1:3001',
     ].filter(Boolean);
