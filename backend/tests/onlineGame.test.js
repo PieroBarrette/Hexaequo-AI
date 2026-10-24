@@ -46,10 +46,16 @@ const GAMES = new Map();
 let recording = false;
 database.hasDatabase = () => recording;
 
+/* One account's lookup, held back until a test lets it through, so that a tab
+   can close while hx:identify is still waiting on the database. */
+let heldLookup = null;
+
 const realQuery = database.query;
 database.query = (sql, params) => {
     if (/FROM users WHERE id = \$1/.test(sql) && KNOWN.has(params && params[0])) {
-        return Promise.resolve({ rows: [{ ...KNOWN.get(params[0]) }] });
+        const answer = { rows: [{ ...KNOWN.get(params[0]) }] };
+        if (heldLookup && heldLookup.id === params[0]) return heldLookup.until.then(() => answer);
+        return Promise.resolve(answer);
     }
     if (recording && /^\s*INSERT INTO games \(/.test(sql)) {
         const columns = sql.match(/\(([^)]*)\)/)[1].split(',').map((c) => c.trim());
@@ -1844,6 +1850,37 @@ async function run() {
         const pending = await ask(b, 'hx:challenge:pending', {});
         assert.strictEqual(pending.incoming, null, 'with nothing left to answer');
         b.disconnect();
+    });
+
+    /*
+     * A tab closed while its account was still being looked up. Its disconnect
+     * ran while hx:identify waited on the database, and found no entry of its
+     * own to clear; the entry identify put there when the answer came back
+     * named a socket that was gone, and nothing would ever clear it -- the
+     * account showed online to everyone until the server restarted.
+     */
+    await test('a tab closed while its account is looked up leaves no light on', async () => {
+        account('acct-lucie', 'Lucie', 1000, 0);
+        let letThrough;
+        heldLookup = { id: 'acct-lucie', until: new Promise((resolve) => { letThrough = resolve; }) };
+        try {
+            const jwt = require('jsonwebtoken');
+            const { JWT_SECRET } = require('../config/env');
+            const a = await open();
+            a.emit('hx:identify', { token: jwt.sign({ userId: 'acct-lucie' }, JWT_SECRET, { expiresIn: '1h' }) });
+            await new Promise((r) => setTimeout(r, 200));       // identify is waiting on the lookup
+            a.disconnect();
+            await new Promise((r) => setTimeout(r, 200));       // and the server has seen the tab go
+            letThrough();
+            await new Promise((r) => setTimeout(r, 200));       // before the answer comes back
+
+            const watcher = await open();
+            const seen = await ask(watcher, 'hx:presence:watch', { userIds: ['acct-lucie'] });
+            assert.strictEqual(seen.statuses['acct-lucie'], 'offline', 'nobody is there to be online');
+            watcher.disconnect();
+        } finally {
+            heldLookup = null;
+        }
     });
 
     /* -- Quick match and challenges ------------------------------------- */

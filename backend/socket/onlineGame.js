@@ -821,6 +821,12 @@ function attachOnlineGames(io) {
                     'SELECT id, pseudo, elo, games_played FROM users WHERE id = $1',
                     [claims.userId]
                 );
+                /* The tab may have closed while the profile was read. Its
+                   disconnect has run already and found no entry of its own to
+                   clear, so one put there now would name a socket that is gone,
+                   and the account would show online to everyone until the
+                   server restarted. A closed socket can be told nothing anyway. */
+                if (socket.disconnected) return;
                 if (!rows.length) {
                     // The account is gone. That is an answer, not a failure.
                     forgetIdentity(io, socket);

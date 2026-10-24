@@ -166,6 +166,7 @@ Rules:
 - The account's presence entry is pointed at this socket; for a new identity its status is announced (`hx:presence`, `hx:lobby:update`).
 - Seats this socket holds in unfinished rooms take the account, as long as that seat has not played a move yet; each such room gets `hx:seats`. This is how signing in before your first move makes a game rated. A seat that has moved keeps whoever played from it.
 - Dropping the identity (no token or `BAD_TOKEN`) also removes the account's presence entry if this socket held it, and so does a disconnection.
+- A connection that closes while its account is still being read gets nothing when the read comes back: no identity, no presence entry, no answer.
 - The web client sends it once per connection, before the first request (`settleIdentity` in `net.js`), and again whenever the session changes (sign-in, sign-out, token refresh). A refusal other than `BAD_TOKEN` is asked again before the next request.
 
 ### Accounts, presence and several tabs
