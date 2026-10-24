@@ -112,8 +112,6 @@ leaderboard `games_played` and the rest) move only for rated games.
 | `DELETE /api/users/me` | required | yes |
 | `GET /api/users/me/settings` | required | yes |
 | `PATCH /api/users/me/settings` | required | yes |
-| `GET /api/users/me/preferences` | required | no |
-| `PUT /api/users/me/preferences` | required | no |
 | `GET /api/users/leaderboard` | none | yes |
 | `GET /api/users/:id` | none | no |
 | `GET /api/users/:id/matches` | optional | no |
@@ -608,62 +606,6 @@ others are kept. Keys and values are not checked.
 ```
 
 **Errors:** `404 NOT_FOUND`.
-
----
-
-#### GET `/api/users/me/preferences`
-Matchmaking preferences: the rating range to accept, relative to one's own,
-and whether to accept friendly games. Not used by the current web app, and not
-read by the current quick match, which widens its own rating band while a
-player waits.
-
-**Auth:** required.
-
-**Response (200):** the defaults, until something is saved.
-```json
-{
-    "data": {
-        "elo_range_min": -200,
-        "elo_range_max": 200,
-        "allow_friendly_games": true
-    }
-}
-```
-
----
-
-#### PUT `/api/users/me/preferences`
-Save the matchmaking preferences. Not used by the current web app. A field left
-out goes back to its default.
-
-**Auth:** required.
-
-**Request Body:**
-```json
-{
-    "elo_range_min": -300,
-    "elo_range_max": 150,
-    "allow_friendly_games": false
-}
-```
-`elo_range_min`: a number from -500 to 0. `elo_range_max`: from 0 to 500.
-`allow_friendly_games`: a boolean.
-
-**Response (200):**
-```json
-{
-    "data": {
-        "elo_range_min": -300,
-        "elo_range_max": 150,
-        "allow_friendly_games": false
-    },
-    "meta": {
-        "message": "Preferences updated successfully"
-    }
-}
-```
-
-**Errors:** `400 VALIDATION_ERROR`.
 
 ---
 

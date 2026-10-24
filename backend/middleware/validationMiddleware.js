@@ -125,13 +125,6 @@ const schemas = {
             token: { type: 'string' },
             newPassword: { type: 'string', maxLength: 128 }
         }
-    },
-    updatePreferences: {
-        fields: {
-            elo_range_min: { type: 'number', min: -500, max: 0 },
-            elo_range_max: { type: 'number', min: 0, max: 500 },
-            allow_friendly_games: { type: 'boolean' }
-        }
     }
 };
 

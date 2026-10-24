@@ -252,6 +252,7 @@ async function run() {
             ['POST', '/api/matchmaking/invitations/ABCD2345/accept'],
             ['DELETE', '/api/matchmaking/invitations/ABCD2345'],
             ['POST', '/api/ai/move'], ['GET', '/api/ai/rating'],
+            ['GET', '/api/users/me/preferences'], ['PUT', '/api/users/me/preferences'],
         ];
         for (const [method, path] of gone) {
             const answer = await send(method, path, { body: method === 'POST' || method === 'PUT' ? {} : undefined });
