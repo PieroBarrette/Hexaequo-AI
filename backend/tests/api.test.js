@@ -44,10 +44,14 @@ const copies = (rows) => rows.map((row) => ({ ...row }));
 const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
 const nextId = () => `00000000-0000-4000-8000-${String(++lastId).padStart(12, '0')}`;
 
+/* The settings column of an account that has never saved any, as models/schema.js gives it. */
+const SCHEMA_SETTINGS = { theme: 'dark', sounds: true, animations: true, showValidMoves: false, showPreviousMove: true };
+
 function account(pseudo) {
     const row = {
         id: nextId(), email: `${pseudo.toLowerCase().replace(/\W/g, '')}@example.com`, pseudo,
         pseudo_chosen: true, elo: 1000, avatar_url: null, country_code: null, created_at: new Date(),
+        settings: { ...SCHEMA_SETTINGS },
     };
     users.set(row.id, row);
     return row;
@@ -123,6 +127,17 @@ const STATEMENTS = [
             const [limit, offset] = params.slice(-2);
             const rows = history(where, id);
             return rows && rows.slice(offset, offset + limit).map((row) => asListed(row, id));
+        }],
+    // userModel.findById: an account's public page, and its settings.
+    [/^SELECT id, email, pseudo, email_verified, .+ FROM users WHERE id = \$1$/,
+        ([id]) => copies([...users.values()].filter((row) => row.id === id))],
+    // userModel.updateSettings: the keys sent, over what is there.
+    [/^UPDATE users SET settings = COALESCE\(settings, '\{\}'::jsonb\) \|\| \$1::jsonb WHERE id = \$2 RETURNING settings$/,
+        ([sent, id]) => {
+            if (!users.has(id)) return [];
+            const settings = { ...users.get(id).settings, ...JSON.parse(sent) };
+            users.set(id, { ...users.get(id), settings });
+            return [{ settings }];
         }],
     // accountService.setPseudo: the clash, then the rename.
     [/^SELECT 1 FROM users WHERE lower\(pseudo\) = lower\(\$1\) AND id <> \$2 LIMIT 1$/,
@@ -301,6 +316,23 @@ async function run() {
 
         const sameRule = await send('PUT', '/api/auth/pseudo', { token, body: { pseudo: 'abcdefghijklmnopqrstuvwxy' } });
         assert.strictEqual(sameRule.body.error, 'BAD_PSEUDO', 'which is what the other door says to the same name');
+    });
+
+    await test('an account that has never saved a setting has none to hand a device', async () => {
+        const token = tokenFor(account('Jeanne'));
+        const fresh = await send('GET', '/api/users/me/settings', { token });
+        assert.strictEqual(fresh.status, 200, JSON.stringify(fresh.body));
+        assert.deepStrictEqual(fresh.body.data, {},
+            "nothing yet -- the column's default came back as the account's choice, and the first device "
+            + 'to sign in took a dark theme and no move hints from it, in place of its own');
+
+        const seeded = await send('PATCH', '/api/users/me/settings',
+            { token, body: { theme: 'light', showValidMoves: true, boardStyle: 'classic' } });
+        assert.strictEqual(seeded.status, 200, JSON.stringify(seeded.body));
+        const after = await send('GET', '/api/users/me/settings', { token });
+        assert.strictEqual(after.body.data.theme, 'light', 'so that device seeds the account');
+        assert.strictEqual(after.body.data.showValidMoves, true);
+        assert.strictEqual(after.body.data.boardStyle, 'classic', 'and the next one to sign in adopts it');
     });
 
     server.io.close();

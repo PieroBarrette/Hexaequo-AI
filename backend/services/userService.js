@@ -110,13 +110,25 @@ exports.updateUser = async (userId, updates = {}) => {
  * to a client that owns its own defaults, those are not defaults at all: they
  * are somebody else's answers arriving as though the player had given them. An
  * account that has saved nothing has saved nothing.
+ *
+ * The column's own default (models/schema.js) is the same mistake one level
+ * down, and every new account starts with it. Its theme and showValidMoves are
+ * keys the app owns, so the first device to sign in took a dark theme and no
+ * move hints from it, as the account's choice, in place of its own. Still
+ * exactly as the schema wrote it, it is reported as nothing saved.
  */
+const SCHEMA_DEFAULT = { theme: 'dark', sounds: true, animations: true, showValidMoves: false, showPreviousMove: true };
+const isSchemaDefault = (settings) =>
+    Object.keys(settings).length === Object.keys(SCHEMA_DEFAULT).length
+    && Object.entries(SCHEMA_DEFAULT).every(([key, value]) => settings[key] === value);
+
 exports.getUserSettings = async (userId) => {
     const user = await User.findById(userId);
     if (!user) {
         throw notFound('User');
     }
-    return user.settings || {};
+    const settings = user.settings || {};
+    return isSchemaDefault(settings) ? {} : settings;
 };
 
 /**

@@ -129,6 +129,9 @@ async function run() {
         assert.strictEqual(read.status, 200);
         assert.strictEqual(read.body.data.boardStyle, undefined,
             'no key this app owns is there yet');
+        assert.strictEqual(read.body.data.theme, undefined,
+            "not even the column default's theme and showValidMoves, which the app owns too");
+        assert.strictEqual(read.body.data.showValidMoves, undefined);
     });
 
     api.close();

@@ -569,8 +569,11 @@ four notification switches (`notifyChallenges`, `notifyGames`,
 ```
 The object is returned as stored, older keys included (`sounds`, `animations`,
 `showPreviousMove`); the app keeps only the keys it knows. A new account row
-starts with the column default from `models/schema.js`:
-`{ "theme": "dark", "sounds": true, "animations": true, "showValidMoves": false, "showPreviousMove": true }`.
+starts with the column default from `models/schema.js`,
+`{ "theme": "dark", "sounds": true, "animations": true, "showValidMoves": false, "showPreviousMove": true }`,
+and while it is still exactly that, the answer is `{}`: nothing saved yet. The
+first device to sign in then saves its own settings instead of taking a dark
+theme and no move hints from a default nobody chose.
 
 **Errors:** `404 NOT_FOUND`.
 
