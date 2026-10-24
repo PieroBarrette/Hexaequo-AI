@@ -44,7 +44,10 @@ async function test(name, fn) {
 }
 
 const load = (relative) => import(pathToFileURL(path.join(WEB, 'src', relative)).href);
-const read = (at) => fs.readFileSync(path.join(WEB, at, 'index.html'), 'utf8');
+/* A Windows checkout (core.autocrlf) holds the documents with CRLF; the
+   repository's copy and the server's are LF. The text is what is checked,
+   as makePages.js --check compares it. */
+const read = (at) => fs.readFileSync(path.join(WEB, at, 'index.html'), 'utf8').replace(/\r\n/g, '\n');
 const locale = (lang) => JSON.parse(fs.readFileSync(path.join(WEB, 'src/locales', `${lang}.json`), 'utf8'));
 
 async function run() {
