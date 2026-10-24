@@ -1,5 +1,5 @@
 # Hexaequo - Local Development Script (PowerShell)
-# Starts backend (port 3001) and frontend (port 8080) using portable Node.js
+# Starts the backend (port 3001) with portable Node.js, and serve.py for the front end (port 8001)
 
 $ErrorActionPreference = "Continue"
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path

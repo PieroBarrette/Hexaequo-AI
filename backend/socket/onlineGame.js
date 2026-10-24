@@ -1,15 +1,15 @@
 /**
  * Authoritative online games.
  *
- * The legacy handler in socketHandler.js lets a client post its whole game
- * state and simply relays it, which cannot support a rating. This module is the
- * replacement: clients send *intents*, the server owns the position, and every
- * broadcast carries the state the server computed.
+ * Clients send *intents*; the server owns the position and the clocks, and
+ * every broadcast carries the state the server computed. A client can ask for
+ * a move, never post a position.
  *
- * Scope for now: guest games joined through an invitation code, unrated, held
- * in memory. Accounts, persistence and Elo build on top of this — the room
- * already keeps the ordered list of intents, which is all that is needed to
- * write a game to the database and to replay it later.
+ * Rooms are held in memory and reached by code: a shared link, a quick match
+ * (matchmaking.js) or a lobby challenge (lobby.js). A game between two members
+ * on a clock is rated, and services/ratedGameService.js writes it, its ratings
+ * and its ordered intents -- the whole game, and all a replay needs -- once it
+ * ends. Every event is described in docs/SOCKET_EVENTS.md.
  */
 
 const jwt = require('jsonwebtoken');
@@ -37,8 +37,7 @@ const CHAT_HISTORY = 60;                      // enough to read the room on arri
  *
  * Proportional to the time control, the way chess sites do it: in bullet a
  * thirty-second wait is most of the game, while an untimed game can afford to
- * be patient. Clocks are not implemented yet, so every room is 'none' for now
- * and the table is already in place for when they arrive.
+ * be patient.
  */
 const RECONNECT_GRACE_MS = {
     bullet: 15000,

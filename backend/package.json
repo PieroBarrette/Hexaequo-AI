@@ -26,13 +26,14 @@
         "db:dump": "node scripts/dumpDb.js",
         "icons": "node scripts/makeIcons.js",
         "share-image": "node scripts/makeShareImage.js",
-        "test:db": "node tests/ratedGame.test.js && node tests/ratedOnline.test.js && node tests/profile.test.js && node tests/emailAccount.test.js && node tests/lobby.test.js && node tests/matchmaking.test.js",
+        "test:db": "node tests/ratedGame.test.js && node tests/ratedOnline.test.js && node tests/profile.test.js && node tests/emailAccount.test.js && node tests/lobby.test.js && node tests/matchmaking.test.js && node tests/settings.test.js",
         "test:rated": "node tests/ratedGame.test.js",
         "test:online-rated": "node tests/ratedOnline.test.js",
         "test:profile": "node tests/profile.test.js",
         "test:mail": "node tests/emailAccount.test.js",
         "test:lobby": "node tests/lobby.test.js",
         "test:match": "node tests/matchmaking.test.js",
+        "test:settings": "node tests/settings.test.js",
         "pages": "node scripts/makePages.js"
     },
     "dependencies": {

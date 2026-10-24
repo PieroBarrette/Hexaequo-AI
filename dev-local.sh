@@ -42,7 +42,7 @@ BACKEND_PID=$!
 # Attendre 2 secondes que le backend démarre
 sleep 2
 
-# Démarrer le serveur frontend sur le port 8080
+# Démarrer le serveur frontend sur le port 8001
 echo -e "${BLUE}🚀 Démarrage du serveur frontend sur http://localhost:8001${NC}"
 # Le front est en modules ES sans étape de compilation : serve.py suffit.
 python3 serve.py &

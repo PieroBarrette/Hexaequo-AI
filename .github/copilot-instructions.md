@@ -177,8 +177,8 @@ Run these in `backend/`.
 
 - **`npm test`** runs engine, judge, onlineGame, push, streak, accountFlows, api, pages and serviceWorker. It needs no database. Each suite first calls `require('./database').none()`, which sets `DATABASE_URL=memory`; `config/database.js` then builds no pool, and every query throws `NO_DATABASE`.
 - **`api.test.js` starts `server.js` itself** on a free port, where the other suites mount a single router. It is the suite that catches a route the server should not mount, a file the server requires that has gone, or a wrong `/api` 404.
-- **`npm run test:db`** runs ratedGame, ratedOnline, profile, emailAccount, lobby and matchmaking. These suites write rows, so they run only when `TEST_DATABASE_URL` names a throwaway database. Without it they print SKIPPED and exit 0.
-- **Other suites:** `npm run test:elo` needs no database. `node tests/settings.test.js` needs a throwaway database and has no npm script. `test:jest` and `test:integration` are leftover scripts; there are no Jest suites.
+- **`npm run test:db`** runs ratedGame, ratedOnline, profile, emailAccount, lobby, matchmaking and settings. These suites write rows, so they run only when `TEST_DATABASE_URL` names a throwaway database. Without it they print SKIPPED and exit 0.
+- **Other suites:** `npm run test:elo` needs no database. `test:jest` and `test:integration` are leftover scripts; there are no Jest suites.
 - **How a suite works:** each file is a plain Node script with a small `test()` helper built on `assert`. It prints `N passed, M failed` and exits 1 on failure. To run one: `node tests/<name>.test.js`.
 
 ## Development
