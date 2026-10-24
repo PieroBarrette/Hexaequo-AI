@@ -735,8 +735,7 @@ A player's public summary. Not used by the current web app, which reads
 ```
 `stats` count rated games only; `winRate` is a whole percentage.
 
-**Errors:** `404 NOT_FOUND`; an id that is not a UUID is a `500` (see
-[Errors](#errors)).
+**Errors:** `404 NOT_FOUND`, also for an id that is not a UUID.
 
 ---
 
@@ -781,6 +780,9 @@ rated ones only, and `meta.total` counts those.
 }
 ```
 `opponent_elo` and `elo_change` are null for an unrated game.
+
+**Errors:** `404 NOT_FOUND` for an id that is not a UUID. An id that is one but
+belongs to nobody gets an empty list.
 
 ---
 
@@ -1174,7 +1176,7 @@ There is no single error format. What each source sends:
 | A rate limit | 429 | `{ "error": "Too Many Requests", "message": "…", "retryAfter": 900 }` |
 | `/api/profile` | 404 | `{ "error": "No such account" }`, `"No such game"` or `"No such record"` |
 | `/api/push` | 400, 404, 429, 503 | `{ "ok": false, "error": "CODE" }` |
-| Anything unexpected | 500 | `{ "error": "INTERNAL_ERROR", "message": "…" }`; a database error carries PostgreSQL's code instead, e.g. `"22P02"` for an id that is not a UUID on `/api/users/:id` |
+| Anything unexpected | 500 | `{ "error": "INTERNAL_ERROR", "message": "…" }`; a database error carries PostgreSQL's code instead (`"22P02"`, `"23505"`, …) |
 
 The app puts the `error` code into words in the reader's language
 (`web/src/ui/authErrors.js`); `message` is for logs and for anyone calling the

@@ -44,6 +44,14 @@ const copies = (rows) => rows.map((row) => ({ ...row }));
 const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
 const nextId = () => `00000000-0000-4000-8000-${String(++lastId).padStart(12, '0')}`;
 
+/* Postgres does not miss an id that is not a UUID, it refuses it -- which
+   the routes used to pass on as a 500. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const asUuid = (value) => {
+    if (UUID.test(String(value))) return value;
+    throw Object.assign(new Error(`invalid input syntax for type uuid: "${value}"`), { code: '22P02' });
+};
+
 /* The settings column of an account that has never saved any, as models/schema.js gives it. */
 const SCHEMA_SETTINGS = { theme: 'dark', sounds: true, animations: true, showValidMoves: false, showPreviousMove: true };
 
@@ -118,19 +126,19 @@ const STATEMENTS = [
     // gameModel.getUserMatchHistory: the count, then the page.
     [/^SELECT COUNT\(\*\) FROM games g WHERE (.+)$/,
         ([id], where) => {
-            const rows = history(where, id);
+            const rows = history(where, asUuid(id));
             return rows && [{ count: String(rows.length) }];
         }],
     [/^SELECT g\.id, g\.time_mode, .+ FROM games g WHERE (.+) ORDER BY g\.finished_at DESC LIMIT \$\d+ OFFSET \$\d+$/,
         (params, where) => {
             const [id] = params;
             const [limit, offset] = params.slice(-2);
-            const rows = history(where, id);
+            const rows = history(where, asUuid(id));
             return rows && rows.slice(offset, offset + limit).map((row) => asListed(row, id));
         }],
     // userModel.findById: an account's public page, and its settings.
     [/^SELECT id, email, pseudo, email_verified, .+ FROM users WHERE id = \$1$/,
-        ([id]) => copies([...users.values()].filter((row) => row.id === id))],
+        ([id]) => copies([...users.values()].filter((row) => row.id === asUuid(id)))],
     // userModel.updateSettings: the keys sent, over what is there.
     [/^UPDATE users SET settings = COALESCE\(settings, '\{\}'::jsonb\) \|\| \$1::jsonb WHERE id = \$2 RETURNING settings$/,
         ([sent, id]) => {
@@ -333,6 +341,17 @@ async function run() {
         assert.strictEqual(after.body.data.theme, 'light', 'so that device seeds the account');
         assert.strictEqual(after.body.data.showValidMoves, true);
         assert.strictEqual(after.body.data.boardStyle, 'classic', 'and the next one to sign in adopts it');
+    });
+
+    await test('an id that is not an id is a 404, as on /api/profile, not a 500', async () => {
+        for (const path of ['/api/users/not-a-uuid', '/api/users/not-a-uuid/matches', '/api/users/12345/matches']) {
+            const answer = await send('GET', path);
+            assert.strictEqual(answer.status, 404, `${path}: ${JSON.stringify(answer.body)}`);
+            assert.strictEqual(answer.body.error, 'NOT_FOUND', path);
+        }
+        const nobody = await send('GET', '/api/users/22222222-2222-4222-8222-222222222222');
+        assert.strictEqual(nobody.status, 404, 'the same answer as an account nobody has');
+        assert.strictEqual(nobody.body.error, 'NOT_FOUND');
     });
 
     server.io.close();

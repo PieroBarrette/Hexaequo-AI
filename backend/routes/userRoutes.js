@@ -7,6 +7,14 @@ const router = express.Router();
 const userController = require('../controllers/userController');
 const { authenticate, optionalAuth } = require('../middleware/authMiddleware');
 const { validate, schemas } = require('../middleware/validationMiddleware');
+const { notFound } = require('../middleware/errorHandler');
+
+/* Account ids are UUIDs. Anything else is not an account that is missing but
+   not an id at all, and handed to Postgres it came back as a 500 carrying the
+   database's own message. It gets the 404 of an account nobody has, as
+   /api/profile gives it. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+router.param('id', (req, res, next, id) => next(UUID.test(id) ? undefined : notFound('User')));
 
 // Protected routes - current user
 router.get('/me', authenticate, userController.getProfile);
